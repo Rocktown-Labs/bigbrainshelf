@@ -5,7 +5,7 @@ import { getAuth } from "../../lib/auth";
 import Tracking from "../../components/Tracking.astro";
 import { ClientRouter } from "astro:transitions";
 import TransitionHooks from "../../components/TransitionHooks.astro";
-import { parseItems, shortOrderId } from "../../lib/orders";
+import { parseItems, itemQty, shortOrderId } from "../../lib/orders";
 import FormatChip from "../../components/FormatChip.astro";
 import { getLibraryBooks } from "../../lib/library";
 import { publicSlugFor, ensurePublicSlugColumn } from "../../lib/public-slugs";
@@ -89,7 +89,7 @@ const orderViews = orderRows.map((o) => {
   for (const it of parseItems(o)) {
     const key = it.slug + "|" + it.format;
     const existing = grouped.get(key);
-    if (existing) { existing.count += 1; continue; }
+    if (existing) { existing.count += itemQty(it); continue; }
     const ob = orderBookRows.get(it.slug);
     grouped.set(key, {
       slug: it.slug,
@@ -100,7 +100,7 @@ const orderViews = orderRows.map((o) => {
       // as the displayed name.
       title: bookBySlug[it.slug]?.title || ob?.title || "Big Brain Shelf book",
       format: it.format,
-      count: 1,
+      count: itemQty(it),
       cover: ob ? coverDerivative(it.slug, "card", ob.cover_key) || (ob.cover_key ? R2 + ob.cover_key : null) : null,
       price: it.upgrade === "audio-upgrade" ? unlockPriceFor(bookBySlug[it.slug]) : priceFor(it.slug, it.format),
       creditNote: it.upgrade === "audio-upgrade",
@@ -379,7 +379,7 @@ if (showSuccess) {
                             <p class="font-semibold text-sm leading-snug">{it.title}</p>
                             <p class="mt-1.5 flex items-center gap-2">
                               <FormatChip format={it.format} />
-                              <span class="text-[13px] text-stone-500 tabular-nums sm:hidden">{money(it.price)}</span>
+                              <span class="text-[13px] text-stone-500 tabular-nums sm:hidden">{money(it.price)}{it.count > 1 && <span> × {it.count}</span>}</span>
                             </p>
                             {it.creditNote && <p class="text-xs text-stone-400 mt-1">Audiobook credit applied</p>}
                           </div>

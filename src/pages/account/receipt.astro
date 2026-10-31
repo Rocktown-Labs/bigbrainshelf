@@ -2,7 +2,7 @@
 import "../../styles/global.css";
 import { env } from "cloudflare:workers";
 import { getAuth } from "../../lib/auth";
-import { parseItems } from "../../lib/orders";
+import { parseItems, itemQty } from "../../lib/orders";
 import { GIFT_SET_PRICE_CENTS, AUDIO_PRICE_CENTS, formatLabel } from "../../lib/offers";
 import { ClientRouter } from "astro:transitions";
 import TransitionHooks from "../../components/TransitionHooks.astro";
@@ -37,13 +37,21 @@ const priceFor = (slug: string, format: string): number => {
   if (format === "audio") return AUDIO_PRICE_CENTS;
   return Math.round(Number(b.price || 0));
 };
-const lines = items.map((it) => ({
-  title: bookBySlug[it.slug]?.title || it.slug,
-  formatLabel: formatLabel(it.format) + (it.upgrade === "audio-upgrade" ? " · audiobook credit applied" : ""),
-  price: it.upgrade === "audio-upgrade"
-    ? Math.max(0, priceFor(it.slug, "digital") - AUDIO_PRICE_CENTS)
-    : priceFor(it.slug, it.format),
-}));
+const lines = items.map((it) => {
+  const qty = itemQty(it);
+  const unit =
+    it.upgrade === "audio-upgrade"
+      ? Math.max(0, priceFor(it.slug, "digital") - AUDIO_PRICE_CENTS)
+      : priceFor(it.slug, it.format);
+  return {
+    title: bookBySlug[it.slug]?.title || it.slug,
+    formatLabel: formatLabel(it.format) + (it.upgrade === "audio-upgrade" ? " · audiobook credit applied" : ""),
+    qty,
+    // Line total, not the unit price: a qty line priced at the unit
+    // rate made the receipt's lines sum short of its own total.
+    price: unit * qty,
+  };
+});
 const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
 const date = new Date(Number(order.created_at) * 1000).toLocaleDateString("en-US", {
   year: "numeric", month: "long", day: "numeric",
@@ -119,7 +127,7 @@ const date = new Date(Number(order.created_at) * 1000).toLocaleDateString("en-US
           {lines.map((l) => (
             <tr class="border-b border-stone-100">
               <td class="py-3">
-                <span class="font-medium">{l.title}</span>
+                <span class="font-medium">{l.title}</span>{l.qty > 1 && <span class="text-stone-500"> × {l.qty}</span>}
                 <span class="block text-xs text-stone-500">{l.formatLabel}</span>
               </td>
               <td class="py-3 text-right">{money(l.price)}</td>

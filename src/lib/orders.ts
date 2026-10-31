@@ -271,6 +271,13 @@ export async function completeOrder(
             slug: String(x?.slug || ""),
             format: normalizeFormat(x?.format),
             ...(x?.upgrade ? { upgrade: String(x.upgrade) } : {}),
+            // Qty must survive completion: this map used to keep only
+            // slug/format/upgrade, so every multi-quantity order was
+            // persisted as qty 1 even though Stripe charged the full
+            // quantity (found live 2026-10-31, orders 7FC57663 and
+            // 54F3CFF5: charged right, recorded wrong, pick lists and
+            // receipts then under-reported the order).
+            qty: itemQty(x),
           }))
           .filter((x: CartItem) => x.slug);
     }
@@ -724,24 +731,35 @@ export function buildConfirmationEmailModel(
   const physical = items.filter((i) => isPhysicalFormat(i.format));
   return {
     subject: "Your Big Brain Shelf order is ready",
-    items: books.map((b) => {
-      const format = items.find((i) => i.slug === b.slug)?.format;
-      const qty = items
-        .filter((i) => i.slug === b.slug && i.format === (format || "digital"))
-        .reduce((sum, i) => sum + itemQty(i), 0) || 1;
-      return {
-        title: b.title,
-        qty,
-        formatLabel:
-          format === "printed"
-            ? "full color printed book, digital files included"
-            : format === "giftset"
-              ? "gift set: printed storybook and coloring book, digital files included"
-              : format === "audio"
-                ? "audiobook only"
-                : "digital",
-      };
-    }),
+    // One line per slug + format the buyer actually paid for, with
+    // quantities summed. The old per-book map took the FIRST format
+    // found for each book, so a mixed order (digital x2 + printed x1
+    // of the same book) rendered as a single digital line and the
+    // printed book vanished from the confirmation entirely.
+    items: (() => {
+      const byKey = new Map<string, ConfirmationEmailModel["items"][number]>();
+      for (const i of items) {
+        const key = `${i.slug}|${i.format}`;
+        const found = byKey.get(key);
+        if (found) {
+          found.qty += itemQty(i);
+          continue;
+        }
+        byKey.set(key, {
+          title: books.find((b) => b.slug === i.slug)?.title || i.slug,
+          qty: itemQty(i),
+          formatLabel:
+            i.format === "printed"
+              ? "full color printed book, digital files included"
+              : i.format === "giftset"
+                ? "gift set: printed storybook and coloring book, digital files included"
+                : i.format === "audio"
+                  ? "audiobook only"
+                  : "digital",
+        });
+      }
+      return [...byKey.values()];
+    })(),
     downloads,
     libraryUrl: `${site}/account`,
     shipping:
@@ -1007,26 +1025,25 @@ export const OWNER_NOTIFY_EMAIL = "cg@rocktownlabs.com";
 
 export async function enqueueOwnerOrderNotice(db: DBLike, site: string, order: any): Promise<void> {
   const books = await loadBooksForOrder(db, order);
-  let formats: string[] = [];
-  let quantities: number[] = [];
-  try {
-    const items = JSON.parse(String(order.items || "[]"));
-    formats = items.map((i: any) => String(i.format || ""));
-    quantities = items.map((i: any) => itemQty(i));
-  } catch { /* titles alone still read fine */ }
+  // Lines come from the order's own items (one per slug + format,
+  // quantities included). Zipping books[i] against formats[i] broke
+  // the moment one book was bought in two formats: the second line
+  // silently disappeared from the notice.
+  const orderItems = parseItems(order);
+  const titleFor = (slug: string) => books.find((b: any) => b.slug === slug)?.title || slug;
   const priceFor = (f: string) =>
     f === "printed" ? STANDARD_PRINT_PRICE_CENTS
     : f === "giftset" ? GIFT_SET_PRICE_CENTS
     : f === "audio" ? AUDIO_PRICE_CENTS
     : STANDARD_DIGITAL_PRICE_CENTS;
   const money = (c: number) => `$${(Number(c || 0) / 100).toFixed(2)}`;
-  const lines = books.map((b: any, i: number) => {
-    const f = formats[i];
-    const q = quantities[i] || 1;
+  const lines = orderItems.map((i) => {
+    const f = i.format;
+    const q = itemQty(i);
     const label = f === "printed" ? "Printed book" : f === "giftset" ? "Gift set" : f === "audio" ? "Audiobook" : "Digital bundle";
     return q > 1
-      ? `${b.title} (${label}) ×${q} - ${money(priceFor(f) * q)}`
-      : `${b.title} (${label}) - ${money(priceFor(f))}`;
+      ? `${titleFor(i.slug)} (${label}) ×${q} - ${money(priceFor(f) * q)}`
+      : `${titleFor(i.slug)} (${label}) - ${money(priceFor(f))}`;
   });
   const short = String(order.id || "").slice(0, 8).toUpperCase();
   const total = money(order.amount);
