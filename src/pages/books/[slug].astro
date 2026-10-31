@@ -14,7 +14,7 @@ import { coverDerivative } from "../../lib/derivatives";
 import { GIFT_SET_PRICE_CENTS, giftSetEligible, isChristmasSeason, CHRISTMAS_ORDER_BY_LABEL, formatPublishedDate, AUDIO_PRICE_CENTS, audioEligible } from "../../lib/offers";
 import { getDigitalEntitlements } from "../../lib/library";
 import { getAuth } from "../../lib/auth";
-import { ensureReviewsTable, userOwnsBook, reviewMediaKeys } from "../../lib/reviews";
+import { ensureReviewsTable, reviewMediaKeys } from "../../lib/reviews";
 import { resolveBookForPublicRoute, publicSlugFor } from "../../lib/public-slugs";
 import {
   loadLocalizedBook,
@@ -160,7 +160,11 @@ if (customer) {
   myReview = await db.prepare(
     "SELECT * FROM reviews WHERE user_id = ? AND book_slug = ?"
   ).bind(customer.id, slug).first();
-  ownsBook = await userOwnsBook(db as any, customer.id, String(slug));
+  // Entitlement = bought it (orders by id or email) or can read /
+  // listen through a club: the same map the library uses, and the
+  // same gate the review API enforces (CG, 2026-10-31).
+  const { getDigitalEntitlements } = await import("../../lib/library");
+  ownsBook = (await getDigitalEntitlements(db as any, { id: customer.id, email: customer.email } as any)).has(String(slug));
 }
 const starRow = (n: number) => [1, 2, 3, 4, 5].map((i) => (i <= Math.round(n) ? "★" : "☆")).join("");
 // Audiobook only: offered beside the bundle whenever the book has an
@@ -485,14 +489,14 @@ const bookJsonLd: Record<string, unknown> = isLocalized
           <div class="flex items-center gap-3 mb-6">
             <span class="text-3xl font-extrabold">{reviewAvgLabel}</span>
             <span>
-              <span class="block text-orange-500 text-lg leading-none tracking-tight">{starRow(reviewAvg)}</span>
+              <span class="block text-amber-400 text-lg leading-none tracking-tight">{starRow(reviewAvg)}</span>
               <span class="block text-sm text-stone-500 mt-1">{basedOnLine}</span>
             </span>
           </div>
           <div class="flex flex-col gap-4">
             {approvedReviews.map((r: any) => (
               <article class="rounded-xl border border-stone-200 p-5">
-                <p class="text-orange-500 tracking-tight">{starRow(Number(r.rating || 0))}</p>
+                <p class="text-amber-400 tracking-tight">{starRow(Number(r.rating || 0))}</p>
                 <h3 class="font-bold mt-1">{r.title}</h3>
                 <p class="text-sm text-stone-500 mt-0.5">
                   {r.display_name}
@@ -500,15 +504,15 @@ const bookJsonLd: Record<string, unknown> = isLocalized
                   <span class="ml-2">{new Date(Number(r.created_at) * 1000).toLocaleDateString(isLocalized ? langDef.bcp47 : undefined)}</span>
                 </p>
                 <p class="text-sm leading-relaxed mt-2 whitespace-pre-line">{r.body}</p>
-                {reviewMediaKeys(r).length > 0 && (
-                  <div class="flex flex-wrap gap-3 mt-3">
+                {(reviewMediaKeys(r).length > 0 || r.video_key) && (
+                  <div class="flex gap-3 mt-3 overflow-x-auto pb-2 -mx-1 px-1">
                     {reviewMediaKeys(r).map((_: string, i: number) => (
-                      <img src={`/api/review-media?review=${r.id}&which=${i}`} alt={bs.readerPhotoAlt} loading="lazy" class="w-28 h-28 object-cover rounded-lg bg-stone-100" />
+                      <img src={`/api/review-media?review=${r.id}&which=${i}`} alt={bs.readerPhotoAlt} loading="lazy" class="w-28 h-28 shrink-0 object-cover rounded-lg bg-stone-100" />
                     ))}
+                    {r.video_key && (
+                      <video controls preload="metadata" class="w-44 shrink-0 aspect-video rounded-lg bg-stone-100" src={`/api/review-media?review=${r.id}&which=video`}></video>
+                    )}
                   </div>
-                )}
-                {r.video_key && (
-                  <video controls preload="metadata" class="mt-3 w-full max-w-md rounded-lg bg-stone-100" src={`/api/review-media?review=${r.id}&which=video`}></video>
                 )}
               </article>
             ))}
@@ -531,13 +535,11 @@ const bookJsonLd: Record<string, unknown> = isLocalized
       )}
 
       <div id="review-card" class={`mt-8 rounded-xl bg-stone-50 border border-stone-200 p-5 ${reviewCount === 0 ? "hidden" : ""}`}>
-        {customer && !myReview ? (
+        {customer && !myReview && ownsBook ? (
           <>
             <h3 class="font-bold mb-1">{bs.reviewFormHeading}</h3>
             <p class="text-sm text-stone-500 mb-4">
-              {ownsBook
-                ? bs.reviewIntroOwner
-                : bs.reviewIntroGuest}
+              {bs.reviewIntroOwner}
             </p>
             <form id="review-form" enctype="multipart/form-data">
               <input type="hidden" name="slug" value={slug} />
@@ -587,6 +589,11 @@ const bookJsonLd: Record<string, unknown> = isLocalized
               {myReview.status === "approved" && bs.yourReviewApproved}
               {myReview.status === "rejected" && bs.yourReviewRejected}
             </p>
+          </>
+        ) : customer ? (
+          <>
+            <h3 class="font-bold mb-1">{bs.reviewFormHeading}</h3>
+            <p class="text-sm text-stone-500">{bs.reviewIntroGuest}</p>
           </>
         ) : (
           <>

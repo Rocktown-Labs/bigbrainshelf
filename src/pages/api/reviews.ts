@@ -3,7 +3,6 @@ import type { APIRoute } from 'astro';
 import { getAuth } from "../../lib/auth";
 import {
   ensureReviewsTable,
-  userOwnsBook,
   REVIEW_PHOTO_MAX_BYTES,
   REVIEW_VIDEO_MAX_BYTES,
   REVIEW_MAX_PHOTOS,
@@ -54,6 +53,20 @@ export const POST: APIRoute = async ({ request }) => {
     );
   }
 
+  // Reviews are for readers (CG, 2026-10-31): the reviewer must
+  // have bought the book or be able to listen/read it through a
+  // club, checked against the same entitlement map the library
+  // uses. Runs before any media upload so a refused review never
+  // leaves orphan files behind.
+  const { reviewEligibility } = await import("../../lib/reviews");
+  const eligibility = await reviewEligibility(e.DB, { id: session.user.id, email: session.user.email }, slug);
+  if (!eligibility.allowed && eligibility.reason === "not_entitled") {
+    return Response.json(
+      { error: "Reviews are for readers of this book. Buy it or join a club and listen first, then come back and tell us what you thought." },
+      { status: 403 }
+    );
+  }
+
   const photos = form.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
   if (photos.length > REVIEW_MAX_PHOTOS) {
     return Response.json({ error: `Up to ${REVIEW_MAX_PHOTOS} photos per review.` }, { status: 400 });
@@ -90,7 +103,7 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
-  const verified = await userOwnsBook(e.DB, session.user.id, slug);
+  const verified = eligibility.verified;
   await e.DB.prepare(
     `INSERT INTO reviews (id, book_slug, user_id, user_email, display_name, rating, title, body, media_keys, video_key, verified_purchase, status, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
@@ -114,7 +127,7 @@ export const POST: APIRoute = async ({ request }) => {
       kind: "owner_new_review",
       to: OWNER_NOTIFY_EMAIL,
       subject: `New review: ${stars} for ${book.title}`,
-      text: `${displayName} reviewed ${book.title} and rated it ${stars} (${rating}/5)${verified ? ", a verified purchase" : ""}.\n\n"${title}"\n${excerpt}\n\nIt is pending in the review queue until you approve it.`,
+      text: `${displayName} reviewed ${book.title}${verified ? " (verified purchase)" : ""}.\n\n${stars}\n\n"${title}"\n${excerpt}\n\nIt is pending in the review queue until you approve it.`,
       dedupeKey: `owner-review:${id}`,
     });
     await flushOutbox(e.DB, e, 5).catch(() => {});

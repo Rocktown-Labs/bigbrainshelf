@@ -149,7 +149,7 @@ export const BOOK_PAGE_STRINGS_EN: BookPageStrings = {
   reviewPromptTail: " to write a review.",
   reviewFormHeading: "Write a review",
   reviewIntroOwner: "You own this book, so your review will carry a Verified purchase badge.",
-  reviewIntroGuest: "Reviews are checked by a real person before they appear, so yours will show up here once it is approved.",
+  reviewIntroGuest: "Reviews come from readers: buy this book or join a club and listen, and you can review it here. Every review is checked by a real person before it appears.",
   reviewNameLabel: "Your name",
   reviewRatingLabel: "Your rating",
   reviewRating5: "5 stars: we love it",

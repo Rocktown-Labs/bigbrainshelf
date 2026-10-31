@@ -1,0 +1,112 @@
+---
+import "../../styles/global.css";
+import AdminShell from "../../components/AdminShell.astro";
+export const prerender = false;
+// User management (2026-10-31): every storefront account, its
+// better-auth role and ban state, and its Stripe customer. The
+// admin role is scoped to the owner's own addresses (the API
+// refuses anything wider). Data comes from /api/admin/users.
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Users · Big Brain Shelf Admin</title>
+  <style is:global>
+    .uchip{display:inline-flex;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:700;line-height:1.5}
+  </style>
+</head>
+<body class="bg-stone-50 text-stone-900 antialiased">
+<AdminShell title="Users">
+  <main class="px-4 py-5 sm:px-7 max-w-6xl mx-auto w-full">
+    <h1 class="text-2xl font-extrabold tracking-tight">Users</h1>
+    <p class="text-sm text-stone-500 mt-1">Storefront accounts. Admin stays scoped to your own addresses.</p>
+
+    <div class="mt-4 max-w-sm">
+      <input id="user-search" type="search" placeholder="Search name or email" class="w-full border border-stone-300 rounded-lg px-3 py-2.5 text-sm bg-white" />
+    </div>
+
+    <div class="mt-3 overflow-x-auto rounded-xl border border-stone-200 bg-white">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs uppercase tracking-wide text-stone-400 border-b border-stone-200">
+            <th class="px-4 py-2.5 font-bold">User</th>
+            <th class="px-4 py-2.5 font-bold">Role</th>
+            <th class="px-4 py-2.5 font-bold">Status</th>
+            <th class="px-4 py-2.5 font-bold">Joined</th>
+            <th class="px-4 py-2.5 font-bold">Stripe</th>
+            <th class="px-4 py-2.5 font-bold">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="user-rows">
+          <tr><td colspan="6" class="px-4 py-3 text-stone-400">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p id="user-count" class="mt-2 text-xs text-stone-400"></p>
+  </main>
+</AdminShell>
+<script is:inline>
+  var esc = function (s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
+  var users = [];
+  var fmtDay = function (ts) {
+    if (!ts) return "";
+    // Rows have carried both second and millisecond epochs.
+    var ms = typeof ts === "number" ? (ts > 4102444800 ? ts : ts * 1000) : ts;
+    return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+  function render() {
+    var q = (document.getElementById("user-search").value || "").toLowerCase();
+    var rows = users.filter(function (u) {
+      return !q || String(u.email || "").toLowerCase().includes(q) || String(u.name || "").toLowerCase().includes(q);
+    });
+    var tbody = document.getElementById("user-rows");
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-3 text-stone-400">No users match.</td></tr>';
+    } else {
+      tbody.innerHTML = rows.map(function (u) {
+        var role = u.role === "admin"
+          ? '<span class="uchip" style="background:#1c1917;color:#fff">Admin</span>'
+          : '<span class="uchip" style="background:#f5f5f4;color:#57534e">User</span>';
+        var status = u.banned
+          ? '<span class="uchip" style="background:#fef2f2;color:#b91c1c">Banned</span>'
+          : '<span class="uchip" style="background:#f0fdf4;color:#15803d">Active</span>';
+        var actions = "";
+        if (u.banned) actions += '<button type="button" class="uact rounded-lg bg-white border border-stone-300 text-xs font-bold px-3 min-h-[34px]" data-act="unban" data-id="' + u.id + '">Unban</button> ';
+        else if (!u.can_admin) actions += '<button type="button" class="uact rounded-lg bg-white border border-red-200 text-red-700 text-xs font-bold px-3 min-h-[34px]" data-act="ban" data-id="' + u.id + '">Ban</button> ';
+        if (u.can_admin && u.role !== "admin") actions += '<button type="button" class="uact rounded-lg bg-stone-900 text-white text-xs font-bold px-3 min-h-[34px]" data-act="admin" data-id="' + u.id + '">Make admin</button>';
+        return '<tr class="border-b border-stone-100 last:border-0">' +
+          '<td class="px-4 py-2.5"><span class="font-semibold">' + esc(u.name || u.email) + '</span>' + (u.name ? '<div class="text-xs text-stone-400">' + esc(u.email) + "</div>" : "") + "</td>" +
+          '<td class="px-4 py-2.5">' + role + "</td>" +
+          '<td class="px-4 py-2.5">' + status + "</td>" +
+          '<td class="px-4 py-2.5 whitespace-nowrap text-stone-500">' + esc(fmtDay(u.createdAt)) + "</td>" +
+          '<td class="px-4 py-2.5 text-xs text-stone-500">' + esc(u.stripe_customer_id || "No customer yet") + "</td>" +
+          '<td class="px-4 py-2.5 whitespace-nowrap">' + (actions || '<span class="text-stone-300">·</span>') + "</td></tr>";
+      }).join("");
+    }
+    document.getElementById("user-count").textContent = rows.length + " of " + users.length + " users";
+    tbody.querySelectorAll(".uact").forEach(function (btn) {
+      btn.addEventListener("click", function () { act(btn); });
+    });
+  }
+  async function act(btn) {
+    btn.disabled = true;
+    var a = btn.getAttribute("data-act");
+    var payload = a === "admin"
+      ? { action: "set_role", user_id: btn.getAttribute("data-id"), role: "admin" }
+      : { action: a, user_id: btn.getAttribute("data-id") };
+    var res = await fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(function (r) { return r.json(); }).catch(function () { return null; });
+    if (res && res.users) { users = res.users; }
+    render();
+  }
+  fetch("/api/admin/users").then(function (r) { return r.json(); }).then(function (d) {
+    users = d.users || [];
+    render();
+  }).catch(function () {
+    document.getElementById("user-rows").innerHTML = '<tr><td colspan="6" class="px-4 py-3 text-red-600">Could not load users.</td></tr>';
+  });
+  document.getElementById("user-search").addEventListener("input", render);
+</script>
+</body>
+</html>

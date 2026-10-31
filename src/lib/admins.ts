@@ -4,6 +4,9 @@
 export const ADMIN_EMAILS = [
   "rocktownlabs@gmail.com",
   "cg@rocktownlabs.com",
+  // CG's personal Gmail (2026-10-31: scoped to him on request;
+  // it is the account his store test orders run under).
+  "camstewart7@gmail.com",
 ];
 
 export function isAdminEmail(email?: string | null): boolean {

@@ -20,9 +20,16 @@ export default function SimpleEmail({ model }: { model: SimpleEmailModel }) {
   return (
     <EmailLayout preview={model.preview}>
       <Text style={styles.heading}>{model.heading}</Text>
-      {model.paragraphs.map((p, i) => (
-        <Text key={i} style={styles.paragraph}>{p}</Text>
-      ))}
+      {model.paragraphs.map((p, i) =>
+        // A paragraph that is only star glyphs (the review notice)
+        // renders as a proper star rating: big and yellow, the way
+        // stars look everywhere else in the store (CG, 2026-10-31).
+        /^[★☆]+$/.test(p.trim()) ? (
+          <Text key={i} style={{ ...styles.paragraph, fontSize: "22px", color: "#f59e0b", letterSpacing: "2px", lineHeight: "1.2" }}>{p.trim()}</Text>
+        ) : (
+          <Text key={i} style={styles.paragraph}>{p}</Text>
+        )
+      )}
       {model.button && (
         <Section style={{ margin: "20px 0 16px" }}>
           <Button

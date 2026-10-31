@@ -54,11 +54,24 @@ export const GET: APIRoute = async ({ locals, url }) => {
     let orders: any[] = [];
     try {
       const o = await e.DB.prepare(
-        "SELECT id, amount, currency, status, physical_status, created_at FROM orders WHERE email = ? ORDER BY created_at DESC LIMIT 20"
+        "SELECT id, amount, currency, status, physical_status, created_at, items, book_slugs FROM orders WHERE email = ? ORDER BY created_at DESC LIMIT 20"
       ).bind(String((member as any).email || "")).all();
       orders = (o.results || []) as any[];
+      // What they actually bought, in public titles (never slugs),
+      // plus lifetime spend on completed orders: the member view
+      // answers "have they ordered, and what" at a glance.
+      const { orderItemLabels } = await import("../../../lib/orders");
+      const labels = await orderItemLabels(e.DB, orders as any).catch(() => new Map());
+      for (const ord of orders as any[]) {
+        ord.items_display = labels.get(ord.id) || [];
+        delete ord.items;
+        delete ord.book_slugs;
+      }
     } catch { /* orders are a bonus, never a blocker */ }
-    return Response.json({ member, boxes, orders });
+    const totalSpent = (orders as any[])
+      .filter((o) => o.status === "complete")
+      .reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
+    return Response.json({ member, boxes, orders, total_spent_cents: totalSpent });
   }
   const rows = await e.DB.prepare(
     "SELECT id, name, email, shelf, status, created_at, plan, club_plan, user_id, paid_at, first_ship_date, stripe_subscription_id, subscription_status, payment_failed_at FROM club_signups ORDER BY created_at DESC LIMIT 500"

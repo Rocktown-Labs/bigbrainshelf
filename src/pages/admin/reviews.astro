@@ -50,11 +50,11 @@ export const prerender = false;
     .rtable td{padding:11px 12px;border-bottom:1px solid #f5f5f4;vertical-align:top}
     .rtable tbody tr:last-child td{border-bottom:0}
     .rtable tbody tr{cursor:pointer}
-    .c-book{width:29%}.c-rating{width:17%}.c-status{width:32%}.c-date{width:22%}
+    .c-book{width:30%}.c-rating{width:22%}.c-status{width:24%}.c-date{width:24%}
     .col-opt{display:none}
     @media (min-width:768px){
       .col-opt{display:table-cell}
-      .c-book{width:19%}.c-rating{width:12%}.c-review{width:29%}.c-reviewer{width:13%}.c-status{width:16%}.c-date{width:11%}
+      .c-book{width:16%}.c-rating{width:11%}.c-review{width:25%}.c-reviewer{width:12%}.c-status{width:10%}.c-date{width:9%}.c-actions{width:17%}
     }
     .sortbtn{touch-action:manipulation;display:inline-flex;align-items:center;gap:4px;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;background:none;border:0;padding:0;cursor:pointer;min-height:28px}
     .sortbtn .arr{font-size:.6rem;color:#ea580c;min-width:.7em}
@@ -103,10 +103,11 @@ export const prerender = false;
             <th class="c-reviewer col-opt" scope="col">Reviewer</th>
             <th class="c-status" scope="col">Status</th>
             <th class="c-date" scope="col"><button class="sortbtn" data-sort="date">Date <span class="arr" data-arr="date"></span></button></th>
+            <th class="c-actions col-opt" scope="col">Actions</th>
           </tr>
         </thead>
         <tbody id="reviews-rows">
-          <tr><td colspan="6" class="text-stone-400 text-sm">Loading...</td></tr>
+          <tr><td colspan="7" class="text-stone-400 text-sm">Loading...</td></tr>
         </tbody>
       </table>
       <p id="reviews-empty" class="hidden px-4 py-6 text-sm text-stone-400">No reviews here.</p>
@@ -198,11 +199,11 @@ export const prerender = false;
       body.innerHTML =
         '<div class="rounded-xl bg-white border border-stone-200 px-5 py-4">' +
           '<div class="flex flex-wrap items-center gap-2.5">' +
-            '<span class="text-orange-500 text-xl tracking-tight">' + stars(rev.rating) + "</span>" + (STATUS[rev.status] || "") +
+            '<span class="text-amber-400 text-xl tracking-tight">' + stars(rev.rating) + "</span>" + (STATUS[rev.status] || "") +
           "</div>" +
           '<h2 class="font-bold text-lg mt-2 leading-snug">' + esc(rev.title) + "</h2>" +
           '<p class="text-sm text-stone-500 mt-1.5 leading-relaxed">' + esc(rev.display_name) + " · " + esc(rev.user_email) + "<br>" +
-            "for <a class='text-orange-700 font-medium' href='/books/" + esc(rev.book_slug) + "'>" + esc(rev.book_title || "a book") + "</a>" +
+            "for <a class='text-orange-700 font-medium' href='/books/" + esc(rev.book_public_slug || rev.book_slug) + "'>" + esc(rev.book_title || "a book") + "</a>" +
             (rev.verified_purchase ? ' · <span class="text-green-700 font-medium">Verified purchase</span>' : "") +
             "<br>" + fmtWhen(rev.created_at) + "</p>" +
           '<p class="text-[15px] leading-relaxed mt-3 whitespace-pre-line">' + esc(rev.body) + "</p>" +
@@ -240,18 +241,19 @@ export const prerender = false;
         var tr = document.createElement("tr");
         tr.className = "rowtap";
         var actions = rev.status === "pending"
-          ? '<span class="flex flex-col gap-1.5 mt-2">' +
-              '<button data-act="approve" data-id="' + rev.id + '" class="tap rounded-lg bg-green-700 text-white text-xs font-bold px-3 min-h-[40px]">Approve</button>' +
-              '<button data-act="reject" data-id="' + rev.id + '" class="tap rounded-lg bg-white border border-stone-300 text-xs font-bold px-3 min-h-[40px]">Reject</button>' +
+          ? '<span class="flex gap-1.5 whitespace-nowrap">' +
+              '<button data-act="approve" data-id="' + rev.id + '" class="tap rounded-lg bg-green-700 text-white text-xs font-bold px-3 min-h-[36px]">Approve</button>' +
+              '<button data-act="reject" data-id="' + rev.id + '" class="tap rounded-lg bg-white border border-stone-300 text-xs font-bold px-3 min-h-[36px]">Reject</button>' +
             "</span>"
           : "";
         tr.innerHTML =
           '<td class="c-book"><span class="block truncate text-sm font-semibold">' + esc(rev.book_title || "a book") + "</span></td>" +
-          '<td class="c-rating"><span class="text-orange-500 text-[13px] tracking-tight whitespace-nowrap">' + stars(rev.rating) + "</span></td>" +
+          '<td class="c-rating"><span class="text-amber-400 text-[13px] tracking-tight whitespace-nowrap">' + stars(rev.rating) + "</span></td>" +
           '<td class="c-review col-opt"><span class="block truncate text-sm font-medium">' + esc(rev.title) + '</span><span class="clamp1 text-sm text-stone-500">' + esc(rev.body) + "</span></td>" +
           '<td class="c-reviewer col-opt"><span class="block truncate text-sm text-stone-600">' + esc(rev.display_name) + "</span></td>" +
-          '<td class="c-status">' + (STATUS[rev.status] || "") + actions + "</td>" +
-          '<td class="c-date"><span class="text-sm text-stone-500 whitespace-nowrap">' + fmtDay(rev.created_at) + "</span></td>";
+          '<td class="c-status">' + (STATUS[rev.status] || "") + "</td>" +
+          '<td class="c-date"><span class="text-sm text-stone-500 whitespace-nowrap">' + fmtDay(rev.created_at) + "</span></td>" +
+          '<td class="c-actions col-opt">' + actions + "</td>";
         tr.addEventListener("click", function () { openDetail(rev); });
         tr.querySelectorAll("button[data-act]").forEach(function (btn) {
           btn.addEventListener("click", function (ev) {

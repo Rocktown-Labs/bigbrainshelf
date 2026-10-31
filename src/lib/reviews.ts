@@ -41,6 +41,32 @@ export async function ensureReviewsTable(db: DBLike): Promise<void> {
 
 // Does this account own the book? Complete orders carry their slugs in
 // book_slugs (JSON), whatever format each item was bought in.
+// Who may review a book (CG, 2026-10-31): signed-in readers who
+// bought it or can listen/read it through a club. That is exactly
+// the storefront entitlement map (orders matched by user id OR
+// email, plus club memberships), so reviews and the library can
+// never disagree about who has the book. One review per reader per
+// book, ever: any existing review (pending, approved, or rejected)
+// blocks another, the same rule the submit API has always kept.
+export async function reviewEligibility(
+  db: DBLike,
+  user: { id: string; email?: string | null },
+  slug: string
+): Promise<{ allowed: boolean; verified: boolean; reason: "not_entitled" | "already_reviewed" | null }> {
+  const { getDigitalEntitlements } = await import("./library");
+  const ent = (await getDigitalEntitlements(db, { id: user.id, email: user.email || "" } as any)).get(slug);
+  if (!ent) return { allowed: false, verified: false, reason: "not_entitled" };
+  const existing: any = await db
+    .prepare("SELECT status FROM reviews WHERE user_id = ? AND book_slug = ?")
+    .bind(user.id, slug)
+    .first()
+    .catch(() => null);
+  if (existing) {
+    return { allowed: false, verified: !!ent.owned, reason: "already_reviewed" };
+  }
+  return { allowed: true, verified: !!ent.owned, reason: null };
+}
+
 export async function userOwnsBook(db: DBLike, userId: string, slug: string): Promise<boolean> {
   const rows = await db
     .prepare("SELECT book_slugs FROM orders WHERE user_id = ? AND status = 'complete'")

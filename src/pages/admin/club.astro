@@ -93,6 +93,24 @@ export const prerender = false;
         </tbody>
       </table>
     </div>
+    <div id="member-pager" class="mt-3 hidden items-center justify-between gap-3">
+      <button id="mpage-prev" type="button" class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 min-h-[40px]">‹ Prev</button>
+      <span id="mpage-label" class="text-sm text-stone-500"></span>
+      <button id="mpage-next" type="button" class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 min-h-[40px]">Next ›</button>
+    </div>
+
+    <!-- Member detail drawer: slides in from the right so the
+         table never has to stretch (CG, 2026-10-31). -->
+    <div id="member-drawer" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-label="Member details">
+      <div class="absolute inset-0 bg-stone-950/50" data-mdrawer-close></div>
+      <aside class="panel absolute right-0 top-0 h-full w-[min(92vw,430px)] bg-white shadow-2xl overflow-y-auto">
+        <div class="sticky top-0 bg-white border-b border-stone-200 px-5 py-3.5 flex items-center justify-between">
+          <h3 class="font-extrabold tracking-tight">Member</h3>
+          <button id="mdrawer-close" type="button" class="text-2xl leading-none text-stone-400 hover:text-stone-700 px-1" aria-label="Close member details">&times;</button>
+        </div>
+        <div id="member-drawer-body" class="px-5 py-4"></div>
+      </aside>
+    </div>
 
     <div id="more-boxes-wrap" class="hidden">
       <h2 class="mt-10 text-xl font-bold tracking-tight">More boxes</h2>
@@ -261,6 +279,69 @@ export const prerender = false;
         if (key === "billing") return String(s.subscription_status || "active");
         return Number(s.created_at || 0);
       };
+      // Member detail opens in the right-side drawer (CG,
+      // 2026-10-31): inline expansion does not scale, so the
+      // table stays a table (sortable, 10 per page) and one
+      // member's full picture (orders, boxes, billing) loads
+      // into the drawer from the same API the list uses.
+      var memberCache = {};
+      var memberPage = 1;
+      var MEMBER_PAGE_SIZE = 10;
+      var drawerMemberId = null;
+      var moneyC = function (c) { return "$" + ((Number(c) || 0) / 100).toFixed(2); };
+      var shortOid = function (id) { return "#" + String(id || "").replace(/-/g, "").slice(0, 8).toUpperCase(); };
+      var panelHtml = function (d) {
+        var m = d.member || {};
+        var ords = d.orders || [];
+        var fact = function (k, v) { return '<div class="flex justify-between gap-4 py-1 border-b border-stone-100 last:border-0"><span class="text-stone-500">' + k + '</span><span class="font-semibold text-right">' + v + "</span></div>"; };
+        var h = '<div class="grid sm:grid-cols-2 gap-x-8 gap-y-0 text-sm">' +
+          fact("Club", esc(m.club_plan === "audio" ? "The Audio Club" : "The Book Club") + " · " + esc(m.plan === "annual" ? "Annual" : m.plan === "monthly" ? "Monthly" : "Quarterly")) +
+          fact("Joined", esc(fmtDate(m.created_at))) +
+          fact("Store account", m.user_id ? "Linked" : "No account yet") +
+          fact("Orders", ords.length + " · " + moneyC(d.total_spent_cents) + " total") +
+          "</div>";
+        if (ords.length) {
+          h += '<p class="mt-3 text-xs font-bold uppercase tracking-wide text-stone-400">What they ordered</p>' +
+            ords.map(function (o) {
+              return '<div class="flex justify-between gap-4 py-1.5 border-b border-stone-100 last:border-0 text-sm"><span><a class="font-semibold text-orange-700" href="/admin/orders/' + o.id + '">' + shortOid(o.id) + "</a> <span class=\"text-stone-400\">" + esc(fmtDate(o.created_at)) + "</span><br><span class=\"text-stone-600\">" + (o.items_display || []).map(esc).join("<br>") + "</span></span>" +
+                '<span class="font-semibold whitespace-nowrap">' + moneyC(o.amount) + (o.physical_status ? ' <span class="bchip">' + esc(humanStatus(o.physical_status)) + "</span>" : "") + "</span></div>";
+            }).join("");
+        }
+        var boxes = (d.boxes || []);
+        if (boxes.length) {
+          h += '<p class="mt-3 text-xs font-bold uppercase tracking-wide text-stone-400">Boxes</p>' + boxes.map(function (b) {
+            return '<div class="flex justify-between py-1 border-b border-stone-100 last:border-0 text-sm"><span>' + esc(b.ship_date) + '</span><span class="font-semibold">' + esc(humanStatus(b.status)) + (b.tracking_number ? ' <span class="text-stone-400">' + esc(b.tracking_number) + "</span>" : "") + "</span></div>";
+          }).join("");
+        }
+        h += '<p class="mt-3 text-xs text-stone-400">Stripe customer ' + esc(m.stripe_customer_id || "–") + " · Subscription " + esc(m.stripe_subscription_id || "–") + ' · <a class="text-orange-700 font-semibold" href="/admin/club/' + m.id + '">Open member page</a></p>';
+        return h;
+      };
+      var openDrawer = function (id) {
+        drawerMemberId = id;
+        var drawer = document.getElementById("member-drawer");
+        var bodyEl = document.getElementById("member-drawer-body");
+        drawer.classList.remove("hidden");
+        document.body.style.overflow = "hidden";
+        var cached = memberCache[id];
+        if (cached && cached !== "loading") { bodyEl.innerHTML = panelHtml(cached); return; }
+        bodyEl.innerHTML = '<p class="text-sm text-stone-400">Loading member...</p>';
+        memberCache[id] = "loading";
+        fetch("/api/admin/club?member_id=" + encodeURIComponent(id)).then(function (r) { return r.json(); }).then(function (d) {
+          memberCache[id] = d;
+          if (drawerMemberId === id) bodyEl.innerHTML = panelHtml(d);
+        }).catch(function () {
+          memberCache[id] = null;
+          if (drawerMemberId === id) bodyEl.innerHTML = '<p class="text-sm text-red-600">Could not load this member.</p>';
+        });
+      };
+      var closeDrawer = function () {
+        drawerMemberId = null;
+        document.getElementById("member-drawer").classList.add("hidden");
+        document.body.style.overflow = "";
+      };
+      document.getElementById("mdrawer-close").addEventListener("click", closeDrawer);
+      document.querySelector("[data-mdrawer-close]").addEventListener("click", closeDrawer);
+      document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && drawerMemberId) closeDrawer(); });
       var renderMembers = function () {
         var tbody = document.getElementById("member-rows");
         if (!tbody) return;
@@ -270,11 +351,17 @@ export const prerender = false;
           if (va > vb) return 1 * memberSort.dir;
           return 0;
         });
+        var pager = document.getElementById("member-pager");
         if (!sorted.length) {
           tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-3 text-stone-400">No paid members yet.</td></tr>';
+          pager.classList.add("hidden");
+          pager.classList.remove("flex");
           return;
         }
-        tbody.innerHTML = sorted.map(function (s) {
+        var pages = Math.max(1, Math.ceil(sorted.length / MEMBER_PAGE_SIZE));
+        if (memberPage > pages) memberPage = pages;
+        var pageRows = sorted.slice((memberPage - 1) * MEMBER_PAGE_SIZE, memberPage * MEMBER_PAGE_SIZE);
+        tbody.innerHTML = pageRows.map(function (s) {
           var billing = s.subscription_status && s.subscription_status !== "active"
             ? '<span class="bchip" style="background:#fffbeb;color:#b45309">' + esc(humanStatus(s.subscription_status)) + "</span>"
             : '<span class="text-stone-500">Active</span>';
@@ -282,24 +369,35 @@ export const prerender = false;
             ? "Box " + esc(s.next_box_due) + (s.next_box_status ? " · " + esc(humanStatus(s.next_box_status)) : "")
             : (s.club_plan === "audio" ? "Listening only" : "");
           return '<tr class="border-b border-stone-100 last:border-0 hover:bg-stone-50">' +
-            '<td class="px-4 py-2.5"><a class="font-bold text-orange-700" href="/admin/club/' + s.id + '">' + esc(s.name || s.email) + "</a>" +
+            '<td class="px-4 py-2.5"><button type="button" class="mtoggle font-bold text-orange-700 text-left" data-mid="' + s.id + '">' + esc(s.name || s.email) + "</button>" +
               (s.name ? '<div class="text-xs text-stone-400 truncate">' + esc(s.email) + "</div>" : "") + "</td>" +
             '<td class="px-4 py-2.5 whitespace-nowrap">' + esc(planText(s)) + "</td>" +
             '<td class="px-4 py-2.5">' + billing + "</td>" +
             '<td class="px-4 py-2.5 whitespace-nowrap">' + esc(fmtDate(s.created_at)) + "</td>" +
             '<td class="px-4 py-2.5 text-stone-500">' + esc(nextLine) + "</td></tr>";
         }).join("");
+        pager.classList.remove("hidden");
+        pager.classList.add("flex");
+        document.getElementById("mpage-label").textContent = "Page " + memberPage + " of " + pages + " · " + sorted.length + (sorted.length === 1 ? " member" : " members");
+        document.getElementById("mpage-prev").disabled = memberPage <= 1;
+        document.getElementById("mpage-next").disabled = memberPage >= pages;
         document.querySelectorAll(".msort").forEach(function (btn) {
           var arrow = btn.getAttribute("data-key") === memberSort.key ? (memberSort.dir === 1 ? " ↑" : " ↓") : "";
           btn.textContent = btn.getAttribute("data-label") + arrow;
         });
+        tbody.querySelectorAll(".mtoggle").forEach(function (btn) {
+          btn.addEventListener("click", function () { openDrawer(btn.getAttribute("data-mid")); });
+        });
       };
+      document.getElementById("mpage-prev").addEventListener("click", function () { if (memberPage > 1) { memberPage -= 1; renderMembers(); } });
+      document.getElementById("mpage-next").addEventListener("click", function () { memberPage += 1; renderMembers(); });
       document.querySelectorAll(".msort").forEach(function (btn) {
         btn.setAttribute("data-label", btn.textContent);
         btn.addEventListener("click", function () {
           var key = btn.getAttribute("data-key");
           if (memberSort.key === key) memberSort.dir *= -1;
           else memberSort = { key: key, dir: 1 };
+          memberPage = 1;
           renderMembers();
         });
       });

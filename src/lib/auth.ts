@@ -114,6 +114,39 @@ export function getAuth() {
             }
             return { data: user };
           },
+          // Every new account gets its Stripe customer up front
+          // (CG, 2026-10-31), so checkout, clubs, and the admin
+          // never mint one ad hoc. Best effort by design: a Stripe
+          // hiccup must never block a sign-up; the id lands on the
+          // user row and anything that finds it missing can still
+          // create one lazily, as checkout does today.
+          after: async (user) => {
+            try {
+              const db = (env as any).DB;
+              const secret = String((env as any).STRIPE_SECRET_KEY || "").trim();
+              if (!db || !secret || !user?.email) return;
+              await db.prepare("ALTER TABLE user ADD COLUMN stripe_customer_id TEXT").run().catch(() => {});
+              const existing = await db
+                .prepare("SELECT stripe_customer_id FROM user WHERE id = ?")
+                .bind(user.id)
+                .first()
+                .catch(() => null);
+              if ((existing as any)?.stripe_customer_id) return;
+              const Stripe = (await import("stripe")).default;
+              const stripe = new Stripe(secret);
+              const customer = await stripe.customers.create({
+                email: user.email,
+                name: user.name || undefined,
+                metadata: { bbs_user_id: String(user.id) },
+              });
+              await db
+                .prepare("UPDATE user SET stripe_customer_id = ? WHERE id = ?")
+                .bind(customer.id, user.id)
+                .run();
+            } catch (err) {
+              console.error("stripe customer create failed", (err as any)?.message || err);
+            }
+          },
         },
       },
     },

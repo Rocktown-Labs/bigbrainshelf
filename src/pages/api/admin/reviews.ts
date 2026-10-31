@@ -45,7 +45,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(Math.max(1, Number(url.searchParams.get("page") || 1) || 1), pages);
   const rows = await e.DB.prepare(
-    `SELECT r.*, b.title AS book_title FROM reviews r
+    `SELECT r.*, b.title AS book_title, b.public_slug AS book_public_slug FROM reviews r
        LEFT JOIN books b ON b.slug = r.book_slug
       ${where}
       ORDER BY ${orderBy}
