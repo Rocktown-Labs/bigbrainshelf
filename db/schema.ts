@@ -396,12 +396,20 @@ export const downloadCounts = sqliteTable(
 
 export const parentOnboarding = sqliteTable("parent_onboarding", {
   userId: text("user_id").primaryKey(),
-  parentName: text("parent_name").notNull().default(""),
-  familyGoal: text("family_goal").notNull().default(""), // bedtime | curious_minds | screen_free_audio | homeschool
-  referralSource: text("referral_source").notNull().default(""),
-  preferredTopics: text("preferred_topics").notNull().default('["tech","money","courage"]'),
+  parentName: text("parent_name"),
+  familyNickname: text("family_nickname"),
+  discoverySource: text("discovery_source"),
+  readingGoals: text("reading_goals"),
+  favoriteTopics: text("favorite_topics").default('["tech","money","courage"]'),
+  futureTopics: text("future_topics").default("[]"),
+  customTopicRequest: text("custom_topic_request"),
+  tosAccepted: integer("tos_accepted").notNull().default(0),
+  tosAcceptedAt: integer("tos_accepted_at"),
+  marketingOptIn: integer("marketing_opt_in").notNull().default(0),
+  referralCode: text("referral_code"),
+  referredByCode: text("referred_by_code"),
   parentPin: text("parent_pin"),
-  welcomeEmailSent: integer("welcome_email_sent").notNull().default(0),
+  onboardingStep: integer("onboarding_step").notNull().default(1),
   completedAt: integer("completed_at"),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
@@ -413,14 +421,20 @@ export const kidProfiles = sqliteTable(
     id: text("id").primaryKey(),
     userId: text("user_id").notNull(),
     name: text("name").notNull(),
+    birthDate: text("birth_date"),
+    birthdayGiftSentYear: integer("birthday_gift_sent_year"),
     age: integer("age").notNull().default(6),
     ageGroup: text("age_group").notNull().default("4-8"), // "4-8" | "9-12" | "13-18"
-    avatar: text("avatar").notNull().default("mira"), // mira | penny | fern | wally | basil
-    favoriteTopics: text("favorite_topics").notNull().default('["tech","money","courage"]'),
+    avatarKey: text("avatar_key").notNull().default("mira"), // mira | penny | fern | wally | basil
+    favoriteThemes: text("favorite_themes").default('["tech","money","courage"]'),
     dailyLimitMinutes: integer("daily_limit_minutes").notNull().default(60), // 0 = unlimited, default 60m
-    defaultSleepMinutes: integer("default_sleep_minutes").notNull().default(60), // default 60m sleep timer
-    allowAudio: integer("allow_audio").notNull().default(1),
-    allowReading: integer("allow_reading").notNull().default(1),
+    defaultSleepTimerMinutes: integer("default_sleep_timer_minutes").notNull().default(60), // default 60m sleep timer
+    bedtimeCutoff: text("bedtime_cutoff"),
+    allowAudioAutoplay: integer("allow_audio_autoplay").notNull().default(1),
+    allowedBookSlugs: text("allowed_book_slugs"),
+    dailyMinutesUsed: integer("daily_minutes_used").notNull().default(0),
+    dailyMinutesDate: text("daily_minutes_date"),
+    isDefault: integer("is_default").notNull().default(0),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },

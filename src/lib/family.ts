@@ -75,6 +75,30 @@ export const KID_AVATARS: readonly KidAvatarOption[] = [
   },
 ] as const;
 
+export const CURRENT_TOPIC_OPTIONS = [
+  { id: "tech", label: "Tech & How Computers Work" },
+  { id: "money", label: "Money, Saving & Earning" },
+  { id: "courage", label: "Courage & Speaking Up" },
+] as const;
+
+export const FUTURE_TOPIC_OPTIONS = [
+  { id: "science", label: "Science & Nature" },
+  { id: "history", label: "History & Biographies" },
+  { id: "math", label: "Math & Logic Puzzles" },
+  { id: "space", label: "Space & Engineering" },
+  { id: "entrepreneurship", label: "Entrepreneurship & Makers" },
+  { id: "art", label: "Art, Music & Creativity" },
+  { id: "emotions", label: "Feelings & Kindness" },
+] as const;
+
+export const DISCOVERY_SOURCE_OPTIONS = [
+  { id: "friend_referral", label: "A friend or family member" },
+  { id: "instagram_social", label: "Instagram or social media" },
+  { id: "search", label: "Google or web search" },
+  { id: "gift", label: "Received a book as a gift" },
+  { id: "school_community", label: "School, homeschool, or parent group" },
+] as const;
+
 export const SLEEP_TIMER_PRESETS = [
   { minutes: 0, label: "Off" },
   { minutes: 15, label: "15 min" },
@@ -107,6 +131,14 @@ export interface ParentOnboardingRecord {
   family_nickname: string | null;
   discovery_source: string | null;
   reading_goals: string[];
+  favorite_topics: string[];
+  future_topics: string[];
+  custom_topic_request: string | null;
+  tos_accepted: boolean;
+  tos_accepted_at: number | null;
+  marketing_opt_in: boolean;
+  referral_code: string;
+  referred_by_code: string | null;
   parent_pin: string | null;
   onboarding_step: number;
   completed_at: number | null;
@@ -118,6 +150,8 @@ export interface KidProfileRecord {
   id: string;
   user_id: string;
   name: string;
+  birth_date: string | null;
+  birthday_gift_sent_year: number | null;
   age: number;
   age_group: AgeGroup;
   avatar_key: string;
@@ -134,7 +168,7 @@ export interface KidProfileRecord {
   updated_at: number;
 }
 
-export type ReaderViewEdition = "story" | "coloring" | "fullcolor" | "cover";
+export type ReaderViewEdition = "story" | "coloring" | "fullcolor" | "cover" | "readalong";
 export type ReaderViewMode = "flip" | "scroll";
 
 export interface ReadingProgressRecord {
@@ -160,6 +194,49 @@ export function classifyAgeGroup(age: number): AgeGroup {
   return "13-18";
 }
 
+export function calculateAgeFromDob(
+  birthDate: string | null | undefined,
+  referenceDate: Date = new Date()
+): number | null {
+  if (!birthDate) return null;
+  const match = String(birthDate).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!year || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  let age = referenceDate.getUTCFullYear() - year;
+  const mDiff = referenceDate.getUTCMonth() + 1 - month;
+  if (mDiff < 0 || (mDiff === 0 && referenceDate.getUTCDate() < day)) {
+    age -= 1;
+  }
+  return Math.max(1, Math.min(18, age));
+}
+
+export function isBirthdayMonthAndDay(
+  birthDate: string | null | undefined,
+  todayStr: string = chicagoDateString()
+): boolean {
+  if (!birthDate) return false;
+  const clean = String(birthDate).trim();
+  const mmdd = clean.length >= 10 ? clean.slice(5, 10) : clean.slice(0, 5);
+  return mmdd.length === 5 && todayStr.slice(5, 10) === mmdd;
+}
+
+export function generateReferralCode(seedName: string | null | undefined, userId: string): string {
+  const alpha = String(seedName || "SHELF")
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "")
+    .slice(0, 6) || "SHELF";
+  let hash = 0;
+  const src = String(userId || "bbs");
+  for (let i = 0; i < src.length; i++) {
+    hash = (hash * 31 + src.charCodeAt(i)) >>> 0;
+  }
+  const suffix = (hash % 0xffff).toString(16).toUpperCase().padStart(4, "0");
+  return `${alpha}-${suffix}`;
+}
+
 export function normalizePin(pin: string | null | undefined): string | null {
   if (!pin) return null;
   const digits = String(pin).replace(/\D/g, "").slice(0, 6);
@@ -177,8 +254,24 @@ function parseJsonArray(raw: unknown): string[] {
   }
 }
 
+const PARENT_ONBOARDING_ADDITIVE_COLS: Record<string, string> = {
+  favorite_topics: "TEXT DEFAULT '[\"tech\",\"money\",\"courage\"]'",
+  future_topics: "TEXT DEFAULT '[]'",
+  custom_topic_request: "TEXT",
+  tos_accepted: "INTEGER NOT NULL DEFAULT 0",
+  tos_accepted_at: "INTEGER",
+  marketing_opt_in: "INTEGER NOT NULL DEFAULT 0",
+  referral_code: "TEXT",
+  referred_by_code: "TEXT",
+};
+
+const KID_PROFILES_ADDITIVE_COLS: Record<string, string> = {
+  birth_date: "TEXT",
+  birthday_gift_sent_year: "INTEGER",
+};
+
 export async function ensureFamilyTables(db: DBLike): Promise<void> {
-  return ensureOnce(db, "family_tables", async () => {
+  return ensureOnce(db, "family_tables_v2", async () => {
     await db
       .prepare(
         `CREATE TABLE IF NOT EXISTS parent_onboarding (
@@ -187,6 +280,14 @@ export async function ensureFamilyTables(db: DBLike): Promise<void> {
            family_nickname TEXT,
            discovery_source TEXT,
            reading_goals TEXT,
+           favorite_topics TEXT DEFAULT '["tech","money","courage"]',
+           future_topics TEXT DEFAULT '[]',
+           custom_topic_request TEXT,
+           tos_accepted INTEGER NOT NULL DEFAULT 0,
+           tos_accepted_at INTEGER,
+           marketing_opt_in INTEGER NOT NULL DEFAULT 0,
+           referral_code TEXT,
+           referred_by_code TEXT,
            parent_pin TEXT,
            onboarding_step INTEGER NOT NULL DEFAULT 1,
            completed_at INTEGER,
@@ -197,12 +298,29 @@ export async function ensureFamilyTables(db: DBLike): Promise<void> {
       .bind()
       .run();
 
+    const { results: poCols } = await db
+      .prepare("PRAGMA table_info(parent_onboarding)")
+      .bind()
+      .all();
+    const havePoCols = new Set(((poCols || []) as any[]).map((r) => String(r.name)));
+    for (const [col, def] of Object.entries(PARENT_ONBOARDING_ADDITIVE_COLS)) {
+      if (!havePoCols.has(col)) {
+        try {
+          await db.prepare(`ALTER TABLE parent_onboarding ADD COLUMN ${col} ${def}`).bind().run();
+        } catch {
+          // Column already present
+        }
+      }
+    }
+
     await db
       .prepare(
         `CREATE TABLE IF NOT EXISTS kid_profiles (
            id TEXT PRIMARY KEY,
            user_id TEXT NOT NULL,
            name TEXT NOT NULL,
+           birth_date TEXT,
+           birthday_gift_sent_year INTEGER,
            age INTEGER NOT NULL DEFAULT 6,
            age_group TEXT NOT NULL DEFAULT '4-8',
            avatar_key TEXT NOT NULL DEFAULT 'mira',
@@ -221,6 +339,21 @@ export async function ensureFamilyTables(db: DBLike): Promise<void> {
       )
       .bind()
       .run();
+
+    const { results: kpCols } = await db
+      .prepare("PRAGMA table_info(kid_profiles)")
+      .bind()
+      .all();
+    const haveKpCols = new Set(((kpCols || []) as any[]).map((r) => String(r.name)));
+    for (const [col, def] of Object.entries(KID_PROFILES_ADDITIVE_COLS)) {
+      if (!haveKpCols.has(col)) {
+        try {
+          await db.prepare(`ALTER TABLE kid_profiles ADD COLUMN ${col} ${def}`).bind().run();
+        } catch {
+          // Column already present
+        }
+      }
+    }
 
     await db
       .prepare(
@@ -259,12 +392,25 @@ export async function ensureFamilyTables(db: DBLike): Promise<void> {
 }
 
 function hydrateParentOnboarding(row: any): ParentOnboardingRecord {
+  const userId = String(row.user_id);
+  const parentName = row.parent_name ? String(row.parent_name) : null;
+  const favTopics = parseJsonArray(row.favorite_topics);
   return {
-    user_id: String(row.user_id),
-    parent_name: row.parent_name ? String(row.parent_name) : null,
+    user_id: userId,
+    parent_name: parentName,
     family_nickname: row.family_nickname ? String(row.family_nickname) : null,
     discovery_source: row.discovery_source ? String(row.discovery_source) : null,
     reading_goals: parseJsonArray(row.reading_goals),
+    favorite_topics: favTopics.length > 0 ? favTopics : ["tech", "money", "courage"],
+    future_topics: parseJsonArray(row.future_topics),
+    custom_topic_request: row.custom_topic_request ? String(row.custom_topic_request) : null,
+    tos_accepted: Number(row.tos_accepted || 0) !== 0,
+    tos_accepted_at: row.tos_accepted_at ? Number(row.tos_accepted_at) : null,
+    marketing_opt_in: Number(row.marketing_opt_in || 0) !== 0,
+    referral_code: row.referral_code
+      ? String(row.referral_code)
+      : generateReferralCode(parentName, userId),
+    referred_by_code: row.referred_by_code ? String(row.referred_by_code) : null,
     parent_pin: row.parent_pin ? String(row.parent_pin) : null,
     onboarding_step: Number(row.onboarding_step || 1),
     completed_at: row.completed_at ? Number(row.completed_at) : null,
@@ -275,7 +421,9 @@ function hydrateParentOnboarding(row: any): ParentOnboardingRecord {
 
 function hydrateKidProfile(row: any, today: string): KidProfileRecord {
   const sameDay = row.daily_minutes_date === today;
-  const age = Number(row.age || 6);
+  const birthDate = row.birth_date ? String(row.birth_date) : null;
+  const dobAge = calculateAgeFromDob(birthDate);
+  const age = dobAge ?? Number(row.age || 6);
   const rawGroup = String(row.age_group || "");
   const ageGroup: AgeGroup = (AGE_GROUPS as readonly string[]).includes(rawGroup)
     ? (rawGroup as AgeGroup)
@@ -284,6 +432,10 @@ function hydrateKidProfile(row: any, today: string): KidProfileRecord {
     id: String(row.id),
     user_id: String(row.user_id),
     name: String(row.name || "Reader"),
+    birth_date: birthDate,
+    birthday_gift_sent_year: row.birthday_gift_sent_year
+      ? Number(row.birthday_gift_sent_year)
+      : null,
     age,
     age_group: ageGroup,
     avatar_key: String(row.avatar_key || "mira"),
@@ -308,7 +460,9 @@ function hydrateKidProfile(row: any, today: string): KidProfileRecord {
 function hydrateReadingProgress(row: any): ReadingProgressRecord {
   const ed = String(row.view_edition || "story");
   const validEd: ReaderViewEdition =
-    ed === "coloring" || ed === "fullcolor" || ed === "cover" ? ed : "story";
+    ed === "coloring" || ed === "fullcolor" || ed === "cover" || ed === "readalong"
+      ? ed
+      : "story";
   const mode = String(row.view_mode || "flip") === "scroll" ? "scroll" : "flip";
   return {
     id: String(row.id),
@@ -337,6 +491,8 @@ export function computeOnboardingChecklist(
       (onboarding.parent_name ||
         onboarding.family_nickname ||
         onboarding.reading_goals.length > 0 ||
+        onboarding.future_topics.length > 0 ||
+        onboarding.tos_accepted ||
         onboarding.completed_at)
   );
   const hasKidProfile = kidProfiles.length > 0;
@@ -345,15 +501,15 @@ export function computeOnboardingChecklist(
   // Endowed progress: account creation itself starts the family at 25% complete.
   const steps = [
     { id: "account", label: "Parent account ready", done: true },
-    { id: "family", label: "Tell us about your family", done: hasParentInfo },
-    { id: "kid_profile", label: "Create your child's reader profile & sleep timer", done: hasKidProfile },
-    { id: "first_story", label: "Open a storybook or start the audiobook player", done: hasStartedReading },
+    { id: "family", label: "Tell us what topics your family wants to learn", done: hasParentInfo },
+    { id: "kid_profile", label: "Create your child's reader profile, birthday & sleep timer", done: hasKidProfile },
+    { id: "first_story", label: "Open a storybook or start Read-Along Theater", done: hasStartedReading },
   ];
   const completedCount = steps.filter((s) => s.done).length;
   const percent = Math.round((completedCount / steps.length) * 100);
   return {
     percent,
-    isComplete: Boolean(onboarding?.completed_at) || (hasParentInfo && hasKidProfile),
+    isComplete: Boolean(onboarding?.completed_at) || (hasParentInfo && hasKidProfile && Boolean(onboarding?.tos_accepted)),
     steps,
   };
 }
@@ -376,6 +532,12 @@ export interface SaveParentOnboardingInput {
   family_nickname?: string | null;
   discovery_source?: string | null;
   reading_goals?: string[];
+  favorite_topics?: string[];
+  future_topics?: string[];
+  custom_topic_request?: string | null;
+  tos_accepted?: boolean;
+  marketing_opt_in?: boolean;
+  referred_by_code?: string | null;
   parent_pin?: string | null;
   onboarding_step?: number;
   mark_complete?: boolean;
@@ -386,6 +548,8 @@ export function buildFamilyWelcomeEmailText(opts: {
   familyNickname: string | null;
   kidName: string | null;
   sleepMinutes: number;
+  futureTopics?: string[];
+  referralCode?: string;
   site: string;
 }): { subject: string; bodyText: string } {
   const greetingName = opts.parentName?.trim() || "there";
@@ -399,19 +563,118 @@ export function buildFamilyWelcomeEmailText(opts: {
         ? `after ${opts.sleepMinutes} minutes`
         : "whenever you pause it";
 
+  const futureLabels = (opts.futureTopics || [])
+    .map((id) => FUTURE_TOPIC_OPTIONS.find((o) => o.id === id)?.label || id)
+    .filter(Boolean);
+
   const subject = opts.kidName?.trim()
     ? `${opts.kidName.trim()}'s Big Brain Shelf is ready for story time`
     : "Your family shelf is ready on Big Brain Shelf";
 
-  const bodyText = [
+  const paragraphs = [
     `Hi ${greetingName},`,
-    `${kidPart} on Big Brain Shelf. You can open the Book Viewer and Audiobook Player side by side, flip between the storybook, coloring pages, and full-color artwork, and pick up right where you left off on any device.`,
+    `${kidPart} on Big Brain Shelf. You can open Read-Along Theater mode to watch the full-color storybook flip pages automatically above the audiobook player, or switch between the story, coloring pages, and cover any time.`,
     `We set your default audiobook sleep timer to turn off gently ${sleepLabel}, so bedtime listening stays calm and automatic.`,
-    `Open your family shelf here: ${opts.site.replace(/\/$/, "")}/account`,
-    `If you ever want to adjust daily reading limits, update your parent PIN, or add another reader profile as your kids grow from ages 4-8 up through 18, open Kids & Family in your account sidebar.`,
-  ].join("\n\n");
+  ];
 
+  if (futureLabels.length > 0) {
+    paragraphs.push(
+      `We also noted the future topics your family wants to explore next (${futureLabels.join(", ")}). We use your picks to decide which shelves go into illustration next.`
+    );
+  }
+
+  paragraphs.push(
+    `Open your family shelf here: ${opts.site.replace(/\/$/, "")}/account`
+  );
+
+  if (opts.referralCode) {
+    paragraphs.push(
+      `Want to share Big Brain Shelf with another family? Your family referral link is ${opts.site.replace(/\/$/, "")}/?ref=${opts.referralCode} (your friend gets $10 toward their first Gift Set, and you get $10 shelf credit).`
+    );
+  }
+
+  return { subject, bodyText: paragraphs.join("\n\n") };
+}
+
+export function buildBirthdayGiftEmailText(opts: {
+  parentName: string | null;
+  kidName: string;
+  avatarKey: string;
+  age: number;
+  site: string;
+}): { subject: string; bodyText: string } {
+  const buddy = KID_AVATARS.find((a) => a.id === opts.avatarKey) || KID_AVATARS[0];
+  const parentGreeting = opts.parentName?.trim() || "Friend";
+  const kidName = opts.kidName.trim() || "your reader";
+  const subject = `Happy Birthday to ${kidName} from ${buddy.name} and Big Brain Shelf`;
+  const bodyText = [
+    `Hi ${parentGreeting},`,
+    `${buddy.name} (${buddy.label}) and the whole Big Brain Shelf cast are wishing ${kidName} the happiest birthday today!`,
+    `We put a birthday gift in your family library: open your shelf to unlock ${kidName}'s birthday coloring & activity pages, start Read-Along Theater in full color, and use code BDAY10 for $10 toward your next Printed Book or Gift Set.`,
+    `Claim ${kidName}'s birthday surprise here: ${opts.site.replace(/\/$/, "")}/account?gift=birthday`,
+  ].join("\n\n");
   return { subject, bodyText };
+}
+
+async function ensureEmailOutboxTable(db: DBLike): Promise<void> {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS email_outbox (
+         id TEXT PRIMARY KEY,
+         order_id TEXT,
+         kind TEXT NOT NULL,
+         to_email TEXT NOT NULL,
+         subject TEXT NOT NULL,
+         body_text TEXT NOT NULL,
+         status TEXT NOT NULL DEFAULT 'pending',
+         attempts INTEGER NOT NULL DEFAULT 0,
+         last_error TEXT,
+         created_at INTEGER NOT NULL,
+         sent_at INTEGER,
+         send_after INTEGER,
+         from_email TEXT,
+         dedupe_key TEXT,
+         club_box_id TEXT,
+         reply_to TEXT
+       )`
+    )
+    .bind()
+    .run();
+}
+
+export async function enqueueBirthdayGiftEmail(
+  db: DBLike,
+  userId: string,
+  userEmail: string,
+  kid: KidProfileRecord,
+  site = "https://bigbrainshelf.com"
+): Promise<boolean> {
+  if (!userEmail || !kid?.id) return false;
+  await ensureFamilyTables(db);
+  await ensureEmailOutboxTable(db);
+  const onboarding = await getParentOnboarding(db, userId);
+  const year = new Date().getUTCFullYear();
+  const { subject, bodyText } = buildBirthdayGiftEmailText({
+    parentName: onboarding?.parent_name ?? null,
+    kidName: kid.name,
+    avatarKey: kid.avatar_key,
+    age: kid.age,
+    site,
+  });
+  await enqueueEmail(db, {
+    orderId: null,
+    to: userEmail,
+    subject,
+    text: bodyText,
+    kind: "birthday_gift",
+    dedupeKey: `birthday_gift:${kid.id}:${year}`,
+  });
+  const now = Math.floor(Date.now() / 1000);
+  await db
+    .prepare("UPDATE kid_profiles SET birthday_gift_sent_year = ?, updated_at = ? WHERE id = ? AND user_id = ?")
+    .bind(year, now, kid.id, userId)
+    .run();
+  return true;
 }
 
 export async function saveParentOnboarding(
@@ -441,6 +704,35 @@ export async function saveParentOnboarding(
     input.reading_goals !== undefined
       ? input.reading_goals.map((g) => String(g).trim()).filter(Boolean).slice(0, 10)
       : (existing?.reading_goals ?? []);
+  const favoriteTopics =
+    input.favorite_topics !== undefined
+      ? input.favorite_topics.map((t) => String(t).trim()).filter(Boolean).slice(0, 10)
+      : (existing?.favorite_topics ?? ["tech", "money", "courage"]);
+  const futureTopics =
+    input.future_topics !== undefined
+      ? input.future_topics.map((t) => String(t).trim()).filter(Boolean).slice(0, 15)
+      : (existing?.future_topics ?? []);
+  const customTopicRequest =
+    input.custom_topic_request !== undefined
+      ? (input.custom_topic_request ? String(input.custom_topic_request).trim().slice(0, 240) : null)
+      : (existing?.custom_topic_request ?? null);
+  const tosAccepted =
+    input.tos_accepted !== undefined
+      ? Boolean(input.tos_accepted)
+      : (existing?.tos_accepted ?? false);
+  const tosAcceptedAt = tosAccepted
+    ? (existing?.tos_accepted_at ?? now)
+    : (existing?.tos_accepted_at ?? null);
+  const marketingOptIn =
+    input.marketing_opt_in !== undefined
+      ? Boolean(input.marketing_opt_in)
+      : (existing?.marketing_opt_in ?? false);
+  const referralCode =
+    existing?.referral_code || generateReferralCode(parentName || familyNickname, userId);
+  const referredByCode =
+    input.referred_by_code !== undefined
+      ? (input.referred_by_code ? String(input.referred_by_code).trim().toUpperCase().slice(0, 32) : null)
+      : (existing?.referred_by_code ?? null);
   const parentPin =
     input.parent_pin !== undefined
       ? normalizePin(input.parent_pin)
@@ -456,13 +748,21 @@ export async function saveParentOnboarding(
   await db
     .prepare(
       `INSERT INTO parent_onboarding
-         (user_id, parent_name, family_nickname, discovery_source, reading_goals, parent_pin, onboarding_step, completed_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         (user_id, parent_name, family_nickname, discovery_source, reading_goals, favorite_topics, future_topics, custom_topic_request, tos_accepted, tos_accepted_at, marketing_opt_in, referral_code, referred_by_code, parent_pin, onboarding_step, completed_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(user_id) DO UPDATE SET
          parent_name = excluded.parent_name,
          family_nickname = excluded.family_nickname,
          discovery_source = excluded.discovery_source,
          reading_goals = excluded.reading_goals,
+         favorite_topics = excluded.favorite_topics,
+         future_topics = excluded.future_topics,
+         custom_topic_request = excluded.custom_topic_request,
+         tos_accepted = excluded.tos_accepted,
+         tos_accepted_at = excluded.tos_accepted_at,
+         marketing_opt_in = excluded.marketing_opt_in,
+         referral_code = excluded.referral_code,
+         referred_by_code = excluded.referred_by_code,
          parent_pin = excluded.parent_pin,
          onboarding_step = excluded.onboarding_step,
          completed_at = excluded.completed_at,
@@ -474,6 +774,14 @@ export async function saveParentOnboarding(
       familyNickname,
       discoverySource,
       JSON.stringify(readingGoals),
+      JSON.stringify(favoriteTopics),
+      JSON.stringify(futureTopics),
+      customTopicRequest,
+      tosAccepted ? 1 : 0,
+      tosAcceptedAt,
+      marketingOptIn ? 1 : 0,
+      referralCode,
+      referredByCode,
       parentPin,
       step,
       completedAt,
@@ -482,31 +790,33 @@ export async function saveParentOnboarding(
     )
     .run();
 
-  if (input.mark_complete && !existing?.completed_at && userEmail) {
+  // If the parent opted into marketing emails, record them in newsletter_subscribers too.
+  if (marketingOptIn && userEmail) {
     try {
       await db
         .prepare(
-          `CREATE TABLE IF NOT EXISTS email_outbox (
-             id TEXT PRIMARY KEY,
-             order_id TEXT,
-             kind TEXT NOT NULL,
-             to_email TEXT NOT NULL,
-             subject TEXT NOT NULL,
-             body_text TEXT NOT NULL,
-             status TEXT NOT NULL DEFAULT 'pending',
-             attempts INTEGER NOT NULL DEFAULT 0,
-             last_error TEXT,
-             created_at INTEGER NOT NULL,
-             sent_at INTEGER,
-             send_after INTEGER,
-             from_email TEXT,
-             dedupe_key TEXT,
-             club_box_id TEXT,
-             reply_to TEXT
+          `CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+             email TEXT PRIMARY KEY,
+             source TEXT NOT NULL DEFAULT 'footer',
+             created_at INTEGER NOT NULL
            )`
         )
         .bind()
         .run();
+      await db
+        .prepare(
+          "INSERT OR IGNORE INTO newsletter_subscribers (email, source, created_at) VALUES (?, 'family_onboarding', ?)"
+        )
+        .bind(userEmail.toLowerCase().trim(), now)
+        .run();
+    } catch {
+      // Non-blocking
+    }
+  }
+
+  if (input.mark_complete && !existing?.completed_at && userEmail) {
+    try {
+      await ensureEmailOutboxTable(db);
       const kids = await listKidProfiles(db, userId);
       const firstKid = kids[0] || null;
       const { subject, bodyText } = buildFamilyWelcomeEmailText({
@@ -514,6 +824,8 @@ export async function saveParentOnboarding(
         familyNickname,
         kidName: firstKid?.name ?? null,
         sleepMinutes: firstKid?.default_sleep_timer_minutes ?? 60,
+        futureTopics,
+        referralCode,
         site,
       });
       await enqueueEmail(db, {
@@ -524,6 +836,11 @@ export async function saveParentOnboarding(
         kind: "family_onboarding",
         dedupeKey: `family_onboarding:${userId}`,
       });
+
+      // If the child's birthday is today, also enqueue their Birthday Gift Email!
+      if (firstKid && isBirthdayMonthAndDay(firstKid.birth_date)) {
+        await enqueueBirthdayGiftEmail(db, userId, userEmail, firstKid, site);
+      }
     } catch {
       // Never block onboarding save if email outbox fails
     }
@@ -562,6 +879,7 @@ export async function listKidProfiles(
 export interface UpsertKidProfileInput {
   id?: string;
   name: string;
+  birth_date?: string | null;
   age?: number;
   age_group?: AgeGroup;
   avatar_key?: string;
@@ -588,9 +906,17 @@ export async function upsertKidProfile(
   const current = existingProfiles.find((p) => p.id === id) || null;
 
   const cleanName = String(input.name || current?.name || "Reader").trim().slice(0, 40) || "Reader";
-  const age = Number.isFinite(Number(input.age))
-    ? Math.max(1, Math.min(18, Math.round(Number(input.age))))
-    : (current?.age ?? 6);
+  const birthDate =
+    input.birth_date !== undefined
+      ? (input.birth_date ? String(input.birth_date).trim().slice(0, 16) : null)
+      : (current?.birth_date ?? null);
+  const dobAge = calculateAgeFromDob(birthDate);
+  const age =
+    dobAge !== null
+      ? dobAge
+      : Number.isFinite(Number(input.age))
+        ? Math.max(1, Math.min(18, Math.round(Number(input.age))))
+        : (current?.age ?? 6);
   const ageGroup: AgeGroup =
     input.age_group && (AGE_GROUPS as readonly string[]).includes(input.age_group)
       ? input.age_group
@@ -648,10 +974,11 @@ export async function upsertKidProfile(
   await db
     .prepare(
       `INSERT INTO kid_profiles
-         (id, user_id, name, age, age_group, avatar_key, favorite_themes, daily_limit_minutes, default_sleep_timer_minutes, bedtime_cutoff, allow_audio_autoplay, allowed_book_slugs, daily_minutes_used, daily_minutes_date, is_default, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         (id, user_id, name, birth_date, birthday_gift_sent_year, age, age_group, avatar_key, favorite_themes, daily_limit_minutes, default_sleep_timer_minutes, bedtime_cutoff, allow_audio_autoplay, allowed_book_slugs, daily_minutes_used, daily_minutes_date, is_default, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
+         birth_date = excluded.birth_date,
          age = excluded.age,
          age_group = excluded.age_group,
          avatar_key = excluded.avatar_key,
@@ -668,6 +995,8 @@ export async function upsertKidProfile(
       id,
       userId,
       cleanName,
+      birthDate,
+      current?.birthday_gift_sent_year ?? null,
       age,
       ageGroup,
       avatarKey,
@@ -783,7 +1112,8 @@ export async function saveReadingProgress(
       ? Math.max(0, Math.round(Number(input.page_index)))
       : (existing?.page_index ?? 0);
   const viewEdition: ReaderViewEdition =
-    input.view_edition && ["story", "coloring", "fullcolor", "cover"].includes(input.view_edition)
+    input.view_edition &&
+    ["story", "coloring", "fullcolor", "cover", "readalong"].includes(input.view_edition)
       ? input.view_edition
       : (existing?.view_edition ?? "story");
   const viewMode: ReaderViewMode =

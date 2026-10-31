@@ -76,10 +76,19 @@ const readableBooks = books.filter((b) => !b.audioOnly);
       {/* Edition + Mode + Sync Controls Bar */}
       <div class="flex flex-wrap items-center gap-2.5 bg-white rounded-xl border border-stone-200 p-2.5">
         <div
-          class="inline-flex rounded-xl bg-stone-100 p-1"
+          class="inline-flex flex-wrap rounded-xl bg-stone-100 p-1 gap-0.5"
           role="tablist"
           aria-label="Book edition view"
         >
+          <button
+            type="button"
+            role="tab"
+            data-qc-edition="readalong"
+            aria-selected="false"
+            class="qc-edition-btn rounded-lg text-orange-800 bg-orange-100/80 px-3 py-1.5 text-xs font-extrabold transition"
+          >
+            ✨ Read-Along (Auto-Flip)
+          </button>
           <button
             type="button"
             role="tab"
@@ -159,7 +168,7 @@ const readableBooks = books.filter((b) => !b.audioOnly);
           </button>
         </div>
 
-        <div class="ml-auto flex flex-wrap items-center gap-2">
+        <div class="ml-auto flex flex-wrap items-center gap-2.5">
           <label class="inline-flex items-center gap-1.5 text-xs font-bold text-stone-700 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -169,12 +178,21 @@ const readableBooks = books.filter((b) => !b.audioOnly);
             />
             <span>Sync with Audio</span>
           </label>
+          <label class="inline-flex items-center gap-1.5 text-xs font-bold text-orange-800 bg-orange-50 border border-orange-200 rounded-lg px-2.5 py-1 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              id="qc-auto-flip-check"
+              checked
+              class="rounded border-orange-300 text-orange-600 focus:ring-orange-500 w-4 h-4"
+            />
+            <span>Auto-Flip Pages</span>
+          </label>
           <button
             type="button"
             id="qc-listen-chapter-btn"
             class="inline-flex items-center gap-1.5 rounded-full bg-orange-600 text-white px-3.5 py-1.5 text-xs font-bold hover:bg-orange-700 active:scale-[0.97] transition"
           >
-            <span>▶ Listen to this chapter</span>
+            <span>▶ Read &amp; Flip Ch</span>
           </button>
         </div>
       </div>
@@ -230,10 +248,51 @@ const readableBooks = books.filter((b) => !b.audioOnly);
             </button>
           </div>
 
-          {/* Dynamic Stage Content */}
+          {/* Dynamic Stage Content: [ Story ] on top */}
           <div id="qc-stage-body" class="my-auto">
             <div class="py-16 text-center text-stone-400 text-sm">
               Loading your digital book...
+            </div>
+          </div>
+
+          {/* Inline Player & Controls Deck right below the story: [ Player and Controls ] */}
+          <div
+            id="qc-inline-theater-player"
+            class="mt-4 rounded-2xl bg-[#1a3454] text-white p-3.5 sm:p-4 shadow-md"
+            role="region"
+            aria-label="Story Read-Along Player and Controls"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  id="theater-play-btn"
+                  aria-label="Play or pause Read-Along story"
+                  class="w-11 h-11 rounded-full bg-orange-500 hover:bg-orange-400 text-[#1a3454] font-extrabold flex items-center justify-center shrink-0 active:scale-[0.95] transition"
+                >
+                  <span id="theater-play-icon">▶</span>
+                </button>
+                <div class="min-w-0">
+                  <p class="text-[11px] font-extrabold uppercase tracking-wider text-orange-300">
+                    Read-Along Player · Full Color + Auto-Flip
+                  </p>
+                  <p id="theater-now-playing" class="text-xs sm:text-sm font-bold text-white truncate">
+                    Press Play and the pages turn automatically as the narrator reads
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 ml-auto">
+                <span id="theater-time-pill" class="text-xs font-bold tabular-nums text-white/85">
+                  0:00 / 0:00
+                </span>
+                <span
+                  id="theater-sleep-pill"
+                  class="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold text-orange-200 tabular-nums"
+                >
+                  ⏱ 60m sleep stop
+                </span>
+              </div>
             </div>
           </div>
 

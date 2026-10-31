@@ -320,6 +320,7 @@ const audioBooks = books.filter((b) => Boolean(b.audiobook_key));
       pageIndex: 0,
       fontScale: 1,
       syncEnabled: true,
+      autoFlipEnabled: true,
       audioTracks: [],
       audioTrackIndex: -1,
       sleepModeMinutes: 60, // 0=off, >0=minutes, -1=end of chapter
@@ -401,6 +402,8 @@ const audioBooks = books.filter((b) => Boolean(b.audiobook_key));
       }
       if (badge) badge.textContent = label;
       if (dockPill) dockPill.textContent = label;
+      var theaterSleep = document.getElementById("theater-sleep-pill");
+      if (theaterSleep) theaterSleep.textContent = label;
     }
 
     function setSleepTimer(minutes) {
@@ -548,7 +551,7 @@ const audioBooks = books.filter((b) => Boolean(b.audiobook_key));
     }
 
     function renderPageCardHtml(p) {
-      var useColor = state.edition === "fullcolor";
+      var useColor = state.edition === "fullcolor" || state.edition === "readalong";
       var hideText = state.edition === "coloring";
       var imgUrl = useColor ? (p.colorUrl || p.lineUrl) : p.lineUrl;
       var fontRem = (1.02 * state.fontScale).toFixed(2);
@@ -722,9 +725,47 @@ const audioBooks = books.filter((b) => Boolean(b.audiobook_key));
       var iconPlay = document.getElementById("audio-icon-play");
       var iconPause = document.getElementById("audio-icon-pause");
       var dockSym = document.getElementById("dock-play-symbol");
+      var theaterSym = document.getElementById("theater-play-icon");
       if (iconPlay) iconPlay.classList.toggle("hidden", playing);
       if (iconPause) iconPause.classList.toggle("hidden", !playing);
       if (dockSym) dockSym.textContent = playing ? "❚❚" : "▶";
+      if (theaterSym) theaterSym.textContent = playing ? "❚❚" : "▶";
+    }
+
+    // Automatically turns the story page inside the current chapter as the
+    // narrator progresses through the chapter audio track.
+    function autoFlipPageForCurrentTime(currentTime, duration) {
+      if (!state.syncEnabled || (!state.autoFlipEnabled && state.edition !== "readalong")) return;
+      if (!duration || duration <= 0 || state.flatPages.length === 0) return;
+      var currentTrack = state.audioTracks[state.audioTrackIndex];
+      if (!currentTrack || currentTrack.chapter == null) return;
+      var chNum = currentTrack.chapter;
+      var chIndices = [];
+      var weights = [];
+      var totalWeight = 0;
+      for (var i = 0; i < state.flatPages.length; i++) {
+        if (state.flatPages[i].chapterNum === chNum) {
+          chIndices.push(i);
+          var w = Math.max(80, (state.flatPages[i].text || "").length + 80);
+          weights.push(w);
+          totalWeight += w;
+        }
+      }
+      if (chIndices.length <= 1 || totalWeight <= 0) return;
+      var progressRatio = Math.max(0, Math.min(0.999, currentTime / duration));
+      var targetWeight = progressRatio * totalWeight;
+      var accum = 0;
+      var chosenIdx = chIndices[0];
+      for (var j = 0; j < chIndices.length; j++) {
+        accum += weights[j];
+        if (targetWeight <= accum) {
+          chosenIdx = chIndices[j];
+          break;
+        }
+      }
+      if (chosenIdx !== state.pageIndex) {
+        setViewerPage(chosenIdx, false);
+      }
     }
 
     function renderAudioChapters() {
@@ -770,10 +811,13 @@ const audioBooks = books.filter((b) => Boolean(b.audiobook_key));
 
       var trackTitle = document.getElementById("audio-slot-track-title");
       var dockTrack = document.getElementById("dock-track-label");
+      var theaterNow = document.getElementById("theater-now-playing");
       var prevCh = document.getElementById("audio-prev-ch");
       var nextCh = document.getElementById("audio-next-ch");
-      if (trackTitle) trackTitle.textContent = t.label || ("Chapter " + (t.chapter || 1));
-      if (dockTrack) dockTrack.textContent = t.label || ("Chapter " + (t.chapter || 1));
+      var labelText = t.label || ("Chapter " + (t.chapter || 1));
+      if (trackTitle) trackTitle.textContent = labelText;
+      if (dockTrack) dockTrack.textContent = labelText;
+      if (theaterNow) theaterNow.textContent = labelText + " · Auto-flipping pages with narrator";
       if (prevCh) prevCh.disabled = idx <= 0;
       if (nextCh) nextCh.disabled = idx >= state.audioTracks.length - 1;
 
@@ -1016,6 +1060,25 @@ const audioBooks = books.filter((b) => Boolean(b.audiobook_key));
         });
       }
 
+      var autoFlipChk = document.getElementById("qc-auto-flip-check");
+      if (autoFlipChk) {
+        autoFlipChk.addEventListener("change", function () {
+          state.autoFlipEnabled = Boolean(autoFlipChk.checked);
+        });
+      }
+
+      var theaterPlayBtn = document.getElementById("theater-play-btn");
+      if (theaterPlayBtn) {
+        theaterPlayBtn.addEventListener("click", function () {
+          if (state.edition !== "readalong" && state.edition !== "fullcolor") {
+            state.edition = "readalong";
+            syncEditionButtons();
+            renderStage();
+          }
+          togglePlay();
+        });
+      }
+
       var listenChBtn = document.getElementById("qc-listen-chapter-btn");
       if (listenChBtn) {
         listenChBtn.addEventListener("click", function () {
@@ -1101,10 +1164,13 @@ const audioBooks = books.filter((b) => Boolean(b.audiobook_key));
           var slotEl = document.getElementById("audio-slot-elapsed");
           var slotDur = document.getElementById("audio-slot-duration");
           var dockTime = document.getElementById("dock-time-label");
+          var theaterTime = document.getElementById("theater-time-pill");
           if (slotEl) slotEl.textContent = elTxt;
           if (slotDur) slotDur.textContent = durTxt;
           if (dockTime) dockTime.textContent = elTxt + " / " + durTxt;
+          if (theaterTime) theaterTime.textContent = elTxt + " / " + durTxt;
           if (seek) seek.value = String(Math.round((audioEl.currentTime / audioEl.duration) * 1000));
+          autoFlipPageForCurrentTime(audioEl.currentTime, audioEl.duration);
         });
         audioEl.addEventListener("ended", function () {
           syncAudioUi(false);

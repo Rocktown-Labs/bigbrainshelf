@@ -10,6 +10,9 @@ import {
 } from "../src/lib/route-policy";
 import {
   classifyAgeGroup,
+  calculateAgeFromDob,
+  isBirthdayMonthAndDay,
+  generateReferralCode,
   computeOnboardingChecklist,
   ensureFamilyTables,
   getParentOnboarding,
@@ -20,8 +23,11 @@ import {
   deleteKidProfile,
   saveReadingProgress,
   getReadingProgress,
+  enqueueBirthdayGiftEmail,
   SLEEP_TIMER_PRESETS,
   KID_AVATARS,
+  CURRENT_TOPIC_OPTIONS,
+  FUTURE_TOPIC_OPTIONS,
 } from "../src/lib/family";
 import { renderOutboxEmailHtml } from "../src/lib/email-render";
 import * as corePkg from "../packages/core/src/index";
@@ -289,5 +295,106 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     const readPageSrc = readFileSync(resolve(root, "src/pages/read/[slug].astro"), "utf8");
     expect(readPageSrc).toContain('id="sleep-timer"');
     expect(readPageSrc).toContain('value="60" selected');
+  });
+
+  test("Onboarding captures TOS, marketing opt-in, current & future topics, DOB, Birthday Gift email, referrals, and Read-Along auto-flip", async () => {
+    const db = makeD1FromSqlite();
+    await ensureFamilyTables(db);
+
+    expect(calculateAgeFromDob("2020-05-15", new Date("2026-06-01T00:00:00Z"))).toBe(6);
+    expect(isBirthdayMonthAndDay("2020-10-31", "2026-10-31")).toBe(true);
+    expect(isBirthdayMonthAndDay("2020-10-31", "2026-11-01")).toBe(false);
+
+    const refCode = generateReferralCode("Alex", "user_ref_99");
+    expect(refCode).toContain("ALEX-");
+
+    expect(CURRENT_TOPIC_OPTIONS.map((t) => t.id)).toEqual(["tech", "finance", "courage"]);
+    expect(FUTURE_TOPIC_OPTIONS.some((t) => t.id === "science")).toBe(true);
+    expect(FUTURE_TOPIC_OPTIONS.some((t) => t.id === "history")).toBe(true);
+    expect(FUTURE_TOPIC_OPTIONS.some((t) => t.id === "math")).toBe(true);
+
+    const kid = await upsertKidProfile(db, "user_bday", {
+      name: "Zoe",
+      birth_date: "2020-04-12",
+      avatar_key: "mira",
+      favorite_topics: ["tech", "courage"],
+    });
+    expect(kid.birth_date).toBe("2020-04-12");
+    expect(kid.age_group).toBe("4-8");
+
+    const ob = await saveParentOnboarding(
+      db,
+      "user_bday",
+      "zoe-parent@example.com",
+      {
+        parent_name: "Jordan",
+        favorite_topics: ["tech", "courage"],
+        future_topics: ["science", "history", "math"],
+        custom_topic_request: "Ancient Egypt & Volcanoes",
+        tos_accepted: true,
+        marketing_opt_in: true,
+        mark_complete: true,
+      },
+      "https://bigbrainshelf.com"
+    );
+    expect(ob.tos_accepted).toBe(true);
+    expect(ob.tos_accepted_at).toBeGreaterThan(0);
+    expect(ob.marketing_opt_in).toBe(true);
+    expect(ob.favorite_topics).toEqual(["tech", "courage"]);
+    expect(ob.future_topics).toEqual(["science", "history", "math"]);
+    expect(ob.custom_topic_request).toBe("Ancient Egypt & Volcanoes");
+    expect(ob.referral_code.startsWith("JORDAN-")).toBe(true);
+
+    // Verify marketing opt-in synced to newsletter_subscribers
+    const subRow = await db
+      .prepare("SELECT email, source FROM newsletter_subscribers WHERE email = ?")
+      .bind("zoe-parent@example.com")
+      .first();
+    expect(subRow?.email).toBe("zoe-parent@example.com");
+
+    // Trigger Birthday Gift email and verify outbox + React Email HTML rendering
+    const giftQueued = await enqueueBirthdayGiftEmail(
+      db,
+      "user_bday",
+      "zoe-parent@example.com",
+      "Jordan",
+      kid,
+      "https://bigbrainshelf.com"
+    );
+    expect(giftQueued).toBe(true);
+
+    const bdayOutbox = (
+      await db
+        .prepare("SELECT * FROM email_outbox WHERE kind = 'birthday_gift'")
+        .bind()
+        .all()
+    ).results as any[];
+    expect(bdayOutbox.length).toBe(1);
+    expect(bdayOutbox[0].subject).toContain("Happy Birthday, Zoe!");
+    const bdayHtml = await renderOutboxEmailHtml(db, "https://bigbrainshelf.com", bdayOutbox[0]);
+    expect(bdayHtml).toContain("Happy Birthday, Zoe!");
+    expect(bdayHtml).toContain("Open Zoe");
+
+    // Verify Read-Along Theater Mode & Referrals markup
+    const viewerSrc = readFileSync(
+      resolve(root, "src/components/CustomerBookViewer.astro"),
+      "utf8"
+    );
+    expect(viewerSrc).toContain('data-qc-edition="readalong"');
+    expect(viewerSrc).toContain("qc-inline-theater-player");
+    expect(viewerSrc).toContain("qc-auto-flip-check");
+
+    const audioDockSrc = readFileSync(
+      resolve(root, "src/components/CustomerAudioDock.astro"),
+      "utf8"
+    );
+    expect(audioDockSrc).toContain("autoFlipPageForCurrentTime");
+
+    const accountSrc = readFileSync(resolve(root, "src/pages/account/index.astro"), "utf8");
+    expect(accountSrc).toContain('id="referrals"');
+    expect(accountSrc).toContain('name="future_topics"');
+    expect(accountSrc).toContain('name="tos_accepted"');
+    expect(accountSrc).toContain('name="marketing_opt_in"');
+    expect(accountSrc).toContain('name="kid_birth_date"');
   });
 });

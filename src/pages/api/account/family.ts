@@ -6,8 +6,12 @@ import {
   SLEEP_TIMER_PRESETS,
   DAILY_LIMIT_PRESETS,
   READING_GOAL_OPTIONS,
+  CURRENT_TOPIC_OPTIONS,
+  FUTURE_TOPIC_OPTIONS,
+  DISCOVERY_SOURCE_OPTIONS,
   computeOnboardingChecklist,
   deleteKidProfile,
+  enqueueBirthdayGiftEmail,
   getParentOnboarding,
   listKidProfiles,
   listReadingProgress,
@@ -50,6 +54,9 @@ export const GET: APIRoute = async ({ request }) => {
     sleepPresets: SLEEP_TIMER_PRESETS,
     dailyLimitPresets: DAILY_LIMIT_PRESETS,
     readingGoalOptions: READING_GOAL_OPTIONS,
+    currentTopicOptions: CURRENT_TOPIC_OPTIONS,
+    futureTopicOptions: FUTURE_TOPIC_OPTIONS,
+    discoverySourceOptions: DISCOVERY_SOURCE_OPTIONS,
   });
 };
 
@@ -76,20 +83,37 @@ export const POST: APIRoute = async ({ request, url }) => {
     return json({ ok: valid, valid }, valid ? 200 : 403);
   }
 
+  if (action === "send_birthday_gift") {
+    if (!userEmail) {
+      return json({ error: "Account email required" }, 400);
+    }
+    const kids = await listKidProfiles(db, userId);
+    const targetKid =
+      (body.profile_id && kids.find((k) => k.id === String(body.profile_id))) || kids[0] || null;
+    if (!targetKid) {
+      return json({ error: "Add a child profile first to send a birthday gift" }, 400);
+    }
+    await enqueueBirthdayGiftEmail(db, userId, userEmail, targetKid, url.origin);
+    return json({ ok: true, sentTo: userEmail, kidName: targetKid.name });
+  }
+
   if (action === "save_onboarding") {
     // If customer also included a first kid profile in the onboarding wizard,
-    // upsert it first so the welcome email can personalize with the child's name.
+    // upsert it first so the welcome email and birthday gift can personalize with the child's name.
     let savedKid = null;
     if (body.kid_profile && body.kid_profile.name) {
       savedKid = await upsertKidProfile(db, userId, {
         id: body.kid_profile.id,
         name: String(body.kid_profile.name),
+        birth_date: body.kid_profile.birth_date || null,
         age: Number(body.kid_profile.age || 6),
         age_group: body.kid_profile.age_group,
         avatar_key: body.kid_profile.avatar_key || "mira",
         favorite_themes: Array.isArray(body.kid_profile.favorite_themes)
           ? body.kid_profile.favorite_themes
-          : [],
+          : Array.isArray(body.favorite_topics)
+            ? body.favorite_topics
+            : [],
         daily_limit_minutes:
           body.kid_profile.daily_limit_minutes !== undefined
             ? Number(body.kid_profile.daily_limit_minutes)
@@ -116,6 +140,13 @@ export const POST: APIRoute = async ({ request, url }) => {
         family_nickname: body.family_nickname,
         discovery_source: body.discovery_source,
         reading_goals: Array.isArray(body.reading_goals) ? body.reading_goals : undefined,
+        favorite_topics: Array.isArray(body.favorite_topics) ? body.favorite_topics : undefined,
+        future_topics: Array.isArray(body.future_topics) ? body.future_topics : undefined,
+        custom_topic_request: body.custom_topic_request,
+        tos_accepted: body.tos_accepted !== undefined ? Boolean(body.tos_accepted) : undefined,
+        marketing_opt_in:
+          body.marketing_opt_in !== undefined ? Boolean(body.marketing_opt_in) : undefined,
+        referred_by_code: body.referred_by_code,
         parent_pin: body.parent_pin,
         onboarding_step: body.onboarding_step,
         mark_complete: Boolean(body.mark_complete),
