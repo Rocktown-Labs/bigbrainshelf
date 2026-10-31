@@ -1,0 +1,128 @@
+{
+ "bookTitle": "Wally the Whale and the Great Harbor",
+ "bigIdea": "Put your stuff in a crate with everything it needs, and it works on every island.",
+ "characters": [
+  {
+   "name": "Wally",
+   "species": "whale",
+   "source": "cover",
+   "personality": [
+    "kind",
+    "a little impatient"
+   ],
+   "want": "deliver every friend's cargo to every island exactly as packed, with no surprises",
+   "visual": "chubby friendly whale in side view, smooth rounded body, five simple curved belly stripes, one big round eye, small flat captain's cap on top of head, no arms, small fins",
+   "realMapsTo": "the Docker daemon/server (does the heavy work)"
+  },
+  {
+   "name": "Pip",
+   "species": "sea otter",
+   "source": "invented",
+   "personality": [
+    "curious",
+    "maker"
+   ],
+   "want": "pack everything perfectly",
+   "visual": "small sea otter standing upright, round head, two small round ears, short whiskers, striped scarf, two paws held in front of chest, short tail",
+   "realMapsTo": "the app owner/developer (packs the cargo)"
+  },
+  {
+   "name": "Skipper",
+   "species": "seagull",
+   "source": "invented",
+   "personality": [
+    "loud",
+    "bossy",
+    "kind"
+   ],
+   "want": "give clear orders",
+   "visual": "round seagull standing on a wooden post, open pointed beak, small sailor hat, two thin legs, wings folded at sides, megaphone on a stand beside him",
+   "realMapsTo": "the Docker client (gives the orders)"
+  }
+ ],
+ "setting": "a busy island harbor with docks, a packing shed, a lighthouse, a library, open sea lanes, and a village",
+ "locations": [
+  "Harbor Dock",
+  "Packing Shed",
+  "Lighthouse",
+  "Harbor Library",
+  "Open Sea Lanes",
+  "Island Village"
+ ],
+ "conceptLadder": [
+  {
+   "storyChapter": "S1",
+   "sourceRef": "Ch.1 pp.1-8",
+   "title": "The Island Mix-Up",
+   "idea": "A container wraps one app with everything it needs, so it runs the same anywhere.",
+   "mechanism": "Pack code plus its exact tools into a sealed standard box. The box runs identically on any machine. The old way (virtual machine) builds a whole computer per app, which is heavy and slow.",
+   "buildsOn": "none",
+   "core": true,
+   "metaphor": "a sealed sea-chest; old way = a whole little ship per parcel",
+   "fidelity": "simplified",
+   "simplificationHides": "crates share the host's engine (corrected in S16)",
+   "location": "Harbor Dock",
+   "failureCase": "Pip's cake works at home but arrives flat on the island"
+  },
+  {
+   "storyChapter": "S2",
+   "sourceRef": "Ch.2 pp.9-31",
+   "title": "Skipper's Shouting Post",
+   "idea": "Docker is two parts: the client gives orders, the server (daemon) does the work, talking over an agreed API.",
+   "mechanism": "The client sends commands. The daemon receives them and does the heavy work (building, running, stopping). They communicate via API, so the client can be on a different machine.",
+   "buildsOn": "S1 crates",
+   "core": true,
+   "metaphor": "megaphone and signal flags; Skipper shouts, Wally works",
+   "fidelity": "accurate",
+   "simplificationHides": "",
+   "location": "Lighthouse",
+   "failureCase": "Skipper shouts but nobody answers; he's pointing at the wrong bay"
+  },
+  {
+   "storyChapter": "S3",
+   "sourceRef": "Ch.3 pp.33-49",
+   "title": "Wally's Floating Tank",
+   "idea": "On Mac and Windows, the Docker server needs a hidden Linux VM to live in.",
+   "mechanism": "Docker's server is a Linux program. On Mac/Windows it runs inside a small Linux virtual machine. Install both halves, then test with a tiny hello-world container.",
+   "buildsOn": "S2 client and server",
+   "core": true,
+   "metaphor": "a floating water tank giving Wally water on a dry shore",
+   "fidelity": "accurate",
+   "simplificationHides": "",
+   "location": "Open Sea Lanes",
+   "failureCase": "Skipper shouts and Wally can't move on dry land"
+  }
+ ],
+ "arc": {
+  "act1": "S1-S3: Wally learns the crate idea, meets Skipper, gets set up",
+  "act2": "S4-S12: building well and keeping crates running well",
+  "act3": "S13-S18: one crate becomes a fleet, then a self-healing system"
+ },
+ "runningGags": [
+  "The hello-world crate from S3 appears in every later chapter, getting more decorated",
+  "Skipper shouts orders through a megaphone; by S15 he uses flags, in S18 he just nods",
+  "The island on the horizon gains a light each time a delivery goes right"
+ ],
+ "vocab": [
+  {
+   "term": "Container",
+   "storyName": "crate"
+  },
+  {
+   "term": "Image",
+   "storyName": "finished model"
+  },
+  {
+   "term": "Dockerfile",
+   "storyName": "Instruction Booklet"
+  },
+  {
+   "term": "Client",
+   "storyName": "Skipper's orders"
+  },
+  {
+   "term": "Daemon",
+   "storyName": "Wally's work"
+  }
+ ]
+}
