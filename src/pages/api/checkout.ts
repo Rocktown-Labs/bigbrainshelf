@@ -12,6 +12,11 @@ import {
   isAddressInvalidError,
   type LabelQuote,
 } from "../../lib/shippo";
+import {
+  shippingQuoteFingerprint,
+  storeShippingQuote,
+  loadShippingQuote,
+} from "../../lib/shipping-quotes";
 import { resolveInternalSlug } from "../../lib/public-slugs";
 
 
@@ -46,10 +51,17 @@ import { resolveInternalSlug } from "../../lib/public-slugs";
 // for the cart's combined parcels, picks the cheapest qualifying
 // USPS/UPS rate, and shows carrier, service and the exact amount
 // before payment. Two calls run this:
-//   { action: "quote", items, address }  -> the quote alone, no order
-//   { items, address }                   -> re-quotes fresh, stores the
-//      quote and address on the pending order, and creates the Stripe
-//      session carrying that exact amount as a fixed shipping option.
+//   { action: "quote", items, address }  -> the quote alone, no order;
+//      the quote is stored server-side and its id rides the response.
+//   { items, address, quote_id }         -> reuses the stored preview
+//      quote when it is fresh and matches this buyer, cart and ZIP
+//      (a fresh re-quote could pick a different cheapest rate and
+//      charge more than the buyer confirmed; that mismatch shipped
+//      once, $6.28 shown vs $6.36 charged, and is the bug the stored
+//      quote fixes). Falls back to a fresh quote when there is no
+//      usable stored one. Stores the quote and address on the
+//      pending order and creates the Stripe session carrying that
+//      exact amount as a fixed shipping option.
 // A client-sent shipping amount is never read, in either call. If
 // Shippo cannot quote (after one retry), a physical checkout fails
 // with a plain try-again error rather than guessing a fee; digital
@@ -210,11 +222,12 @@ export const POST: APIRoute = async ({ request }) => {
   const itemsTotal = lineItems.reduce((sum, li) => sum + (li.price_data.unit_amount || 0) * (li.quantity || 1), 0);
 
   // --- Pass-through shipping: destination in, server-side quote out.
-  // Runs for BOTH the quote preview and the real checkout, so what the
-  // buyer was shown and what the session charges come from the same
-  // code path (the real checkout simply quotes again, fresh).
+  // The preview stores its quote; the pay call reuses that exact
+  // quote (same code path AND same numbers), so what the buyer was
+  // shown is what the session charges.
   let quote: LabelQuote | null = null;
   let dest: ReturnType<typeof normalizeShipDestination> | null = null;
+  let quoteFingerprint = "";
   if (physical) {
     dest = normalizeShipDestination(body?.address);
     if (!dest.name && user) dest.name = String(user.name || "");
@@ -228,7 +241,19 @@ export const POST: APIRoute = async ({ request }) => {
     // A guest's email is not known yet (Stripe collects it at
     // payment); the quote itself does not need one.
     dest.email = buyerEmail;
-    try {
+    quoteFingerprint = shippingQuoteFingerprint({
+      buyerKey: buyerId,
+      state: String(dest.address?.state || ""),
+      zip: String(dest.address?.postal_code || ""),
+      country: String(dest.address?.country || ""),
+      items: bought,
+    });
+    // Pay call with a preview quote id: reuse the buyer's confirmed
+    // quote instead of re-quoting into a possibly different rate.
+    if (action !== "quote" && body?.quote_id) {
+      quote = await loadShippingQuote(e.DB, String(body.quote_id), quoteFingerprint).catch(() => null);
+    }
+    if (!quote) try {
       quote = await quoteShippingWithRetry(e, dest, bought);
     } catch (err) {
       // An address Shippo validated as undeliverable is the buyer's
@@ -252,15 +277,21 @@ export const POST: APIRoute = async ({ request }) => {
   const total = itemsTotal + shippingCents;
 
   if (action === "quote") {
-    // Preview only: no order is created and nothing is stored. The
-    // real checkout below re-quotes, so a stale preview can never set
-    // the charge.
+    // Preview only: no order is created. The quote itself is stored
+    // under an id the page carries into the pay call, which reuses
+    // it verbatim while it is fresh; a stale or mismatched id falls
+    // back to a fresh quote, so an old preview can never set a
+    // charge the buyer did not just confirm.
+    const quoteId = quote
+      ? await storeShippingQuote(e.DB, quote, quoteFingerprint).catch(() => null)
+      : null;
     return Response.json({
       ok: true,
       physical,
       items_total: itemsTotal,
       shipping: quote
         ? {
+            quote_id: quoteId,
             carrier: quote.carrier,
             service: quote.service,
             amount_cents: quote.amountCents,
@@ -268,8 +299,7 @@ export const POST: APIRoute = async ({ request }) => {
             // Shippo's standardized destination when validation ran
             // (null when it returned no verdict). The checkout page
             // adopts it, so the address the buyer confirms in the
-            // shipping step is the deliverable one the pay call
-            // re-quotes and the order stores.
+            // shipping step is the deliverable one the order stores.
             validated_address: quote.validatedAddress ?? null,
           }
         : null,

@@ -259,6 +259,7 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
       function resetQuote() {
         if (!view.quoted && !view.shippingConfirmed) return;
         view.quoted = null;
+        view.quoteId = null;
         view.shippingConfirmed = false;
         document.getElementById("ship-amount").textContent = "Calculated from your address";
         document.getElementById("total").textContent = store.money(view.total);
@@ -405,8 +406,8 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
       // an undeliverable address comes back as an error and the step
       // stays open with Shippo's explanation. On success the page
       // adopts Shippo's standardized address when one came back, so
-      // what the buyer confirms, the pay call re-quotes, and the
-      // order stores are the same deliverable address.
+      // what the buyer confirms is the deliverable address the order
+      // stores, and the pay call charges the stored preview quote.
       step1Continue.addEventListener("click", async function () {
         var btn = this;
         btn.disabled = true; step1Err.classList.add("hidden");
@@ -420,6 +421,7 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
           var qd = await qr.json().catch(function () { return {}; });
           if (!qr.ok || !qd.shipping) throw new Error(qd.error || "Could not get a shipping quote.");
           view.quoted = qd.shipping;
+          view.quoteId = qd.shipping.quote_id || null;
           var va = qd.shipping.validated_address;
           var note = document.getElementById("validated-note");
           note.classList.add("hidden");
@@ -469,13 +471,13 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
           // Guests check out too (one-time purchases). The server
           // applies account pricing credits from the session itself;
           // guest_id only dedupes the guest's order. Physical carts
-          // re-quote fresh server-side inside this call, so the
-          // charge always matches a quote taken moments ago for the
-          // address on screen.
+          // carry the preview's quote_id, and the server charges
+          // that exact stored quote, so the amount never drifts
+          // between the shipping step and Stripe.
           var r = await fetch("/api/checkout", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(view.physical ? { items: view.items, address: readAddress(), guest_id: store.bbsGuestId() } : { items: view.items, guest_id: store.bbsGuestId() }),
+            body: JSON.stringify(view.physical ? { items: view.items, address: readAddress(), guest_id: store.bbsGuestId(), quote_id: view.quoteId || undefined } : { items: view.items, guest_id: store.bbsGuestId() }),
           });
           var data = await r.json().catch(function () { return {}; });
           if (!r.ok || !data.url) throw new Error(data.error || "Checkout failed.");
