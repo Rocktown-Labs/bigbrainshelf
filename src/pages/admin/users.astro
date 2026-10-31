@@ -18,7 +18,7 @@ export const prerender = false;
   </style>
 </head>
 <body class="bg-stone-50 text-stone-900 antialiased">
-<AdminShell title="Users">
+<AdminShell current="/admin/users" />
   <main class="px-4 py-5 sm:px-7 max-w-6xl mx-auto w-full">
     <h1 class="text-2xl font-extrabold tracking-tight">Users</h1>
     <p class="text-sm text-stone-500 mt-1">Storefront accounts. Admin stays scoped to your own addresses.</p>
@@ -46,7 +46,6 @@ export const prerender = false;
     </div>
     <p id="user-count" class="mt-2 text-xs text-stone-400"></p>
   </main>
-</AdminShell>
 <script is:inline>
   var esc = function (s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
   var users = [];

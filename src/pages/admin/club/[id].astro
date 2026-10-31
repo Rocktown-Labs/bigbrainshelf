@@ -65,7 +65,7 @@ const shortId = (id: any) => "#" + String(id || "").replace(/-/g, "").slice(0, 8
   </style>
 </head>
 <body class="bg-stone-50 text-stone-900 antialiased">
-  <AdminShell current="/admin/club" title="Club member">
+  <AdminShell current="/admin/club" />
     <p class="text-sm"><a class="text-orange-700 font-semibold" href="/admin/club">← Back to Club</a></p>
     {!member ? (
       <p class="mt-4 text-red-600 text-sm">Member not found.</p>
@@ -135,6 +135,5 @@ const shortId = (id: any) => "#" + String(id || "").replace(/-/g, "").slice(0, 8
         </div>
       </div>
     )}
-  </AdminShell>
 </body>
 </html>
