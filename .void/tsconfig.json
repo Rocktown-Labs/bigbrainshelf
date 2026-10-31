@@ -1,0 +1,19 @@
+{
+  "files": [
+    "db.d.ts",
+    "env.d.ts"
+  ],
+  "compilerOptions": {
+    "paths": {
+      "void/db": [
+        "./db.d.ts"
+      ],
+      "@schema": [
+        "../db/schema.ts"
+      ],
+      "@schema/*": [
+        "../db/schema/*"
+      ]
+    }
+  }
+}
