@@ -54,7 +54,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
     let orders: any[] = [];
     try {
       const o = await e.DB.prepare(
-        "SELECT id, amount, currency, status, physical_status, created_at, items, book_slugs FROM orders WHERE email = ? ORDER BY created_at DESC LIMIT 20"
+        "SELECT id, amount, currency, status, physical_status, created_at, items, book_slugs, ship_name, ship_address, shipping_cents FROM orders WHERE email = ? ORDER BY created_at DESC LIMIT 20"
       ).bind(String((member as any).email || "")).all();
       orders = (o.results || []) as any[];
       // What they actually bought, in public titles (never slugs),
@@ -71,7 +71,41 @@ export const GET: APIRoute = async ({ locals, url }) => {
     const totalSpent = (orders as any[])
       .filter((o) => o.status === "complete")
       .reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
-    return Response.json({ member, boxes, orders, total_spent_cents: totalSpent });
+    // Ships-to snapshot: the most recent physical order's address,
+    // lifted out so the drawer shows it once instead of per order.
+    let shipping: any = null;
+    for (const ord of orders as any[]) {
+      if (!shipping && (ord.ship_name || ord.ship_address)) {
+        let addr: any = ord.ship_address;
+        if (typeof addr === "string") { try { addr = JSON.parse(addr); } catch { addr = { raw: addr }; } }
+        shipping = { name: ord.ship_name || "", address: addr };
+      }
+      delete ord.ship_name;
+      delete ord.ship_address;
+    }
+    // The linked store account (CG, 2026-10-31: "know everything
+    // about this customer"): identity, standing, and the account's
+    // own Stripe customer, which is distinct from the club's.
+    let account: any = null;
+    try {
+      await e.DB.prepare("ALTER TABLE user ADD COLUMN stripe_customer_id TEXT").run().catch(() => {});
+      const byId = (member as any).user_id
+        ? await e.DB.prepare("SELECT id, name, email, emailVerified, role, banned, createdAt, stripe_customer_id FROM user WHERE id = ?").bind(String((member as any).user_id)).first().catch(() => null)
+        : null;
+      account = byId || await e.DB.prepare("SELECT id, name, email, emailVerified, role, banned, createdAt, stripe_customer_id FROM user WHERE lower(email) = lower(?)").bind(String((member as any).email || "")).first().catch(() => null);
+    } catch { /* account link is a bonus */ }
+    // Reviews this customer has written, any status.
+    let reviews: any[] = [];
+    try {
+      const rv = await e.DB.prepare(
+        `SELECT r.rating, r.status, r.created_at, b.title AS book_title
+           FROM reviews r LEFT JOIN books b ON b.slug = r.book_slug
+          WHERE r.user_id = ? OR lower(r.user_email) = lower(?)
+          ORDER BY r.created_at DESC LIMIT 10`
+      ).bind(String((member as any).user_id || ""), String((member as any).email || "")).all();
+      reviews = (rv.results || []) as any[];
+    } catch { /* reviews are a bonus */ }
+    return Response.json({ member, boxes, orders, total_spent_cents: totalSpent, shipping, account, reviews });
   }
   const rows = await e.DB.prepare(
     "SELECT id, name, email, shelf, status, created_at, plan, club_plan, user_id, paid_at, first_ship_date, stripe_subscription_id, subscription_status, payment_failed_at FROM club_signups ORDER BY created_at DESC LIMIT 500"

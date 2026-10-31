@@ -38,6 +38,9 @@ export const prerender = false;
     .bchip-awaiting_selection,.bchip-preparing{background:#fffbeb;color:#b45309}
     .bchip-locked{background:#eef4fb;color:#1a3454}
     .bchip-shipped,.bchip-delivered{background:#ecfdf5;color:#047857}
+    .bchip-good{background:#ecfdf5;color:#047857}
+    .bchip-bad{background:#fef2f2;color:#b91c1c}
+    .mono{font-family:ui-monospace,monospace;font-size:.72rem;word-break:break-all}
     input,select,textarea{font-size:16px}
     .ctl{width:100%;min-height:44px;border:1px solid #d6d3d1;border-radius:8px;padding:8px 10px;background:#fff}
     .abtn{min-height:44px;border-radius:8px;background:#1c1917;color:#fff;font-weight:700;font-size:.85rem;padding:8px 16px;white-space:nowrap}
@@ -104,8 +107,11 @@ export const prerender = false;
     <div id="member-drawer" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-label="Member details">
       <div class="absolute inset-0 bg-stone-950/50" data-mdrawer-close></div>
       <aside class="panel absolute right-0 top-0 h-full w-[min(92vw,430px)] bg-white shadow-2xl overflow-y-auto">
-        <div class="sticky top-0 bg-white border-b border-stone-200 px-5 py-3.5 flex items-center justify-between">
-          <h3 class="font-extrabold tracking-tight">Member</h3>
+        <div class="sticky top-0 bg-white border-b-2 border-orange-500 px-5 py-3 flex items-center justify-between z-10">
+          <span class="flex items-center gap-2.5">
+            <img src="/logo-stacked.png" alt="Big Brain Shelf" class="h-7 w-auto" />
+            <h3 class="font-extrabold tracking-tight">Member</h3>
+          </span>
           <button id="mdrawer-close" type="button" class="text-2xl leading-none text-stone-400 hover:text-stone-700 px-1" aria-label="Close member details">&times;</button>
         </div>
         <div id="member-drawer-body" class="px-5 py-4"></div>
@@ -290,30 +296,84 @@ export const prerender = false;
       var drawerMemberId = null;
       var moneyC = function (c) { return "$" + ((Number(c) || 0) / 100).toFixed(2); };
       var shortOid = function (id) { return "#" + String(id || "").replace(/-/g, "").slice(0, 8).toUpperCase(); };
+      var fmtTs = function (ts) {
+        // Account rows carry millisecond epochs; club rows seconds.
+        if (!ts) return "–";
+        var ms = typeof ts === "number" ? (ts > 4102444800 ? ts : ts * 1000) : ts;
+        return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      };
       var panelHtml = function (d) {
         var m = d.member || {};
         var ords = d.orders || [];
+        var acct = d.account || null;
+        var boxes = d.boxes || [];
+        var revs = d.reviews || [];
         var fact = function (k, v) { return '<div class="flex justify-between gap-4 py-1 border-b border-stone-100 last:border-0"><span class="text-stone-500">' + k + '</span><span class="font-semibold text-right">' + v + "</span></div>"; };
-        var h = '<div class="grid sm:grid-cols-2 gap-x-8 gap-y-0 text-sm">' +
-          fact("Club", esc(m.club_plan === "audio" ? "The Audio Club" : "The Book Club") + " · " + esc(m.plan === "annual" ? "Annual" : m.plan === "monthly" ? "Monthly" : "Quarterly")) +
-          fact("Joined", esc(fmtDate(m.created_at))) +
-          fact("Store account", m.user_id ? "Linked" : "No account yet") +
-          fact("Orders", ords.length + " · " + moneyC(d.total_spent_cents) + " total") +
+        var section = function (t) { return '<p class="mt-5 mb-1 text-xs font-bold uppercase tracking-wide text-stone-400">' + t + "</p>"; };
+        var clubLabel = (m.club_plan === "audio" ? "The Audio Club" : "The Book Club") + " · " + (m.plan === "annual" ? "Annual" : m.plan === "monthly" ? "Monthly" : "Quarterly");
+        var billing = m.canceled_at ? '<span class="bchip bchip-bad">Canceled ' + esc(fmtDate(m.canceled_at)) + "</span>"
+          : m.payment_failed_at ? '<span class="bchip bchip-bad">Payment failed ' + esc(fmtDate(m.payment_failed_at)) + "</span>"
+          : '<span class="bchip bchip-good">' + esc(humanStatus(m.subscription_status || m.status || "active")) + "</span>";
+        // Identity header: who this customer is, at a glance.
+        var h = '<div class="rounded-xl bg-stone-50 border border-stone-200 px-4 py-3.5">' +
+          '<p class="text-lg font-extrabold tracking-tight leading-tight">' + esc(m.name || acct?.name || m.email || "Member") + "</p>" +
+          '<p class="text-sm text-stone-500">' + esc(m.email || "") + "</p>" +
+          '<p class="mt-2 flex flex-wrap gap-1.5"><span class="bchip" style="background:#1c1917;color:#fff">' + esc(clubLabel) + "</span> " + billing + "</p></div>";
+        // Club and billing.
+        h += section("Club & billing") + '<div class="text-sm">' +
+          fact("Joined the club", esc(fmtDate(m.created_at))) +
+          (m.paid_at ? fact("First paid", esc(fmtDate(m.paid_at))) : "") +
+          (m.first_ship_date ? fact("First box ships", esc(m.first_ship_date)) : "") +
+          (m.shelf ? fact("Shelf", esc(humanStatus(m.shelf))) : "") +
           "</div>";
-        if (ords.length) {
-          h += '<p class="mt-3 text-xs font-bold uppercase tracking-wide text-stone-400">What they ordered</p>' +
-            ords.map(function (o) {
-              return '<div class="flex justify-between gap-4 py-1.5 border-b border-stone-100 last:border-0 text-sm"><span><a class="font-semibold text-orange-700" href="/admin/orders/' + o.id + '">' + shortOid(o.id) + "</a> <span class=\"text-stone-400\">" + esc(fmtDate(o.created_at)) + "</span><br><span class=\"text-stone-600\">" + (o.items_display || []).map(esc).join("<br>") + "</span></span>" +
-                '<span class="font-semibold whitespace-nowrap">' + moneyC(o.amount) + (o.physical_status ? ' <span class="bchip">' + esc(humanStatus(o.physical_status)) + "</span>" : "") + "</span></div>";
-            }).join("");
+        // Store account.
+        h += section("Store account");
+        if (acct) {
+          h += '<div class="text-sm">' +
+            fact("Account", "Linked" + (acct.emailVerified ? " · email verified" : "")) +
+            (acct.name && acct.name !== m.name ? fact("Account name", esc(acct.name)) : "") +
+            fact("Member since", esc(fmtTs(acct.createdAt))) +
+            (acct.role && acct.role !== "user" ? fact("Role", esc(acct.role)) : "") +
+            (acct.banned ? fact("Standing", '<span class="bchip bchip-bad">Banned</span>') : "") +
+            "</div>";
+        } else {
+          h += '<p class="text-sm text-stone-500">No store account linked yet. Their orders still match by email.</p>';
         }
-        var boxes = (d.boxes || []);
+        // Orders.
+        h += section("Orders · " + ords.length + " · " + moneyC(d.total_spent_cents) + " lifetime");
+        if (ords.length) {
+          h += ords.map(function (o) {
+            return '<div class="flex justify-between gap-4 py-1.5 border-b border-stone-100 last:border-0 text-sm"><span><a class="font-semibold text-orange-700" href="/admin/orders/' + o.id + '">' + shortOid(o.id) + "</a> <span class=\"text-stone-400\">" + esc(fmtDate(o.created_at)) + "</span><br><span class=\"text-stone-600\">" + (o.items_display || []).map(esc).join("<br>") + "</span></span>" +
+              '<span class="font-semibold whitespace-nowrap text-right">' + moneyC(o.amount) + (o.shipping_cents ? '<br><span class="text-xs font-medium text-stone-400">+ ' + moneyC(o.shipping_cents) + " shipping</span>" : "") + (o.physical_status ? '<br><span class="bchip">' + esc(humanStatus(o.physical_status)) + "</span>" : "") + "</span></div>";
+          }).join("");
+        } else {
+          h += '<p class="text-sm text-stone-500">No store orders yet.</p>';
+        }
+        // Ships to.
+        if (d.shipping && (d.shipping.name || d.shipping.address)) {
+          var a = d.shipping.address || {};
+          var lines = a.raw ? [a.raw] : [a.line1, a.line2, [a.city, a.state, a.postal_code].filter(Boolean).join(", "), a.country].filter(Boolean);
+          h += section("Ships to") + '<p class="text-sm">' + (d.shipping.name ? "<span class=\"font-semibold\">" + esc(d.shipping.name) + "</span><br>" : "") + lines.map(esc).join("<br>") + "</p>";
+        }
+        // Boxes.
         if (boxes.length) {
-          h += '<p class="mt-3 text-xs font-bold uppercase tracking-wide text-stone-400">Boxes</p>' + boxes.map(function (b) {
+          h += section("Boxes") + boxes.map(function (b) {
             return '<div class="flex justify-between py-1 border-b border-stone-100 last:border-0 text-sm"><span>' + esc(b.ship_date) + '</span><span class="font-semibold">' + esc(humanStatus(b.status)) + (b.tracking_number ? ' <span class="text-stone-400">' + esc(b.tracking_number) + "</span>" : "") + "</span></div>";
           }).join("");
         }
-        h += '<p class="mt-3 text-xs text-stone-400">Stripe customer ' + esc(m.stripe_customer_id || "–") + " · Subscription " + esc(m.stripe_subscription_id || "–") + ' · <a class="text-orange-700 font-semibold" href="/admin/club/' + m.id + '">Open member page</a></p>';
+        // Reviews they wrote.
+        if (revs.length) {
+          h += section("Their reviews") + revs.map(function (r) {
+            var stars = "★★★★★".slice(0, Math.max(0, Math.min(5, Number(r.rating) || 0)));
+            return '<div class="flex justify-between gap-4 py-1 border-b border-stone-100 last:border-0 text-sm"><span>' + esc(r.book_title || "A book") + ' <span class="text-stone-400">' + esc(fmtDate(r.created_at)) + '</span></span><span class="whitespace-nowrap"><span style="color:#f59e0b">' + stars + '</span> <span class="bchip">' + esc(humanStatus(r.status)) + "</span></span></div>";
+          }).join("");
+        }
+        // IDs, small and copyable.
+        h += '<div class="mt-5 rounded-xl bg-stone-50 border border-stone-200 px-4 py-3 text-xs text-stone-500 flex flex-col gap-1">' +
+          "<span>Club Stripe customer · <span class=\"mono\">" + esc(m.stripe_customer_id || "–") + "</span></span>" +
+          "<span>Subscription · <span class=\"mono\">" + esc(m.stripe_subscription_id || "–") + "</span></span>" +
+          (acct?.stripe_customer_id && acct.stripe_customer_id !== m.stripe_customer_id ? "<span>Account Stripe customer · <span class=\"mono\">" + esc(acct.stripe_customer_id) + "</span></span>" : "") +
+          '<span class="mt-1"><a class="text-orange-700 font-semibold text-sm" href="/admin/club/' + m.id + '">Open member page</a></span></div>';
         return h;
       };
       var openDrawer = function (id) {
