@@ -8,7 +8,7 @@ import { ClientRouter } from "astro:transitions";
 import TransitionHooks from "../components/TransitionHooks.astro";
 import SeoHead from "../components/SeoHead.astro";
 import { env } from "cloudflare:workers";
-import { loadBooksForOrder, buildConfirmationEmailModel, parseItems, shortOrderId } from "../lib/orders";
+import { loadBooksForOrder, buildConfirmationEmailModel, parseItems, itemQty, shortOrderId } from "../lib/orders";
 import { publicSlugFor } from "../lib/public-slugs";
 import { coverDerivative, MEDIA_PUBLIC } from "../lib/derivatives";
 import { AUDIO_PRICE_CENTS, GIFT_SET_PRICE_CENTS } from "../lib/offers";
@@ -121,7 +121,7 @@ if (complete && order) {
   for (const item of parsed) {
     const key = item.slug + "|" + item.format;
     const existing = byKey.get(key);
-    if (existing) { existing.count += 1; continue; }
+    if (existing) { existing.count += itemQty(item); continue; }
     const book = bookRows.get(item.slug);
     const title = String(book?.title || "Big Brain Shelf book");
     const pub = book ? publicSlugFor(book) : "";
@@ -145,7 +145,7 @@ if (complete && order) {
         : null,
       href: book ? (item.format === "audio" ? `/audiobooks/${pub}` : `/books/${pub}`) : "/",
       format: item.format,
-      count: 1,
+      count: itemQty(item),
       unitCents,
       status: physical ? stage : "In your library",
       trackingNote: physical ? trackingNote : null,
@@ -237,14 +237,17 @@ if (complete && order) {
                         <p class="font-semibold text-sm leading-snug">{r.title}</p>
                         <p class="mt-1.5 flex items-center gap-2">
                           <FormatChip format={r.format} />
-                          <span class="text-[13px] text-stone-500 tabular-nums sm:hidden">{r.unitCents != null ? money(r.unitCents) : ""}</span>
+                          <span class="text-[13px] text-stone-500 tabular-nums sm:hidden">{r.unitCents != null ? money(r.unitCents * r.count) : ""}</span>
                         </p>
                       </div>
                     </div>
                   </td>
                   <td class="hidden sm:table-cell whitespace-nowrap font-semibold text-sm tabular-nums">
-                    {r.unitCents != null ? money(r.unitCents) : <span class="text-stone-400">—</span>}
-                    {r.count > 1 && <span class="text-stone-400 font-normal"> × {r.count}</span>}
+                    {r.unitCents != null
+                      ? (r.count > 1
+                          ? <>{money(r.unitCents * r.count)} <span class="text-stone-400 font-normal">{money(r.unitCents)} × {r.count}</span></>
+                          : money(r.unitCents))
+                      : <span class="text-stone-400">—</span>}
                   </td>
                   <td class="hidden sm:table-cell text-sm text-stone-600">
                     {r.status}

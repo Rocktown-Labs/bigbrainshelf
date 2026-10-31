@@ -409,16 +409,51 @@ export async function activateClubFromSession(db: DBLike, session: any): Promise
 
 // Webhook: a subscription ended (deleted by Stripe, or lapsed to a
 // canceled/unpaid state). The membership is marked canceled; the row,
-// its shelf pick, and its history stay for the admin list.
+// its shelf pick, and its history stay for the admin list. The member
+// and the owner both hear about it (CG, 2026-10-31: cancellations
+// were silent before): one email each, deduped per membership and
+// cancellation, in the branded shell.
 export async function cancelClubBySubscription(db: DBLike, subscriptionId: string): Promise<void> {
   if (!subscriptionId) return;
   await ensureClubTable(db);
-  await db
+  const member: any = await db
+    .prepare("SELECT * FROM club_signups WHERE stripe_subscription_id = ? AND status = 'paid'")
+    .bind(subscriptionId)
+    .first()
+    .catch(() => null);
+  const canceledAt = now();
+  const res: any = await db
     .prepare(
       "UPDATE club_signups SET status = 'canceled', subscription_status = 'canceled', canceled_at = ? WHERE stripe_subscription_id = ? AND status = 'paid'"
     )
-    .bind(now(), subscriptionId)
+    .bind(canceledAt, subscriptionId)
     .run();
+  if (!member || Number(res?.meta?.changes ?? 0) === 0) return;
+  try {
+    const { enqueueEmail, OWNER_NOTIFY_EMAIL } = await import("./orders");
+    const audio = member.club_plan === "audio";
+    const clubName = audio ? "The Audio Club" : "The Book Club";
+    await enqueueEmail(db, {
+      orderId: null,
+      kind: "club_canceled",
+      to: String(member.email),
+      subject: `Your ${clubName} membership has ended`,
+      text: audio
+        ? `Your ${clubName} membership has ended, so the club shelf is closed. Any books you bought to own stay in your library forever.\n\nIf this was a mistake, you can rejoin anytime.`
+        : `Your ${clubName} membership has ended. Boxes already shipped are yours to keep, and any books you bought to own stay in your library forever.\n\nIf this was a mistake, you can rejoin anytime.`,
+      dedupeKey: `club-canceled:${member.id}:${canceledAt}`,
+    });
+    await enqueueEmail(db, {
+      orderId: null,
+      kind: "owner_club_canceled",
+      to: OWNER_NOTIFY_EMAIL,
+      subject: `Club cancellation: ${member.email}`,
+      text: `A ${clubName} membership was canceled.\n\nMember: ${member.name || member.email} (${member.email})\nPlan: ${member.plan || ""}\nMember page: https://bigbrainshelf.com/admin/club/${member.id}`,
+      dedupeKey: `owner-club-canceled:${member.id}:${canceledAt}`,
+    });
+  } catch (err) {
+    console.error("club canceled emails failed", (err as any)?.message || err);
+  }
 }
 
 // Book Club V2: keep the member's billing health current from Stripe
@@ -501,5 +536,32 @@ export async function recordClubInvoicePayment(
           )
           .bind(subId)
           .run();
-  return Number(res?.meta?.changes ?? 0) > 0;
+  const changed = Number(res?.meta?.changes ?? 0) > 0;
+  // A failed renewal tells the member right away (CG, 2026-10-31:
+  // past_due used to be silent, members only found out when a box
+  // did not come). One email per failed invoice, deduped on it, so
+  // Stripe retries never stack copies.
+  if (changed && outcome === "failed") {
+    try {
+      const member: any = await db
+        .prepare("SELECT * FROM club_signups WHERE stripe_subscription_id = ? AND status = 'paid'")
+        .bind(subId)
+        .first();
+      if (member?.email) {
+        const { enqueueEmail } = await import("./orders");
+        const clubName = member.club_plan === "audio" ? "The Audio Club" : "The Book Club";
+        await enqueueEmail(db, {
+          orderId: null,
+          kind: "club_payment_failed",
+          to: String(member.email),
+          subject: `Payment problem with your ${clubName} membership`,
+          text: `We could not charge your card for your ${clubName} membership, so your membership is paused${member.club_plan === "audio" ? "" : " and no new box will ship"} until it is fixed.\n\nUpdate your payment method from your account page and Stripe will retry. If the card on file works now, no action is needed: the retry happens on its own.\n\nYour account: https://bigbrainshelf.com/account`,
+          dedupeKey: `club-payfail:${member.id}:${String(invoice?.id || "")}`,
+        });
+      }
+    } catch (err) {
+      console.error("club payment failed email failed", (err as any)?.message || err);
+    }
+  }
+  return changed;
 }

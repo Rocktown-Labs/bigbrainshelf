@@ -41,18 +41,30 @@
       var booksCache = null;
       var paintSeq = 0;
 
+      function clampQty(q) {
+        var n = Math.floor(Number(q));
+        if (!isFinite(n) || n < 1) return 1;
+        return Math.min(99, n);
+      }
       function normalize(c) {
-        var seen = {};
-        return (c || []).map(function (x) { return typeof x === "string" ? { slug: x, format: "digital" } : x; })
-          .filter(function (x) { return x && x.slug; })
-          .filter(function (x) {
-            // One entry per slug + format: the badge, the sheet,
-            // and the cart page all count the same cart.
-            var k = x.slug + ":" + (x.format || "digital");
-            if (seen[k]) return false;
-            seen[k] = true;
-            return true;
-          });
+        // One entry per slug + format, quantities merged: the
+        // badge, the sheet, and the checkout all count the same
+        // cart (CG, 2026-10-31: quantities are real now).
+        var byKey = {};
+        var order = [];
+        (c || []).forEach(function (x) {
+          var it = typeof x === "string" ? { slug: x, format: "digital" } : x;
+          if (!it || !it.slug) return;
+          var k = it.slug + ":" + (it.format || "digital");
+          if (byKey[k]) {
+            byKey[k].qty = clampQty(byKey[k].qty + clampQty(it.qty));
+          } else {
+            var entry = { slug: it.slug, format: it.format || "digital", qty: clampQty(it.qty) };
+            byKey[k] = entry;
+            order.push(entry);
+          }
+        });
+        return order;
       }
       function getCart() {
         try { return normalize(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) { return []; }
@@ -140,10 +152,25 @@
         add: function (slug, format) {
           format = format || "digital";
           var cart = getCart();
-          if (cart.some(function (x) { return x.slug === slug && x.format === format; })) return false;
-          cart.push({ slug: slug, format: format });
+          var existing = cart.find(function (x) { return x.slug === slug && x.format === format; });
+          if (existing) {
+            // Adding what is already in the cart means one more
+            // copy (the natural cart behavior), capped at 99.
+            existing.qty = clampQty((existing.qty || 1) + 1);
+            setCart(cart);
+            return true;
+          }
+          cart.push({ slug: slug, format: format, qty: 1 });
           setCart(cart);
           return true;
+        },
+        setQty: function (slug, format, qty) {
+          format = format || "digital";
+          var cart = getCart();
+          var entry = cart.find(function (x) { return x.slug === slug && x.format === format; });
+          if (!entry) return;
+          entry.qty = clampQty(qty);
+          setCart(cart);
         },
         remove: function (slug, format) {
           format = format || "digital";

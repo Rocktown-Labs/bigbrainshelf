@@ -24,6 +24,7 @@ export default function OrderConfirmationEmail({
           {"• "}
           {item.title}{" "}
           <span style={{ color: BRAND.muted }}>({item.formatLabel})</span>
+          {item.qty > 1 ? <span style={{ fontWeight: 700 }}> ×{item.qty}</span> : null}
         </Text>
       ))}
       {model.shipping && (

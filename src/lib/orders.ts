@@ -55,6 +55,18 @@ export interface CartItem {
   // unlocking the digital edition. Recorded on the order so the
   // discounted charge is auditable after the fact.
   upgrade?: string;
+  // Copies of this line (CG, 2026-10-31: quantities belong on the
+  // order, the receipts, and the emails). Absent means 1; every
+  // reader normalizes through itemQty.
+  qty?: number;
+}
+
+// The one quantity rule: an integer from 1 to 99, anything else
+// (absent, zero, negative, fractional, junk) reads as 1..99 clamped.
+export function itemQty(x: { qty?: unknown } | null | undefined): number {
+  const n = Math.floor(Number((x as any)?.qty));
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(99, n);
 }
 
 // ---------------------------------------------------------------------------
@@ -125,7 +137,7 @@ const PENDING_WINDOW_SECONDS = 30 * 60;
 
 export async function cartFingerprint(userId: string, items: CartItem[]): Promise<string> {
   const canonical =
-    userId + "|" + items.map((i) => `${i.slug}:${i.format}`).sort().join(",");
+    userId + "|" + items.map((i) => `${i.slug}:${i.format}:${itemQty(i)}`).sort().join(",");
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -139,6 +151,7 @@ export function parseItems(order: any): CartItem[] {
           slug: String(x?.slug || ""),
           format: normalizeFormat(x?.format),
           ...(x?.upgrade ? { upgrade: String(x.upgrade) } : {}),
+          qty: itemQty(x),
         }))
         .filter((x: CartItem) => x.slug);
     }
@@ -434,16 +447,16 @@ export async function orderItemLabels(
   db: any,
   orders: { id: string; items?: string | null; book_slugs?: string | null }[]
 ): Promise<Map<string, string[]>> {
-  const parsed = new Map<string, { slug: string; format: string }[]>();
+  const parsed = new Map<string, { slug: string; format: string; qty?: number }[]>();
   const slugSet = new Set<string>();
   for (const o of orders) {
-    let items: { slug: string; format: string }[] = [];
+    let items: { slug: string; format: string; qty?: number }[] = [];
     try {
       const raw = JSON.parse(o.items || "[]");
       if (Array.isArray(raw)) {
         items = raw
           .filter((x: any) => x && x.slug)
-          .map((x: any) => ({ slug: String(x.slug), format: String(x.format || "digital") }));
+          .map((x: any) => ({ slug: String(x.slug), format: String(x.format || "digital"), qty: itemQty(x) }));
       }
     } catch { /* fall through to book_slugs */ }
     if (!items.length) {
@@ -474,7 +487,8 @@ export async function orderItemLabels(
       o.id,
       items.map((i) => {
         const title = titles.get(i.slug) || "Big Brain Shelf book";
-        return i.format ? `${title} (${orderFormatLabel(i.format)})` : title;
+        const qty = itemQty(i as any) > 1 ? ` ×${itemQty(i as any)}` : "";
+        return i.format ? `${title} (${orderFormatLabel(i.format)})${qty}` : `${title}${qty}`;
       })
     );
   }
@@ -535,13 +549,13 @@ function groupOrderItems(
   order: { items?: string | null; book_slugs?: string | null },
   books: Map<string, OrderBookRow>
 ): OrderItemGroup[] {
-  let raw: { slug: string; format: string }[] = [];
+  let raw: { slug: string; format: string; qty?: number }[] = [];
   try {
     const parsed = JSON.parse(order.items || "[]");
     if (Array.isArray(parsed)) {
       raw = parsed
         .filter((x: any) => x && x.slug)
-        .map((x: any) => ({ slug: String(x.slug), format: String(x.format || "digital") }));
+        .map((x: any) => ({ slug: String(x.slug), format: String(x.format || "digital"), qty: itemQty(x) }));
     }
   } catch { /* fall through to book_slugs */ }
   if (!raw.length) {
@@ -556,7 +570,7 @@ function groupOrderItems(
     const key = i.slug + "|" + i.format;
     const existing = byKey.get(key);
     if (existing) {
-      existing.count += 1;
+      existing.count += itemQty(i);
     } else {
       const book = books.get(i.slug);
       const title = book?.title || "Big Brain Shelf book";
@@ -565,7 +579,7 @@ function groupOrderItems(
         title,
         name: shortBookName(title),
         format: i.format,
-        count: 1,
+        count: itemQty(i),
         cover: book
           ? coverDerivative(i.slug, "card", book.cover_key) ||
             (book.cover_key ? MEDIA_PUBLIC + book.cover_key : null)
@@ -623,7 +637,7 @@ export async function orderPickList(
 // one model, so the words and the facts can never drift apart.
 export interface ConfirmationEmailModel {
   subject: string;
-  items: { title: string; formatLabel: string }[];
+  items: { title: string; formatLabel: string; qty: number }[];
   downloads: { title: string; links: { label: string; url: string }[] }[];
   libraryUrl: string;
   // Pass-through shipping summary for physical orders: the carrier and
@@ -712,8 +726,12 @@ export function buildConfirmationEmailModel(
     subject: "Your Big Brain Shelf order is ready",
     items: books.map((b) => {
       const format = items.find((i) => i.slug === b.slug)?.format;
+      const qty = items
+        .filter((i) => i.slug === b.slug && i.format === (format || "digital"))
+        .reduce((sum, i) => sum + itemQty(i), 0) || 1;
       return {
         title: b.title,
+        qty,
         formatLabel:
           format === "printed"
             ? "full color printed book, digital files included"
@@ -757,7 +775,7 @@ export function buildConfirmationEmail(
   lines.push("");
   lines.push("Here is what you got:");
   for (const item of model.items) {
-    lines.push(`- ${item.title} (${item.formatLabel})`);
+    lines.push(`- ${item.title} (${item.formatLabel})${item.qty > 1 ? ` ×${item.qty}` : ""}`);
   }
   if (model.shipping) {
     const via = [model.shipping.carrier, model.shipping.service].filter(Boolean).join(" ");
@@ -990,9 +1008,11 @@ export const OWNER_NOTIFY_EMAIL = "cg@rocktownlabs.com";
 export async function enqueueOwnerOrderNotice(db: DBLike, site: string, order: any): Promise<void> {
   const books = await loadBooksForOrder(db, order);
   let formats: string[] = [];
+  let quantities: number[] = [];
   try {
     const items = JSON.parse(String(order.items || "[]"));
     formats = items.map((i: any) => String(i.format || ""));
+    quantities = items.map((i: any) => itemQty(i));
   } catch { /* titles alone still read fine */ }
   const priceFor = (f: string) =>
     f === "printed" ? STANDARD_PRINT_PRICE_CENTS
@@ -1002,8 +1022,11 @@ export async function enqueueOwnerOrderNotice(db: DBLike, site: string, order: a
   const money = (c: number) => `$${(Number(c || 0) / 100).toFixed(2)}`;
   const lines = books.map((b: any, i: number) => {
     const f = formats[i];
+    const q = quantities[i] || 1;
     const label = f === "printed" ? "Printed book" : f === "giftset" ? "Gift set" : f === "audio" ? "Audiobook" : "Digital bundle";
-    return `${b.title} (${label}) - ${money(priceFor(f))}`;
+    return q > 1
+      ? `${b.title} (${label}) ×${q} - ${money(priceFor(f) * q)}`
+      : `${b.title} (${label}) - ${money(priceFor(f))}`;
   });
   const short = String(order.id || "").slice(0, 8).toUpperCase();
   const total = money(order.amount);

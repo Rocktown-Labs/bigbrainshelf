@@ -146,7 +146,7 @@ const store = read("../src/components/CartStore.astro");
 assert(store.includes('flagOf(b, "has_audiobook", "audiobook_key")'), "store: prices audio through the flag/key fallback");
 assert(store.includes('flagOf(b, "has_picture_book", "picture_book_key")'), "store: prices gift set through the flag/key fallback");
 assert(store.includes('flagOf(b, "has_coloring_book", "coloring_book_key")'), "store: prices gift set through the coloring flag/key fallback");
-assert(store.includes("seen[k]"), "store: normalize dedupes slug + format");
+assert(store.includes("byKey[k]"), "store: normalize keeps one entry per slug + format (quantities merged)");
 assert(store.includes("paintBadgeCount(cart.filter"), "store: badge repaints with the purchasable count");
 assert(store.includes("window.bbsPaintBadge = paintBadge"), "store: exposes the badge painter");
 assert(store.includes('localStorage.setItem(KEY, JSON.stringify(cart))') && store.includes('"bbs-cart"'), "store: is the one writer of the bbs-cart key");

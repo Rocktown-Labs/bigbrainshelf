@@ -343,13 +343,14 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
           box.innerHTML = items.map(function (it, idx) {
             var b = bySlug[it.slug];
             var p = store.priceOf(bySlug, it);
-            total += p;
+            var q = Math.max(1, Math.min(99, Math.floor(Number(it.qty)) || 1));
+            total += p * q;
             var fmt = it.format === "printed" ? "Full color printed book · digital included" : it.format === "giftset" ? "Gift Set · printed storybook + printed coloring book, digital included" : it.format === "audio" ? "Audiobook only" : "Digital download";
             return '<div class="flex gap-4 py-4 border-b border-stone-100">' +
               (b.cover_key ? '<img src="' + (b.cover_card || (store.R2 + b.cover_key)) + '" class="w-16 aspect-[3/4] object-cover rounded bg-stone-100" />' : '<div class="w-16 aspect-[3/4] rounded bg-stone-100"></div>') +
-              '<div class="flex-1"><p class="text-sm font-semibold">' + b.title + '</p><p class="text-xs text-stone-500 capitalize">' + (b.topic || "tech") + ' · ' + fmt + '</p>' +
+              '<div class="flex-1"><p class="text-sm font-semibold">' + b.title + '</p><p class="text-xs text-stone-500 capitalize">' + (b.topic || "tech") + ' · ' + fmt + (q > 1 ? ' · Qty ' + q : '') + '</p>' +
               '<button class="remove text-xs text-stone-400 hover:text-red-600 mt-1" data-idx="' + idx + '">Remove</button></div>' +
-              '<p class="text-sm font-semibold">' + store.money(p) + '</p></div>';
+              '<p class="text-sm font-semibold">' + store.money(p * q) + (q > 1 ? '<span class="block text-xs font-normal text-stone-400">' + store.money(p) + ' each</span>' : '') + '</p></div>';
           }).join("");
           view.total = total;
           view.physical = store.hasPhysical(items);

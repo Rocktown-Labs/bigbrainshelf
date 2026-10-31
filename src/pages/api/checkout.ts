@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
 import Stripe from "stripe";
 import { getAuth } from "../../lib/auth";
-import { getOrCreatePendingOrder, attachStripeSession, normalizeFormat, isPhysicalFormat, checkoutItemPrice, enqueueConfirmation, type CartItem } from "../../lib/orders";
+import { getOrCreatePendingOrder, attachStripeSession, normalizeFormat, isPhysicalFormat, checkoutItemPrice, enqueueConfirmation, itemQty, type CartItem } from "../../lib/orders";
 import { getDigitalEntitlements } from "../../lib/library";
 import {
   normalizeShipDestination,
@@ -75,13 +75,13 @@ export const POST: APIRoute = async ({ request }) => {
   const buyerId = user ? String(user.id) : `guest:${guestId}`;
   const buyerEmail = user ? String(user.email || "") : "";
   const action = String(body?.action || "");
-  let wanted: { slug: string; format: string }[] = [];
+  let wanted: { slug: string; format: string; qty: number }[] = [];
   if (Array.isArray(body.items)) {
     wanted = body.items
-      .map((x: any) => ({ slug: String(x?.slug || ""), format: normalizeFormat(x?.format) }))
+      .map((x: any) => ({ slug: String(x?.slug || ""), format: normalizeFormat(x?.format), qty: itemQty(x) }))
       .filter((x: any) => x.slug);
   } else if (Array.isArray(body.slugs)) {
-    wanted = body.slugs.map((s: any) => ({ slug: String(s), format: "digital" }));
+    wanted = body.slugs.map((s: any) => ({ slug: String(s), format: "digital", qty: 1 }));
   }
   const seen = new Set<string>();
   wanted = wanted.filter((x) => {
@@ -197,7 +197,7 @@ export const POST: APIRoute = async ({ request }) => {
             metadata: { slug: b.slug, format: w.format },
           },
         },
-        quantity: 1,
+        quantity: itemQty(w),
       });
     }
     bought.push(priced.upgrade ? { ...w, upgrade: priced.upgrade } : w);
@@ -207,7 +207,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const physical = bought.some((i) => isPhysicalFormat(i.format));
-  const itemsTotal = lineItems.reduce((sum, li) => sum + (li.price_data.unit_amount || 0), 0);
+  const itemsTotal = lineItems.reduce((sum, li) => sum + (li.price_data.unit_amount || 0) * (li.quantity || 1), 0);
 
   // --- Pass-through shipping: destination in, server-side quote out.
   // Runs for BOTH the quote preview and the real checkout, so what the

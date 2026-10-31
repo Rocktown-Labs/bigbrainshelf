@@ -15,6 +15,7 @@ import {
   loadBooksForOrder,
   orderFormatLabel,
   parseItems,
+  itemQty,
   resolveClubBlock,
   type DBLike,
 } from "./orders";
@@ -112,24 +113,36 @@ export async function renderOutboxEmailHtml(
     const model = buildClubFollowupModel(site, token);
     return await render(createElement(ClubFollowupEmail, { model }));
   }
-  if (row.kind === "club_welcome" || row.kind === "owner_new_subscription") {
-    // Club mail carries no order; it renders from its stored text
-    // and must be handled BEFORE the order gate below, or it
-    // falls through to plain text (the bug CG caught 2026-10-31).
+  if (
+    row.kind === "club_welcome" || row.kind === "owner_new_subscription" ||
+    row.kind === "club_payment_failed" || row.kind === "club_canceled" ||
+    row.kind === "owner_club_canceled" || row.kind === "owner_new_review" ||
+    row.kind === "owner_payment_alert"
+  ) {
+    // Club + owner-notice mail carries no order; it renders from
+    // its stored text and must be handled BEFORE the order gate
+    // below, or it falls through to plain text (the bug CG caught
+    // 2026-10-31).
     const paragraphs = String(row.body_text || "")
       .split(/\n\s*\n/)
       .map((p) => p.trim())
       .filter(Boolean);
-    const owner = row.kind === "owner_new_subscription";
+    const buttons: Record<string, { label: string; href: string }> = {
+      club_welcome: { label: "Open your library", href: `${site}/account` },
+      club_payment_failed: { label: "Update your payment method", href: `${site}/account` },
+      club_canceled: { label: "See the clubs", href: `${site}/clubs` },
+      owner_new_subscription: { label: "Open the club list", href: `${site}/admin/club` },
+      owner_club_canceled: { label: "Open the club list", href: `${site}/admin/club` },
+      owner_new_review: { label: "Open the review queue", href: `${site}/admin/reviews` },
+      owner_payment_alert: { label: "Open orders", href: `${site}/admin/orders` },
+    };
     return await render(
       createElement(SimpleEmail, {
         model: {
           preview: row.subject,
           heading: row.subject,
           paragraphs,
-          button: owner
-            ? { label: "Open the club list", href: `${site}/admin/club` }
-            : { label: "Open your library", href: `${site}/account` },
+          button: buttons[row.kind],
         },
       }),
     );
@@ -166,11 +179,11 @@ export async function renderOutboxEmailHtml(
     const model: OwnerOrderEmailModel = {
       orderShortId: String(order.id || "").slice(0, 8).toUpperCase(),
       total: money(order.amount),
-      itemCount: items.length,
+      itemCount: items.reduce((sum, it) => sum + itemQty(it), 0),
       lines: items.map((it) => ({
         title: titleBySlug.get(it.slug) || "Book",
-        formatLabel: orderFormatLabel(it.format),
-        price: money(priceFor(it.format)),
+        formatLabel: orderFormatLabel(it.format) + (itemQty(it) > 1 ? ` ×${itemQty(it)}` : ""),
+        price: money(priceFor(it.format) * itemQty(it)),
       })),
       shipping: Number(order.shipping_cents || 0) > 0 ? money(order.shipping_cents) : null,
       buyerEmail: String(order.email || ""),

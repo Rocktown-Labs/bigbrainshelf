@@ -112,6 +112,34 @@ export const POST: APIRoute = async ({ request }) => {
         event.id,
         tracked ? "club member marked past_due (invoice payment failed)" : "invoice payment failed (no club member)"
       );
+    } else if (event.type === "charge.refunded" || event.type === "charge.dispute.created") {
+      // Money moving backwards always tells the owner (CG,
+      // 2026-10-31: refunds and disputes were ignored events).
+      // Alert only: order state stays whatever fulfillment set;
+      // the dedupe key is the Stripe event id, so retries of the
+      // same event never stack copies.
+      try {
+        const obj: any = event.data.object as any;
+        const cents = Number(obj.amount_refunded ?? obj.amount ?? 0);
+        const { enqueueEmail, OWNER_NOTIFY_EMAIL } = await import("../../../lib/orders");
+        await enqueueEmail(e.DB, {
+          orderId: null,
+          kind: "owner_payment_alert",
+          to: OWNER_NOTIFY_EMAIL,
+          subject: event.type === "charge.refunded"
+            ? `Refund issued: $${(cents / 100).toFixed(2)}`
+            : `Payment dispute opened: $${(cents / 100).toFixed(2)}`,
+          text: event.type === "charge.refunded"
+            ? `A charge was refunded.\n\nAmount refunded: $${(cents / 100).toFixed(2)}\nCharge: ${String(obj.id || "")}\n\nOrder state is unchanged; check the order in the admin if the refund needs a fulfillment change.`
+            : `A cardholder opened a dispute on a charge.\n\nAmount in dispute: $${(cents / 100).toFixed(2)}\nCharge: ${String(obj.charge || obj.id || "")}\n\nRespond in the Stripe dashboard before the deadline shown there.`,
+          dedupeKey: `stripeevt:${event.id}`,
+        });
+        const { flushOutbox } = await import("../../../lib/email");
+        await flushOutbox(e.DB, e, 5, SITE).catch(() => {});
+      } catch (err: any) {
+        console.error("owner payment alert failed", err?.message || err);
+      }
+      await markWebhookEventProcessed(e.DB, event.id, `owner alerted (${event.type})`);
     } else if (event.type === "invoice.payment_succeeded" || event.type === "invoice.paid") {
       const invoice = event.data.object as Stripe.Invoice;
       const tracked = await recordClubInvoicePayment(e.DB, invoice, "paid");

@@ -100,5 +100,25 @@ export const POST: APIRoute = async ({ request }) => {
     verified ? 1 : 0, Math.floor(Date.now() / 1000)
   ).run();
 
+  // The owner hears about every new review (CG, 2026-10-31: reviews
+  // were silent; he only found them by opening the admin). Deduped
+  // per review, branded shell, and flushed immediately. Mail trouble
+  // never fails the review itself.
+  try {
+    const { enqueueEmail, OWNER_NOTIFY_EMAIL } = await import("../../lib/orders");
+    const { flushOutbox } = await import("../../lib/email");
+    const stars = "★".repeat(rating) + "☆".repeat(5 - rating);
+    const excerpt = body.length > 280 ? body.slice(0, 280) + "…" : body;
+    await enqueueEmail(e.DB, {
+      orderId: null,
+      kind: "owner_new_review",
+      to: OWNER_NOTIFY_EMAIL,
+      subject: `New review: ${stars} for ${book.title}`,
+      text: `${displayName} reviewed ${book.title} and rated it ${stars} (${rating}/5)${verified ? ", a verified purchase" : ""}.\n\n"${title}"\n${excerpt}\n\nIt is pending in the review queue until you approve it.`,
+      dedupeKey: `owner-review:${id}`,
+    });
+    await flushOutbox(e.DB, e, 5).catch(() => {});
+  } catch { /* the review stands; the notice is best effort */ }
+
   return Response.json({ ok: true, pending: true });
 };

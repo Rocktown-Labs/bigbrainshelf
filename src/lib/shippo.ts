@@ -38,16 +38,20 @@ const PHYSICAL_FORMATS = Object.keys(PARCEL_BY_FORMAT);
 // The parcel for an order: weights COMBINE across physical items (two
 // printed books are 4 lb, not 2), the footprint is the largest item's,
 // and heights add because books stack. Digital/audio items add nothing.
-export function parcelForItems(items: { format: string }[]) {
+// A line's qty multiplies its stack (local clamp mirrors
+// lib/orders itemQty; kept local to avoid an import cycle).
+export function parcelForItems(items: { format: string; qty?: unknown }[]) {
   const physical = items.filter((i) => PHYSICAL_FORMATS.includes(i.format));
   const pool = physical.length ? physical : [{ format: "printed" }];
   let length = 0, width = 0, height = 0, weight = 0;
   for (const item of pool) {
     const p = PARCEL_BY_FORMAT[item.format] || PARCEL_BY_FORMAT.printed;
+    const n = Math.floor(Number((item as any).qty));
+    const q = Number.isFinite(n) && n > 1 ? Math.min(99, n) : 1;
     length = Math.max(length, Number(p.length));
     width = Math.max(width, Number(p.width));
-    height += Number(p.height);
-    weight += Number(p.weight);
+    height += Number(p.height) * q;
+    weight += Number(p.weight) * q;
   }
   const fmt = (n: number) => String(Math.round(n * 100) / 100);
   return {

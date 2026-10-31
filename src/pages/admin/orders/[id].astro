@@ -204,7 +204,9 @@ const orderId = String(Astro.params.id || "");
       var productRows = groups.length
         ? groups.map(function (g) {
             var priceCell = g.unitCents != null
-              ? money(g.unitCents) + (g.count > 1 ? ' <span class="text-stone-400 font-normal">× ' + g.count + "</span>" : "")
+              ? (g.count > 1
+                  ? money(g.unitCents * g.count) + ' <span class="text-stone-400 font-normal">' + money(g.unitCents) + " × " + g.count + "</span>"
+                  : money(g.unitCents))
               : '<span class="text-stone-400">—</span>';
             return "<tr>" +
               '<td><div class="flex items-center gap-3 min-w-0">' +
