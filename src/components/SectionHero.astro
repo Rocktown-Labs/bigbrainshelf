@@ -1,0 +1,15 @@
+---
+// The section hero (A2 redesign): the branding block that sits
+// directly under the site header on the four section pages (Books,
+// Audio, Merch, Plans). The H1 and the ages line are constant; each
+// page passes its own middle sentence as `subline`.
+interface Props {
+  subline: string;
+}
+const { subline } = Astro.props;
+---
+<link rel="preload" href="/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin />
+<section class="text-center px-4 pt-[22px] pb-[10px]">
+  <h1 class="text-[27px] sm:text-[34px] font-semibold tracking-[-0.01em] mb-1.5" style="font-family:'Fredoka',sans-serif">Big ideas for little brains.</h1>
+  <p class="text-stone-500 text-sm leading-[1.55] max-w-2xl mx-auto">{subline}<br />For curious kids ages 4 to 8 (and the grown-ups reading along).</p>
+</section>

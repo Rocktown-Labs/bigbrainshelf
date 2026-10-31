@@ -1,0 +1,252 @@
+---
+import "../styles/global.css";
+import SiteHeader from "../components/SiteHeader.astro";
+import Tracking from "../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../components/TransitionHooks.astro";
+import SeoHead from "../components/SeoHead.astro";
+import { env } from "cloudflare:workers";
+export const prerender = false;
+// Same Turnstile widget + site key as the newsletter form; the
+// better-auth captcha plugin verifies the token server-side.
+const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
+const next = Astro.url.searchParams.get("next") || "";
+if (Astro.locals.user) {
+  return Astro.redirect(next && next.startsWith("/") && !next.startsWith("/login") ? next : "/admin", 302);
+}
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Sign in · Big Brain Shelf</title>
+  <SeoHead title="Sign in · Big Brain Shelf" />
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-stone-50 text-stone-900 antialiased">
+  <SiteHeader authAction={{ href: "/signup", label: "Create account" }} />
+
+  <main class="max-w-md mx-auto px-4 py-14">
+    <div class="bg-white border border-stone-200 rounded-2xl p-7 shadow-sm">
+      <h1 class="text-2xl font-bold tracking-tight">Sign in</h1>
+      <p class="text-sm text-stone-500 mt-1">One sign-in for everything. Owners land in the admin, readers land in their library.</p>
+      <div id="already" class="hidden mt-5 rounded-lg bg-stone-100 px-4 py-3 text-sm"></div>
+      <button id="google-btn" type="button" class="mt-6 flex w-full items-center justify-center gap-3 rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3l5.7-5.7C34.5 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 8 3l5.7-5.7C34.5 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.1 5.6l6.2 5.2C36.9 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
+        Continue with Google
+      </button>
+      <div class="mt-6 flex items-center gap-3 text-xs text-stone-400"><span class="h-px flex-1 bg-stone-200"></span>or sign in with email<span class="h-px flex-1 bg-stone-200"></span></div>
+      <form id="form" class="mt-6 space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1" for="email">Email</label>
+          <input id="email" type="email" required autocomplete="email" class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-600" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="password">Password</label>
+          <input id="password" type="password" required autocomplete="current-password" class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-600" />
+        </div>
+        {turnstileSiteKey && (
+          <div class="cf-turnstile" data-sitekey={turnstileSiteKey} data-theme="light"></div>
+        )}
+        {turnstileSiteKey && (
+          <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+        )}
+        <p id="err" class="text-sm text-red-600 hidden"></p>
+        <button id="btn" class="w-full rounded-lg bg-orange-600 text-white text-sm font-semibold py-2.5 hover:bg-orange-700">Sign in</button>
+        <div class="flex items-center gap-3 pt-1">
+          <span class="h-px bg-stone-200 flex-1"></span>
+          <span class="text-xs text-stone-400">or</span>
+          <span class="h-px bg-stone-200 flex-1"></span>
+        </div>
+        <button id="magic-btn" type="button" class="w-full rounded-lg bg-white border border-stone-300 text-sm font-semibold py-2.5 hover:border-stone-500">Email me a sign-in link</button>
+        <p id="magic-note" class="text-sm text-green-700 hidden"></p>
+        <p class="text-xs text-stone-400">Bought as a guest? Use the link: it signs you in with no password, and your books are already in your library.</p>
+      </form>
+      <p class="text-sm text-stone-500 mt-6">New here? <a id="signup-link" href="/signup" class="text-orange-700 font-medium">Create an account</a></p>
+    </div>
+  </main>
+
+  <script is:inline>
+  // Sign-in wiring. Runs on first render and again on astro:page-load
+  // so the form works after view-transition navigations; the path
+  // check and the form flag keep it from ever binding the wrong page
+  // or binding twice.
+  function initLogin() {
+    if (window.location.pathname !== "/login") return;
+    var form = document.getElementById("form");
+    if (!form || form.__loginBound) return;
+    form.__loginBound = true;
+
+    var next = new URLSearchParams(window.location.search).get("next") || "";
+    var signupLink = document.getElementById("signup-link");
+    if (next) signupLink.href = "/signup?next=" + encodeURIComponent(next);
+
+    // Google sign-in: one flow for everyone. After Google, /auth/land
+    // checks the account role and routes admins to /admin and
+    // customers to their library (or their intended page).
+    document.getElementById("google-btn").addEventListener("click", async function () {
+      var btn = document.getElementById("google-btn");
+      btn.disabled = true;
+      try {
+        var land = "/auth/land";
+        if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login")) {
+          land += "?next=" + encodeURIComponent(next);
+        }
+        var r = await fetch("/api/auth/sign-in/social", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: "google", callbackURL: land }),
+        });
+        var d = await r.json().catch(function () { return {}; });
+        if (!r.ok || !d.url) throw new Error(d.message || "Google sign-in could not start.");
+        window.location.href = d.url;
+      } catch (ex) {
+        var err = document.getElementById("err");
+        err.textContent = ex.message;
+        err.classList.remove("hidden");
+        btn.disabled = false;
+      }
+    });
+
+    // Passwordless: email a one-click sign-in link (better-auth
+    // magic link). Guest buyers live here: no password was ever
+    // set, and the library matches their orders by email.
+    var magicBtn = document.getElementById("magic-btn");
+    if (magicBtn) magicBtn.addEventListener("click", async function () {
+      var email = (document.getElementById("email").value || "").trim();
+      var err = document.getElementById("err");
+      var note = document.getElementById("magic-note");
+      err.classList.add("hidden");
+      note.classList.add("hidden");
+      if (!email || email.indexOf("@") < 1) {
+        err.textContent = "Type your email above first, then ask for the link.";
+        err.classList.remove("hidden");
+        return;
+      }
+      magicBtn.disabled = true;
+      magicBtn.textContent = "Sending...";
+      try {
+        var land = "/auth/land";
+        if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login")) {
+          land += "?next=" + encodeURIComponent(next);
+        }
+        var r = await fetch("/api/auth/sign-in/magic-link", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email, callbackURL: land }),
+        });
+        if (!r.ok) {
+          var d = await r.json().catch(function () { return {}; });
+          throw new Error(d.message || "The link could not be sent. Try again in a moment.");
+        }
+        note.textContent = "Check your email: your sign-in link is on its way. It works once and expires in 15 minutes.";
+        note.classList.remove("hidden");
+        magicBtn.textContent = "Link sent";
+      } catch (ex) {
+        err.textContent = ex.message;
+        err.classList.remove("hidden");
+        magicBtn.disabled = false;
+        magicBtn.textContent = "Email me a sign-in link";
+      }
+    });
+
+    // Already signed in as a customer? Say so, and offer the way in.
+    fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+      if (s && s.user) {
+        var el = document.getElementById("already");
+        el.classList.remove("hidden");
+        el.innerHTML = 'You are signed in as <strong>' + (s.user.email || "") + '</strong>. ' +
+          '<a class="text-orange-700 font-medium" href="/account">Go to your library</a>';
+      }
+    }).catch(function () {});
+
+    // Turnstile (same pattern as the newsletter form): the token
+    // lives in the widget's hidden field, is sent to better-auth as
+    // the x-captcha-response header, and is single-use, so the
+    // widget resets after any failed attempt. The widget may still
+    // be rendering after a view-transition navigation; render it
+    // explicitly if the script is already loaded and it has not
+    // appeared yet. Google sign-in is an OAuth redirect and cannot
+    // carry a token, so it stays ungated by design.
+    var tsDiv = form.querySelector(".cf-turnstile");
+    if (tsDiv && !tsDiv.querySelector("input[name='cf-turnstile-response']") && window.turnstile) {
+      try { window.turnstile.render(tsDiv, { sitekey: tsDiv.getAttribute("data-sitekey"), theme: "light" }); } catch (ex) {}
+    }
+    function captchaToken() {
+      var f = form.querySelector("input[name='cf-turnstile-response']");
+      return f ? (f.value || "") : null; // null = no widget on this page
+    }
+    function resetCaptcha() {
+      if (window.turnstile) { try { window.turnstile.reset(); } catch (ex) {} }
+    }
+
+    form.addEventListener("submit", async function (e) {
+      e.preventDefault();
+      var btn = document.getElementById("btn");
+      var err = document.getElementById("err");
+      var email = document.getElementById("email").value.trim();
+      var password = document.getElementById("password").value;
+      var token = captchaToken();
+      if (token !== null && !token) {
+        err.textContent = "Please complete the check and try again.";
+        err.classList.remove("hidden");
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Signing in...";
+      err.classList.add("hidden");
+      // 1) Owner sign-in (admin session cookie).
+      try {
+        var r1 = await fetch("/api/admin-auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email, password: password }),
+        });
+        if (r1.ok) {
+          window.location.href = next && next.startsWith("/") && !next.startsWith("/login") ? next : "/admin";
+          return;
+        }
+      } catch (ex) { /* fall through to customer sign-in */ }
+      // 2) Customer sign-in (better-auth, Turnstile-gated).
+      try {
+        var headers = { "Content-Type": "application/json" };
+        if (token) headers["x-captcha-response"] = token;
+        var r2 = await fetch("/api/auth/sign-in/email", {
+          method: "POST",
+          headers: headers,
+          body: JSON.stringify({ email: email, password: password }),
+        });
+        var data = await r2.json().catch(function () { return {}; });
+        if (!r2.ok) {
+          if (data.code === "MISSING_RESPONSE" || data.code === "VERIFICATION_FAILED") {
+            throw new Error("Please complete the check and try again.");
+          }
+          throw new Error(data.message || "That email and password did not match an account.");
+        }
+        var dest = next && next.startsWith("/") && !next.startsWith("/admin") && !next.startsWith("/login") ? next : "/account";
+        window.location.href = dest;
+      } catch (ex) {
+        err.textContent = ex.message;
+        err.classList.remove("hidden");
+        btn.disabled = false;
+        btn.textContent = "Sign in";
+        resetCaptcha();
+      }
+    });
+  }
+  initLogin();
+  document.addEventListener("astro:page-load", initLogin);
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+---
+export const prerender = false;
+
+// /plans was the routes bar's old name for the club page; the page
+// has lived at /clubs since 2026-10-30 and the tab is named Clubs
+// now. This route only redirects, permanently, carrying the query
+// string across verbatim, so any /plans link still out in the world
+// lands on the club page exactly as intended.
+const qs = Astro.url.search;
+return Astro.redirect("/clubs" + qs, 301);
+---

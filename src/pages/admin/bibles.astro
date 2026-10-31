@@ -1,0 +1,185 @@
+---
+import "../../styles/global.css";
+import AdminShell from "../../components/AdminShell.astro";
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+---
+
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>Bibles · Big Brain Shelf admin</title>
+  <style is:global>
+    body{font-family:ui-sans-serif,system-ui,sans-serif;background:#fafaf9;color:#1c1917;margin:0}
+    .wrap{max-width:64rem;margin:0 auto;padding:1.75rem 1rem 4rem}
+    h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 1rem}
+    .card{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:20px;margin:16px 0;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .card h2,.card h3{margin-top:0}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-top:24px}
+    .status{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.85em;font-weight:600}
+    .draft{background:#f5f5f4;color:#44403c}.queued{background:#dbeafe;color:#1e40af}.building{background:#fef3c7;color:#92400e}.ready_for_qa{background:#cffafe;color:#155e75}.in_progress{background:#fef3c7;color:#92400e}.complete{background:#dcfce7;color:#166534}.failed{background:#fee2e2;color:#991b1b}
+    .meta{color:#78716c;font-size:.88em}
+    a{color:#c2410c}
+    .btn{display:inline-block;background:#ea580c;color:#fff;padding:10px 22px;border-radius:999px;font-weight:600;text-decoration:none;border:0;cursor:pointer;font-size:14px}
+    .btn:hover{background:#c2410c}
+    .ghostbtn{display:inline-block;background:#fff;color:#1c1917;border:1px solid #d6d3d1;padding:9px 18px;border-radius:999px;font-weight:600;cursor:pointer;font-size:14px;text-decoration:none}
+    .tabs{margin:16px 0}.tabs button{padding:8px 16px;margin-right:8px;border:1px solid #d6d3d1;border-radius:999px;background:#fff;cursor:pointer;font-size:.95em}
+    .tabs button.active{background:#1a3454;color:#fff;border-color:#1a3454}
+    .group-title{margin:32px 0 12px;font-size:1.3em;font-weight:700}
+    .card img{max-width:100%;border-radius:8px;background:#f5f5f4}
+    label{display:block;margin:16px 0 6px;font-weight:600;font-size:14px}
+    input,select,textarea{width:100%;padding:10px 12px;font-size:14px;border:1px solid #d6d3d1;border-radius:8px;box-sizing:border-box;background:#fff}
+    .hint{color:#78716c;font-size:.85em}
+  </style>
+  </head>
+<body>
+  <AdminShell current="/admin/bibles" />
+  <main class="wrap">
+  <h1>Story Bibles</h1>
+  <div class="card">
+    <h2>Attach a bible to a book</h2>
+    <p class="hint">Bibles arrive as .json files (RGM authors them). Pick the book, pick the file, attach. When the factory builds that book it uses this bible instead of inventing one, so the framing, cast, and chapter ladder are the approved ones.</p>
+    <label for="attach-book">Book</label>
+    <select id="attach-book"><option value="">Choose a book...</option></select>
+    <label for="attach-file">Bible file (.json)</label>
+    <input id="attach-file" type="file" accept=".json,application/json" />
+    <p style="margin-top:14px"><button class="btn" id="bible-attach" type="button">Attach bible</button></p>
+    <details style="margin-top:10px">
+      <summary class="hint" style="cursor:pointer">Paste JSON instead</summary>
+      <label for="bible-json">Bible JSON</label>
+      <textarea id="bible-json" rows="8" placeholder='{"bookTitle": "...", "bigIdea": "...", "setting": "...", "characters": [...], "conceptLadder": [...]}'></textarea>
+      <p style="margin-top:10px"><button class="ghostbtn" id="bible-attach-paste" type="button">Attach pasted bible</button></p>
+    </details>
+    <p class="hint" id="bible-status"></p>
+  </div>
+  <script is:inline>
+    var statusEl = document.getElementById('bible-status');
+    fetch('/api/books').then(function (r) { return r.json(); }).then(function (books) {
+      var sel = document.getElementById('attach-book');
+      (books || []).forEach(function (b) {
+        var o = document.createElement('option');
+        o.value = b.slug;
+        o.textContent = b.title || "Untitled book";
+        sel.appendChild(o);
+      });
+    }).catch(function () {});
+    function submitBible(slug, data) {
+      if (!slug) { statusEl.textContent = 'Choose the book first.'; return; }
+      if (!data || !data.conceptLadder || !data.conceptLadder.length) { statusEl.textContent = 'That bible has no conceptLadder chapters. Nothing attached.'; return; }
+      statusEl.textContent = 'Attaching...';
+      fetch('/api/bibles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookSlug: slug, bookTitle: data.bookTitle || '', bigIdea: data.bigIdea || '', setting: data.setting || '', data: data })
+      }).then(function (r) { return r.json(); }).then(function (res) {
+        if (res && res.id) { statusEl.textContent = 'Attached "' + (data.bookTitle || "the bible") + '". Reloading...'; setTimeout(function () { location.reload(); }, 900); }
+        else { statusEl.textContent = 'Attach failed: ' + JSON.stringify(res); }
+      }).catch(function (e) { statusEl.textContent = 'Attach failed: ' + e.message; });
+    }
+    document.getElementById('bible-attach').addEventListener('click', function () {
+      var slug = document.getElementById('attach-book').value;
+      var file = document.getElementById('attach-file').files[0];
+      if (!slug) { statusEl.textContent = 'Choose the book first.'; return; }
+      if (!file) { statusEl.textContent = 'Choose the bible .json file.'; return; }
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data;
+        try { data = JSON.parse(String(reader.result)); } catch (e) { statusEl.textContent = 'That file is not valid JSON: ' + e.message; return; }
+        submitBible(slug, data);
+      };
+      reader.readAsText(file);
+    });
+    document.getElementById('bible-attach-paste').addEventListener('click', function () {
+      var slug = document.getElementById('attach-book').value;
+      var raw = document.getElementById('bible-json').value.trim();
+      var data;
+      try { data = JSON.parse(raw); } catch (e) { statusEl.textContent = 'That is not valid JSON: ' + e.message; return; }
+      submitBible(slug, data);
+    });
+  </script>
+  <div id="bibles"><p>Loading...</p></div>
+  <script is:inline>
+    function escH(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+    function trunc(s, n) { s = String(s == null ? "" : s); return s.length > n ? s.slice(0, n).trimEnd() + "..." : s; }
+    // Admin book links wear the PUBLIC slug (owner, 2026-10-29), so
+    // the render waits for the books payload too and maps each
+    // bible's internal book_slug to its public slug for the link.
+    Promise.all([
+      fetch('/api/bibles').then(r => r.json()),
+      fetch('/api/books').then(r => r.json()).catch(function () { return []; })
+    ]).then(function (pair) {
+      var bibles = pair[0];
+      var pubByInternal = {};
+      (pair[1] || []).forEach(function (bk) { if (bk.public_slug) pubByInternal[bk.slug] = bk.public_slug; });
+      const el = document.getElementById('bibles');
+      if (!bibles.length) { el.innerHTML = '<p>No bibles yet.</p>'; return; }
+      el.innerHTML = bibles.map(function (b) {
+        var s = b.summary || { cast: [], ladder: [], chapters: 0 };
+        var gate = '';
+        if (b.gate === null || b.gate === undefined) {
+          gate = '<span class="status draft">Gate: not checked</span>';
+        } else if (b.gate.ok) {
+          gate = '<span class="status complete">Passes the factory gate</span>';
+        } else {
+          gate = '<span class="status failed">Gate fails</span>';
+          if (b.gate.reasons && b.gate.reasons.length) {
+            gate += '<ul style="margin:8px 0 0;padding-left:18px" class="meta">' + b.gate.reasons.map(function (r) { return '<li>' + escH(r) + '</li>'; }).join('') + '</ul>';
+          }
+        }
+        var cast = s.cast.length ? '<p style="margin:8px 0"><strong>Cast:</strong> ' + s.cast.map(function (c) { return escH(c.name) + (c.species ? ' <span class="meta">(' + escH(c.species) + ')</span>' : ''); }).join(' · ') + '</p>' : '';
+        var ladder = s.ladder.length ? '<details style="margin-top:10px"><summary class="hint" style="cursor:pointer">Chapters (' + s.chapters + ')</summary><div style="margin:8px 0">' + s.ladder.map(function (e) {
+          return '<p class="meta" style="margin:3px 0">' + escH(e.ch) + (e.title ? ' · ' + escH(e.title) : '') + (e.metaphor ? ' · <em>' + escH(e.metaphor) + '</em>' : '') + '</p>';
+        }).join('') + '</div></details>' : '';
+        var fullText = (b.big_idea || b.setting) ? '<details style="margin-top:10px"><summary class="hint" style="cursor:pointer">Full big idea and setting</summary>' +
+          (b.big_idea ? '<p><strong>Big idea:</strong> ' + escH(b.big_idea) + '</p>' : '') +
+          (b.setting ? '<p><strong>Setting:</strong> ' + escH(b.setting) + '</p>' : '') +
+          '</details>' : '';
+        return '<div class="card">' +
+          '<h2 style="margin-bottom:6px">' + escH(b.book_title || "Untitled bible") + '</h2>' +
+          '<p style="margin:4px 0">' + gate + '</p>' +
+          (b.big_idea ? '<p><strong>Big idea:</strong> ' + escH(trunc(b.big_idea, 160)) + '</p>' : '') +
+          (b.setting ? '<p><strong>Setting:</strong> ' + escH(trunc(b.setting, 140)) + '</p>' : '') +
+          cast +
+          '<p class="meta" style="margin:8px 0">' + (s.chapters ? s.chapters + ' chapters' : 'No chapters yet') + '</p>' +
+          ladder + fullText +
+          (b.book_slug ? '<p><a href="/admin/books/' + escH(pubByInternal[b.book_slug] || b.book_slug) + '">Open the book</a></p>' : '') +
+          '<details><summary class="hint" style="cursor:pointer">View raw JSON</summary><pre class="bible-raw" data-slug="' + escH(b.book_slug || "") + '" style="white-space:pre-wrap;font-size:12px;max-height:320px;overflow:auto;background:#f5f5f4;border-radius:8px;padding:10px">Loading...</pre></details>' +
+        '</div>';
+      }).join('');
+      el.querySelectorAll('details').forEach(function (d) {
+        d.addEventListener('toggle', function () {
+          if (!d.open) return;
+          var pre = d.querySelector('.bible-raw');
+          if (!pre || pre.getAttribute('data-loaded')) return;
+          pre.setAttribute('data-loaded', '1');
+          fetch('/api/bibles?slug=' + encodeURIComponent(pre.getAttribute('data-slug'))).then(function (r) { return r.json(); }).then(function (row) {
+            var data = row && row.data ? (typeof row.data === 'string' ? JSON.parse(row.data) : row.data) : row;
+            pre.textContent = JSON.stringify(data, null, 1);
+          }).catch(function (e) { pre.textContent = 'Could not load: ' + e.message; });
+        });
+      });
+    });
+  </script>
+  </main>
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+---
+import "../../../styles/global.css";
+import AdminShell from "../../../components/AdminShell.astro";
+export const prerender = false;
+// Club member detail (CG, 2026-10-31: members had no page of
+// their own). Clicking a member in /admin/club lands here:
+// who they are, what plan they are on, billing state, their
+// boxes, and their store orders. Data from
+// /api/admin/club?member_id= (which also stamps the member
+// seen, clearing the sidebar badge unless a payment failed).
+const memberId = String(Astro.params.id || "");
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Club member · Big Brain Shelf Admin</title>
+  <style is:global>
+    .mcard{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .mcard h2{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#a8a29e;margin:0 0 10px}
+    .mrow{display:flex;justify-content:space-between;gap:16px;padding:6px 0;border-bottom:1px solid #f5f5f4;font-size:.9rem}
+    .mrow:last-child{border-bottom:0}
+    .mrow .k{color:#78716c}
+    .mrow .v{font-weight:600;text-align:right}
+    .mono{font-family:ui-monospace,monospace;font-size:.75rem;color:#78716c;word-break:break-all}
+    .bchip{display:inline-flex;align-items:center;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;background:#f5f5f4;color:#57534e;white-space:nowrap}
+    .bchip-bad{background:#fef2f2;color:#b91c1c}
+    .bchip-warn{background:#fffbeb;color:#b45309}
+    .bchip-good{background:#ecfdf5;color:#047857}
+  </style>
+</head>
+<body class="bg-stone-50 text-stone-900 antialiased">
+  <AdminShell current="/admin/club" title="Club member">
+    <p class="text-sm"><a class="text-orange-700 font-semibold" href="/admin/club">← Back to Club</a></p>
+    <div id="member-root" class="mt-3 flex flex-col gap-4">
+      <p class="text-stone-400 text-sm">Loading member...</p>
+    </div>
+  </AdminShell>
+
+  <script is:inline define:vars={{ memberId }}>
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+    function fmtDate(ts) {
+      if (!ts) return "–";
+      return new Date(ts * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
+    function money(cents) { return "$" + ((cents || 0) / 100).toFixed(2); }
+    function human(s) { return String(s || "").replace(/_/g, " "); }
+    function row(k, v) {
+      return '<div class="mrow"><span class="k">' + esc(k) + '</span><span class="v">' + v + "</span></div>";
+    }
+
+    async function load() {
+      var root = document.getElementById("member-root");
+      var r = await fetch("/api/admin/club?member_id=" + encodeURIComponent(memberId));
+      if (!r.ok) {
+        root.innerHTML = '<p class="text-red-600 text-sm">Member not found.</p>';
+        return;
+      }
+      var data = await r.json();
+      var m = data.member || {};
+      var audio = m.club_plan === "audio";
+      var clubName = audio ? "The Audio Club" : "The Book Club";
+      var period = m.plan === "annual" ? "Annual" : m.plan === "monthly" ? "Monthly" : "Quarterly";
+      var statusChip = m.status === "paid"
+        ? '<span class="bchip bchip-good">Paid member</span>'
+        : '<span class="bchip">' + esc(human(m.status)) + "</span>";
+      var subChip = m.subscription_status && m.subscription_status !== "active"
+        ? ' <span class="bchip bchip-warn">' + esc(human(m.subscription_status)) + "</span>" : "";
+      var html = "";
+      html += '<div class="mcard"><h2>Member</h2>' +
+        '<p class="text-xl font-extrabold">' + esc(m.name || m.email) + "</p>" +
+        '<p class="text-sm text-stone-500">' + esc(m.email) + "</p>" +
+        '<div class="mt-3">' +
+        row("Club", esc(clubName + " · " + period)) +
+        row("Status", statusChip + subChip) +
+        row("Joined", esc(fmtDate(m.created_at))) +
+        (m.paid_at ? row("Paid since", esc(fmtDate(m.paid_at))) : "") +
+        (!audio && m.first_ship_date ? row("First box", esc(m.first_ship_date)) : "") +
+        (m.payment_failed_at ? row("Payment failed", '<span class="bchip bchip-bad">' + esc(fmtDate(m.payment_failed_at)) + "</span>") : "") +
+        (m.canceled_at ? row("Canceled", esc(fmtDate(m.canceled_at))) : "") +
+        "</div></div>";
+      html += '<div class="mcard"><h2>Account</h2><div>' +
+        row("Store account", m.user_id ? "Linked" : "No account linked yet") +
+        row("Stripe customer", '<span class="mono">' + esc(m.stripe_customer_id || "–") + "</span>") +
+        row("Subscription", '<span class="mono">' + esc(m.stripe_subscription_id || "–") + "</span>") +
+        "</div></div>";
+      var boxes = data.boxes || [];
+      if (!audio && boxes.length) {
+        html += '<div class="mcard"><h2>Boxes</h2><div>';
+        boxes.forEach(function (b) {
+          html += row(esc(b.ship_date || ""), esc(human(b.status)) +
+            (b.tracking_number ? ' · <span class="mono">' + esc(b.tracking_number) + "</span>" : ""));
+        });
+        html += "</div></div>";
+      }
+      var orders = data.orders || [];
+      html += '<div class="mcard"><h2>Store orders</h2><div>';
+      if (!orders.length) {
+        html += '<p class="text-sm text-stone-400">No store orders under this email.</p>';
+      }
+      orders.forEach(function (o) {
+        var label = "#" + String(o.id).replace(/-/g, "").slice(0, 8).toUpperCase();
+        html += '<div class="mrow"><span class="k"><a class="text-orange-700 font-semibold" href="/admin/orders/' +
+          esc(o.id) + '">' + esc(label) + "</a> · " + esc(fmtDate(o.created_at)) + '</span>' +
+          '<span class="v">' + esc(money(o.amount)) +
+          (o.physical_status ? ' · <span class="bchip">' + esc(human(o.physical_status)) + "</span>" : "") +
+          "</span></div>";
+      });
+      html += "</div></div>";
+      root.innerHTML = html;
+    }
+    load().catch(function () {
+      document.getElementById("member-root").innerHTML = '<p class="text-red-600 text-sm">Could not load this member.</p>';
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+---
+import "../../styles/global.css";
+import AdminShell from "../../components/AdminShell.astro";
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>Videos · Big Brain Shelf admin</title>
+  <style is:global>
+    body{font-family:ui-sans-serif,system-ui,sans-serif;background:#fafaf9;color:#1c1917;margin:0}
+    .wrap{max-width:64rem;margin:0 auto;padding:1.75rem 1rem 4rem}
+    h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 1rem}
+    .card{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:20px;margin:16px 0;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .status{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.85em;font-weight:600}
+    .draft{background:#f5f5f4;color:#44403c}.queued{background:#dbeafe;color:#1e40af}.building{background:#fef3c7;color:#92400e}.running{background:#fef3c7;color:#92400e}.ready_for_qa{background:#cffafe;color:#155e75}.in_progress{background:#fef3c7;color:#92400e}.complete{background:#dcfce7;color:#166534}.done{background:#dcfce7;color:#166534}.failed{background:#fee2e2;color:#991b1b}
+    .meta{color:#78716c;font-size:.88em}
+    a{color:#c2410c}
+    .btn{display:inline-block;background:#ea580c;color:#fff;padding:10px 22px;border-radius:999px;font-weight:600;text-decoration:none;border:0;cursor:pointer;font-size:14px}
+    .btn:hover{background:#c2410c}
+    .btn:disabled{opacity:.55;cursor:default}
+    .ghostbtn{display:inline-block;background:#fff;color:#1c1917;border:1px solid #d6d3d1;padding:9px 18px;border-radius:999px;font-weight:600;cursor:pointer;font-size:14px;text-decoration:none}
+    video{width:100%;max-width:480px;border-radius:10px;background:#000;margin-top:12px}
+  </style>
+  </head>
+<body>
+  <AdminShell current="/admin/video" />
+  <main class="wrap">
+  <h1>Story Videos</h1>
+  <p>Every finished book can become a narrated, animated story video. Hit Build and the runner animates each page in color, reads the story aloud in the channel voice, and assembles a 16:9 video for YouTube. Animation runs about $0.09 a page; narration is about a cent a book. Built videos land back here, ready to watch.</p>
+  <div id="books"><p>Loading...</p></div>
+  <script is:inline>
+    var R2 = "https://media.bigbrainshelf.com/";
+    var allBooks = [];
+    function escV(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function videoState(b) {
+      var j = b.video_job;
+      if (j && (j.status === 'queued' || j.status === 'running')) return { key: j.status, label: j.status === 'queued' ? 'queued' : 'building', detail: j.detail || '' };
+      if (b.video_key) return { key: 'done', label: 'video ready', detail: j && j.detail ? j.detail : '' };
+      if (j && j.status === 'failed') return { key: 'failed', label: 'last build failed', detail: j.detail || '' };
+      return { key: 'draft', label: 'no video yet', detail: '' };
+    }
+    function cardHtml(b) {
+      var vs = videoState(b);
+      var cover = b.cover_key ? '<img src="' + R2 + b.cover_key + '" alt="" style="width:74px;height:98px;object-fit:cover;border-radius:6px;border:1px solid #e7e5e4;flex-shrink:0" />' : '<div style="width:74px;height:98px;border-radius:6px;background:#f5f5f4;border:1px solid #e7e5e4;flex-shrink:0"></div>';
+      var busy = vs.key === 'queued' || vs.key === 'running';
+      var btn = busy
+        ? '<button class="ghostbtn" disabled>' + (vs.key === 'queued' ? 'Queued' : 'Building...') + '</button>'
+        : '<button class="btn build-video-btn" data-slug="' + escV(b.slug) + '" data-title="' + escV(b.title) + '">' + (b.video_key ? 'Rebuild video' : 'Build video') + '</button>';
+      var watch = b.video_key ? '<p style="margin:12px 0 0"><a class="ghostbtn" href="/api/admin/media?key=' + encodeURIComponent(b.video_key) + '" target="_blank" rel="noopener">Open video file</a></p><video controls preload="none" src="/api/admin/media?key=' + encodeURIComponent(b.video_key) + '"></video>' : '';
+      return '<div class="card">' +
+        '<div style="display:flex;gap:18px;align-items:flex-start">' + cover +
+        '<div style="flex:1;min-width:0">' +
+        '<h2 style="margin:2px 0 6px;font-size:1.25rem">' + escV(b.title) + '</h2>' +
+        '<p style="margin:4px 0"><span class="status ' + b.status + '">' + b.status + '</span> <span class="status ' + vs.key + '">' + vs.label + '</span></p>' +
+        (vs.detail ? '<p class="meta" style="margin:4px 0">' + escV(vs.detail) + '</p>' : '') +
+        '<p style="margin:10px 0 0">' + btn + '</p>' +
+        '</div></div>' + watch + '</div>';
+    }
+    function render() {
+      var el = document.getElementById('books');
+      if (!allBooks.length) { el.innerHTML = '<p>No finished books yet. Videos unlock when a book reaches ready for QA.</p>'; return; }
+      el.innerHTML = allBooks.map(cardHtml).join('');
+    }
+    function loadBooks() {
+      return fetch('/api/video').then(function (r) { return r.json(); }).then(function (books) {
+        allBooks = books || [];
+        render();
+        var active = allBooks.some(function (b) { var j = b.video_job; return j && (j.status === 'queued' || j.status === 'running'); });
+        if (active && !window.__bbVidPoll) {
+          window.__bbVidPoll = setInterval(function () {
+            loadBooks().then(function () {
+              if (!allBooks.some(function (b) { var j = b.video_job; return j && (j.status === 'queued' || j.status === 'running'); })) {
+                clearInterval(window.__bbVidPoll); window.__bbVidPoll = null;
+              }
+            });
+          }, 30000);
+        }
+      });
+    }
+    document.getElementById('books').addEventListener('click', async function (e) {
+      var btn = e.target.closest('.build-video-btn');
+      if (!btn) return;
+      var slug = btn.getAttribute('data-slug');
+      var title = btn.getAttribute('data-title');
+      if (!confirm('Build the story video for "' + title + '"? The runner animates every page (about $0.09 a page in gateway credit) and narrates it. Pages already built are reused, so a rebuild costs less.')) return;
+      btn.disabled = true;
+      btn.textContent = 'Queueing...';
+      try {
+        var res = await fetch('/api/video/build', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: slug })
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+        btn.textContent = 'Queued';
+        setTimeout(loadBooks, 1500);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Build video';
+        alert('Could not queue the video: ' + err.message);
+      }
+    });
+    loadBooks();
+  </script>
+  </main>
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

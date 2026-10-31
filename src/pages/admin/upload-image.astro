@@ -1,0 +1,93 @@
+---
+import "../../styles/global.css";
+import AdminShell from "../../components/AdminShell.astro";
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Upload page image · admin</title>
+  </head>
+<body class="bg-stone-50 text-stone-900 antialiased">
+  <AdminShell current="/admin/books" />
+  <div class="max-w-xl mx-auto px-4 py-10">
+    <a href="/admin/books" class="text-sm text-stone-500 hover:text-stone-900">&larr; Books</a>
+    <h1 class="text-xl font-bold mt-4">Upload page image</h1>
+    <p class="text-sm text-stone-500 mt-1">Stores a timestamped key (never overwrites). Returns the R2 URL to paste into the chapter data.</p>
+    <form id="f" class="mt-6 space-y-4 bg-white rounded-lg border border-stone-200 p-6">
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="block text-sm font-medium mb-1" for="slug">Slug</label>
+          <input id="slug" value="docker" class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="chapter">Chapter</label>
+          <input id="chapter" value="S1" class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1" for="page">Page (0-based)</label>
+          <input id="page" value="1" class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1" for="file">Image (JPG)</label>
+        <input id="file" type="file" accept="image/jpeg,image/png" class="text-sm" />
+      </div>
+      <p id="err" class="text-sm text-red-600 hidden"></p>
+      <button id="btn" class="rounded-lg bg-stone-900 text-white text-sm font-semibold px-5 py-2.5 hover:bg-black">Upload</button>
+    </form>
+    <div id="result" class="hidden mt-6 bg-white rounded-lg border border-stone-200 p-6">
+      <p class="text-sm font-semibold text-green-700">Uploaded.</p>
+      <p class="text-xs text-stone-500 mt-2 break-all" id="url"></p>
+      <img id="thumb" class="mt-3 max-w-xs rounded border border-stone-200" />
+    </div>
+  </div>
+  <script is:inline>
+    document.getElementById("f").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      var btn = document.getElementById("btn"), err = document.getElementById("err");
+      btn.disabled = true; err.classList.add("hidden");
+      try {
+        var files = document.getElementById("file").files;
+        if (!files.length) throw new Error("Choose a file.");
+        var form = new FormData();
+        form.append("slug", document.getElementById("slug").value.trim());
+        form.append("chapter", document.getElementById("chapter").value.trim());
+        form.append("page", document.getElementById("page").value.trim());
+        form.append("file", files[0]);
+        var r = await fetch("/api/editor/page-image", { method: "POST", body: form });
+        var data = await r.json().catch(function () { return {}; });
+        if (!r.ok) throw new Error(data.error || "Upload failed.");
+        document.getElementById("url").textContent = data.url;
+        document.getElementById("thumb").src = data.url;
+        document.getElementById("result").classList.remove("hidden");
+        document.getElementById("file").value = "";
+      } catch (ex) {
+        err.textContent = ex.message; err.classList.remove("hidden");
+      }
+      btn.disabled = false;
+    });
+  </script>
+<script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

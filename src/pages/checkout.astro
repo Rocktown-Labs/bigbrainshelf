@@ -1,0 +1,590 @@
+---
+// The checkout flow page: the one place a cart becomes an order.
+// The drawer (src/components/CartSheet.astro) is the cart; its
+// Checkout button lands here for every cart. The page runs as
+// STEPS (CG, 2026-10-30, modeled on a multi-step checkout example):
+// an order-summary column (line items with remove, totals) beside a
+// step column. Digital carts get a single step, Review and pay.
+// Physical carts get three: 1 Shipping address, 2 Shipping, 3
+// Review and pay, each step unlocking the next, completed steps
+// collapsing to a one-line summary with an Edit button. Step 1's
+// Continue runs the server-side carrier quote: Shippo validates the
+// address in that same call (lib/shippo.ts) and an undeliverable
+// address fails the step with Shippo's explanation instead of ever
+// reaching payment; a validated address comes back standardized and
+// the page adopts it, so the address the buyer confirms is the one
+// the pay call re-quotes and the order stores. The street field
+// carries Radar autocomplete (debounced suggestions, select fills
+// the whole address) when RADAR_PUBLISHABLE_KEY is configured; with
+// no key it is a plain field and Shippo validation still gates.
+// Stripe sends a cancelled buyer back here (?checkout=cancelled,
+// see cancel_url in src/pages/api/checkout.ts) and the banner below
+// shows for it.
+import "../styles/global.css";
+import SiteHeader from "../components/SiteHeader.astro";
+import CartSheet from "../components/CartSheet.astro";
+import Tracking from "../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../components/TransitionHooks.astro";
+import SeoHead from "../components/SeoHead.astro";
+import { env } from "cloudflare:workers";
+import { getAuth } from "../lib/auth";
+import { getDigitalEntitlements } from "../lib/library";
+import { AUDIO_PRICE_CENTS } from "../lib/offers";
+export const prerender = false;
+
+// Audiobook-owner digital upgrades: a signed-in visitor who owns a
+// book's audiobook only pays the digital price minus the audio price
+// for that book's digital format (the credit the book page's picker
+// and cart sheet show, and checkout enforces server-side). Computed
+// for every complete book the visitor qualifies for, so this page
+// prices a digital item exactly like the book page does. Owned means
+// owned (the lock model): membership-layer listening never qualifies.
+// Anonymous visitors get an empty map and list prices.
+let upgradeCentsBySlug: Record<string, number> = {};
+try {
+  const s = await getAuth().api.getSession({ headers: Astro.request.headers });
+  if (s?.user) {
+    const ents = await getDigitalEntitlements(env.DB as any, {
+      id: s.user.id,
+      email: String(s.user.email || ""),
+    });
+    const owned = [...ents.entries()]
+      .filter(([, e]) => e.owned && !e.digital && e.audio)
+      .map(([slug]) => slug);
+    if (owned.length) {
+      const ph = owned.map(() => "?").join(",");
+      const { results } = await env.DB
+        .prepare(`SELECT slug, price FROM books WHERE status = 'complete' AND slug IN (${ph})`)
+        .bind(...owned)
+        .all();
+      for (const r of results as any[]) {
+        upgradeCentsBySlug[String(r.slug)] = Math.max(0, Number(r.price || 0) - AUDIO_PRICE_CENTS);
+      }
+    }
+  }
+} catch { upgradeCentsBySlug = {}; }
+
+// Radar publishable key for the street field's address autocomplete.
+// Publishable by design (Radar restricts it by domain in their
+// dashboard); empty until CG configures one, and the field then
+// quietly stays a plain input.
+const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").trim();
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Checkout · Big Brain Shelf</title>
+  <SeoHead title="Checkout · Big Brain Shelf" />
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+  <style is:global>
+    /* Radar suggestion rows are injected by the checkout script, so
+       they can never match Astro's scoped page styles; this global
+       block is the only styling they get (AGENTS.md rule). */
+    .bbs-radar-list { position: absolute; left: 0; right: 0; top: 100%; z-index: 30; margin-top: 4px; background: #fff; border: 1px solid #d6d3d1; border-radius: 10px; box-shadow: 0 10px 25px rgba(28, 25, 23, 0.12); overflow: hidden; }
+    .bbs-radar-item { display: block; width: 100%; text-align: left; padding: 9px 12px; font-size: 13px; color: #1c1917; background: #fff; border: 0; border-top: 1px solid #f5f5f4; cursor: pointer; }
+    .bbs-radar-item:first-child { border-top: 0; }
+    .bbs-radar-item:hover { background: #fff7ed; }
+  </style>
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+
+  <main class="max-w-6xl mx-auto px-4 py-10">
+    <div class="flex items-center justify-between gap-4">
+      <h1 class="text-2xl font-bold tracking-tight">Checkout</h1>
+      <button id="clear-cart" class="hidden shrink-0 rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-600 hover:bg-stone-50 hover:text-stone-900">Clear cart</button>
+    </div>
+    <div id="cancelled" class="hidden mt-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">Checkout was cancelled. Your cart is still here.</div>
+
+    <div class="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-12">
+      <section class="mt-6 lg:mt-8">
+        <h2 class="sr-only">Order summary</h2>
+        <div id="items"><p class="text-stone-500 text-sm">Loading...</p></div>
+        <div id="summary" class="hidden mt-6 border-t border-stone-200 pt-6">
+          <div id="ship-row" class="hidden justify-between items-baseline mb-1">
+            <span class="text-sm text-stone-500">Shipping</span>
+            <span id="ship-amount" class="text-sm font-semibold"></span>
+          </div>
+          <div class="flex justify-between items-baseline">
+            <span class="text-sm text-stone-500">Total</span>
+            <span id="total" class="text-xl font-bold"></span>
+          </div>
+          <p id="summary-note" class="text-xs text-stone-400 mt-1">Digital downloads. Yours forever after checkout.</p>
+        </div>
+      </section>
+
+      <section id="steps" class="hidden mt-10 lg:mt-8">
+        <div id="step-address" class="border-t border-stone-200 py-6">
+          <div class="flex items-center justify-between gap-4">
+            <h2 class="text-lg font-medium text-stone-900"><span class="text-orange-700 font-bold mr-1">1.</span> Shipping address</h2>
+            <button id="step1-edit" class="hidden shrink-0 text-sm font-medium text-orange-700 hover:text-orange-800">Edit</button>
+          </div>
+          <p id="step1-summary" class="hidden mt-2 text-sm text-stone-600"></p>
+          <div id="ship-form" class="hidden">
+            <p class="text-xs text-stone-500 mt-3">Printed books ship by UPS or USPS at the carrier's actual rate for your address, the cheapest good option of the two. No markup, no flat fee.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+              <label class="block sm:col-span-2">
+                <span class="text-xs font-semibold text-stone-500">Full name</span>
+                <input id="ship-name" type="text" autocomplete="name" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" />
+              </label>
+              <label class="block sm:col-span-2">
+                <span class="text-xs font-semibold text-stone-500">Street address</span>
+                <input id="ship-line1" type="text" autocomplete="address-line1" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" />
+              </label>
+              <label class="block sm:col-span-2">
+                <span class="text-xs font-semibold text-stone-500">Apt, suite, etc. (optional)</span>
+                <input id="ship-line2" type="text" autocomplete="address-line2" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" />
+              </label>
+              <label class="block">
+                <span class="text-xs font-semibold text-stone-500">City</span>
+                <input id="ship-city" type="text" autocomplete="address-level2" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" />
+              </label>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="block">
+                  <span class="text-xs font-semibold text-stone-500">State</span>
+                  <input id="ship-state" type="text" autocomplete="address-level1" maxlength="2" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm uppercase" />
+                </label>
+                <label class="block">
+                  <span class="text-xs font-semibold text-stone-500">ZIP</span>
+                  <input id="ship-zip" type="text" autocomplete="postal-code" inputmode="numeric" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" />
+                </label>
+              </div>
+            </div>
+            <p id="step1-err" class="text-sm text-red-600 hidden mt-3"></p>
+            <button id="step1-continue" class="mt-4 w-full rounded-lg bg-orange-600 text-white text-sm font-semibold py-3 hover:bg-orange-700">Continue</button>
+          </div>
+        </div>
+
+        <div id="step-shipping" class="border-t border-stone-200 py-6">
+          <h2 class="text-lg font-medium text-stone-900"><span class="text-orange-700 font-bold mr-1">2.</span> Shipping</h2>
+          <p id="step2-summary" class="hidden mt-2 text-sm text-stone-600"></p>
+          <div id="step2-body" class="hidden">
+            <p id="quote-line" class="mt-3 text-sm text-stone-700"></p>
+            <p id="validated-note" class="hidden mt-2 text-xs text-stone-500"></p>
+            <button id="step2-continue" class="mt-4 w-full rounded-lg bg-orange-600 text-white text-sm font-semibold py-3 hover:bg-orange-700">Continue</button>
+          </div>
+          <p id="step2-locked" class="mt-2 text-sm text-stone-400">Your shipping rate appears here once your address checks out.</p>
+        </div>
+
+        <div id="step-review" class="border-t border-b border-stone-200 py-6">
+          <h2 class="text-lg font-medium text-stone-900"><span id="review-num" class="text-orange-700 font-bold mr-1">3.</span> Review and pay</h2>
+          <div id="step3-body" class="hidden">
+            <p id="err" class="text-sm text-red-600 hidden mt-3"></p>
+            <button id="checkout" class="mt-4 w-full rounded-lg bg-orange-600 text-white text-sm font-semibold py-3 hover:bg-orange-700">Checkout</button>
+            <p class="text-sm text-stone-500 mt-3">No account needed. Your download links arrive by email after checkout.</p>
+          </div>
+          <p id="step3-locked" class="mt-2 text-sm text-stone-400">One more step above, then you can pay.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script is:inline define:vars={{ upgradeCentsBySlug, radarPublishableKey }}>
+    // Per-book digital prices for the signed-in audiobook owner
+    // (see the frontmatter). Read by entryPrice below.
+    window.__bbsUpgrades = upgradeCentsBySlug || {};
+    // Radar publishable key for the street field's autocomplete;
+    // empty until configured, and the field then stays plain.
+    window.__bbsRadarPk = radarPublishableKey || "";
+  </script>
+
+  <script is:inline>
+  (function () {
+    var store = window.bbsCart;
+
+    // Renders the checkout page from the shared cart store and
+    // re-renders on every cart change the store announces, whoever
+    // made it (a remove here used to reload the whole page; the
+    // badge never repainted here at all). Runs on first render and
+    // again on astro:page-load so the page keeps working after
+    // view-transition navigations; the items box flag keeps one
+    // instance from being wired up twice.
+    function initCheckoutPage() {
+      var box = document.getElementById("items");
+      if (!box || box.__cartBound || !store) return;
+      box.__cartBound = true;
+
+      if (new URLSearchParams(window.location.search).get("checkout") === "cancelled") {
+        document.getElementById("cancelled").classList.remove("hidden");
+      }
+
+      var summaryEl = document.getElementById("summary");
+      var stepsEl = document.getElementById("steps");
+      var shipFormEl = document.getElementById("ship-form");
+      var clearBtn = document.getElementById("clear-cart");
+      var checkoutBtn = document.getElementById("checkout");
+      var step1Continue = document.getElementById("step1-continue");
+      var step1Edit = document.getElementById("step1-edit");
+      var step1Err = document.getElementById("step1-err");
+      var step2Continue = document.getElementById("step2-continue");
+      // The current render's view of the cart. The checkout flow
+      // (quote first for physical carts, then pay) reads it, and a
+      // cart change replaces it wholesale, quote included: a quote
+      // is only ever valid for the items it was taken on.
+      var view = { items: [], total: 0, physical: false, quoted: null, shippingConfirmed: false };
+
+      // Shipping is pass-through at the real carrier rate: the hub
+      // quotes it server-side from the address below, so the client
+      // never computes or names a shipping amount.
+      function readAddress() {
+        return {
+          name: document.getElementById("ship-name").value.trim(),
+          line1: document.getElementById("ship-line1").value.trim(),
+          line2: document.getElementById("ship-line2").value.trim(),
+          city: document.getElementById("ship-city").value.trim(),
+          state: document.getElementById("ship-state").value.trim(),
+          postal_code: document.getElementById("ship-zip").value.trim(),
+          country: "US",
+        };
+      }
+
+      function oneLineAddress(a) {
+        return [a.line1, a.line2].filter(Boolean).join(" ") + ", " + a.city + ", " + a.state + " " + a.postal_code;
+      }
+
+      // A quote dies with any change to the cart or the address:
+      // the buyer always pays a quote taken for what is on screen.
+      function resetQuote() {
+        if (!view.quoted && !view.shippingConfirmed) return;
+        view.quoted = null;
+        view.shippingConfirmed = false;
+        document.getElementById("ship-amount").textContent = "Calculated from your address";
+        document.getElementById("total").textContent = store.money(view.total);
+      }
+
+      // Which step is open follows the state, nothing else: digital
+      // carts live in Review; physical carts sit in Address until a
+      // quote exists, then Shipping until it is confirmed, then
+      // Review. Completed steps collapse to their summary line.
+      function currentStep() {
+        if (!view.physical) return "review";
+        if (!view.quoted) return "address";
+        if (!view.shippingConfirmed) return "shipping";
+        return "review";
+      }
+
+      function paintSteps() {
+        var step = currentStep();
+        var addrSection = document.getElementById("step-address");
+        var shipSection = document.getElementById("step-shipping");
+        addrSection.classList.toggle("hidden", !view.physical);
+        shipSection.classList.toggle("hidden", !view.physical);
+        document.getElementById("review-num").classList.toggle("hidden", !view.physical);
+        // Step 1: form open only on the address step; once quoted it
+        // collapses to the address on one line, with Edit.
+        shipFormEl.classList.toggle("hidden", !(view.physical && step === "address"));
+        var s1 = document.getElementById("step1-summary");
+        var quoted1 = view.physical && !!view.quoted;
+        s1.classList.toggle("hidden", !quoted1);
+        if (quoted1) {
+          var a = readAddress();
+          s1.textContent = (a.name ? a.name + " · " : "") + oneLineAddress(a);
+        }
+        step1Edit.classList.toggle("hidden", !(quoted1 && step !== "address"));
+        // Step 2: locked note before a quote, the quote and its
+        // Continue on the shipping step, the quote as a plain
+        // summary line once confirmed.
+        document.getElementById("step2-locked").classList.toggle("hidden", !!view.quoted);
+        document.getElementById("step2-body").classList.toggle("hidden", !(view.quoted && step === "shipping"));
+        var s2 = document.getElementById("step2-summary");
+        var confirmed2 = !!(view.quoted && view.shippingConfirmed);
+        s2.classList.toggle("hidden", !confirmed2);
+        if (confirmed2) s2.textContent = document.getElementById("quote-line").textContent;
+        // Step 3: the pay controls open only on the review step.
+        document.getElementById("step3-body").classList.toggle("hidden", step !== "review");
+        document.getElementById("step3-locked").classList.toggle("hidden", !(view.physical && step !== "review"));
+      }
+
+      function render() {
+        var cart = store.get();
+        clearBtn.classList.toggle("hidden", !cart.length);
+        view.quoted = null;
+        view.shippingConfirmed = false;
+        if (!cart.length) {
+          view.items = [];
+          view.total = 0;
+          view.physical = false;
+          summaryEl.classList.add("hidden");
+          stepsEl.classList.add("hidden");
+          box.innerHTML = '<div class="text-center text-stone-500 py-16"><p class="text-stone-900 font-semibold text-lg">Your cart is empty.</p><a href="/" class="inline-block mt-6 rounded-lg bg-orange-600 text-white text-sm font-semibold px-5 py-2.5 hover:bg-orange-700">Browse the shelf</a></div>';
+          return;
+        }
+        box.innerHTML = '<p class="text-stone-500 text-sm">Loading...</p>';
+        store.loadBooks().then(function (books) {
+          // A newer render owns the page if the cart moved on while
+          // the catalog was loading.
+          if (store.get().length !== cart.length) return;
+          var bySlug = {};
+          books.forEach(function (b) { bySlug[b.slug] = b; });
+          // Prices resolve through the store: the canonical rules,
+          // including this page's audiobook-owner digital unlock map
+          // (window.__bbsUpgrades, set by the frontmatter script).
+          var items = cart.filter(function (it) { return store.priceOf(bySlug, it) > 0; });
+          view.items = items;
+          if (!items.length) {
+            summaryEl.classList.add("hidden");
+            stepsEl.classList.add("hidden");
+            box.innerHTML = '<p class="text-stone-500 text-sm">Nothing in your cart is available for purchase yet.</p>';
+            return;
+          }
+          var total = 0;
+          box.innerHTML = items.map(function (it, idx) {
+            var b = bySlug[it.slug];
+            var p = store.priceOf(bySlug, it);
+            total += p;
+            var fmt = it.format === "printed" ? "Full color printed book · digital included" : it.format === "giftset" ? "Gift Set · printed storybook + printed coloring book, digital included" : it.format === "audio" ? "Audiobook only" : "Digital download";
+            return '<div class="flex gap-4 py-4 border-b border-stone-100">' +
+              (b.cover_key ? '<img src="' + (b.cover_card || (store.R2 + b.cover_key)) + '" class="w-16 aspect-[3/4] object-cover rounded bg-stone-100" />' : '<div class="w-16 aspect-[3/4] rounded bg-stone-100"></div>') +
+              '<div class="flex-1"><p class="text-sm font-semibold">' + b.title + '</p><p class="text-xs text-stone-500 capitalize">' + (b.topic || "tech") + ' · ' + fmt + '</p>' +
+              '<button class="remove text-xs text-stone-400 hover:text-red-600 mt-1" data-idx="' + idx + '">Remove</button></div>' +
+              '<p class="text-sm font-semibold">' + store.money(p) + '</p></div>';
+          }).join("");
+          view.total = total;
+          view.physical = store.hasPhysical(items);
+          var shipRow = document.getElementById("ship-row");
+          if (view.physical) {
+            shipRow.classList.remove("hidden");
+            shipRow.classList.add("flex");
+            document.getElementById("ship-amount").textContent = "Calculated from your address";
+            document.getElementById("summary-note").textContent = "Your printed books ship to you; the digital files are yours right away, forever.";
+            checkoutBtn.textContent = "Checkout";
+          } else {
+            shipRow.classList.add("hidden");
+            shipRow.classList.remove("flex");
+            document.getElementById("summary-note").textContent = "Digital downloads. Yours forever after checkout.";
+            checkoutBtn.textContent = "Checkout";
+          }
+          document.getElementById("total").textContent = store.money(total);
+          summaryEl.classList.remove("hidden");
+          stepsEl.classList.remove("hidden");
+          paintSteps();
+        });
+      }
+
+      box.addEventListener("click", function (e) {
+        var btn = e.target.closest ? e.target.closest(".remove") : null;
+        if (!btn) return;
+        var entry = view.items[parseInt(btn.getAttribute("data-idx"), 10)];
+        // The store writes, repaints the badge, and announces the
+        // change; the subscription below re-renders in place.
+        if (entry) store.remove(entry.slug, entry.format);
+      });
+
+      clearBtn.addEventListener("click", function () { store.clear(); });
+
+      // Editing the address after a quote invalidates it: the buyer
+      // always pays a quote taken for the address on screen.
+      shipFormEl.addEventListener("input", function () {
+        resetQuote();
+        paintSteps();
+      });
+
+      // Step 1's Edit reopens the address step by dropping the
+      // quote, the same invalidation typing causes.
+      step1Edit.addEventListener("click", function () {
+        resetQuote();
+        paintSteps();
+        document.getElementById("ship-line1").focus();
+      });
+
+      // Step 1 Continue: quote the real carrier rate for this
+      // address. The quote call validates the address server-side;
+      // an undeliverable address comes back as an error and the step
+      // stays open with Shippo's explanation. On success the page
+      // adopts Shippo's standardized address when one came back, so
+      // what the buyer confirms, the pay call re-quotes, and the
+      // order stores are the same deliverable address.
+      step1Continue.addEventListener("click", async function () {
+        var btn = this;
+        btn.disabled = true; step1Err.classList.add("hidden");
+        btn.textContent = "Checking address and rates...";
+        try {
+          var qr = await fetch("/api/checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "quote", items: view.items, address: readAddress(), guest_id: store.bbsGuestId() }),
+          });
+          var qd = await qr.json().catch(function () { return {}; });
+          if (!qr.ok || !qd.shipping) throw new Error(qd.error || "Could not get a shipping quote.");
+          view.quoted = qd.shipping;
+          var va = qd.shipping.validated_address;
+          var note = document.getElementById("validated-note");
+          note.classList.add("hidden");
+          if (va) {
+            var before = readAddress();
+            var changed = ["line1", "line2", "city", "state", "postal_code"].some(function (k) {
+              return String(before[k] || "").trim().toLowerCase() !== String(va[k] || "").trim().toLowerCase();
+            });
+            if (changed) {
+              document.getElementById("ship-line1").value = va.line1 || before.line1;
+              document.getElementById("ship-line2").value = va.line2 || "";
+              document.getElementById("ship-city").value = va.city || before.city;
+              document.getElementById("ship-state").value = va.state || before.state;
+              document.getElementById("ship-zip").value = va.postal_code || before.postal_code;
+              note.textContent = "Deliverable address, as standardized for the carrier: " + oneLineAddress(readAddress()) + ".";
+              note.classList.remove("hidden");
+            }
+          }
+          var line = document.getElementById("quote-line");
+          line.textContent = "Shipping via " + qd.shipping.carrier + " " + qd.shipping.service +
+            (qd.shipping.estimated_days != null ? ", about " + qd.shipping.estimated_days + " days" : "") +
+            ": " + store.money(qd.shipping.amount_cents) + ". That is the carrier's rate for your address, charged as-is.";
+          document.getElementById("ship-amount").textContent = store.money(qd.shipping.amount_cents);
+          document.getElementById("total").textContent = store.money(qd.total);
+          checkoutBtn.textContent = "Pay " + store.money(qd.total);
+          paintSteps();
+          document.getElementById("step-shipping").scrollIntoView({ behavior: "smooth", block: "start" });
+        } catch (ex) {
+          step1Err.textContent = ex.message; step1Err.classList.remove("hidden");
+        }
+        btn.disabled = false;
+        btn.textContent = "Continue";
+      });
+
+      // Step 2 Continue: the buyer has seen the rate; Review opens.
+      step2Continue.addEventListener("click", function () {
+        view.shippingConfirmed = true;
+        paintSteps();
+        document.getElementById("step-review").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      checkoutBtn.addEventListener("click", async function () {
+        var btn = this, err = document.getElementById("err");
+        if (view.physical && !view.quoted) return;
+        btn.disabled = true; err.classList.add("hidden");
+        try {
+          // Guests check out too (one-time purchases). The server
+          // applies account pricing credits from the session itself;
+          // guest_id only dedupes the guest's order. Physical carts
+          // re-quote fresh server-side inside this call, so the
+          // charge always matches a quote taken moments ago for the
+          // address on screen.
+          var r = await fetch("/api/checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(view.physical ? { items: view.items, address: readAddress(), guest_id: store.bbsGuestId() } : { items: view.items, guest_id: store.bbsGuestId() }),
+          });
+          var data = await r.json().catch(function () { return {}; });
+          if (!r.ok || !data.url) throw new Error(data.error || "Checkout failed.");
+          window.location.href = data.url;
+        } catch (ex) {
+          btn.disabled = false;
+          // If the fresh re-quote now rejects the address itself,
+          // send the buyer back to step 1 with the explanation
+          // rather than dead-ending them on the pay step.
+          if (view.physical && /^We could not verify that shipping address/.test(ex.message || "")) {
+            resetQuote();
+            paintSteps();
+            step1Err.textContent = ex.message; step1Err.classList.remove("hidden");
+            document.getElementById("step-address").scrollIntoView({ behavior: "smooth", block: "start" });
+            return;
+          }
+          err.textContent = ex.message; err.classList.remove("hidden");
+        }
+      });
+
+      // Radar autocomplete on the street field (CG, 2026-10-30):
+      // debounced suggestions as the buyer types; picking one fills
+      // the whole address from Radar's components. Entirely a
+      // typing aid: dormant without a publishable key, silent on any
+      // failure, and free typing always works; Shippo's validation
+      // in the quote stays the actual gate either way.
+      var line1El = document.getElementById("ship-line1");
+      var radarPk = window.__bbsRadarPk || "";
+      if (radarPk && line1El && !line1El.__radarBound) {
+        line1El.__radarBound = true;
+        var wrap = line1El.closest("label");
+        if (wrap) {
+          wrap.style.position = "relative";
+          var list = document.createElement("div");
+          list.className = "bbs-radar-list hidden";
+          wrap.appendChild(list);
+          var timer = null;
+          var hideList = function () { list.classList.add("hidden"); list.innerHTML = ""; };
+          var fillAddress = function (a) {
+            var street = [a.number, a.street].filter(Boolean).join(" ");
+            if (street) line1El.value = street;
+            else if (a.formattedAddress) line1El.value = a.formattedAddress;
+            if (a.city) document.getElementById("ship-city").value = a.city;
+            if (a.stateCode) document.getElementById("ship-state").value = String(a.stateCode).toUpperCase();
+            if (a.postalCode) document.getElementById("ship-zip").value = a.postalCode;
+            hideList();
+            // A picked address is an address change: any standing
+            // quote was taken for different fields.
+            resetQuote();
+            paintSteps();
+            document.getElementById("ship-line2").focus();
+          };
+          line1El.addEventListener("input", function () {
+            var q = line1El.value.trim();
+            if (timer) clearTimeout(timer);
+            if (q.length < 3) { hideList(); return; }
+            timer = setTimeout(function () {
+              fetch("https://api.radar.io/v1/search/autocomplete?query=" + encodeURIComponent(q) + "&country=US&layers=address,street&limit=5", {
+                headers: { Authorization: radarPk },
+              }).then(function (r) { return r.json(); }).then(function (d) {
+                var addrs = (d && d.addresses) || [];
+                if (!addrs.length) { hideList(); return; }
+                list.innerHTML = "";
+                addrs.forEach(function (a) {
+                  var row = document.createElement("button");
+                  row.type = "button";
+                  row.className = "bbs-radar-item";
+                  row.textContent = a.addressLabel || a.formattedAddress ||
+                    [a.number, a.street, a.city, a.stateCode, a.postalCode].filter(Boolean).join(" ");
+                  row.addEventListener("mousedown", function (ev) { ev.preventDefault(); fillAddress(a); });
+                  list.appendChild(row);
+                });
+                list.classList.remove("hidden");
+              }).catch(function () { hideList(); });
+            }, 250);
+          });
+          line1El.addEventListener("blur", function () { setTimeout(hideList, 150); });
+          line1El.addEventListener("keydown", function (e) { if (e.key === "Escape") hideList(); });
+        }
+      }
+
+      // Re-render on every cart change, whoever made it. A
+      // swapped-out page instance unsubscribes itself.
+      var off = store.onChange(function () {
+        if (!document.body.contains(box)) { off(); return; }
+        render();
+      });
+
+      render();
+    }
+    initCheckoutPage();
+    document.addEventListener("astro:page-load", initCheckoutPage);
+  })();
+</script>
+
+  <script is:inline>
+    // Keep the header account link in sync with the session. Runs now
+    // and again on astro:page-load so it also applies to the header
+    // swapped in by view transitions. The update is idempotent.
+    function bbsAccountLink() {
+      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+        var link = document.getElementById("account-link");
+        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
+      }).catch(function () {});
+    }
+    bbsAccountLink();
+    document.addEventListener("astro:page-load", bbsAccountLink);
+  </script>
+<!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+<CartSheet />
+
+</body>
+</html>

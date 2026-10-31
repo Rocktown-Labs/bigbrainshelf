@@ -1,0 +1,362 @@
+---
+import "../styles/global.css";
+import { env } from "cloudflare:workers";
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SectionNav from "../components/SectionNav.astro";
+import SectionHero from "../components/SectionHero.astro";
+import CartSheet from "../components/CartSheet.astro";
+import Tracking from "../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../components/TransitionHooks.astro";
+import SeoHead from "../components/SeoHead.astro";
+import { buildCast, bookGroups, objectPosition, TOPIC_TINTS, type CastMember, type BookGroup } from "../lib/cast-public";
+import { loadCastGallery } from "../lib/cast-gallery";
+import { ensurePublicSlugColumn } from "../lib/public-slugs";
+import { STILL_POOL_NOTE } from "../lib/cast-overviews";
+export const prerender = false;
+
+const e = env as any;
+const adminUser = Astro.locals.user;
+
+// The whole cast: every registered character with gallery art,
+// including the workshop book (iwillteach), whose book is not in the
+// store yet. Portraits are single-pose crops from the pose galleries.
+await ensurePublicSlugColumn(e.DB).catch(() => {});
+const res = await e.DB.prepare(
+  `SELECT c.id, c.name, c.species, c.book_slug,
+          b.title AS book_title, b.topic AS book_topic, b.picture_book_key,
+          b.public_slug AS book_public_slug
+     FROM characters c
+     JOIN books b ON b.slug = c.book_slug`
+).all();
+const rows: any[] = res.results || res.rows || [];
+const galleryManifest = await loadCastGallery(e.BOOKS);
+const members: CastMember[] = buildCast(rows, galleryManifest);
+const groups = bookGroups(members);
+const azMembers = [...members].sort((a, b) => a.name.localeCompare(b.name));
+const letterOf = (name: string) => name.replace(/^the /i, "").charAt(0).toUpperCase();
+const presentLetters = new Set(azMembers.map((m) => letterOf(m.name)));
+// Letter chips exist only for letters the cast actually has.
+const azLetters = [...presentLetters].sort();
+// A to Z shows one letter at a time (CG 2026-10-30): the letter's
+// characters sit side by side in one horizontal scrolling row, so a
+// multi-character letter reads as a small rail and a single-character
+// letter keeps the lone centered card it has always been.
+interface AzGroup { letter: string; members: CastMember[] }
+const azGroups: AzGroup[] = azLetters.map((letter) => ({
+  letter,
+  members: azMembers.filter((m) => letterOf(m.name) === letter),
+}));
+const otter = members.find((m) => m.slug === "the-otter");
+// ALSO-blurb rule (CG 2026-10-30): a character presented through a
+// book's ALSO card is excluded from that book's rail; the blurb is
+// their presentation, not a second card. Keyed by exactly the
+// mechanism that renders the card below (the Still Pool note presents
+// the Otter under Mira's book), so any future ALSO card excludes its
+// character from its book's rail the same way.
+const alsoByBook = new Map<string, Set<string>>();
+if (otter) alsoByBook.set("mastery", new Set([otter.slug]));
+// The headline counts describe the STORE's cast (review fix,
+// 2026-10-31): books you can actually buy and the characters who
+// star in them. The workshop book and its cast are still shown and
+// labeled below; they just do not inflate the numbers, which used
+// to read 9 books / 28 characters against a shelf of 8 books.
+const workshopBookSlugs = new Set(groups.filter((g) => g.workshop).map((g) => g.bookSlug));
+const bookCount = groups.length - workshopBookSlugs.size;
+const publishedMemberCount = members.filter((m) => !workshopBookSlugs.has(m.bookSlug)).length;
+const workshopMemberCount = members.length - publishedMemberCount;
+const shelfCounts = ["Tech", "Money", "Courage"].map((label) => ({
+  label,
+  count: members.filter((m) => m.topic === label).length,
+})).filter((s) => s.count > 0);
+
+// By-shelf sections (CG 2026-10-28): the shelf titles are the section
+// separators, books nested under their own shelf, protagonist first
+// inside each book, and the workshop book as its own closing section.
+const SHELF_ORDER = ["Tech", "Money", "Courage"];
+interface ShelfSection { topic: string; heading: string; count: number; groups: BookGroup[] }
+const shelfSections: ShelfSection[] = [];
+for (const topic of SHELF_ORDER) {
+  const gs = groups.filter((g) => !g.workshop && g.topic === topic);
+  if (gs.length) shelfSections.push({ topic, heading: `${topic} Shelf`, count: gs.reduce((n, g) => n + g.members.length, 0), groups: gs });
+}
+for (const g of groups) {
+  if (g.workshop || SHELF_ORDER.includes(g.topic)) continue;
+  const existing = shelfSections.find((s) => s.topic === g.topic);
+  if (existing) { existing.groups.push(g); existing.count += g.members.length; }
+  else shelfSections.push({ topic: g.topic, heading: `${g.topic} Shelf`, count: g.members.length, groups: [g] });
+}
+const workshopGroups = groups.filter((g) => g.workshop);
+if (workshopGroups.length) {
+  shelfSections.push({ topic: "Workshop", heading: "In the workshop", count: workshopGroups.reduce((n, g) => n + g.members.length, 0), groups: workshopGroups });
+}
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Meet the Cast — Big Brain Shelf</title>
+  <SeoHead title="Meet the Cast — Big Brain Shelf" socialDescription="Meet the animals who carry the big ideas: the cast of Big Brain Shelf, storytellers for tech, money and courage." />
+  <meta name="description" content="Meet the animals who carry the big ideas: the cast of Big Brain Shelf, storytellers for tech, money and courage." />
+  <link rel="preload" href="/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <style is:inline>
+    .cast-display { font-family: "Fredoka", ui-rounded, system-ui, sans-serif; }
+    .cast-row { scrollbar-width: none; }
+    .cast-row::-webkit-scrollbar { display: none; }
+    /* Mobile shelf collapse (2026-10-31): under sm each shelf's body
+       hides until its header is tapped, so By shelf is a stack of
+       headers instead of one very long page. Desktop never hides. */
+    @media (max-width: 639px) {
+      .cast-shelf .cast-shelf-body { display: none; }
+      .cast-shelf.shelf-open .cast-shelf-body { display: block; }
+      .cast-shelf h2[data-collapse-toggle] { cursor: pointer; }
+      .cast-shelf .shelf-chevron { transition: transform .2s ease; }
+      .cast-shelf.shelf-open .shelf-chevron { transform: rotate(180deg); }
+    }
+    @media (min-width: 640px) {
+      .cast-shelf .shelf-chevron { display: none; }
+    }
+  </style>
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+  <SectionHero subline="Audiobooks on tech, money, and courage, told so kids can get it." />
+  <SectionNav active="cast" />
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section class="text-center pt-10 sm:pt-14">
+      <h1 class="cast-display text-3xl sm:text-4xl font-semibold tracking-tight text-[#1a3454]">Meet the <span class="text-orange-500">Cast</span></h1>
+    </section>
+
+    <section aria-label="The cast at a glance" class="max-w-3xl mx-auto pt-6">
+      <div class="grid grid-cols-3 gap-3 sm:gap-4 text-center">
+        <div class="rounded-2xl bg-stone-50 border border-stone-200 px-3 py-4">
+          <p class="cast-display text-2xl sm:text-3xl font-semibold text-[#1a3454]">{publishedMemberCount}</p>
+          <p class="text-xs sm:text-sm text-stone-500 mt-0.5">characters</p>
+        </div>
+        <div class="rounded-2xl bg-stone-50 border border-stone-200 px-3 py-4">
+          <p class="cast-display text-2xl sm:text-3xl font-semibold text-[#1a3454]">{bookCount}</p>
+          <p class="text-xs sm:text-sm text-stone-500 mt-0.5">books</p>
+        </div>
+        <div class="rounded-2xl bg-stone-50 border border-stone-200 px-3 py-4">
+          <p class="cast-display text-2xl sm:text-3xl font-semibold text-[#1a3454]">{shelfCounts.length}</p>
+          <p class="text-xs sm:text-sm text-stone-500 mt-0.5">topic shelves</p>
+        </div>
+      </div>
+      {workshopMemberCount > 0 && (
+        <p class="text-center text-xs text-stone-400 mt-3">Plus {workshopMemberCount} friends from a book still in the workshop. They say hello at the bottom.</p>
+      )}
+    </section>
+
+    <p class="text-center text-stone-500 max-w-2xl mx-auto text-sm sm:text-[0.95rem] leading-relaxed mt-5">Every Big Brain Shelf story is carried by an animal who lives the idea. A fox who thinks in trails, a whale who runs a harbor, a heron who learns to wait. Tap a character to really meet them: their story, their poses, and their castmates.</p>
+
+    <section aria-label="Browse the cast" class="pt-8">
+      <div class="flex items-center justify-center gap-2">
+        <button type="button" data-view="shelves" class="view-btn cast-display text-sm font-semibold px-4 py-2 rounded-full bg-orange-500 text-white transition">By shelf</button>
+        <button type="button" data-view="az" class="view-btn cast-display text-sm font-semibold px-4 py-2 rounded-full bg-stone-100 text-stone-600 hover:bg-stone-200 transition">A to Z</button>
+      </div>
+      <div id="letter-strip" class="hidden flex-wrap justify-center gap-1 mt-4 md:!hidden" aria-label="Jump to a letter">
+        {azLetters.map((l) => (
+          <button type="button" data-letter={l} class="az-letter-btn w-8 h-8 rounded-full text-sm font-semibold text-[#1a3454] bg-orange-100 hover:bg-orange-500 hover:text-white transition">{l}</button>
+        ))}
+      </div>
+    </section>
+
+    <div id="view-shelves">
+      {shelfSections.map((s, si) => (
+        <section class={`cast-shelf pt-10 sm:pt-12 ${si === 0 ? "shelf-open" : ""}`}>
+          <h2 data-collapse-toggle class="cast-display flex items-baseline justify-between gap-3 text-2xl sm:text-3xl font-semibold text-[#1a3454] rounded-2xl px-4 sm:px-5 py-3" style={`background:${TOPIC_TINTS[s.topic] || TOPIC_TINTS.default}`}>
+            <span>{s.heading}</span>
+            <span class="flex items-baseline gap-2">
+              <span class="text-sm font-semibold text-stone-500">{s.count} characters</span>
+              <span class="shelf-chevron self-center" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+            </span>
+          </h2>
+          <div class="cast-shelf-body">
+          {s.groups.map((g) => (
+            <section class="cast-book py-8 sm:py-10 border-b border-stone-100 last:border-b-0">
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mb-5">
+                <h3 class="cast-display text-xl sm:text-2xl font-semibold text-[#1a3454]">{g.bookTitle}</h3>
+                {g.workshop && <span class="text-[11px] font-bold uppercase tracking-wider bg-[#1a3454] text-white px-2.5 py-1 rounded-full">In the workshop</span>}
+                {!g.workshop && <a href={`/books/${g.bookPublicSlug}`} class="cast-display text-sm font-semibold text-orange-600 hover:text-orange-700 ml-auto">See the book &rarr;</a>}
+                {g.workshop && <span class="text-sm text-stone-400 ml-auto">This book is still being made. Its cast wanted to say hello early.</span>}
+              </div>
+              <div class="cast-row flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 md:grid md:grid-cols-3 md:overflow-visible md:snap-none md:gap-x-5 md:gap-y-8">
+                {g.members.filter((c) => !alsoByBook.get(g.bookSlug)?.has(c.slug)).map((c) => (
+                  <a href={`/meet-the-cast/${c.slug}`} class="cast-card group block w-[72%] shrink-0 snap-start sm:w-[46%] md:w-auto rounded-3xl border border-stone-200 bg-white overflow-hidden transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_30px_-14px_rgba(26,52,84,0.4)]">
+                    <div class="relative w-full aspect-[4/5] bg-[#faf6ee] overflow-hidden" role="img" aria-label={`${c.name} the ${c.species}`}>
+                      <img src={c.portraitCard || c.portrait} alt="" aria-hidden="true" loading="lazy" style={`object-position:${objectPosition(c.portraitFocal)}`} class="absolute inset-0 w-full h-full object-cover transition duration-300 group-hover:scale-105" />
+                      <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+                    </div>
+                    <div class="p-4">
+                      <h3 class="cast-display text-lg font-semibold leading-tight text-[#1a3454]">{c.name}</h3>
+                      <p class="text-xs font-semibold uppercase tracking-wider text-orange-600 mt-0.5 capitalize">{c.species}</p>
+                      {c.role && <p class="cast-display text-sm font-semibold text-[#1a3454] mt-2">{c.role}</p>}
+                      <p class="text-xs text-stone-400 mt-2.5">Meet {c.name} &rarr;</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+              {g.bookSlug === "mastery" && otter?.portrait && (
+                <a href="/meet-the-cast/the-otter" class="group mt-6 flex flex-col sm:flex-row gap-4 rounded-3xl border border-dashed border-stone-300 bg-stone-50 p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_24px_-14px_rgba(26,52,84,0.35)]">
+                  <div class="shrink-0 w-28 sm:w-36">
+                    <div class="relative rounded-2xl overflow-hidden border border-stone-200 bg-[#faf6ee] aspect-[4/5]" role="img" aria-label="The Otter the otter">
+                      <img src={otter.portraitCard || otter.portrait} alt="" aria-hidden="true" loading="lazy" style={`object-position:${objectPosition(otter.portraitFocal)}`} class="w-full h-full object-cover transition duration-300 group-hover:scale-105" />
+                      <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+                    </div>
+                  </div>
+                  <div class="sm:max-w-md">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-orange-600">Also at the Still Pool</p>
+                    <p class="cast-display text-base font-semibold text-[#1a3454] mt-1.5">The Otter &middot; {STILL_POOL_NOTE.otterRole}</p>
+                    <p class="text-sm text-stone-600 leading-relaxed mt-1.5">{STILL_POOL_NOTE.otterBlurb}</p>
+                    <p class="cast-display text-sm font-semibold text-orange-600 mt-3">Meet the Otter &rarr;</p>
+                  </div>
+                  <p class="text-sm italic text-stone-500 leading-relaxed sm:border-l sm:border-stone-200 sm:pl-5 flex items-center">{STILL_POOL_NOTE.opponentLine}</p>
+                </a>
+              )}
+            </section>
+          ))}
+          </div>
+        </section>
+      ))}
+    </div>
+
+    <div id="view-az" class="hidden py-10 sm:py-12">
+      {/* A to Z as one full grid (trial, 2026-10-31, replacing the
+          one-letter-at-a-time pager): every letter is a section with
+          its cast in a grid, and the letter chips jump to a section
+          instead of paging. On md+ the chips move into a sticky
+          sidebar rail pinned under the sticky chrome, so a letter is
+          reachable at any scroll depth and the scrollspy keeps the
+          current letter lit; the top chip strip remains on phones. */}
+      <div class="flex items-start gap-5 sm:gap-8">
+        <nav class="az-rail hidden md:flex flex-col items-center gap-1 shrink-0 sticky pt-1" style="top: calc(var(--bbs-head-h, 65px) + 68px)" aria-label="Jump to a letter">
+          {azLetters.map((l) => (
+            <button type="button" data-letter={l} class="az-letter-btn w-8 h-8 rounded-full text-sm font-semibold text-[#1a3454] bg-orange-100 hover:bg-orange-500 hover:text-white transition">{l}</button>
+          ))}
+        </nav>
+        <div class="flex-1 min-w-0">
+      {azGroups.map((g) => (
+        <div class="az-group scroll-mt-48 mt-10 first:mt-0" id={`az-letter-${g.letter}`} data-letter={g.letter}>
+          <h3 class="cast-display text-xl font-semibold text-[#1a3454]">{g.letter}</h3>
+          <div class="cast-row flex flex-nowrap gap-4 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 sm:gap-5 sm:overflow-visible sm:snap-none mt-3">
+            {g.members.map((c) => (
+              <a href={`/meet-the-cast/${c.slug}`} class="az-card group block shrink-0 snap-start w-[72%] sm:w-auto rounded-3xl border border-stone-200 bg-white overflow-hidden transition duration-200 hover:-translate-y-1 hover:shadow-[0_18px_30px_-14px_rgba(26,52,84,0.4)]">
+                <div class="relative w-full aspect-[4/5] bg-[#faf6ee] overflow-hidden" role="img" aria-label={`${c.name} the ${c.species}`}>
+                  <img src={c.portraitCard || c.portrait} alt="" aria-hidden="true" loading="lazy" style={`object-position:${objectPosition(c.portraitFocal)}`} class="absolute inset-0 w-full h-full object-cover transition duration-300 group-hover:scale-105" />
+                  <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+                </div>
+                <div class="p-4">
+                  <h3 class="cast-display text-lg font-semibold leading-tight text-[#1a3454]">{c.name}</h3>
+                  <p class="text-xs font-semibold uppercase tracking-wider text-orange-600 mt-0.5 capitalize">{c.species}</p>
+                  {workshopBookSlugs.has(c.bookSlug) && <span class="inline-block text-[11px] font-bold uppercase tracking-wider bg-[#1a3454] text-white px-2.5 py-1 rounded-full mt-2">In the workshop</span>}
+                  {c.role && <p class="cast-display text-sm font-semibold text-[#1a3454] mt-2">{c.role}</p>}
+                  <p class="text-xs text-stone-400 mt-2.5">Meet {c.name} &rarr;</p>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      ))}
+        </div>
+      </div>
+    </div>
+
+    {members.length === 0 && (
+      <p class="text-center text-stone-500 py-10">The cast is still getting ready. Check back soon.</p>
+    )}
+  </main>
+
+  <SiteFooter />
+
+  <script is:inline>
+    function bbsCastBrowse() {
+      var viewShelves = document.getElementById("view-shelves");
+      var viewAz = document.getElementById("view-az");
+      if (!viewShelves || !viewAz) return;
+      var letterStrip = document.getElementById("letter-strip");
+      var letterBtns = document.querySelectorAll(".az-letter-btn");
+      // A to Z grid (2026-10-31): every letter section is on the page
+      // at once; the chips are jump links, and a scrollspy keeps the
+      // chip for the section in view highlighted.
+      function paintLetters(cur) {
+        letterBtns.forEach(function (b) {
+          var on = b.getAttribute("data-letter") === cur;
+          b.className = "az-letter-btn w-8 h-8 rounded-full text-sm font-semibold transition " + (on ? "bg-orange-500 text-white" : "bg-orange-100 text-[#1a3454] hover:bg-orange-500 hover:text-white");
+        });
+      }
+      function setView(v) {
+        viewShelves.classList.toggle("hidden", v !== "shelves");
+        viewAz.classList.toggle("hidden", v !== "az");
+        if (letterStrip) {
+          letterStrip.classList.toggle("hidden", v !== "az");
+          letterStrip.classList.toggle("flex", v === "az");
+        }
+        document.querySelectorAll(".view-btn").forEach(function (b) {
+          var on = b.getAttribute("data-view") === v;
+          b.className = "view-btn cast-display text-sm font-semibold px-4 py-2 rounded-full transition " + (on ? "bg-orange-500 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200");
+        });
+      }
+      document.querySelectorAll(".view-btn").forEach(function (b) {
+        b.addEventListener("click", function () { setView(b.getAttribute("data-view")); });
+      });
+      letterBtns.forEach(function (b) {
+        b.addEventListener("click", function () {
+          var letter = b.getAttribute("data-letter");
+          var el = document.getElementById("az-letter-" + letter);
+          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          paintLetters(letter);
+        });
+      });
+      if ("IntersectionObserver" in window) {
+        var spy = new IntersectionObserver(function (entries) {
+          entries.forEach(function (en) {
+            if (en.isIntersecting) paintLetters(en.target.getAttribute("data-letter"));
+          });
+        }, { rootMargin: "-30% 0px -60% 0px" });
+        document.querySelectorAll(".az-group").forEach(function (g) { spy.observe(g); });
+      }
+      // Mobile shelf collapse (2026-10-31): tapping a shelf header
+      // under sm toggles its body; desktop ignores the tap entirely
+      // because the CSS only hides bodies below sm. The first shelf
+      // renders open.
+      document.querySelectorAll("[data-collapse-toggle]").forEach(function (h) {
+        if (h.dataset.bound) return;
+        h.dataset.bound = "1";
+        h.addEventListener("click", function () {
+          if (window.innerWidth >= 640) return;
+          if (h.parentElement) h.parentElement.classList.toggle("shelf-open");
+        });
+      });
+    }
+    bbsCastBrowse();
+    document.addEventListener("astro:page-load", bbsCastBrowse);
+  </script>
+  <script is:inline>
+    // Keep the header account link in sync with the session.
+    function bbsAccountLink() {
+      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+        var link = document.getElementById("account-link");
+        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
+      }).catch(function () {});
+    }
+    bbsAccountLink();
+    document.addEventListener("astro:page-load", bbsAccountLink);
+  </script>
+<!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+<CartSheet />
+
+</body>
+</html>

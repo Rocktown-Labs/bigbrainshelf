@@ -1,0 +1,192 @@
+---
+// CartStore: the ONE cart store for the whole storefront.
+//
+// The cart used to be copy-pasted into every surface that touched
+// it (the slide-over sheet scripts on five pages, the /cart page,
+// the buy buttons), each with its own getCart/setCart over the
+// localStorage key "bbs-cart" and no shared change signal, so
+// surfaces fell out of sync: the badge went stale on the cart page,
+// and a book page's buy button kept saying "In your cart" after the
+// item was removed in the sheet. This component is the single owner
+// of the cart now. It renders one inline script (through SiteHeader,
+// so every public page carries it exactly once) exposing
+// window.bbsCart:
+//
+//   get()       the normalized cart: [{ slug, format }]
+//   set(next)   replace the cart (normalized before it is stored)
+//   add(slug, format)    -> true when the entry was new
+//   remove(slug, format)
+//   clear()
+//   has(slug, format)
+//   bbsGuestId()         the guest checkout id (bbs-guest-id)
+//   loadBooks()          cached GET /api/books?scope=cart
+//   priceOf(bySlug, item) / flagOf(book, flag, key)
+//   hasPhysical(items) / money(cents) / paintBadge()
+//
+// Every mutation writes localStorage, repaints the header badge,
+// and dispatches a document CustomEvent "bbs:cart-changed" with the
+// new cart in detail.cart. Surfaces subscribe to that event and
+// re-render from the store; nobody keeps a private copy anymore.
+// A storage listener mirrors the same event for carts changed in
+// another tab. Pricing semantics are the canonical ones from
+// src/lib/cart-pricing.ts, carried here in plain script form
+// because the raw Workers deploy serves inline scripts as-is.
+---
+
+<script is:inline>
+  if (!window.bbsCart) {
+    (function () {
+      var KEY = "bbs-cart";
+      var R2 = "https://media.bigbrainshelf.com/";
+      var booksCache = null;
+      var paintSeq = 0;
+
+      function normalize(c) {
+        var seen = {};
+        return (c || []).map(function (x) { return typeof x === "string" ? { slug: x, format: "digital" } : x; })
+          .filter(function (x) { return x && x.slug; })
+          .filter(function (x) {
+            // One entry per slug + format: the badge, the sheet,
+            // and the cart page all count the same cart.
+            var k = x.slug + ":" + (x.format || "digital");
+            if (seen[k]) return false;
+            seen[k] = true;
+            return true;
+          });
+      }
+      function getCart() {
+        try { return normalize(JSON.parse(localStorage.getItem(KEY) || "[]")); } catch (e) { return []; }
+      }
+      function announce(cart) {
+        try {
+          document.dispatchEvent(new CustomEvent("bbs:cart-changed", { detail: { cart: cart } }));
+        } catch (e) {}
+      }
+      function setCart(next) {
+        var cart = normalize(next);
+        try { localStorage.setItem(KEY, JSON.stringify(cart)); } catch (e) {}
+        paintBadge();
+        announce(cart);
+        return cart;
+      }
+      function bbsGuestId() { try { var g = localStorage.getItem("bbs-guest-id"); if (!g) { g = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : "guest" + Date.now() + Math.floor(Math.random() * 1e9); localStorage.setItem("bbs-guest-id", g); } return g; } catch (e) { return ""; } }
+      function money(c) { return "$" + (c / 100).toFixed(2); }
+      function paintBadgeCount(n) {
+        var badge = document.getElementById("cart-count");
+        if (!badge) return;
+        badge.textContent = n;
+        badge.classList.toggle("hidden", !n);
+        badge.classList.toggle("flex", !!n);
+      }
+      // The badge counts what the sheet and the cart page can
+      // actually sell, never raw localStorage entries: paint the
+      // stored count at once, then repaint with the purchasable
+      // count once the catalog resolves. (Raw counting once let the
+      // badge say 1 over a sheet that showed nothing purchasable.)
+      // The sequence token keeps a slower earlier resolution from
+      // landing after a newer mutation and repainting a stale count.
+      function paintBadge() {
+        var cart = getCart();
+        paintBadgeCount(cart.length);
+        var seq = ++paintSeq;
+        loadBooks().then(function (books) {
+          if (seq !== paintSeq) return;
+          if (!books || !books.length) return;
+          var bySlug = {};
+          books.forEach(function (b) { bySlug[b.slug] = b; });
+          paintBadgeCount(cart.filter(function (it) { return priceOf(bySlug, it) > 0; }).length);
+        }).catch(function () {});
+      }
+      function loadBooks() {
+        if (!booksCache) booksCache = fetch("/api/books?scope=cart").then(function (r) { return r.json(); }).catch(function () { return []; });
+        return booksCache;
+      }
+      // Availability: the public catalog shape carries has_* flags;
+      // an admin session's full rows carry the raw *_key columns
+      // instead. Read the flag when present, the key otherwise, so
+      // resolution is identical for every session.
+      function flagOf(b, flag, key) { return b[flag] !== undefined ? !!b[flag] : !!b[key]; }
+      function priceOf(bySlug, it) {
+        var b = bySlug[it.slug];
+        if (!b) return 0;
+        if (it.format === "printed") return Math.round(Number(b.price_print || 0));
+        // Gift Set: flat $25 (GIFT_SET_PRICE_CENTS in src/lib/offers.ts),
+        // only for books with both a story book and a coloring book.
+        if (it.format === "giftset") return (flagOf(b, "has_picture_book", "picture_book_key") && flagOf(b, "has_coloring_book", "coloring_book_key")) ? 2500 : 0;
+        // Audiobook only: flat $1.99 (AUDIO_PRICE_CENTS in offers.ts),
+        // only for books with an audiobook.
+        if (it.format === "audio") return flagOf(b, "has_audiobook", "audiobook_key") ? 199 : 0;
+        // Digital at the audiobook owner's unlock price when the
+        // page computed one for this visitor: the checkout page's map
+        // (window.__bbsUpgrades), or the book page's own book
+        // (window.__bbsUpgrade). Checkout settles the same credit
+        // server-side either way.
+        if (it.format === "digital" && window.__bbsUpgrades && Object.prototype.hasOwnProperty.call(window.__bbsUpgrades, it.slug)) return window.__bbsUpgrades[it.slug];
+        if (it.format === "digital" && window.__bbsUpgrade && window.__bbsUpgrade.slug === it.slug) return window.__bbsUpgrade.digitalCents;
+        return Math.round(Number(b.price || 0));
+      }
+      // Shipping is pass-through at the real carrier rate, quoted from
+      // the buyer's address on the cart page. The surfaces never name
+      // an amount; they only know whether the cart needs that step.
+      function hasPhysical(items) {
+        return items.some(function (it) { return it.format === "printed" || it.format === "giftset"; });
+      }
+
+      window.bbsCart = {
+        R2: R2,
+        get: getCart,
+        normalize: normalize,
+        set: setCart,
+        add: function (slug, format) {
+          format = format || "digital";
+          var cart = getCart();
+          if (cart.some(function (x) { return x.slug === slug && x.format === format; })) return false;
+          cart.push({ slug: slug, format: format });
+          setCart(cart);
+          return true;
+        },
+        remove: function (slug, format) {
+          format = format || "digital";
+          setCart(getCart().filter(function (x) {
+            return !(x.slug === slug && x.format === format);
+          }));
+        },
+        clear: function () { setCart([]); },
+        has: function (slug, format) {
+          format = format || "digital";
+          return getCart().some(function (x) { return x.slug === slug && x.format === format; });
+        },
+        bbsGuestId: bbsGuestId,
+        loadBooks: loadBooks,
+        flagOf: flagOf,
+        priceOf: priceOf,
+        hasPhysical: hasPhysical,
+        money: money,
+        paintBadge: paintBadge,
+        onChange: function (fn) {
+          document.addEventListener("bbs:cart-changed", fn);
+          return function () { document.removeEventListener("bbs:cart-changed", fn); };
+        },
+      };
+      window.bbsPaintBadge = paintBadge;
+
+      // A cart changed in another tab arrives as a storage event;
+      // mirror it into the same change signal (and badge repaint) so
+      // every open surface stays in sync.
+      window.addEventListener("storage", function (e) {
+        if (e.key !== KEY) return;
+        paintBadge();
+        announce(getCart());
+      });
+
+      paintBadge();
+    })();
+  }
+  // Repaint the badge for the header each view transition swaps in.
+  if (!window.__bbsCartStorePL) {
+    window.__bbsCartStorePL = true;
+    document.addEventListener("astro:page-load", function () {
+      if (window.bbsCart) window.bbsCart.paintBadge();
+    });
+  }
+</script>

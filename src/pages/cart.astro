@@ -1,0 +1,20 @@
+---
+export const prerender = false;
+
+// /cart is not a cart anymore: there is ONE cart, the slide-over
+// drawer (src/components/CartSheet.astro), and checkout is its own
+// page (/checkout). This route only redirects, permanently:
+//   - Plain /cart (the book page's old review link, the header cart
+//     button's no-JS fallback, the post-login return, old emails)
+//     goes to the home page carrying the drawer's open signal
+//     (?cart=open); the sheet opens and scrubs the param.
+//   - /cart?checkout=cancelled (Stripe's former cancel_url target,
+//     still on sessions and links already out in the world) goes to
+//     the checkout page with the flag intact, where the cancelled
+//     banner shows. New sessions point at /checkout directly.
+const incoming = new URLSearchParams(Astro.url.search);
+if (incoming.get("checkout") === "cancelled") {
+  return Astro.redirect("/checkout?checkout=cancelled", 301);
+}
+return Astro.redirect("/?cart=open", 301);
+---

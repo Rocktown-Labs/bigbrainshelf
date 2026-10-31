@@ -1,0 +1,234 @@
+---
+import "../../../../styles/global.css";
+import { env } from "cloudflare:workers";
+import AdminShell from "../../../../components/AdminShell.astro";
+import { resolveBookForPublicRoute, publicSlugFor } from "../../../../lib/public-slugs";
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+// Admin book URLs carry the book's PUBLIC slug (owner, 2026-10-29):
+// resolve the param by public_slug first, internal slug as fallback.
+// API calls below key on the internal slug; only links wear the
+// public one.
+const param = String(Astro.params.slug || "");
+const resolvedBook = await resolveBookForPublicRoute(env.DB as any, param).catch(() => null);
+const slug = resolvedBook ? String(resolvedBook.book.slug) : param;
+const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pose Crops - Kidsbook Hub</title>
+  <style is:global>
+    :root { --bg: #f7f5f0; --surface: #ffffff; --text: #1c2733; --dim: #6b7280; --border: #e2ddd4; --accent: #2563eb; --accent-strong: #1d4ed8; --qa: #1f9d66; --bad: #b91c1c; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #14181d; --surface: #1e242b; --text: #e8e6e1; --dim: #9aa0a8; --border: #333b44; } }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0 12px 40px; }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    .topbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 0; }
+    .topbar h1 { font-size: 1.15rem; margin: 0; }
+    .sub { font-size: 0.85rem; color: var(--dim); margin: 4px 0 0; }
+    .backlink { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+    .card { border: 1px solid var(--border); background: var(--surface); border-radius: 16px; padding: 16px; margin-top: 16px; }
+    .card h2 { margin: 0; font-size: 1rem; }
+    .card .desc { font-size: 0.8rem; color: var(--dim); margin: 4px 0 0; }
+    .btn { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 10px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-danger { border-color: var(--bad); color: var(--bad); }
+    .sheet-wrap { position: relative; width: 100%; max-width: 640px; margin-top: 12px; user-select: none; }
+    .sheet-wrap img { width: 100%; display: block; border: 1px solid var(--border); border-radius: 8px; touch-action: none; }
+    .selbox { position: absolute; border: 2px solid var(--accent-strong); background: rgba(37, 99, 235, 0.15); pointer-events: none; display: none; }
+    .frow { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .frow input { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 10px 12px; font-size: 1rem; }
+    .readout { font-size: 0.8rem; color: var(--dim); font-variant-numeric: tabular-nums; }
+    .taggrid { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+    .tagcard { width: 150px; border: 1px solid var(--border); border-radius: 12px; padding: 8px; background: var(--surface); }
+    .tagcard img { width: 100%; height: 110px; object-fit: contain; background: #fff; border-radius: 6px; display: block; }
+    .tagcard .tag { font-size: 0.75rem; font-weight: 700; margin-top: 6px; word-break: break-all; }
+    .tagcard .who { font-size: 0.72rem; color: var(--dim); }
+    .tagcard button { margin-top: 6px; width: 100%; padding: 6px; font-size: 0.75rem; }
+    .note { border-radius: 12px; padding: 10px 12px; font-size: 0.85rem; margin-top: 12px; background: #f0fdf4; color: #14532d; }
+    .warn { border-radius: 12px; padding: 10px 12px; font-size: 0.85rem; margin-top: 12px; background: #fef2f2; color: #7f1d1d; }
+    @media (prefers-color-scheme: dark) { .note { background: #052e16; color: #bbf7d0; } .warn { background: #450a0a; color: #fecaca; } }
+    .hidden { display: none !important; }
+    #loading { text-align: center; padding: 64px 16px; color: var(--dim); }
+  </style>
+</head>
+<body>
+  <AdminShell current="/admin/books" />
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <a class="backlink" href={`/admin/books/${adminSlug}`}>&larr; Back to book</a>
+        <h1>Pose crops</h1>
+        <p class="sub">Cut single poses from each character sheet and tag them. Page generation conditions on the one pose a scene casts instead of the whole sheet, which is what stops lead clones. Once this book has any crop, the factory will not draw art until every character has at least one tag.</p>
+      </div>
+    </div>
+    <div id="loading">Loading sheets and crops...</div>
+    <div id="coverage"></div>
+    <div id="characters"></div>
+    <div class="card" id="all-crops-card">
+      <h2>All tags for this book</h2>
+      <p class="desc">These are the crops the factory can cast. Deleting a tag removes the crop file and its manifest entry.</p>
+      <div class="taggrid" id="all-crops"></div>
+      <p class="desc hidden" id="no-crops">No crops yet. This book still uses full sheets, and the crops gate is off for it.</p>
+    </div>
+  </div>
+
+  <script is:inline define:vars={{ slug, adminSlug }}>
+    const ACTIONS = ["standing","flying","swimming","running","sitting","carrying","pointing","megaphone","sleeping","eating","building","reading","waving","jumping","digging","singing","pulling","pushing"];
+    const state = { data: null, selections: {} }; // character name -> {x,y,w,h} fractions
+
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    async function load() {
+      const r = await fetch("/api/editor/crops?slug=" + encodeURIComponent(slug));
+      if (!r.ok) {
+        document.getElementById("loading").textContent = "Could not load crops (" + r.status + ").";
+        return;
+      }
+      state.data = await r.json();
+      document.getElementById("loading").classList.add("hidden");
+      render();
+    }
+
+    function render() {
+      const d = state.data;
+      const cov = document.getElementById("coverage");
+      if (d.crops.length === 0) {
+        cov.innerHTML = '<div class="note">No crops yet: this book is on the legacy sheet path and is NOT gated. Saving the first crop opts the book in.</div>';
+      } else if (d.coverage.untagged.length) {
+        cov.innerHTML = '<div class="warn">Crops gate is ON for this book and these characters still need a tag before the factory draws art: <b>' + d.coverage.untagged.map(esc).join(", ") + "</b></div>";
+      } else {
+        cov.innerHTML = '<div class="note">Crops gate satisfied: all ' + d.coverage.total + ' characters have at least one pose tag.</div>';
+      }
+
+      const host = document.getElementById("characters");
+      host.innerHTML = "";
+      for (const ch of d.characters) {
+        const card = document.createElement("div");
+        card.className = "card";
+        const mine = d.crops.filter((c) => c.character.toLowerCase() === ch.name.toLowerCase());
+        if (!ch.sheetUrl) {
+          card.innerHTML = "<h2>" + esc(ch.name) + (ch.species ? ' <span style="color:var(--dim);font-weight:400">(' + esc(ch.species) + ")</span>" : "") + '</h2><p class="desc">No sheet on file for this character yet, so there is nothing to crop. Generate and approve a sheet first.</p>';
+          host.appendChild(card);
+          continue;
+        }
+        card.innerHTML =
+          "<h2>" + esc(ch.name) + (ch.species ? ' <span style="color:var(--dim);font-weight:400">(' + esc(ch.species) + ")</span>" : "") +
+          (ch.tagged ? ' <span style="color:var(--qa);font-size:0.8rem">tagged</span>' : ' <span style="color:var(--bad);font-size:0.8rem">no tags yet</span>') + "</h2>" +
+          '<p class="desc">' + (ch.sheetKind === "line" ? "Line sheet" : "Color sheet") + ": drag a box around ONE pose, name the action, save. Props ride the action (e.g. megaphone).</p>" +
+          '<div class="sheet-wrap"><img alt="" draggable="false"><div class="selbox"></div></div>' +
+          '<div class="frow"><input list="action-list" placeholder="action (e.g. flying)" size="18">' +
+          '<button type="button" class="btn btn-primary">Save crop</button>' +
+          '<span class="readout">no box drawn yet</span></div>' +
+          (mine.length ? '<div class="taggrid">' + mine.map((c) =>
+            '<div class="tagcard"><img src="' + esc(c.url) + '" alt=""><div class="tag">' + esc(c.tag) + '</div><div class="who">' + esc(c.character) + " · " + esc(c.action) + '</div><button type="button" class="btn btn-danger" data-del="' + esc(c.tag) + '">Delete</button></div>'
+          ).join("") + "</div>" : "");
+        host.appendChild(card);
+        wireCropTool(card, ch);
+      }
+
+      const all = document.getElementById("all-crops");
+      document.getElementById("no-crops").classList.toggle("hidden", d.crops.length > 0);
+      all.innerHTML = d.crops.map((c) =>
+        '<div class="tagcard"><img src="' + esc(c.url) + '" alt=""><div class="tag">' + esc(c.tag) + '</div><div class="who">' + esc(c.character) + " · " + esc(c.action) + '</div><button type="button" class="btn btn-danger" data-del="' + esc(c.tag) + '">Delete</button></div>'
+      ).join("");
+      document.querySelectorAll("[data-del]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const tag = btn.getAttribute("data-del");
+          if (!confirm("Delete crop " + tag + "?")) return;
+          btn.disabled = true;
+          const r = await fetch("/api/editor/crops", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug, tag }),
+          });
+          if (!r.ok) { alert("Delete failed: " + (await r.text())); btn.disabled = false; return; }
+          load();
+        });
+      });
+    }
+
+    function wireCropTool(card, ch) {
+      const wrap = card.querySelector(".sheet-wrap");
+      const img = card.querySelector("img");
+      const box = card.querySelector(".selbox");
+      const input = card.querySelector("input");
+      const save = card.querySelector(".btn-primary");
+      const readout = card.querySelector(".readout");
+      img.src = ch.sheetUrl;
+      let start = null; // {x, y} fractions
+      let sel = null;
+
+      function fracs(ev) {
+        const r = img.getBoundingClientRect();
+        return {
+          x: Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)),
+          y: Math.max(0, Math.min(1, (ev.clientY - r.top) / r.height)),
+        };
+      }
+      function paint() {
+        if (!sel) { box.style.display = "none"; return; }
+        const r = img.getBoundingClientRect();
+        const wr = wrap.getBoundingClientRect();
+        box.style.display = "block";
+        box.style.left = (r.left - wr.left + sel.x * r.width) + "px";
+        box.style.top = (r.top - wr.top + sel.y * r.height) + "px";
+        box.style.width = (sel.w * r.width) + "px";
+        box.style.height = (sel.h * r.height) + "px";
+        readout.textContent = "box: x " + sel.x.toFixed(3) + ", y " + sel.y.toFixed(3) + ", w " + sel.w.toFixed(3) + ", h " + sel.h.toFixed(3);
+      }
+      img.addEventListener("pointerdown", (ev) => {
+        ev.preventDefault();
+        img.setPointerCapture(ev.pointerId);
+        start = fracs(ev);
+        sel = { x: start.x, y: start.y, w: 0, h: 0 };
+        paint();
+      });
+      img.addEventListener("pointermove", (ev) => {
+        if (!start) return;
+        const p = fracs(ev);
+        sel = {
+          x: Math.min(start.x, p.x), y: Math.min(start.y, p.y),
+          w: Math.abs(p.x - start.x), h: Math.abs(p.y - start.y),
+        };
+        paint();
+      });
+      img.addEventListener("pointerup", () => { start = null; });
+      window.addEventListener("resize", paint);
+
+      save.addEventListener("click", async () => {
+        const action = input.value.trim();
+        if (!sel || sel.w < 0.01 || sel.h < 0.01) { alert("Drag a box around one pose on the sheet first."); return; }
+        if (!action) { alert("Name the action for this pose (e.g. standing, flying, megaphone)."); return; }
+        save.disabled = true;
+        const r = await fetch("/api/editor/crops", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug, character: ch.name, action, bbox: sel }),
+        });
+        const out = await r.json().catch(() => ({}));
+        if (!r.ok) { alert("Save failed: " + (out.error || r.status)); save.disabled = false; return; }
+        input.value = "";
+        sel = null;
+        paint();
+        load();
+      });
+    }
+
+    const dl = document.createElement("datalist");
+    dl.id = "action-list";
+    dl.innerHTML = ACTIONS.map((a) => '<option value="' + a + '">').join("");
+    document.body.appendChild(dl);
+    load();
+  </script>
+</body>
+</html>

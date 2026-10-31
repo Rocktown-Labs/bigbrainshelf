@@ -1,0 +1,738 @@
+---
+import "../../../../styles/global.css";
+import { env } from "cloudflare:workers";
+import AdminShell from "../../../../components/AdminShell.astro";
+import { inspectAudiobook, formatClock } from "../../../../lib/audiobooks";
+import { colorTwinKey } from "../../../../lib/takes";
+import {
+  ensureReviewNotesTable,
+  listReviewNotes,
+  countFlaggedPages,
+  makePageKey,
+  REVIEW_TAGS,
+  type ReviewNote,
+} from "../../../../lib/review-notes";
+import dockerChapters from "../../../../data/docker_chapters.json";
+import { adminMediaUrl, keyFromMediaValue, mediaUrl } from "../../../../lib/media";
+import { keyFromImageUrl } from "../../../../lib/takes";
+import { loadChapterFinales, withFinalePages } from "../../../../lib/book-pages";
+import { resolveBookForPublicRoute, publicSlugFor } from "../../../../lib/public-slugs";
+
+export const prerender = false;
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+
+// Story Review: listen to the audiobook (slim sticky nav bar on top)
+// while scrolling every page of the book, and leave a note on any page
+// that looks wrong. Pages come from the same editor_chapters.json the
+// book QC page reads, reconciled with each chapter's finale page from
+// its plan (lib/book-pages: editor_chapters.json omits finales, which
+// dropped the last page of every chapter here); color twins resolve
+// exactly like the rest of the
+// codebase (books/{slug}/images-color/<same file>, and a twin counts
+// only when its R2 uploaded time is at least the line page's, the
+// stale-twin rule). Notes land in review_notes for the future redo
+// queue; this page only captures them.
+const e = env as any;
+// Admin book URLs carry the book's PUBLIC slug (owner, 2026-10-29):
+// resolve the param by public_slug first, internal slug as fallback,
+// so existing links keep working. Everything below (R2 keys, notes,
+// the player) keys on the internal slug; only links wear the public
+// one.
+const param = String(Astro.params.slug || "");
+const resolvedBook = await resolveBookForPublicRoute(e.DB, param).catch(() => null);
+const book = (resolvedBook?.book ?? null) as any;
+const slug = book ? String(book.slug) : param;
+const adminSlug = book ? publicSlugFor(book) : param;
+
+let info = null;
+if (book?.audiobook_key) info = await inspectAudiobook(e, book);
+const playerData = info
+  ? { slug: book.slug, full: info.full, chapters: info.chapters, tracks: info.tracks }
+  : null;
+const audioChapterCount = info ? info.chapters.length : 0;
+const totalSecs = info ? info.tracks.reduce((s: number, c: any) => s + (c.duration || 0), 0) : 0;
+
+// ---- Page data (mirrors /api/editor/chapters) ----
+let chaptersRaw: any[] | null = null;
+let chaptersError = "";
+if (book) {
+  try {
+    const obj = await e.BOOKS.get(`books/${slug}/editor_chapters.json`);
+    if (obj) {
+      chaptersRaw = JSON.parse(await obj.text());
+    } else if (slug === "docker") {
+      chaptersRaw = dockerChapters as any[];
+    } else {
+      chaptersError = "No page data yet for this book. The factory writes it when the book is built.";
+    }
+  } catch {
+    chaptersError = "This book's page data could not be read.";
+  }
+}
+
+// ---- Color twin existence, by file name, with the stale-twin rule ----
+async function listAll(prefix: string): Promise<{ key: string; uploaded: number }[]> {
+  const out: { key: string; uploaded: number }[] = [];
+  let cursor: string | undefined;
+  do {
+    const res: any = await e.BOOKS.list({ prefix, cursor, limit: 1000 });
+    for (const o of res.objects || []) {
+      out.push({ key: o.key, uploaded: o.uploaded ? new Date(o.uploaded).getTime() : 0 });
+    }
+    cursor = res.truncated ? res.cursor : undefined;
+  } while (cursor);
+  return out;
+}
+const baseName = (key: string) => key.slice(key.lastIndexOf("/") + 1);
+
+interface ReviewPage {
+  pageKey: string;
+  pageIndex: number;
+  viewer: number; // 1-based page number within the chapter (viewer Page N = file page-(N-1))
+  fileLabel: string; // factory notation, e.g. S6p2
+  text: string;
+  character: string;
+  concept: string;
+  lineUrl: string;
+  colorUrl: string | null;
+}
+interface ReviewChapter {
+  num: number;
+  title: string;
+  pages: ReviewPage[];
+}
+
+let chapters: ReviewChapter[] = [];
+if (chaptersRaw) {
+  const [lineObjs, colorObjs, finales] = await Promise.all([
+    listAll(`books/${slug}/images/`).catch(() => []),
+    listAll(`books/${slug}/images-color/`).catch(() => []),
+    loadChapterFinales(e.BOOKS, slug, chaptersRaw.length).catch(() => new Map()),
+  ]);
+  const lineByBase = new Map<string, number>();
+  for (const o of lineObjs) lineByBase.set(baseName(o.key), o.uploaded);
+  const colorByBase = new Map<string, number>();
+  for (const o of colorObjs) colorByBase.set(baseName(o.key), o.uploaded);
+
+  // editor_chapters.json omits each chapter's finale page; append it
+  // from the chapter plan (lib/book-pages) when its art exists, so the
+  // review shows every page of the book, finales included.
+  const fullChapters = withFinalePages(
+    chaptersRaw,
+    finales,
+    new Set(lineObjs.map((o) => o.key))
+  );
+
+  chapters = fullChapters.map((ch: any, ci: number) => {
+    const num = ci + 1;
+    const pages: ReviewPage[] = (ch.pages || []).map((pg: any, pi: number) => {
+      const rawImage = String(pg.image || "");
+      const storedKey = keyFromMediaValue(rawImage) || keyFromImageUrl(rawImage) || "";
+      const twinKey = storedKey ? colorTwinKey(storedKey, slug) : null;
+      const file = storedKey ? baseName(storedKey) : "";
+      const colorUploaded = twinKey ? colorByBase.get(file) : undefined;
+      const lineUploaded = lineByBase.get(file) ?? 0;
+      // Admin browsers get the gated media route, never a public URL.
+      const lineUrl = storedKey ? adminMediaUrl(storedKey) || "" : "";
+      const colorUrl =
+        twinKey && colorUploaded !== undefined && colorUploaded >= lineUploaded
+          ? adminMediaUrl(twinKey)
+          : null;
+      return {
+        pageKey: makePageKey(num, pi),
+        pageIndex: pi,
+        viewer: pi + 1,
+        fileLabel: pg.finale ? `S${num} finale` : `S${num}p${pi}`,
+        text: String(pg.text || ""),
+        character: String(pg.character || ""),
+        concept: String(pg.concept || ""),
+        lineUrl,
+        colorUrl,
+      };
+    });
+    return { num, title: String(ch.title || `Chapter ${num}`), pages };
+  });
+}
+const totalPages = chapters.reduce((s, c) => s + c.pages.length, 0);
+const colorCount = chapters.reduce(
+  (s, c) => s + c.pages.filter((p) => p.colorUrl).length,
+  0
+);
+
+// ---- Notes ----
+let notes: ReviewNote[] = [];
+if (book) {
+  await ensureReviewNotesTable(e.DB);
+  notes = await listReviewNotes(e.DB, slug);
+}
+const notesByPage = new Map<string, ReviewNote[]>();
+for (const n of notes) {
+  const arr = notesByPage.get(n.page_key) || [];
+  arr.push(n);
+  notesByPage.set(n.page_key, arr);
+}
+const flaggedPages = countFlaggedPages(notes);
+const unresolvedCount = notes.filter((n) => !n.resolved).length;
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{book ? `${book.title} · Story Review` : "Story Review"} · Big Brain Shelf Admin</title>
+  <style>
+    .rv-anchor { scroll-margin-top: 140px; }
+    @media (max-width: 640px) { .rv-anchor { scroll-margin-top: 184px; } }
+  </style>
+</head>
+<body class="bg-stone-50 text-stone-900 antialiased">
+  <AdminShell current="/admin/books" />
+
+  <main class="mx-auto max-w-3xl px-4 pb-16">
+    <p class="mt-6 text-sm flex flex-wrap gap-x-4 gap-y-1">
+      <a href={`/admin/books/${adminSlug}`} class="text-orange-700 font-semibold">← Book QC</a>
+      <a href={`/admin/audiobooks/${slug}`} class="text-orange-700 font-semibold">Audiobook player</a>
+    </p>
+
+    {!book && (
+      <p class="mt-6 text-sm text-stone-500">That book was not found.</p>
+    )}
+
+    {book && (
+      <>
+        <div class="mt-3 flex items-start gap-4">
+          {book.cover_key
+            ? <img src={mediaUrl(book.cover_key)} alt="" class="w-[56px] h-[74px] object-cover rounded-md border border-stone-200 shrink-0" />
+            : <div class="w-[56px] h-[74px] rounded-md bg-stone-100 border border-stone-200 shrink-0"></div>}
+          <div class="min-w-0">
+            <h1 class="text-2xl font-bold tracking-tight leading-snug">{book.title}</h1>
+            <p class="text-sm text-stone-500 mt-1">
+              Story review · {totalPages} pages in {chapters.length} chapters
+              {colorCount > 0 && <> · {colorCount} colorized</>}
+              {totalSecs > 0 && <> · about {formatClock(totalSecs)} of listening</>}
+            </p>
+          </div>
+        </div>
+
+        {/* Slim sticky nav bar: context row, one transport row, one chip strip */}
+        <div class="sticky top-0 z-30 -mx-4 px-4 pt-2 pb-2 bg-stone-50/95 backdrop-blur border-b border-stone-200 mt-4">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <a href={`/admin/books/${adminSlug}`} class="shrink-0 text-xs font-semibold text-orange-700">← QC</a>
+            <span class="hidden md:block shrink-0 max-w-[170px] truncate text-sm font-bold" title={book.title}>{book.title}</span>
+            {playerData ? (
+              <>
+                <span class="min-w-0 flex-1 truncate text-sm text-stone-500" id="now-playing">Pick a chapter to start</span>
+                <span class="shrink-0 text-xs text-red-600" id="player-status"></span>
+              </>
+            ) : (
+              <span class="min-w-0 flex-1 truncate text-sm text-stone-500">No audiobook yet. Pages and notes still work for a silent pass.</span>
+            )}
+            <span
+              id="flag-summary"
+              class="shrink-0 text-xs font-semibold text-stone-700"
+              title={flaggedPages > 0
+                ? `${flaggedPages} page${flaggedPages === 1 ? "" : "s"} flagged · ${unresolvedCount} open note${unresolvedCount === 1 ? "" : "s"}`
+                : "No pages flagged yet"}
+            >
+              {flaggedPages > 0 ? `⚑ ${unresolvedCount} open` : "No flags"}
+            </span>
+            <span class="inline-flex rounded-full border border-stone-300 overflow-hidden shrink-0" role="group" aria-label="Artwork (notes save against the version you are viewing)">
+              <button id="art-line" class="bg-[#1a3454] text-white px-2.5 py-1 text-[11px] font-semibold">Line</button>
+              <button id="art-color" class="bg-white text-stone-700 px-2.5 py-1 text-[11px] font-semibold">Color</button>
+            </span>
+          </div>
+          {playerData && (
+            <>
+              <audio id="player" preload="metadata"></audio>
+              <div class="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                <button id="prev-btn" class="rounded-full border border-stone-300 bg-white h-8 w-8 grid place-items-center hover:border-stone-500 disabled:opacity-40 shrink-0" aria-label="Previous chapter">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2.5v14H6zM19 5v14L9.5 12z"/></svg>
+                </button>
+                <button id="play-btn" class="rounded-full bg-orange-600 text-white h-9 w-9 grid place-items-center hover:bg-orange-700 shrink-0" aria-label="Play or pause">
+                  <svg id="icon-play" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                  <svg id="icon-pause" class="hidden" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 5h4v14h-4zM13.5 5h4v14h-4z"/></svg>
+                </button>
+                <button id="next-btn" class="rounded-full border border-stone-300 bg-white h-8 w-8 grid place-items-center hover:border-stone-500 disabled:opacity-40 shrink-0" aria-label="Next chapter">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.5 5H18v14h-2.5zM5 5v14l9.5-7z"/></svg>
+                </button>
+                <input id="seek" type="range" min="0" max="1000" value="0" step="1" class="flex-1 min-w-[80px] accent-orange-600" aria-label="Seek" />
+                <span class="text-xs tabular-nums text-stone-500 shrink-0"><span id="time-elapsed">0:00</span> / <span id="time-total">0:00</span></span>
+                <select id="speed" class="rounded-lg border border-stone-300 px-1 py-0.5 text-xs shrink-0" aria-label="Speed">
+                  <option value="0.75">0.75x</option>
+                  <option value="1" selected>1x</option>
+                  <option value="1.25">1.25x</option>
+                  <option value="1.5">1.5x</option>
+                  <option value="2">2x</option>
+                </select>
+                {playerData.full && (
+                  <span class="inline-flex rounded-full border border-stone-300 overflow-hidden shrink-0" role="group" aria-label="Listening mode">
+                    <button id="mode-chapters" class="bg-[#1a3454] text-white px-2 py-1 text-[11px] font-semibold">Chapters</button>
+                    <button id="mode-full" class="bg-white text-stone-700 px-2 py-1 text-[11px] font-semibold">Full book</button>
+                  </span>
+                )}
+              </div>
+              {(chapters.length > 0 || info?.intro || info?.outro) && (
+                <div class="mt-1.5 flex gap-1 overflow-x-auto pb-0.5" role="group" aria-label="Jump to chapter">
+                  {info?.intro && (
+                    <button
+                      class="rv-chapter-chip shrink-0 rounded-full border border-stone-300 bg-white hover:border-stone-500 px-2.5 py-1 text-[11px] font-semibold text-stone-700"
+                      data-edge="intro"
+                    >{info.intro.label}</button>
+                  )}
+                  {chapters.map((ch) => (
+                    <button
+                      class="rv-chapter-chip shrink-0 rounded-full border border-stone-300 bg-white hover:border-stone-500 px-2.5 py-1 text-[11px] font-semibold text-stone-700"
+                      data-chapter={ch.num}
+                      title={ch.title}
+                    >Ch: {ch.num} - {ch.title}</button>
+                  ))}
+                  {info?.outro && (
+                    <button
+                      class="rv-chapter-chip shrink-0 rounded-full border border-stone-300 bg-white hover:border-stone-500 px-2.5 py-1 text-[11px] font-semibold text-stone-700"
+                      data-edge="outro"
+                    >{info.outro.label}</button>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Page column */}
+        {chaptersError && (
+          <p class="mt-8 text-sm text-stone-500">{chaptersError}</p>
+        )}
+        {chapters.map((ch) => (
+          <section class="mt-8">
+            <h2 id={`ch-${ch.num}`} class="rv-anchor text-lg font-bold tracking-tight">
+              Ch: {ch.num} - {ch.title}
+              {ch.num <= audioChapterCount && (
+                <button class="rv-play-chapter ml-2 align-middle rounded-full bg-orange-600 text-white text-xs font-semibold px-3 py-1 hover:bg-orange-700" data-chapter={ch.num}>▶ Play</button>
+              )}
+            </h2>
+            {ch.pages.map((p) => {
+              const pageNotes = notesByPage.get(p.pageKey) || [];
+              const openNotes = pageNotes.filter((n) => !n.resolved).length;
+              return (
+                <article class="rv-page mt-6 rounded-lg bg-white border border-stone-200 overflow-hidden" data-page-key={p.pageKey} data-line-url={p.lineUrl} data-color-url={p.colorUrl || ""}>
+                  <header class="flex items-center gap-2 px-4 pt-3">
+                    <span class="text-sm font-semibold">Page {p.viewer}</span>
+                    <span class="text-xs font-mono text-stone-400">{p.fileLabel}</span>
+                    <span class="rv-flag-badge ml-auto text-xs font-semibold text-red-700" hidden={openNotes === 0}>
+                      {openNotes > 0 ? `⚑ ${openNotes} open` : ""}
+                    </span>
+                  </header>
+                  <div class="px-4 pt-2">
+                    {p.lineUrl ? (
+                      <img
+                        class="rv-img w-full rounded border border-stone-200 bg-white"
+                        src={p.lineUrl}
+                        alt={`Ch: ${ch.num} - ${ch.title}, page ${p.viewer} art`}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div class="rounded border border-dashed border-stone-300 bg-stone-50 px-4 py-10 text-center text-sm text-stone-400">No image for this page yet.</div>
+                    )}
+                    <div class="rv-nocolor hidden rounded border border-dashed border-stone-300 bg-stone-50 px-4 py-10 text-center text-sm text-stone-400">Not colorized. This page has no color twin yet.</div>
+                  </div>
+                  {p.text && (
+                    <p class="px-4 pt-3 text-[15px] leading-relaxed whitespace-pre-wrap">{p.text}</p>
+                  )}
+                  {(p.character || p.concept) && (
+                    <p class="px-4 pt-1.5 text-sm text-stone-500">{[p.character, p.concept].filter(Boolean).join(" · ")}</p>
+                  )}
+
+                  <div class="px-4 py-4 mt-2 border-t border-stone-100">
+                    <div class="rv-notes space-y-2">
+                      {pageNotes.map((n) => (
+                        <div class={`rv-note rounded-md border px-3 py-2 text-sm ${n.resolved ? "border-stone-200 bg-stone-50 text-stone-400" : "border-amber-200 bg-amber-50"}`} data-note-id={n.id} data-kind={n.kind} data-resolved={n.resolved}>
+                          <div class="flex items-start gap-2">
+                            <div class="flex-1 min-w-0">
+                              {n.tags.length > 0 && (
+                                <span class="mr-1.5 inline-flex flex-wrap gap-1 align-middle">
+                                  {n.tags.map((t) => (
+                                    <span class="rounded-full bg-[#1a3454] text-white px-2 py-0.5 text-[11px] font-semibold">{t}</span>
+                                  ))}
+                                </span>
+                              )}
+                              <span class="rv-note-kind text-[11px] font-bold uppercase tracking-wide text-stone-400 mr-1.5">{n.kind}</span>
+                              <span class="whitespace-pre-wrap">{n.note}</span>
+                            </div>
+                            <button class="rv-resolve shrink-0 rounded-full border border-stone-300 bg-white px-2.5 py-1 text-xs font-semibold text-stone-600 hover:border-stone-500">
+                              {n.resolved ? "Reopen" : "Mark resolved"}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div class="rv-tagrow mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Defect tags">
+                      {REVIEW_TAGS.map((t) => (
+                        <button class="rv-tag rounded-full border border-stone-300 bg-white px-2.5 py-1 text-xs font-semibold text-stone-600 hover:border-stone-500" data-tag={t} aria-pressed="false">{t}</button>
+                      ))}
+                    </div>
+                    <div class="mt-2 flex gap-2">
+                      <textarea class="rv-note-input flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm" rows="2" placeholder="What is wrong with this page?"></textarea>
+                      <button class="rv-save self-end rounded-full bg-[#1a3454] text-white px-4 py-2 text-sm font-semibold hover:bg-[#132741]">Save note</button>
+                    </div>
+                    <p class="rv-save-status text-xs text-stone-400 mt-1.5"></p>
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        ))}
+      </>
+    )}
+  </main>
+
+  <script is:inline define:vars={{ slug, playerData, audioChapterCount }}>
+    var mode = "line"; // artwork mode: "line" | "color"
+
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+
+    // ---------- Artwork mode toggle ----------
+    var artLine = document.getElementById("art-line");
+    var artColor = document.getElementById("art-color");
+    var ON = "bg-[#1a3454] text-white px-2.5 py-1 text-[11px] font-semibold";
+    var OFF = "bg-white text-stone-700 px-2.5 py-1 text-[11px] font-semibold";
+
+    function applyMode() {
+      if (artLine) artLine.className = mode === "line" ? ON : OFF;
+      if (artColor) artColor.className = mode === "color" ? ON : OFF;
+      document.querySelectorAll(".rv-page").forEach(function (page) {
+        var img = page.querySelector(".rv-img");
+        var nocolor = page.querySelector(".rv-nocolor");
+        var colorUrl = page.getAttribute("data-color-url") || "";
+        var lineUrl = page.getAttribute("data-line-url") || "";
+        if (!img) { if (nocolor) nocolor.classList.add("hidden"); return; }
+        if (mode === "color") {
+          if (colorUrl) {
+            if (img.getAttribute("src") !== colorUrl) img.setAttribute("src", colorUrl);
+            img.classList.remove("hidden");
+            if (nocolor) nocolor.classList.add("hidden");
+          } else {
+            img.classList.add("hidden");
+            if (nocolor) nocolor.classList.remove("hidden");
+          }
+        } else {
+          if (lineUrl && img.getAttribute("src") !== lineUrl) img.setAttribute("src", lineUrl);
+          img.classList.remove("hidden");
+          if (nocolor) nocolor.classList.add("hidden");
+        }
+        // Notes belong to the version being viewed: show only this kind.
+        page.querySelectorAll(".rv-note").forEach(function (n) {
+          n.style.display = n.getAttribute("data-kind") === mode ? "" : "none";
+        });
+      });
+    }
+    if (artLine) artLine.addEventListener("click", function () { mode = "line"; applyMode(); });
+    if (artColor) artColor.addEventListener("click", function () { mode = "color"; applyMode(); });
+
+    // ---------- Flag summary + badges ----------
+    function refreshFlags() {
+      var flagged = new Set();
+      var open = 0;
+      document.querySelectorAll(".rv-page").forEach(function (page) {
+        var pageOpen = 0;
+        page.querySelectorAll(".rv-note").forEach(function (n) {
+          if (n.getAttribute("data-resolved") === "0") { pageOpen += 1; open += 1; }
+        });
+        if (pageOpen > 0) flagged.add(page.getAttribute("data-page-key"));
+        var badge = page.querySelector(".rv-flag-badge");
+        if (badge) {
+          badge.hidden = pageOpen === 0;
+          badge.textContent = pageOpen > 0 ? "⚑ " + pageOpen + " open" : "";
+        }
+      });
+      var el = document.getElementById("flag-summary");
+      if (el) {
+        el.textContent = flagged.size > 0 ? "⚑ " + open + " open" : "No flags";
+        el.title = flagged.size > 0
+          ? flagged.size + " page" + (flagged.size === 1 ? "" : "s") + " flagged · " + open + " open note" + (open === 1 ? "" : "s")
+          : "No pages flagged yet";
+      }
+    }
+
+    // ---------- Notes ----------
+    function noteHtml(n) {
+      var tags = (n.tags || []).map(function (t) {
+        return '<span class="rounded-full bg-[#1a3454] text-white px-2 py-0.5 text-[11px] font-semibold">' + esc(t) + "</span>";
+      }).join("");
+      return '<div class="flex items-start gap-2"><div class="flex-1 min-w-0">' +
+        (tags ? '<span class="mr-1.5 inline-flex flex-wrap gap-1 align-middle">' + tags + "</span>" : "") +
+        '<span class="rv-note-kind text-[11px] font-bold uppercase tracking-wide text-stone-400 mr-1.5">' + esc(n.kind) + "</span>" +
+        '<span class="whitespace-pre-wrap">' + esc(n.note) + "</span></div>" +
+        '<button class="rv-resolve shrink-0 rounded-full border border-stone-300 bg-white px-2.5 py-1 text-xs font-semibold text-stone-600 hover:border-stone-500">' +
+        (n.resolved ? "Reopen" : "Mark resolved") + "</button></div>";
+    }
+    function buildNoteEl(n) {
+      var div = document.createElement("div");
+      div.className = "rv-note rounded-md border px-3 py-2 text-sm " +
+        (n.resolved ? "border-stone-200 bg-stone-50 text-stone-400" : "border-amber-200 bg-amber-50");
+      div.setAttribute("data-note-id", n.id);
+      div.setAttribute("data-kind", n.kind);
+      div.setAttribute("data-resolved", n.resolved ? "1" : "0");
+      div.innerHTML = noteHtml(n);
+      return div;
+    }
+
+    document.querySelectorAll(".rv-page").forEach(function (page) {
+      var pageKey = page.getAttribute("data-page-key");
+      var tagrow = page.querySelector(".rv-tagrow");
+      var input = page.querySelector(".rv-note-input");
+      var saveBtn = page.querySelector(".rv-save");
+      var status = page.querySelector(".rv-save-status");
+      var notesBox = page.querySelector(".rv-notes");
+
+      if (tagrow) tagrow.addEventListener("click", function (ev) {
+        var btn = ev.target.closest(".rv-tag");
+        if (!btn) return;
+        var on = btn.getAttribute("aria-pressed") === "true";
+        btn.setAttribute("aria-pressed", on ? "false" : "true");
+        btn.className = "rv-tag rounded-full px-2.5 py-1 text-xs font-semibold " +
+          (on ? "border border-stone-300 bg-white text-stone-600 hover:border-stone-500"
+              : "bg-orange-600 text-white border border-orange-600");
+      });
+
+      if (saveBtn) saveBtn.addEventListener("click", function () {
+        var tags = [];
+        page.querySelectorAll('.rv-tag[aria-pressed="true"]').forEach(function (b) {
+          tags.push(b.getAttribute("data-tag"));
+        });
+        var text = input.value.trim();
+        if (!text && tags.length === 0) {
+          status.textContent = "Write a note or pick a tag first.";
+          return;
+        }
+        saveBtn.disabled = true;
+        status.textContent = "Saving...";
+        fetch("/api/admin/review-notes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: slug, page_key: pageKey, kind: mode, note: text, tags: tags })
+        }).then(function (r) {
+          return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+        }).then(function (res) {
+          if (!res.ok) throw new Error(res.d.error || "Save failed.");
+          notesBox.appendChild(buildNoteEl(res.d.note));
+          input.value = "";
+          page.querySelectorAll('.rv-tag[aria-pressed="true"]').forEach(function (b) {
+            b.setAttribute("aria-pressed", "false");
+            b.className = "rv-tag rounded-full border border-stone-300 bg-white px-2.5 py-1 text-xs font-semibold text-stone-600 hover:border-stone-500";
+          });
+          status.textContent = "Saved against the " + mode + " version.";
+          applyMode();
+          refreshFlags();
+        }).catch(function (err) {
+          status.textContent = err.message || "Save failed.";
+        }).finally(function () { saveBtn.disabled = false; });
+      });
+
+      if (notesBox) notesBox.addEventListener("click", function (ev) {
+        var btn = ev.target.closest(".rv-resolve");
+        if (!btn) return;
+        var noteEl = btn.closest(".rv-note");
+        var id = noteEl.getAttribute("data-note-id");
+        var resolved = noteEl.getAttribute("data-resolved") === "1";
+        btn.disabled = true;
+        fetch("/api/admin/review-notes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: resolved ? "reopen" : "resolve", id: id })
+        }).then(function (r) {
+          if (!r.ok) throw new Error("failed");
+          var nowResolved = !resolved;
+          noteEl.setAttribute("data-resolved", nowResolved ? "1" : "0");
+          noteEl.className = "rv-note rounded-md border px-3 py-2 text-sm " +
+            (nowResolved ? "border-stone-200 bg-stone-50 text-stone-400" : "border-amber-200 bg-amber-50");
+          btn.textContent = nowResolved ? "Reopen" : "Mark resolved";
+          refreshFlags();
+        }).catch(function () {}).finally(function () { btn.disabled = false; });
+      });
+    });
+
+    // ---------- Player (same behavior as /admin/audiobooks/[slug]) ----------
+    function scrollToChapter(num) {
+      var el = document.getElementById("ch-" + num);
+      if (el) el.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+
+    if (playerData) {
+      var audio = document.getElementById("player");
+      var playBtn = document.getElementById("play-btn");
+      var iconPlay = document.getElementById("icon-play");
+      var iconPause = document.getElementById("icon-pause");
+      var prevBtn = document.getElementById("prev-btn");
+      var nextBtn = document.getElementById("next-btn");
+      var seek = document.getElementById("seek");
+      var elapsedEl = document.getElementById("time-elapsed");
+      var totalEl = document.getElementById("time-total");
+      var nowPlaying = document.getElementById("now-playing");
+      var statusEl = document.getElementById("player-status");
+      var speedSel = document.getElementById("speed");
+      var modeChBtn = document.getElementById("mode-chapters");
+      var modeFullBtn = document.getElementById("mode-full");
+
+      var pmode = "chapters";
+      var index = -1;
+      var seeking = false;
+
+      function playlist() {
+        return pmode === "full" && playerData.full ? [playerData.full] : playerData.tracks;
+      }
+      function trackIndexForChapter(num) {
+        var tracks = playlist();
+        for (var i = 0; i < tracks.length; i++) if (tracks[i].chapter === num) return i;
+        return -1;
+      }
+      function scrollForTrack(t) {
+        if (!t || pmode === "full") return;
+        if (t.chapter != null) { scrollToChapter(t.chapter); return; }
+        if (t.id === "intro") { scrollToChapter(1); return; }
+        if (t.id === "outro" && audioChapterCount > 0) { scrollToChapter(audioChapterCount); }
+      }
+      function fmt(s) {
+        if (s == null || !isFinite(s) || s < 0) return "0:00";
+        s = Math.round(s);
+        var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+        var mm = h > 0 ? String(m).padStart(2, "0") : String(m);
+        return (h > 0 ? h + ":" : "") + mm + ":" + String(r).padStart(2, "0");
+      }
+      function setPlayingUi(playing) {
+        iconPlay.classList.toggle("hidden", playing);
+        iconPause.classList.toggle("hidden", !playing);
+      }
+      function loadTrack(i, autoplay) {
+        var tracks = playlist();
+        if (i < 0 || i >= tracks.length) return;
+        index = i;
+        var t = tracks[i];
+        statusEl.textContent = "";
+        audio.src = t.url;
+        audio.playbackRate = Number(speedSel.value) || 1;
+        nowPlaying.textContent = t.label;
+        totalEl.textContent = t.duration ? fmt(t.duration) : "0:00";
+        elapsedEl.textContent = "0:00";
+        seek.value = 0;
+        prevBtn.disabled = pmode === "full" || index <= 0;
+        nextBtn.disabled = pmode === "full" || index >= tracks.length - 1;
+        document.querySelectorAll(".rv-chapter-chip").forEach(function (chip) {
+          var edge = chip.getAttribute("data-edge");
+          var active = pmode === "chapters" && (edge
+            ? t.id === edge
+            : t.chapter === Number(chip.getAttribute("data-chapter")));
+          chip.className = "rv-chapter-chip shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold " +
+            (active ? "bg-orange-600 text-white border border-orange-600"
+                    : "border border-stone-300 bg-white hover:border-stone-500 text-stone-700");
+        });
+        if (autoplay) audio.play().catch(function () {});
+      }
+      function playChapter(num) {
+        if (num < 1 || num > audioChapterCount) return;
+        if (pmode !== "chapters") setPmode("chapters");
+        var i = trackIndexForChapter(num);
+        if (i < 0) return;
+        loadTrack(i, true);
+        scrollToChapter(num);
+      }
+      function playEdge(edge) {
+        if (pmode !== "chapters") setPmode("chapters");
+        var tracks = playlist();
+        for (var i = 0; i < tracks.length; i++) {
+          if (tracks[i].id === edge) { loadTrack(i, true); scrollForTrack(tracks[i]); return; }
+        }
+      }
+      function setPmode(next) {
+        if (next === pmode) return;
+        pmode = next;
+        var on = "bg-[#1a3454] text-white px-2 py-1 text-[11px] font-semibold";
+        var off = "bg-white text-stone-700 px-2 py-1 text-[11px] font-semibold";
+        if (modeChBtn) modeChBtn.className = pmode === "chapters" ? on : off;
+        if (modeFullBtn) modeFullBtn.className = pmode === "full" ? on : off;
+        loadTrack(0, false);
+      }
+
+      playBtn.addEventListener("click", function () {
+        if (index < 0) { loadTrack(0, true); return; }
+        if (audio.paused) audio.play().catch(function () {});
+        else audio.pause();
+      });
+      prevBtn.addEventListener("click", function () { if (index > 0) { loadTrack(index - 1, true); scrollForTrack(playlist()[index]); } });
+      nextBtn.addEventListener("click", function () { if (index < playlist().length - 1) { loadTrack(index + 1, true); scrollForTrack(playlist()[index]); } });
+      if (modeChBtn) modeChBtn.addEventListener("click", function () { setPmode("chapters"); });
+      if (modeFullBtn) modeFullBtn.addEventListener("click", function () { setPmode("full"); });
+      speedSel.addEventListener("change", function () { audio.playbackRate = Number(speedSel.value) || 1; });
+
+      document.querySelectorAll(".rv-chapter-chip").forEach(function (chip) {
+        chip.addEventListener("click", function () {
+          var edge = chip.getAttribute("data-edge");
+          if (edge) { playEdge(edge); return; }
+          var num = Number(chip.getAttribute("data-chapter"));
+          if (num <= audioChapterCount) playChapter(num);
+          else scrollToChapter(num);
+        });
+      });
+      document.querySelectorAll(".rv-play-chapter").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          playChapter(Number(btn.getAttribute("data-chapter")));
+        });
+      });
+
+      audio.addEventListener("play", function () { setPlayingUi(true); });
+      audio.addEventListener("pause", function () { setPlayingUi(false); });
+      audio.addEventListener("loadedmetadata", function () {
+        if (isFinite(audio.duration)) totalEl.textContent = fmt(audio.duration);
+      });
+      audio.addEventListener("timeupdate", function () {
+        if (!isFinite(audio.duration) || audio.duration <= 0) return;
+        elapsedEl.textContent = fmt(audio.currentTime);
+        if (!seeking) seek.value = Math.round((audio.currentTime / audio.duration) * 1000);
+      });
+      audio.addEventListener("ended", function () {
+        setPlayingUi(false);
+        if (pmode === "chapters" && index < playlist().length - 1) {
+          loadTrack(index + 1, true);
+          scrollForTrack(playlist()[index]);
+        }
+      });
+      audio.addEventListener("error", function () {
+        if (index >= 0) statusEl.textContent = "That track could not be loaded.";
+      });
+      seek.addEventListener("input", function () { seeking = true; });
+      seek.addEventListener("change", function () {
+        seeking = false;
+        if (isFinite(audio.duration) && audio.duration > 0) {
+          audio.currentTime = (Number(seek.value) / 1000) * audio.duration;
+        }
+      });
+    } else {
+      document.querySelectorAll(".rv-chapter-chip").forEach(function (chip) {
+        chip.addEventListener("click", function () {
+          scrollToChapter(Number(chip.getAttribute("data-chapter")));
+        });
+      });
+    }
+
+    applyMode();
+    refreshFlags();
+  </script>
+
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,275 @@
+---
+import "../styles/global.css";
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import CartSheet from "../components/CartSheet.astro";
+import SectionHero from "../components/SectionHero.astro";
+import SectionNav from "../components/SectionNav.astro";
+import Tracking from "../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../components/TransitionHooks.astro";
+import SeoHead from "../components/SeoHead.astro";
+import AudiobookBadge from "../components/AudiobookBadge.astro";
+import { probeAudiobook, formatClock } from "../lib/audiobooks";
+import { coverDerivative, MEDIA_PUBLIC } from "../lib/derivatives";
+import { publicSlugFor } from "../lib/public-slugs";
+import { AUDIO_PRICE_CENTS, AUDIO_CLUB_PRICE_CENTS, AUDIO_CLUB_ANNUAL_PRICE_CENTS, clubPriceLabel } from "../lib/offers";
+import { env } from "cloudflare:workers";
+export const prerender = false;
+const e = env as any;
+
+// The listening shelf: every book that has a cover and an audiobook
+// is audio-published (CG, 2026-10-29), whatever its book status
+// (the catalog row decides; nothing here is a hand-maintained list).
+// Only the audio edition publishes this way; the book editions stay
+// behind their own gates. Chapter counts and runtimes come from
+// probeAudiobook (file existence in R2 + the measured durations in
+// src/data/audiobooks.json).
+// Format badge: NONE on this shelf (CG, 2026-10-31). The cover
+// carries the Audiobook pill, so the icon row that used to sit
+// above the title repeated it. The home shelf keeps its three
+// format icons, where they show which mediums a book comes in.
+const BADGE_ICONS = {
+  story: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+  coloring: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+  audio: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>',
+};
+// (The badge row that used to sit between the cover and the
+// title was removed 2026-10-31, CG: the cover already carries
+// the Audiobook pill, so the red icon above the title repeated
+// it. The home page keeps its three format icons, where they
+// show which mediums a book comes in; this shelf is audio-only
+// and the pill says it.)
+
+interface ShelfItem {
+  slug: string;
+  title: string;
+  href: string;
+  cover: string;
+  chapters: number;
+  runtimeSecs: number;
+  topic: string;
+}
+let items: ShelfItem[] = [];
+try {
+  const { results } = await e.DB.prepare(
+    "SELECT slug, title, status, topic, cover_key, public_slug, audiobook_key, picture_book_key, coloring_book_key FROM books WHERE cover_key IS NOT NULL AND audiobook_key IS NOT NULL ORDER BY title ASC"
+  ).all();
+  const probed = await Promise.all(
+    ((results || []) as any[]).map(async (b) => {
+      const probe = await probeAudiobook(e, b);
+      return { b, probe };
+    })
+  );
+  items = probed
+    .filter(({ probe }) => probe.chapterCount > 0)
+    .map(({ b, probe }) => ({
+      slug: String(b.slug),
+      title: String(b.title),
+      href: `/audiobooks/${publicSlugFor(b)}`,
+      cover: coverDerivative(String(b.slug), "card", b.cover_key) || (b.cover_key ? MEDIA_PUBLIC + b.cover_key : ""),
+      chapters: probe.chapterCount,
+      runtimeSecs: probe.runtimeSecs,
+      topic: String(b.topic || "tech"),
+    }));
+} catch { /* the shelf renders empty rather than failing the page */ }
+const audioPriceLabel = `$${(AUDIO_PRICE_CENTS / 100).toFixed(2)}`;
+// The one Audio Club banner above the grid (CG, 2026-10-30): the
+// club offer used to ride as gray microcopy on every card ("or hear
+// it in Audio Club", wrapping to an orphaned "Club"); now it is a
+// single banner and the cards stay clean. Price labels mirror the
+// audiobook detail page's formatting (whole dollars without cents).
+const clubMonthlyLabel = clubPriceLabel(AUDIO_CLUB_PRICE_CENTS);
+const clubAnnualLabel =
+  AUDIO_CLUB_ANNUAL_PRICE_CENTS % 100 === 0
+    ? `$${AUDIO_CLUB_ANNUAL_PRICE_CENTS / 100}`
+    : clubPriceLabel(AUDIO_CLUB_ANNUAL_PRICE_CENTS);
+// Category pills, mirroring the home shelf: the same four shelves
+// with counts computed over THIS page's set (the audio-published
+// books above), not the book catalog. A book with no topic counts
+// as Tech, exactly as home treats it.
+const CATS = [["all", "All"], ["tech", "Tech"], ["money", "Money"], ["courage", "Courage"]] as const;
+const catCounts: Record<string, number> = { all: items.length, tech: 0, money: 0, courage: 0 };
+for (const it of items) {
+  if (catCounts[it.topic] !== undefined && it.topic !== "all") catCounts[it.topic] += 1;
+}
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Audiobooks — Big Brain Shelf</title>
+  <SeoHead title="Audiobooks — Big Brain Shelf" socialDescription="Audiobooks on tech, money, and courage, told so kids can get it. Hear the introduction and first chapter of every book free." image="https://bigbrainshelf.com/og-image-audiobooks.jpg" imageAlt="Big Brain Shelf audiobooks, including Mira the Heron, Fern the Fox and Wally the Whale" imageWidth={1200} imageHeight={630} />
+  <meta name="description" content="Audiobooks on tech, money, and courage, told so kids can get it. Hear the introduction and first chapter of every book free." />
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+
+  <SectionHero subline="Audiobooks on tech, money, and courage, told so kids can get it." />
+  <SectionNav active="audio" />
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-7">
+    <p class="text-sm text-stone-500 leading-relaxed max-w-2xl lg:max-w-none">Every story on the shelf, read aloud. Tap a book to hear its free sample: the introduction and the first chapter.</p>
+    {items.length ? (
+      <a href="/clubs" class="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl bg-[#1a3454] text-white px-4 py-3.5 sm:px-5">
+        <span class="flex-1 min-w-[220px]">
+          <span class="block text-[15px] font-bold leading-snug">The Audio Club: every audiobook on the shelf</span>
+          <span class="block text-[13px] text-white/85 leading-relaxed mt-0.5">{clubMonthlyLabel}/mo or {clubAnnualLabel}/yr, listen while you are a member. Cancel anytime.</span>
+        </span>
+        <span class="inline-flex items-center justify-center min-h-[44px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold">Join The Audio Club</span>
+      </a>
+    ) : null}
+    {items.length ? (
+      <>
+      <div id="cat-chips" class="flex gap-2 mt-4 overflow-x-auto" role="group" aria-label="Filter by shelf">
+        {CATS.map(([key, label]) => (
+          <button type="button" class={`cat-chip shrink-0 inline-flex items-center min-h-[40px] px-4 rounded-full border text-[15px] transition duration-100 active:scale-[0.97] ${key === "all" ? "bg-orange-600 border-orange-600 text-white font-semibold" : "bg-white border-stone-300 text-stone-900"}`} data-cat={key} aria-pressed={key === "all" ? "true" : "false"}>{label}<span class="text-[11px] font-bold opacity-65 ml-[5px]">{catCounts[key]}</span></button>
+        ))}
+      </div>
+      <div id="audio-grid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8 md:gap-x-5 md:gap-y-10 mt-5">
+        {items.map((b, i) => (
+          <div data-topic={b.topic} class="group relative flex flex-col h-full">
+            <a href={b.href} class="block">
+              <div class="relative w-full aspect-[3/4] bg-stone-100 transition duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_16px_28px_-14px_rgba(0,0,0,0.35)]" style={`view-transition-name: book-cover-${b.slug}`} role="img" aria-label={`${b.title} cover`}>
+                <span aria-hidden="true" class="absolute inset-0 z-10 pointer-events-none" style="box-shadow: inset 12px 0 18px -11px rgba(0,0,0,.5), inset -1px 0 2px rgba(0,0,0,.12), inset 0 0 0 1px rgba(0,0,0,.07)"></span>
+                {b.cover && (
+                  <>
+                    <img src={b.cover} alt="" aria-hidden="true" loading={i === 0 ? "eager" : "lazy"} fetchpriority={i === 0 ? "high" : undefined} class="absolute inset-0 w-full h-full object-cover" />
+                    <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 z-20 w-full h-full opacity-0" />
+                    <AudiobookBadge locale="en" size="card" />
+                  </>
+                )}
+                <span class="absolute left-2 bottom-2 z-[2] rounded-full bg-stone-950/70 text-white text-[11px] font-bold px-2 py-[3px] backdrop-blur-sm">{formatClock(b.runtimeSecs)}</span>
+                <span aria-hidden="true" class="absolute right-2 bottom-2 z-[2] w-9 h-9 rounded-full bg-orange-600 text-white shadow-md flex items-center justify-center">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+                </span>
+              </div>
+              <h3 class="mt-2 lg:mt-3 text-[15px] font-semibold leading-snug">{b.title}</h3>
+            </a>
+            <span class="mt-auto block pt-2">
+              <p class="text-sm"><span class="font-semibold">{audioPriceLabel} audiobook only</span></p>
+              <span class="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+                <a href={b.href} class="inline-flex items-center justify-center min-h-[40px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold">Free sample</a>
+                <button type="button" class="ab-add inline-flex items-center min-h-[44px] text-sm font-semibold text-orange-700 underline decoration-orange-300 underline-offset-4 hover:text-orange-800 transition duration-100 active:scale-[0.97] disabled:text-stone-400 disabled:no-underline" data-slug={b.slug}>Add to cart</button>
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+      <div id="audio-empty" class="hidden text-center text-stone-500 py-16"><p class="text-stone-900 font-semibold text-lg mb-1">Nothing on this shelf yet.</p><p class="text-sm">Try a different category.</p></div>
+      </>
+    ) : (
+      <div class="text-center text-stone-500 py-16"><p class="text-stone-900 font-semibold text-lg mb-1">The listening shelf is still being stocked.</p><p class="text-sm">Check back soon for the first audiobooks.</p></div>
+    )}
+  </main>
+
+  <SiteFooter />
+
+  <script is:inline define:vars={{ audioCents: AUDIO_PRICE_CENTS }}>
+    // Category pills: the same single-select shelf filter the home
+    // page runs, over this page's own set. The pills and their
+    // counts are server-rendered (the audio shelf is a server page,
+    // not a client-fetched grid like home), so the script only
+    // repaints the active pill and hides the cards outside the
+    // selected shelf. Bound per page instance, re-run on
+    // astro:page-load like every other page script here.
+    function initAudioChips() {
+      var row = document.getElementById("cat-chips");
+      var grid = document.getElementById("audio-grid");
+      if (!row || !grid || row.__chipsBound) return;
+      row.__chipsBound = true;
+      var empty = document.getElementById("audio-empty");
+      var ON = ["bg-orange-600", "border-orange-600", "text-white", "font-semibold"];
+      var OFF = ["bg-white", "border-stone-300", "text-stone-900"];
+      row.addEventListener("click", function (e) {
+        var btn = e.target.closest(".cat-chip");
+        if (!btn) return;
+        var cat = btn.getAttribute("data-cat");
+        row.querySelectorAll(".cat-chip").forEach(function (chip) {
+          var on = chip === btn;
+          chip.classList.remove.apply(chip.classList, on ? OFF : ON);
+          chip.classList.add.apply(chip.classList, on ? ON : OFF);
+          chip.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        var shown = 0;
+        grid.querySelectorAll("[data-topic]").forEach(function (card) {
+          var vis = cat === "all" || card.getAttribute("data-topic") === cat;
+          card.classList.toggle("hidden", !vis);
+          if (vis) shown += 1;
+        });
+        if (empty) empty.classList.toggle("hidden", shown > 0);
+      });
+    }
+    initAudioChips();
+    document.addEventListener("astro:page-load", initAudioChips);
+
+    // Card-level Add to cart for the $1.99 audiobook (CG, 2026-10-31):
+    // the same { slug, format: "audio" } store entry the detail
+    // page's buy button writes, with the same tracking event and the
+    // cart sheet opening on add. The button lives OUTSIDE the card's
+    // link (the card is a div now; cover, title and the Free sample
+    // pill link to the detail page), so no click has to fight an
+    // anchor. State mirrors the cart: in the cart reads "In your
+    // cart", and removing it in the sheet re-arms the button via
+    // bbs:cart-changed, exactly like the detail page.
+    function initAudioCardCart() {
+      var grid = document.getElementById("audio-grid");
+      if (!grid || grid.__cartBound) return;
+      grid.__cartBound = true;
+      function syncAll() {
+        grid.querySelectorAll(".ab-add").forEach(function (btn) {
+          var has = window.bbsCart ? window.bbsCart.has(btn.getAttribute("data-slug"), "audio") : false;
+          btn.disabled = has;
+          btn.textContent = has ? "In your cart" : "Add to cart";
+        });
+      }
+      grid.addEventListener("click", function (e) {
+        var btn = e.target.closest(".ab-add");
+        if (!btn || btn.disabled) return;
+        var slug = btn.getAttribute("data-slug");
+        var added = window.bbsCart && window.bbsCart.add(slug, "audio");
+        if (added && window.bbsTrack) window.bbsTrack("AddToCart", {
+          content_ids: [slug],
+          content_type: "product",
+          format: "audio",
+          value: audioCents / 100,
+          currency: "USD",
+        });
+        if (window.openCartSheet) window.openCartSheet();
+        syncAll();
+      });
+      document.addEventListener("bbs:cart-changed", syncAll);
+      syncAll();
+    }
+    initAudioCardCart();
+    document.addEventListener("astro:page-load", initAudioCardCart);
+  </script>
+
+  <script is:inline>
+    // Keep the header account link in sync with the session (same
+    // pattern as the other public pages).
+    function bbsAccountLink() {
+      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+        var link = document.getElementById("account-link");
+        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
+      }).catch(function () {});
+    }
+    bbsAccountLink();
+    document.addEventListener("astro:page-load", bbsAccountLink);
+  </script>
+<!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+<CartSheet />
+
+</body>
+</html>

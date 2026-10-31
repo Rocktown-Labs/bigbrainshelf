@@ -1,0 +1,165 @@
+---
+import "../../../styles/global.css";
+import AdminShell from "../../../components/AdminShell.astro";
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>New Book - Kidsbook Hub</title>
+  <style is:global>
+    body { font-family: system-ui; max-width: 640px; margin: 40px auto; padding: 0 20px; }
+    label { display: block; margin: 16px 0 6px; font-weight: 600; }
+    input[type="text"], input[type="url"], select { width: 100%; padding: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; background: #fff; }
+    input[type="file"] { margin-top: 6px; }
+    button { margin-top: 24px; padding: 12px 28px; font-size: 1em; background: #ea580c; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+    button:hover { background: #c2410c; }
+    button:disabled { background: #999; cursor: wait; }
+    .hint { font-size: 0.85em; color: #666; margin-top: 4px; }
+    #status { margin-top: 12px; min-height: 1.2em; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px 20px; margin: 24px 0; }
+    .card h2 { margin: 0 0 8px; font-size: 1.1em; }
+    .row { display: flex; gap: 8px; }
+    .row input { flex: 1; }
+    .row button { margin-top: 0; padding: 10px 16px; }
+    .tiers { margin: 18px 0 4px; }
+    .tiers legend { font-weight: 600; margin-bottom: 6px; }
+    .tier { display: flex; gap: 10px; align-items: flex-start; margin: 8px 0; font-weight: 400; cursor: pointer; }
+    .tier input { margin-top: 3px; width: 18px; height: 18px; }
+    .tier small { display: block; color: #666; }
+    a { color: #c2410c; }
+  </style>
+  </head>
+<body>
+  <AdminShell current="/admin/books" />
+  <a href="/admin/books">← Books</a>
+  <h1>New Book</h1>
+
+  <div class="card" style="border-color:#c2410c;">
+    <h2>Drop in files, pick tiers, walk away</h2>
+    <p class="hint">Each file becomes its own queued book for every tier you check. The factory reads the document and generates the title, slug, category, and topics itself. Come back later and QA the results in the editor.</p>
+
+    <label for="files">Source documents</label>
+    <input type="file" id="files" multiple accept=".pdf,.md,.markdown,.txt" />
+
+    <fieldset class="tiers">
+      <legend>Tiers to build</legend>
+      <label class="tier"><input type="checkbox" class="tier-box" value="1" checked /> <span>Tier 1: Story <small>Ages 4 to 8. The picture and coloring book.</small></span></label>
+      <label class="tier"><input type="checkbox" class="tier-box" value="2" /> <span>Tier 2: Story + real code <small>Ages 9 to 12. Same world, deeper, with code the reader can run.</small></span></label>
+      <label class="tier"><input type="checkbox" class="tier-box" value="3" /> <span>Tier 3: Advanced <small>Older readers. The deepest version of the topic, still a story.</small></span></label>
+    </fieldset>
+
+    <label for="category">Category</label>
+    <select id="category">
+      <option value="auto" selected>Auto: let the factory decide</option>
+      <option value="tech">Tech</option>
+      <option value="money">Money</option>
+      <option value="courage">Courage</option>
+    </select>
+
+    <p><button id="create-btn" type="button">Create books</button></p>
+    <p class="hint" id="status"></p>
+  </div>
+
+  <div class="card">
+    <h2>Factory worker</h2>
+    <p class="hint">The generation trigger calls this worker's /build endpoint. Set it once, it is used for every book.</p>
+    <div class="row">
+      <input type="url" id="factory-url" placeholder="https://kidsbook-factory.<subdomain>.workers.dev" />
+      <button id="save-factory" type="button">Save</button>
+    </div>
+    <p class="hint" id="factory-status"></p>
+  </div>
+
+  <script is:inline>
+    var factoryInput = document.getElementById('factory-url');
+    var factoryStatus = document.getElementById('factory-status');
+    fetch('/api/settings').then(function(r) { return r.json(); }).then(function(s) {
+      factoryInput.value = s.factory_url || '';
+      factoryStatus.textContent = s.factory_url ? 'Configured.' : 'Not configured yet. Generation will be unavailable until this is set.';
+    });
+    document.getElementById('save-factory').addEventListener('click', function() {
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ factory_url: factoryInput.value })
+      }).then(function(r) { return r.json(); }).then(function(s) {
+        factoryStatus.textContent = s.factory_url ? 'Saved.' : 'Cleared.';
+      });
+    });
+
+    function slugify(name) {
+      return name.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    }
+
+    document.getElementById('create-btn').addEventListener('click', function() {
+      var files = document.getElementById('files').files;
+      var statusEl = document.getElementById('status');
+      var btn = document.getElementById('create-btn');
+      var tiers = Array.prototype.map.call(document.querySelectorAll('.tier-box:checked'), function(b) { return parseInt(b.value, 10); });
+      var category = document.getElementById('category').value;
+      if (!files.length) { statusEl.textContent = 'Pick some files first.'; return; }
+      if (!tiers.length) { statusEl.textContent = 'Check at least one tier.'; return; }
+      btn.disabled = true;
+      // Job list: one job per (file, tier). Slugs get a -tN suffix only
+      // when more than one tier is being built from the same file.
+      var jobs = [];
+      for (var i = 0; i < files.length; i++) {
+        var base = slugify(files[i].name) || ('book-' + Date.now() + '-' + i);
+        for (var j = 0; j < tiers.length; j++) {
+          jobs.push({ file: files[i], tier: tiers[j], series: base, slug: tiers.length > 1 ? base + '-t' + tiers[j] : base });
+        }
+      }
+      var k = 0, done = 0, failed = [];
+      function next() {
+        if (k >= jobs.length) {
+          statusEl.textContent = 'Queued ' + done + ' of ' + jobs.length + ' books.' +
+            (failed.length ? ' Failed: ' + failed.join(', ') : ' The factory picks them up automatically.');
+          btn.disabled = false;
+          if (!failed.length) setTimeout(function() { window.location.href = '/admin/books'; }, 1500);
+          return;
+        }
+        var job = jobs[k++];
+        statusEl.textContent = 'Queueing ' + k + '/' + jobs.length + ': ' + job.file.name + ' (tier ' + job.tier + ')';
+        fetch('/api/books', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: job.slug, status: 'queued', tier: job.tier, series: job.series, topic: category })
+        }).then(function(r) {
+          if (!r.ok) throw new Error('create failed');
+          var form = new FormData();
+          form.append('slug', job.slug);
+          form.append('files', job.file);
+          return fetch('/api/uploads', { method: 'POST', body: form });
+        }).then(function(ur) {
+          if (!ur.ok) throw new Error('upload failed');
+          done++;
+          next();
+        }).catch(function() { failed.push(job.file.name + ' t' + job.tier); next(); });
+      }
+      next();
+    });
+  </script>
+<script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

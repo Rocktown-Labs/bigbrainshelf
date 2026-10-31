@@ -1,0 +1,275 @@
+---
+import "../styles/global.css";
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import CartSheet from "../components/CartSheet.astro";
+import SectionHero from "../components/SectionHero.astro";
+import SectionNav from "../components/SectionNav.astro";
+import Tracking from "../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../components/TransitionHooks.astro";
+import SeoHead from "../components/SeoHead.astro";
+import { env } from "cloudflare:workers";
+import { listPublicShelfBooks } from "../lib/books-public";
+import { CLUB_PRICE_CENTS, CLUB_ANNUAL_PRICE_CENTS, clubPriceLabel } from "../lib/offers";
+// The Book Club banner above the shelf (CG, 2026-10-31): the same
+// little club CTA the audio shelf carries for The Audio Club,
+// mirrored for the books route. Prices come from the club constants
+// so the banner can never drift from /clubs.
+const clubQuarterlyLabel = clubPriceLabel(CLUB_PRICE_CENTS);
+const clubAnnualLabel = clubPriceLabel(CLUB_ANNUAL_PRICE_CENTS);
+export const prerender = false;
+const adminUser = Astro.locals.user;
+
+// The home shelf, server-rendered. The catalog comes from the same
+// public projection GET /api/books serves (listPublicShelfBooks in
+// src/lib/books-public.ts), and the cards are built with the exact
+// strings this page's script used to build after fetching that
+// endpoint, so first paint carries the books and the shelf is real
+// HTML with JavaScript off. The script below now only filters these
+// cards in place (topic pills + header search), the pattern the
+// audiobooks shelf already uses. Each card carries its topic and its
+// searchable text (title + description, lowercased) as data
+// attributes for that filter; nothing visual rides on them.
+const R2_PUBLIC = "https://media.bigbrainshelf.com/";
+let shelfBooks: any[] = [];
+try {
+  shelfBooks = await listPublicShelfBooks((env as any).DB);
+} catch { /* the shelf renders its stocked state rather than failing the page */ }
+function escHtml(s: any): string {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string
+  );
+}
+function priceText(cents: any): string { return "$" + (Number(cents || 0) / 100).toFixed(2); }
+// Format badges, identical to the client renderer's: icon-only (the
+// format name rides in title/aria-label), one color per format
+// (story green, coloring amber, audio red, the same system the admin
+// orders table uses), the audio glyph 2px larger because it reads
+// small at card size. The row reserves exactly one line of the
+// tallest badge (30px) below lg so titles and prices stay aligned
+// across a grid row even when a book is missing one of the three.
+const BADGE_ICONS = {
+  story: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+  coloring: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+  audio: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>'
+};
+function badgeRowHtml(b: any): string {
+  const badges: { icon: string; name: string; cls: string }[] = [];
+  if (b.has_picture_book) badges.push({ icon: BADGE_ICONS.story, name: "Story book", cls: "bg-green-100 text-green-800" });
+  if (b.has_coloring_book) badges.push({ icon: BADGE_ICONS.coloring, name: "Coloring book", cls: "bg-amber-100 text-amber-800" });
+  if (b.has_audiobook) badges.push({ icon: BADGE_ICONS.audio, name: "Audiobook", cls: "bg-red-100 text-red-800" });
+  return '<div class="flex flex-wrap items-center content-start gap-1.5 mt-1.5 min-h-[30px] lg:min-h-[20px]" role="list" aria-label="What this book includes">' +
+    badges.map((bd) => '<span role="listitem" title="' + bd.name + '" aria-label="' + bd.name + '" class="inline-flex items-center justify-center rounded-full p-1.5 ' + bd.cls + '">' + bd.icon + "</span>").join("") + "</div>";
+}
+function shelfCardHtml(b: any, priority = false): string {
+  const cover = b.cover_card || (b.cover_key ? R2_PUBLIC + b.cover_key : "");
+  const priceHtml = Number(b.price || 0) > 0
+    ? '<span class="font-semibold">' + escHtml(priceText(b.price)) + "</span>" +
+      ' <span class="text-stone-500 font-normal">digital</span>' +
+      (Number(b.price_print || 0) > 0
+        ? ' <span class="text-stone-300">·</span> <span class="font-semibold">' + escHtml(priceText(b.price_print)) + '</span> <span class="text-stone-500 font-normal">printed</span>'
+        : "")
+    : '<span class="text-stone-400">Coming soon</span>';
+  const searchText = ((b.title || "") + " " + (b.description || "")).toLowerCase();
+  return '<a href="' + escHtml(b.href || ("/books/" + b.slug)) + '" data-topic="' + escHtml(b.topic || "tech") + '" data-search="' + escHtml(searchText) + '" class="group block relative">' +
+    '<div class="relative w-full aspect-[3/4] bg-stone-100 transition duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_16px_28px_-14px_rgba(0,0,0,0.35)]" style="view-transition-name: book-cover-' + escHtml(b.slug) + '" role="img" aria-label="' + escHtml(b.title) + ' cover">' +
+      '<span aria-hidden="true" class="absolute inset-0 z-10 pointer-events-none" style="box-shadow: inset 12px 0 18px -11px rgba(0,0,0,.5), inset -1px 0 2px rgba(0,0,0,.12), inset 0 0 0 1px rgba(0,0,0,.07)"></span>' +
+      (cover ? '<img src="' + escHtml(cover) + '" alt="" aria-hidden="true" loading="' + (priority ? "eager" : "lazy") + '"' + (priority ? ' fetchpriority="high"' : "") + ' class="absolute inset-0 w-full h-full object-cover" />' +
+        '<img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 z-20 w-full h-full opacity-0" />' : "") +
+    "</div>" +
+    badgeRowHtml(b) +
+    '<h3 class="mt-2 lg:mt-3 text-[15px] font-semibold leading-snug">' + escHtml(b.title) + "</h3>" +
+    '<p class="text-sm mt-0.5">' + priceHtml + "</p></a>";
+}
+// The first card's cover is the page's LCP element: it alone loads
+// eager with fetchpriority="high"; every other card stays lazy.
+const shelfCardsHtml = shelfBooks.map((b, i) => shelfCardHtml(b, i === 0)).join("");
+const siteJsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://bigbrainshelf.com/#organization",
+      name: "Big Brain Shelf",
+      url: "https://bigbrainshelf.com/",
+      logo: "https://bigbrainshelf.com/logo-stacked.png",
+      sameAs: ["https://www.instagram.com/bigbrainshelf"],
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://bigbrainshelf.com/#website",
+      name: "Big Brain Shelf",
+      url: "https://bigbrainshelf.com/",
+      publisher: { "@id": "https://bigbrainshelf.com/#organization" },
+    },
+  ],
+};
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Big Brain Shelf — Big ideas for little brains</title>
+  <meta name="description" content="Picture, coloring, and audio books on tech, money, and courage, told so kids can get it. For curious kids ages 4 to 8 (and the grown-ups reading along)." />
+  <SeoHead jsonLd={siteJsonLd} />
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+
+  <SectionHero subline="Picture, coloring, and audio books on tech, money, and courage, told so kids can get it." />
+  <SectionNav active="books" />
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    {shelfBooks.length > 0 && (
+      <p class="text-sm text-stone-500 leading-relaxed max-w-2xl lg:max-w-none mt-5">Every story on the shelf, ready to read. Tap a book for its free sample, the first pages of the story, or let The Book Club mail the printed books to your door.</p>
+    )}
+    {shelfBooks.length > 0 && (
+      <a href="/clubs" class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl bg-[#1a3454] text-white px-4 py-3.5 sm:px-5">
+        <span class="flex-1 min-w-[220px]">
+          <span class="block text-[15px] font-bold leading-snug">The Book Club: a gift set plus a second printed book, every 3 months</span>
+          <span class="block text-[13px] text-white/85 leading-relaxed mt-0.5">{clubQuarterlyLabel} every 3 months or {clubAnnualLabel}/yr. First box the day you join. Cancel anytime.</span>
+        </span>
+        <span class="inline-flex items-center justify-center min-h-[44px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold">Join The Book Club</span>
+      </a>
+    )}
+    <div id="cat-chips" class="flex gap-2 pt-[14px] pb-[2px] overflow-x-auto" role="group" aria-label="Filter by shelf">
+      <button type="button" class="cat-chip shrink-0 inline-flex items-center min-h-[40px] px-4 rounded-full border text-[15px] transition duration-100 active:scale-[0.97] bg-orange-600 border-orange-600 text-white font-semibold" data-cat="all" aria-pressed="true">All</button>
+      <button type="button" class="cat-chip shrink-0 inline-flex items-center min-h-[40px] px-4 rounded-full border text-[15px] transition duration-100 active:scale-[0.97] bg-white border-stone-300 text-stone-900" data-cat="tech" aria-pressed="false">Tech</button>
+      <button type="button" class="cat-chip shrink-0 inline-flex items-center min-h-[40px] px-4 rounded-full border text-[15px] transition duration-100 active:scale-[0.97] bg-white border-stone-300 text-stone-900" data-cat="money" aria-pressed="false">Money</button>
+      <button type="button" class="cat-chip shrink-0 inline-flex items-center min-h-[40px] px-4 rounded-full border text-[15px] transition duration-100 active:scale-[0.97] bg-white border-stone-300 text-stone-900" data-cat="courage" aria-pressed="false">Courage</button>
+    </div>
+  </div>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-7">
+    <section id="grid" aria-live="polite" class="w-full grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8 md:gap-x-5 md:gap-y-10">
+      {shelfBooks.length ? (
+        <Fragment set:html={shelfCardsHtml} />
+      ) : (
+        <div class="col-span-full text-center text-stone-500 py-16"><p class="text-stone-900 font-semibold text-lg mb-1">The shelf is still being stocked.</p><p class="text-sm">Check back soon for the first books.</p></div>
+      )}
+    </section>
+    {shelfBooks.length > 0 && (
+      <div id="grid-empty" class="hidden text-center text-stone-500 py-16"><p class="text-stone-900 font-semibold text-lg mb-1">Nothing on this shelf yet.</p><p class="text-sm">Try a different search or category.</p></div>
+    )}
+  </div>
+
+  <SiteFooter />
+
+  <script is:inline>
+  (function () {
+    // Everything on the home shelf binds here. It runs on first
+    // render and again on astro:page-load, so the shelf keeps
+    // working after view-transition navigations swap in a fresh home
+    // page. The grid's bound flag keeps one page instance from ever
+    // being wired up twice. The shelf itself is server-rendered into
+    // the grid (see the frontmatter); this script only filters the
+    // cards already in the DOM and paints the pill counts from them,
+    // the pattern the audiobooks shelf uses.
+    function initHome() {
+      var grid = document.getElementById("grid");
+      if (!grid || grid.__homeBound) return;
+      grid.__homeBound = true;
+
+      // topic: the category pill selection ("all" is the resting
+      // state and filters nothing). q: the header search text.
+      var state = { q: "", topic: "all" };
+      var cards = Array.prototype.slice.call(grid.querySelectorAll("a[data-topic]"));
+      var emptyEl = document.getElementById("grid-empty");
+
+      // Filtering hides cards in place: a card shows when its topic
+      // matches the selected shelf (or "all") and its searchable
+      // text (title + description, carried lowercased in
+      // data-search) contains the search text. The empty state
+      // shows only when a filter leaves nothing standing.
+      function applyFilter() {
+        var q = state.q.trim().toLowerCase();
+        var shown = 0;
+        cards.forEach(function (card) {
+          var vis = (state.topic === "all" || card.getAttribute("data-topic") === state.topic) &&
+            (!q || (card.getAttribute("data-search") || "").indexOf(q) >= 0);
+          card.classList.toggle("hidden", !vis);
+          if (vis) shown += 1;
+        });
+        if (emptyEl) emptyEl.classList.toggle("hidden", shown > 0);
+      }
+
+      // Category pills (the A2 shelf filter): one pill per shelf
+      // with its book count, repainted whenever the selection
+      // changes. The pill row replaces the old Topics sidebar
+      // entirely.
+      var CATS = [["all", "All"], ["tech", "Tech"], ["money", "Money"], ["courage", "Courage"]];
+      function paintChips() {
+        var el = document.getElementById("cat-chips");
+        if (!el) return;
+        var counts = { all: cards.length, tech: 0, money: 0, courage: 0 };
+        cards.forEach(function (card) {
+          var t = card.getAttribute("data-topic") || "tech";
+          if (counts[t] !== undefined) counts[t] += 1;
+        });
+        el.innerHTML = CATS.map(function (c) {
+          var on = state.topic === c[0];
+          return '<button type="button" class="cat-chip shrink-0 inline-flex items-center min-h-[40px] px-4 rounded-full border text-[15px] transition duration-100 active:scale-[0.97] ' +
+            (on ? "bg-orange-600 border-orange-600 text-white font-semibold" : "bg-white border-stone-300 text-stone-900") +
+            '" data-cat="' + c[0] + '" aria-pressed="' + (on ? "true" : "false") + '">' + c[1] +
+            '<span class="text-[11px] font-bold opacity-65 ml-[5px]">' + counts[c[0]] + "</span></button>";
+        }).join("");
+      }
+
+      // ---- Search hook -------------------------------------------
+      // The search widget itself (debounce, dropdown, keyboard) ships
+      // with SiteHeader and is identical on every public page. Home
+      // is the one page where Enter means something local, so it
+      // registers this hook: Enter with no highlighted result filters
+      // the shelf grid in place, and clearing the input restores the
+      // full shelf. The widget calls the hook only while the grid is
+      // on the page, and submit() reports whether it handled the key.
+      window.__bbsHomeSearch = {
+        submit: function (value) {
+          state.q = value;
+          applyFilter();
+          return true;
+        },
+        clear: function () {
+          if (state.q) { state.q = ""; applyFilter(); }
+          return true;
+        }
+      };
+      document.getElementById("cat-chips").addEventListener("click", function (e) {
+        var btn = e.target.closest(".cat-chip");
+        if (!btn) return;
+        state.topic = btn.getAttribute("data-cat");
+        paintChips();
+        applyFilter();
+      });
+
+      paintChips();
+      // Cart badge + account link. The badge belongs to the shared
+      // cart store (stored count now, purchasable count once the
+      // catalog resolves); this page no longer paints it by hand.
+      if (window.bbsPaintBadge) window.bbsPaintBadge();
+      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+        var link = document.getElementById("account-link");
+        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
+      }).catch(function () {});
+    }
+    initHome();
+    document.addEventListener("astro:page-load", initHome);
+  })();
+</script>
+<!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+<CartSheet />
+
+</body>
+</html>

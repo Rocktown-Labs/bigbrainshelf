@@ -1,0 +1,59 @@
+{
+  "books": [
+    {
+      "id": "mira",
+      "title": "Mira the Heron and the Still Water",
+      "snippets": [
+        {
+          "id": "presents",
+          "label": "Presents intro",
+          "character": "Narrator",
+          "lang": "en",
+          "text": "Big Brain Shelf presents: Mira the Heron and the Still Water. Settle in and get cozy, little listener. This is the story of a young heron who learns that the things worth being good at take watching, practice, and patience."
+        },
+        {
+          "id": "narrator",
+          "label": "Narrator paragraph, Ch. 1",
+          "character": "Narrator",
+          "lang": "en",
+          "text": "Mira wanted a thing of her own to be good at before the leaves turned. So all summer she tried to want what the ducks wanted: splashing, bobbing for bread, paddling in circles beside Dell. Every evening she ended up wet, grumpy, and alone at the far muddy end of the village pond."
+        },
+        {
+          "id": "mira",
+          "label": "Mira speaks, Ch. 3",
+          "character": "Mira",
+          "lang": "en",
+          "text": "Mira's legs wobbled again, and she flopped into the pool with a splash. \"I want to stand like stone, like you!\" she cried."
+        },
+        {
+          "id": "ansel",
+          "label": "Ansel speaks, Ch. 3",
+          "character": "Ansel",
+          "lang": "en",
+          "text": "\"My feet made that,\" said Ansel, \"one walk every morning for many years.\" \"One big walk makes no path, little one. The plain, boring mornings are not in the way of learning. They are the learning.\""
+        },
+        {
+          "id": "dell",
+          "label": "Dell speaks, Ch. 1",
+          "character": "Dell",
+          "lang": "en",
+          "text": "\"You always end up here too,\" said Dell. \"Staring at the water, just like when you were a fuzzy chick.\""
+        },
+        {
+          "id": "otter",
+          "label": "The Otter speaks, Ch. 6",
+          "character": "Otter",
+          "lang": "en",
+          "text": "Splash! A sleek otter popped up, grinning. \"Why stand in this slow old pool? The ditch past the village pond is packed with fish, easy grabs!\""
+        },
+        {
+          "id": "problem",
+          "label": "Problem words test",
+          "character": "Promo",
+          "lang": "en",
+          "text": "Big Brain Shelf presents the digital bundle: the full story book, the coloring book, and the EPUB, out now at bigbrainshelf.com."
+        }
+      ]
+    }
+  ]
+}

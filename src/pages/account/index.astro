@@ -1,0 +1,688 @@
+---
+import "../../styles/global.css";
+import { env } from "cloudflare:workers";
+import { getAuth } from "../../lib/auth";
+import Tracking from "../../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../../components/TransitionHooks.astro";
+import { parseItems, shortOrderId } from "../../lib/orders";
+import FormatChip from "../../components/FormatChip.astro";
+import { getLibraryBooks } from "../../lib/library";
+import { publicSlugFor, ensurePublicSlugColumn } from "../../lib/public-slugs";
+import { coverDerivative } from "../../lib/derivatives";
+import { GIFT_SET_PRICE_CENTS, AUDIO_PRICE_CENTS, formatLabel, clubPriceLabel, CLUB_ANNUAL_PRICE_CENTS, AUDIO_CLUB_PRICE_CENTS, AUDIO_CLUB_ANNUAL_PRICE_CENTS } from "../../lib/offers";
+import { ensureReviewsTable, REVIEW_STATUS_LABELS } from "../../lib/reviews";
+import { ensureClubTable, shelfLabel, clubPlanOf } from "../../lib/club";
+import {
+  ensureClubCycleTables,
+  generateUpcomingCyclesForMember,
+  getNextClubBox,
+  getClubSelectionOptions,
+} from "../../lib/club-cycles";
+import { boxCreatedDateString, clubCycleTiming, formatClubDate } from "../../lib/club-cycle-dates";
+
+const e = env as any;
+const auth = getAuth();
+const session = await auth.api.getSession({ headers: Astro.request.headers });
+if (!session) {
+  return Astro.redirect("/login?next=/account");
+}
+
+const R2 = "https://media.bigbrainshelf.com/";
+const orders = await e.DB.prepare(
+  "SELECT * FROM orders WHERE user_id = ? AND status = 'complete' ORDER BY created_at DESC"
+).bind(session.user.id).all();
+const orderRows = (orders.rows || orders.results || []) as any[];
+
+// My Shelf: the account's digital library. Entitlements come from the
+// library layer (completed orders in any format, the $0 Book Club join
+// grants those orders include, plus shipped Book Club cycle boxes),
+// not from orders alone.
+const libraryBooks = await getLibraryBooks(e.DB, {
+  id: session.user.id,
+  email: String(session.user.email || ""),
+});
+const books: any[] = libraryBooks as any[];
+const bookBySlug: Record<string, any> = {};
+for (const b of books) bookBySlug[b.slug] = b;
+const priceFor = (slug: string, format: string): number => {
+  const b = bookBySlug[slug];
+  if (!b) return 0;
+  if (format === "printed") return Math.round(Number(b.price_print || 0));
+  if (format === "giftset") return GIFT_SET_PRICE_CENTS;
+  if (format === "audio") return AUDIO_PRICE_CENTS;
+  return Math.round(Number(b.price || 0));
+};
+// The audio upgrade: an audiobook-only owner unlocks the digital
+// edition for the digital price minus the audio price they paid.
+// Displayed here, computed and enforced again at checkout.
+const unlockPriceFor = (b: any): number =>
+  Math.max(0, Math.round(Number(b?.price || 0)) - AUDIO_PRICE_CENTS);
+const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
+const PHYSICAL_LABELS: Record<string, string> = {
+  preorder_received: "Printed order received",
+  in_print: "Being printed",
+  packed: "Packed",
+  shipped: "Shipped",
+  delivered: "Delivered",
+};
+// Cover + public-slug dressing for the order history blocks,
+// covering every ordered slug (the library map above only holds
+// entitled books; an order's books are normally among them, but the
+// order view must not depend on that).
+const orderBookRows = new Map<string, any>();
+{
+  const slugs = [...new Set(orderRows.flatMap((o) => parseItems(o).map((i) => i.slug)))];
+  if (slugs.length) {
+    const ph = slugs.map(() => "?").join(",");
+    const rows = await e.DB.prepare(
+      `SELECT slug, title, cover_key, public_slug FROM books WHERE slug IN (${ph})`
+    ).bind(...slugs).all();
+    for (const r of (rows.results || rows.rows || []) as any[]) orderBookRows.set(String(r.slug), r);
+  }
+}
+// Each order renders as the store's order block (the "Order
+// history" pattern): a summary band plus a products table. Items
+// group by book + format with counts, like the other order views.
+const orderViews = orderRows.map((o) => {
+  const grouped = new Map<string, any>();
+  for (const it of parseItems(o)) {
+    const key = it.slug + "|" + it.format;
+    const existing = grouped.get(key);
+    if (existing) { existing.count += 1; continue; }
+    const ob = orderBookRows.get(it.slug);
+    grouped.set(key, {
+      slug: it.slug,
+      // Links wear the public (title-based) slug; the item itself
+      // keeps keying on the internal slug everywhere else.
+      publicSlug: bookBySlug[it.slug] ? publicSlugFor(bookBySlug[it.slug]) : ob ? publicSlugFor(ob) : it.slug,
+      // A missing book row must never fall back to the internal slug
+      // as the displayed name.
+      title: bookBySlug[it.slug]?.title || ob?.title || "Big Brain Shelf book",
+      format: it.format,
+      count: 1,
+      cover: ob ? coverDerivative(it.slug, "card", ob.cover_key) || (ob.cover_key ? R2 + ob.cover_key : null) : null,
+      price: it.upgrade === "audio-upgrade" ? unlockPriceFor(bookBySlug[it.slug]) : priceFor(it.slug, it.format),
+      creditNote: it.upgrade === "audio-upgrade",
+      hasAudio: !!bookBySlug[it.slug]?.audiobook_key,
+    });
+  }
+  return {
+    order: o,
+    items: [...grouped.values()],
+    dateLong: new Date(Number(o.created_at) * 1000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+    shortId: shortOrderId(o.id),
+    physicalLabel: o.physical_status ? PHYSICAL_LABELS[o.physical_status] || o.physical_status : null,
+    trackingLine: o.tracking_number
+      ? [o.carrier ? o.carrier + " · " : "", "Tracking ", o.tracking_number].join("")
+      : null,
+  };
+});
+
+// My Reviews (Phase 3): every review this account has written, with its
+// moderation status.
+await ensureReviewsTable(e.DB);
+await ensurePublicSlugColumn(e.DB).catch(() => {});
+const myReviews = ((await e.DB.prepare(
+  "SELECT r.*, b.title AS book_title, b.public_slug AS book_public_slug FROM reviews r LEFT JOIN books b ON b.slug = r.book_slug WHERE r.user_id = ? ORDER BY r.created_at DESC"
+).bind(session.user.id).all()).results || []) as any[];
+
+// Book Club (Phase 2): this account's club status, if they have joined.
+await ensureClubTable(e.DB);
+const clubSignup = await e.DB.prepare(
+  "SELECT * FROM club_signups WHERE email = ?"
+).bind(String(session.user.email || "").toLowerCase()).first() as any;
+// Which club plan this membership is (club.ts clubPlanOf; rows from
+// before the Audio Club existed are physical).
+const clubPlan = clubSignup ? clubPlanOf(clubSignup) : null;
+const showSuccess = Astro.url.searchParams.get("checkout") === "success";
+
+// Book Club V2: the member's next cycle box and book-choice state.
+// Cycle rows are generated idempotently on render as a backup; the
+// worker's scheduled pass is the mechanism that creates them for
+// everyone, reminds, and locks.
+let clubBox: any = null;
+let clubTiming: any = null;
+let clubPickOptions: any[] = [];
+let clubPickOptions2: any[] = [];
+let clubCurrentTitle: string | null = null;
+let clubSecondTitle: string | null = null;
+let clubBillingPaused = false;
+if (clubSignup?.status === "paid") {
+  clubBillingPaused = ["past_due", "paused"].includes(String(clubSignup.subscription_status || ""));
+  try {
+    await ensureClubCycleTables(e.DB);
+    await generateUpcomingCyclesForMember(e.DB, clubSignup);
+    clubBox = await getNextClubBox(e.DB, clubSignup.id);
+    if (clubBox) {
+      clubTiming = clubCycleTiming(String(clubBox.ship_date), boxCreatedDateString(clubBox.created_at));
+      const opts = await getClubSelectionOptions(e.DB, clubSignup, clubBox);
+      // Two pick lists for the box's two slots: each also blocks the
+      // other slot's book, so a box never carries the same title twice.
+      const slot1Slug = clubBox.resolved_book_slug || clubBox.selected_book_slug;
+      const slot2Slug = clubBox.second_resolved_book_slug || clubBox.second_selected_book_slug;
+      const toOptions = (otherSlug: any) =>
+        opts.books.map((b: any) => ({
+          slug: b.slug,
+          title: b.title,
+          blocked: opts.owned.has(b.slug) || opts.committed.has(b.slug) || b.slug === otherSlug,
+          reason:
+            b.slug === otherSlug
+              ? "Already in this box"
+              : opts.owned.has(b.slug)
+                ? "Already in your library"
+                : "Already coming in a club box",
+        }));
+      clubPickOptions = toOptions(slot2Slug);
+      clubPickOptions2 = toOptions(slot1Slug);
+      const current = clubPickOptions.find((o: any) => o.slug === slot1Slug);
+      clubCurrentTitle = current?.title || null;
+      clubSecondTitle = clubPickOptions2.find((o: any) => o.slug === slot2Slug)?.title || null;
+    }
+  } catch (err) {
+    console.error("account club cycle load failed", err);
+    clubBox = null;
+  }
+}
+
+// Purchase event for the tracking component: Stripe sends buyers back
+// to /account?checkout=success after a completed payment, so that
+// landing is the success point. Value and contents come from the
+// newest completed order on the account; if the Stripe webhook has
+// not marked an order complete yet at that instant, no event fires
+// rather than firing with the wrong order's numbers.
+let purchaseEvent: { name: string; data: Record<string, unknown> } | null = null;
+let purchaseTraksEvent: { name: string; props: Record<string, string>; value: number; onceKey: string } | null = null;
+if (showSuccess) {
+  const rows = (orders.rows || orders.results || []) as any[];
+  const latest = rows[0];
+  if (latest) {
+    let ids: string[] = [];
+    try { ids = JSON.parse(latest.book_slugs || "[]").map(String); } catch {}
+    purchaseEvent = {
+      name: "Purchase",
+      data: {
+        content_ids: ids,
+        content_type: "product",
+        num_items: ids.length,
+        value: Math.round(Number(latest.amount || 0)) / 100,
+        currency: "USD",
+      },
+    };
+    // The Traks purchase carries the order's format mix, never its
+    // contents: formats are a small closed set, joined sorted so the
+    // same mix always spells the same token. onceKey guards refreshes
+    // of the success landing; it never leaves the browser.
+    const formats = [...new Set(parseItems(latest).map((i: any) => String(i.format || "digital")))].sort();
+    purchaseTraksEvent = {
+      name: "purchase",
+      props: {
+        format_mix: formats.join("+") || "digital",
+        has_printed: formats.some((f) => f === "printed" || f === "giftset") ? "yes" : "no",
+      },
+      value: Math.round(Number(latest.amount || 0)) / 100,
+      onceKey: String(latest.id || ""),
+    };
+  }
+}
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Your library · Big Brain Shelf</title>
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking pageEvent={purchaseEvent} traksEvent={purchaseTraksEvent} />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-stone-200">
+    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <a href="/" aria-label="Big Brain Shelf home" class="inline-flex items-center rounded-full bg-[#1a3454] px-4 py-1.5 text-lg font-extrabold leading-none tracking-tight text-white">big<span class="text-orange-400">brain</span>shelf</a>
+      <button id="signout" class="text-sm text-stone-500 hover:text-stone-900">Sign out</button>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-10">
+    {showSuccess && (
+      <div class="mb-8 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
+        Payment complete. Your books are below, ready to download.
+      </div>
+    )}
+    <h1 class="text-2xl font-bold tracking-tight">Your library</h1>
+    <p class="text-sm text-stone-500 mt-1">{session.user.email}</p>
+
+    <h2 class="text-xl font-bold tracking-tight mt-10">My Shelf</h2>
+    <p class="text-sm text-stone-500 mt-1">Read and listen right here. The books you own are yours to download and keep.</p>
+    {books.length === 0 ? (
+      <div class="mt-6 text-center text-stone-500 py-16 rounded-xl border border-dashed border-stone-200">
+        <p class="text-stone-900 font-semibold text-lg">No books yet.</p>
+        <p class="text-sm mt-1">Books you buy, and books that arrive through the Book Club, will appear here ready to read, listen to, and download.</p>
+        <a href="/" class="inline-block mt-6 rounded-lg bg-orange-600 text-white text-sm font-semibold px-5 py-2.5 hover:bg-orange-700">Browse the shelf</a>
+        <a href="/clubs" class="inline-block mt-6 ml-2 rounded-lg border border-stone-300 text-sm font-semibold px-5 py-2.5 hover:border-stone-500 text-stone-700">See the Book Club</a>
+      </div>
+    ) : (
+      <div class="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-5 gap-y-8">
+        {books.map((b) => (
+          <div class="block">
+            {b.cover_key ? (
+              <img src={coverDerivative(b.slug, "card", b.cover_key) || (R2 + b.cover_key)} alt={b.title + " cover"} class="w-full aspect-[3/4] object-cover rounded-lg bg-stone-100" />
+            ) : (
+              <div class="w-full aspect-[3/4] rounded-lg bg-stone-100"></div>
+            )}
+            <h3 class="mt-3 text-sm font-semibold leading-snug">{b.title}</h3>
+            <p class="text-xs text-stone-500 capitalize">{b.topic || "tech"}</p>
+            {b.clubPlan === "audio" ? (
+              <p class="mt-1"><span class="rounded-full bg-orange-600 text-white px-2 py-0.5 text-[11px] font-semibold">Audio Club</span></p>
+            ) : (b.clubPlan === "physical" || ((b.sources || []).includes("club") && !(b.sources || []).includes("order"))) ? (
+              <p class="mt-1"><span class="rounded-full bg-[#1a3454] text-white px-2 py-0.5 text-[11px] font-semibold">Book Club</span></p>
+            ) : null}
+            {b.audioOnly ? (
+              <>
+                {b.clubPlan !== "audio" ? (
+                  <p class="mt-1"><span class="rounded-full bg-orange-100 text-orange-800 px-2 py-0.5 text-[11px] font-semibold">Audiobook only</span></p>
+                ) : null}
+                <div class="mt-2 flex flex-wrap gap-2">
+                  {b.audiobook_key ? (
+                    <a href={"/read/" + publicSlugFor(b) + "?listen=1"} class="text-xs font-semibold rounded-md bg-orange-600 text-white px-3 py-1.5 hover:bg-orange-700">Listen</a>
+                  ) : null}
+                  {b.owned && b.audiobook_key ? (
+                    <a data-astro-reload href={"/api/download?slug=" + b.slug + "&format=audiobook"} class="text-xs font-semibold rounded-md border border-stone-300 px-3 py-1.5 hover:border-stone-500">Audiobook</a>
+                  ) : null}
+                </div>
+                {b.owned && b.audiobook_key ? (
+                  <p class="text-[11px] text-stone-400 mt-1.5">For your family's personal use.</p>
+                ) : null}
+                {b.owned ? (
+                  <>
+                    <button type="button" class="unlock-digital mt-3 w-full text-xs font-semibold rounded-md bg-stone-900 text-white px-3 py-2 hover:bg-stone-700" data-slug={b.slug}>
+                      Unlock the digital book · {money(unlockPriceFor(b))}
+                    </button>
+                    <p class="unlock-msg text-xs text-stone-500 mt-1.5 hidden" role="status"></p>
+                  </>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <a href={"/read/" + publicSlugFor(b)} class="text-xs font-semibold rounded-md bg-stone-900 text-white px-3 py-1.5 hover:bg-stone-700">Read</a>
+                  {b.audiobook_key ? (
+                    <a href={"/read/" + publicSlugFor(b) + "?listen=1"} class="text-xs font-semibold rounded-md bg-orange-600 text-white px-3 py-1.5 hover:bg-orange-700">Listen</a>
+                  ) : null}
+                </div>
+                {b.owned ? (
+                  <div class="mt-2 flex flex-wrap gap-2">
+                    <a data-astro-reload href={"/api/download?slug=" + b.slug + "&format=picture"} class="text-xs font-semibold rounded-md border border-stone-300 px-3 py-1.5 hover:border-stone-500">Picture book</a>
+                    <a data-astro-reload href={"/api/download?slug=" + b.slug + "&format=coloring"} class="text-xs font-semibold rounded-md border border-stone-300 px-3 py-1.5 hover:border-stone-500">Coloring book</a>
+                    {b.epub_key ? (
+                      <a data-astro-reload href={"/api/download?slug=" + b.slug + "&format=epub"} class="text-xs font-semibold rounded-md border border-stone-300 px-3 py-1.5 hover:border-stone-500">EPUB</a>
+                    ) : null}
+                    {b.color_book_key ? (
+                      <a data-astro-reload href={"/api/download?slug=" + b.slug + "&format=color"} class="text-xs font-semibold rounded-md border border-stone-300 px-3 py-1.5 hover:border-stone-500">Color edition</a>
+                    ) : null}
+                    {b.audiobook_key ? (
+                      <a data-astro-reload href={"/api/download?slug=" + b.slug + "&format=audiobook"} class="text-xs font-semibold rounded-md border border-stone-300 px-3 py-1.5 hover:border-stone-500">Audiobook</a>
+                    ) : null}
+                  </div>
+                  <p class="text-[11px] text-stone-400 mt-1.5">For your family's personal use.</p>
+                ) : null}
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    )}
+
+    <section class="mt-14">
+      <h2 class="text-xl font-bold tracking-tight">Your orders</h2>
+      {orderViews.length === 0 ? (
+        <p class="text-sm text-stone-500 mt-3">No orders yet. When you buy a book, the order and its receipt will live here.</p>
+      ) : (
+        <div class="mt-4 flex flex-col gap-5">
+          {orderViews.map((v) => (
+            <article class="orderblock p-4 sm:p-5">
+              <h3 class="font-bold tracking-tight">Order {v.shortId}</h3>
+              <div class="orderband mt-3 flex flex-wrap items-center gap-x-8 gap-y-3">
+                <dl class="grid grid-cols-3 gap-x-8 gap-y-2 flex-1 min-w-[240px]">
+                  <div><dt>Date placed</dt><dd>{v.dateLong}</dd></div>
+                  <div><dt>Order number</dt><dd>{v.shortId}</dd></div>
+                  <div><dt>Total amount</dt><dd>{money(v.order.amount)}</dd></div>
+                </dl>
+                <a href={`/account/receipt?order=${v.order.id}`} class="inline-flex items-center justify-center min-h-[44px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition duration-100 active:scale-[0.97]">View receipt</a>
+              </div>
+              <table class="ptable mt-2">
+                <thead class="hidden sm:table-header-group">
+                  <tr>
+                    <th scope="col">Product</th>
+                    <th scope="col">Price</th>
+                    <th scope="col">Status</th>
+                    <th scope="col"><span class="sr-only">Info</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {v.items.map((it) => (
+                    <tr>
+                      <td>
+                        <div class="flex items-center gap-3 min-w-0">
+                          {it.cover
+                            ? <img src={it.cover} alt="" width="64" height="64" class="w-16 h-16 rounded-lg object-cover border border-stone-200 flex-none" loading="lazy" />
+                            : <span class="w-16 h-16 rounded-lg bg-stone-100 border border-stone-200 flex-none"></span>}
+                          <div class="min-w-0">
+                            <p class="font-semibold text-sm leading-snug">{it.title}</p>
+                            <p class="mt-1.5 flex items-center gap-2">
+                              <FormatChip format={it.format} />
+                              <span class="text-[13px] text-stone-500 tabular-nums sm:hidden">{money(it.price)}</span>
+                            </p>
+                            {it.creditNote && <p class="text-xs text-stone-400 mt-1">Audiobook credit applied</p>}
+                          </div>
+                        </div>
+                      </td>
+                      <td class="hidden sm:table-cell whitespace-nowrap font-semibold text-sm tabular-nums">
+                        {money(it.price)}
+                        {it.count > 1 && <span class="text-stone-400 font-normal"> × {it.count}</span>}
+                      </td>
+                      <td class="hidden sm:table-cell text-sm text-stone-600">
+                        {(it.format === "printed" || it.format === "giftset") && v.physicalLabel ? v.physicalLabel : "In your library"}
+                        {(it.format === "printed" || it.format === "giftset") && v.order.physical_status === "shipped" && v.trackingLine && (
+                          <span class="block text-xs text-stone-400 mt-0.5">{v.trackingLine}</span>
+                        )}
+                      </td>
+                      <td class="hidden sm:table-cell whitespace-nowrap text-sm">
+                        <span class="flex flex-col items-start gap-1">
+                          <a href={it.format === "audio" ? `/audiobooks/${it.publicSlug}` : `/books/${it.publicSlug}`} class="font-semibold text-orange-700 hover:text-orange-800">View Product</a>
+                          {it.format !== "audio" && (
+                            <a href={`/read/${it.publicSlug}`} class="text-xs font-semibold text-stone-500 hover:text-stone-800">Read</a>
+                          )}
+                          {it.hasAudio && (
+                            <a href={`/read/${it.publicSlug}?listen=1`} class="text-xs font-semibold text-stone-500 hover:text-stone-800">Listen</a>
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                {Number(v.order.shipping_cents || 0) > 0 && (
+                  <tfoot>
+                    <tr>
+                      <td colspan="4" class="text-sm text-stone-500">
+                        Shipping
+                        <span class="float-right font-semibold text-stone-900 tabular-nums">{money(v.order.shipping_cents)}</span>
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+
+    <section class="mt-14">
+      <h2 class="text-xl font-bold tracking-tight">My reviews</h2>
+      {myReviews.length === 0 ? (
+        <p class="text-sm text-stone-500 mt-3">You have not reviewed any books yet. Reviews help other parents find the right book, and every one is checked by a person before it goes live.</p>
+      ) : (
+        <div class="mt-4 flex flex-col gap-3">
+          {myReviews.map((r: any) => (
+            <article class="rounded-xl border border-stone-200 p-4 flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span class="text-orange-500 tracking-tight">{[1, 2, 3, 4, 5].map((i) => (i <= Number(r.rating || 0) ? "★" : "☆")).join("")}</span>
+              <a href={`/books/${r.book_public_slug || r.book_slug}`} class="font-medium text-sm hover:underline">{r.book_title || r.book_slug}</a>
+              <span class="text-sm text-stone-500">“{r.title}”</span>
+              <span class={`ml-auto rounded-full px-3 py-1 text-xs font-semibold ${r.status === "approved" ? "bg-green-50 text-green-700" : r.status === "rejected" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}`}>
+                {REVIEW_STATUS_LABELS[r.status] || r.status}
+              </span>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+
+    <section class="mt-14 mb-6 rounded-2xl bg-[#1a3454] text-white p-6 sm:p-8">
+      <h2 class="text-xl font-extrabold tracking-tight">Book Club</h2>
+      {clubSignup?.status === "paid" && clubPlan === "audio" ? (
+        <>
+        <p class="text-white/80 text-sm leading-relaxed mt-2">
+          You are an <strong class="text-white">Audio Club</strong> member on the <strong class="text-white">{clubSignup.plan === "annual" ? "annual" : "monthly"}</strong> plan ({clubSignup.plan === "annual" ? clubPriceLabel(AUDIO_CLUB_ANNUAL_PRICE_CENTS) + " a year" : clubPriceLabel(AUDIO_CLUB_PRICE_CENTS) + " a month"}). Every Big Brain Shelf audiobook is in your library above, ready to listen to, for as long as your membership is active. The Audio Club is listening only: no printed sets ship on this plan, and the books stay in your library only while the membership runs.
+        </p>
+        {clubBillingPaused && (
+          <p class="mt-3 rounded-lg bg-amber-400/20 border border-amber-300/40 text-amber-100 text-sm leading-relaxed px-4 py-3">
+            Your latest Audio Club payment did not go through, so your listening access is paused until the payment is fixed. Once it is, every audiobook comes right back.
+          </p>
+        )}
+        </>
+      ) : clubSignup?.status === "paid" ? (
+        <>
+        <p class="text-white/80 text-sm leading-relaxed mt-2">
+          You are a paid Book Club member on the <strong class="text-white">{clubSignup.plan === "annual" ? "annual" : "every 3 months"}</strong> plan ({clubSignup.plan === "annual" ? clubPriceLabel(CLUB_ANNUAL_PRICE_CENTS) + " a year" : clubPriceLabel() + " every 3 months"}, your price stays locked while your membership stays active). Your starting shelf is <strong class="text-white">{shelfLabel(clubSignup.shelf)}</strong>. Your printed boxes arrive on your own cycle: the first was due the day you joined, and a new box follows every 3 months from your join date. While your membership is active, every published book is in your library above too, digital and audiobook included; if the membership ends, those go back to the shelf and only the books you own stay.
+        </p>
+        {clubBillingPaused && (
+          <p class="mt-3 rounded-lg bg-amber-400/20 border border-amber-300/40 text-amber-100 text-sm leading-relaxed px-4 py-3">
+            Your latest Book Club payment did not go through, so your boxes are paused until the payment is fixed. Once it is, your boxes pick right back up here.
+          </p>
+        )}
+        {clubBox ? (
+          <div class="mt-5 rounded-xl bg-white/10 p-4 sm:p-5">
+            <h3 class="font-bold">Your next box ships {formatClubDate(clubBox.ship_date)}</h3>
+            {clubBox.status === "awaiting_selection" && (
+              <>
+                <p class="text-white/80 text-sm leading-relaxed mt-1">
+                  {clubBox.selected_book_slug
+                    ? <>Your club book pick: <strong class="text-white">{clubCurrentTitle || clubBox.selected_book_slug}</strong>. You can change it until selections lock on {clubTiming ? formatClubDate(clubTiming.lockDate) : ""}.</>
+                    : <>Your club book is set to <strong class="text-white">Surprise me</strong>. Leave it like that and we will choose a book you do not already have when selections lock on {clubTiming ? formatClubDate(clubTiming.lockDate) : ""}. Pick a specific book below any time before then.</>}
+                </p>
+                <p class="text-white/80 text-sm leading-relaxed mt-1">
+                  {clubBox.second_selected_book_slug
+                    ? <>Your second book pick: <strong class="text-white">{clubSecondTitle || clubBox.second_selected_book_slug}</strong>.</>
+                    : <>Your second book is set to <strong class="text-white">Surprise me</strong>: a back catalog book you do not have yet.</>}
+                </p>
+              </>
+            )}
+            {clubBox.status === "locked" && (
+              <p class="text-white/80 text-sm leading-relaxed mt-1">
+                Your box is locked in: <strong class="text-white">{clubCurrentTitle || clubBox.resolved_book_slug}</strong> as the full gift set{clubSecondTitle || clubBox.second_resolved_book_slug ? <>, plus <strong class="text-white">{clubSecondTitle || clubBox.second_resolved_book_slug}</strong> from the back catalog</> : null}, with a sticker sheet and a little extra from the cast in the same box.
+              </p>
+            )}
+            {clubBox.status === "preparing" && (
+              <p class="text-white/80 text-sm leading-relaxed mt-1">
+                Your box with <strong class="text-white">{clubCurrentTitle || clubBox.resolved_book_slug}</strong>{clubSecondTitle || clubBox.second_resolved_book_slug ? <> and <strong class="text-white">{clubSecondTitle || clubBox.second_resolved_book_slug}</strong></> : null} is being prepared now. We will email you the tracking number when it ships.
+              </p>
+            )}
+            {clubBox.status === "needs_attention" && (
+              <p class="mt-1 rounded-lg bg-amber-400/20 border border-amber-300/40 text-amber-100 text-sm leading-relaxed px-4 py-3">
+                We could not surprise you this time: every book we can send is already in your library or in one of your earlier club boxes. Pick a repeat or gift copy below and we will get this box ready. Until you do, the box waits rather than duplicating a book by accident.
+              </p>
+            )}
+            {(clubBox.status === "awaiting_selection" || clubBox.status === "needs_attention") && (
+              <form id="club-pick-form" data-ship-date={clubBox.ship_date} class="mt-4">
+                <fieldset>
+                  <legend class="text-sm font-semibold">Choose the club book for this box (it ships as the gift set)</legend>
+                  <div class="mt-2 grid gap-2">
+                    <label class="flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm cursor-pointer">
+                      <input type="radio" name="club-pick" value="surprise" checked={!clubBox.selected_book_slug} class="mt-1" />
+                      <span><strong>Surprise me</strong><br /><span class="text-white/70">We choose a book you do not already have.</span></span>
+                    </label>
+                    {clubPickOptions.map((o: any) => (
+                      <label class={`flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm ${o.blocked && clubBox.selected_book_slug !== o.slug ? "opacity-60" : "cursor-pointer"}`}>
+                        <input
+                          type="radio"
+                          name="club-pick"
+                          value={o.slug}
+                          data-blocked={o.blocked ? "1" : "0"}
+                          disabled={o.blocked && clubBox.selected_book_slug !== o.slug && !clubBox.allow_repeat}
+                          checked={clubBox.selected_book_slug === o.slug}
+                          class="mt-1"
+                        />
+                        <span>{o.title}{o.blocked ? <><br /><span class="text-white/70">{o.reason}</span></> : null}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <fieldset class="mt-4">
+                  <legend class="text-sm font-semibold">Choose the second book (from the back catalog)</legend>
+                  <div class="mt-2 grid gap-2">
+                    <label class="flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm cursor-pointer">
+                      <input type="radio" name="club-pick-2" value="surprise" checked={!clubBox.second_selected_book_slug} class="mt-1" />
+                      <span><strong>Surprise me</strong><br /><span class="text-white/70">We choose a back catalog book you do not already have.</span></span>
+                    </label>
+                    {clubPickOptions2.map((o: any) => (
+                      <label class={`flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm ${o.blocked && clubBox.second_selected_book_slug !== o.slug ? "opacity-60" : "cursor-pointer"}`}>
+                        <input
+                          type="radio"
+                          name="club-pick-2"
+                          value={o.slug}
+                          data-blocked={o.blocked ? "1" : "0"}
+                          disabled={o.blocked && clubBox.second_selected_book_slug !== o.slug && !clubBox.allow_repeat}
+                          checked={clubBox.second_selected_book_slug === o.slug}
+                          class="mt-1"
+                        />
+                        <span>{o.title}{o.blocked ? <><br /><span class="text-white/70">{o.reason}</span></> : null}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+                <label class="mt-3 flex items-start gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" id="club-allow-repeat" checked={clubBox.allow_repeat === 1} class="mt-1" />
+                  <span>I am choosing a repeat on purpose (a second copy, or a gift).</span>
+                </label>
+                <div class="mt-3 flex items-center gap-3">
+                  <button type="submit" class="rounded-full bg-orange-400 px-5 py-2 text-sm font-bold text-[#1a3454] hover:bg-orange-300">Save my picks</button>
+                  <p id="club-pick-msg" class="text-sm text-white/80" role="status"></p>
+                </div>
+              </form>
+            )}
+          </div>
+        ) : (
+          !clubBillingPaused && (
+            <p class="text-white/80 text-sm leading-relaxed mt-3">Your next box will appear here with its book choices as its due date approaches.</p>
+          )
+        )}
+        </>
+      ) : clubSignup?.status === "canceled" ? (
+        <p class="text-white/80 text-sm leading-relaxed mt-2">
+          Your Book Club membership is canceled, so no further sets will ship. You are welcome back any time spots remain.
+          <a href="/clubs" class="ml-1 font-semibold text-orange-300 hover:text-orange-200">Rejoin the Book Club</a>
+        </p>
+      ) : clubSignup ? (
+        <p class="text-white/80 text-sm leading-relaxed mt-2">
+          You reserved a spot with the <strong class="text-white">{shelfLabel(clubSignup.shelf)}</strong> shelf. Membership is open to join, and joining activates this same reservation.
+          <a href="/clubs" class="ml-1 font-semibold text-orange-300 hover:text-orange-200">Join the Book Club</a>
+        </p>
+      ) : (
+        <p class="text-white/80 text-sm leading-relaxed mt-2">
+          A printed set every quarter, the digital editions in your library from day one, and first dibs on new releases.
+          <a href="/clubs" class="ml-1 font-semibold text-orange-300 hover:text-orange-200">Join the Book Club</a>
+        </p>
+      )}
+    </section>
+  </main>
+
+  <script is:inline>
+    // Audiobook-only unlock: starts a checkout for just the digital
+    // format of that book. The server recomputes the price from the
+    // account's entitlements (digital price minus the audio credit);
+    // the amount printed on the button is only the display copy.
+    // Bind-once per button, like the other account scripts.
+    function initUnlock() {
+      document.querySelectorAll(".unlock-digital").forEach(function (btn) {
+        if (btn.__unlockBound) return;
+        btn.__unlockBound = true;
+        btn.addEventListener("click", async function () {
+          var card = btn.closest("div");
+          var msg = card ? card.querySelector(".unlock-msg") : null;
+          btn.disabled = true;
+          if (msg) { msg.classList.remove("hidden"); msg.textContent = "Taking you to checkout..."; }
+          try {
+            var r = await fetch("/api/checkout", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ items: [{ slug: btn.getAttribute("data-slug"), format: "digital" }] }),
+            });
+            var data = await r.json().catch(function () { return {}; });
+            if (!r.ok || !data.url) throw new Error(data.error || "Checkout failed.");
+            window.location.href = data.url;
+          } catch (err) {
+            if (msg) msg.textContent = err.message;
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+    initUnlock();
+    document.addEventListener("astro:page-load", initUnlock);
+  </script>
+  <script is:inline>
+    // Sign-out wiring. Runs on first render and again on
+    // astro:page-load so the button works after view-transition
+    // navigations; the flag keeps it from binding twice.
+    function initSignout() {
+      var btn = document.getElementById("signout");
+      if (!btn || btn.__signoutBound) return;
+      btn.__signoutBound = true;
+      btn.addEventListener("click", async function () {
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        await fetch("/api/admin-auth/logout", { method: "POST" }).catch(function () {});
+        window.location.href = "/";
+      });
+    }
+    initSignout();
+    document.addEventListener("astro:page-load", initSignout);
+  </script>
+  <script is:inline>
+    // Book Club book choice. Bind-once like the sign-out wiring, so the
+    // form works after view-transition navigations too.
+    function initClubPick() {
+      var form = document.getElementById("club-pick-form");
+      if (!form || form.__clubPickBound) return;
+      form.__clubPickBound = true;
+      var repeat = document.getElementById("club-allow-repeat");
+      var msg = document.getElementById("club-pick-msg");
+      function syncBlocked() {
+        var on = !!(repeat && repeat.checked);
+        form.querySelectorAll("input[data-blocked='1']").forEach(function (r) {
+          if (!r.checked) r.disabled = !on;
+        });
+      }
+      if (repeat) repeat.addEventListener("change", syncBlocked);
+      syncBlocked();
+      form.addEventListener("submit", async function (ev) {
+        ev.preventDefault();
+        var sel = form.querySelector("input[name='club-pick']:checked");
+        var sel2 = form.querySelector("input[name='club-pick-2']:checked");
+        msg.textContent = "Saving...";
+        try {
+          var r = await fetch("/api/club/selection", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ship_date: form.getAttribute("data-ship-date"),
+              selection: sel ? sel.value : "surprise",
+              selection_2: sel2 ? sel2.value : "surprise",
+              allow_repeat: !!(repeat && repeat.checked),
+            }),
+          });
+          var data = await r.json().catch(function () { return {}; });
+          if (!r.ok) {
+            msg.textContent = data.error || "Could not save your pick.";
+            return;
+          }
+          msg.textContent = "Saved.";
+          window.location.reload();
+        } catch (err) {
+          msg.textContent = "Could not save your pick. Please try again.";
+        }
+      });
+    }
+    initClubPick();
+    document.addEventListener("astro:page-load", initClubPick);
+  </script>
+</body>
+</html>

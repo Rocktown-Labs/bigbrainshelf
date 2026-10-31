@@ -1,0 +1,171 @@
+---
+import "../../styles/global.css";
+import SiteFooter from "../../components/SiteFooter.astro";
+import SiteHeader from "../../components/SiteHeader.astro";
+import CartSheet from "../../components/CartSheet.astro";
+import SectionHero from "../../components/SectionHero.astro";
+import SectionNav from "../../components/SectionNav.astro";
+import Tracking from "../../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../../components/TransitionHooks.astro";
+import SeoHead from "../../components/SeoHead.astro";
+import { probeAudiobook, formatClock } from "../../lib/audiobooks";
+import { coverDerivative, MEDIA_PUBLIC } from "../../lib/derivatives";
+import { publicSlugFor } from "../../lib/public-slugs";
+import { AUDIO_PRICE_CENTS, AUDIO_CLUB_PRICE_CENTS, AUDIO_CLUB_ANNUAL_PRICE_CENTS, clubPriceLabel } from "../../lib/offers";
+import { env } from "cloudflare:workers";
+export const prerender = false;
+const adminUser = Astro.locals.user;
+const e = env as any;
+
+// The Audio Club, in full (learn-more page, 2026-10-31): the library
+// as it stands today, with runtimes probed the same way the
+// listening shelf probes them, and the honest arithmetic of club
+// versus buying, computed from the live catalog and the price
+// constant so neither can drift.
+const monthlyLabel = clubPriceLabel(AUDIO_CLUB_PRICE_CENTS);
+const annualLabel = clubPriceLabel(AUDIO_CLUB_ANNUAL_PRICE_CENTS);
+const audioPriceLabel = clubPriceLabel(AUDIO_PRICE_CENTS);
+
+interface ListenItem { title: string; href: string; cover: string; runtimeSecs: number; chapters: number }
+let items: ListenItem[] = [];
+try {
+  const { results } = await e.DB.prepare(
+    "SELECT slug, title, cover_key, public_slug, audiobook_key FROM books WHERE cover_key IS NOT NULL AND audiobook_key IS NOT NULL ORDER BY title ASC"
+  ).all();
+  const probed = await Promise.all(
+    ((results || []) as any[]).map(async (b) => ({ b, probe: await probeAudiobook(e, b) }))
+  );
+  items = probed
+    .filter(({ probe }) => probe.chapterCount > 0)
+    .map(({ b, probe }) => ({
+      title: String(b.title),
+      href: `/audiobooks/${publicSlugFor(b)}`,
+      cover: coverDerivative(String(b.slug), "card", b.cover_key) || (b.cover_key ? MEDIA_PUBLIC + b.cover_key : ""),
+      runtimeSecs: probe.runtimeSecs,
+      chapters: probe.chapterCount,
+    }));
+} catch { /* the page still renders without the library list */ }
+const ownAllLabel = clubPriceLabel(AUDIO_PRICE_CENTS * items.length);
+const totalRuntime = formatClock(items.reduce((n, i) => n + i.runtimeSecs, 0));
+
+const faqs = [
+  {
+    q: "Can I download the audiobooks?",
+    a: "Downloads belong to books you own. In the club you listen in your library while you are a member. Any audiobook can also be bought to own for " + audioPriceLabel + ", member or not, and then the download is yours to keep.",
+  },
+  {
+    q: "What happens when I cancel?",
+    a: "Listening stays open until the end of the period you paid for, then the shelf closes. Anything you bought to own stays yours. You can also pause from your account instead of cancelling.",
+  },
+  {
+    q: "Do new books cost extra?",
+    a: "No. New audiobooks join the shelf as they publish, and they are simply there in your library.",
+  },
+  {
+    q: "Where do I listen?",
+    a: "In your library, in the reader, on whatever device you are holding. Press play and the story goes.",
+  },
+];
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-16.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>The Audio Club — Big Brain Shelf</title>
+  <SeoHead title="The Audio Club — Big Brain Shelf" socialDescription="Every Big Brain Shelf audiobook in your library, listening while you are a member: bedtime and car rides without choosing each time." />
+  <meta name="description" content="The Audio Club in full: every audiobook on the shelf, the honest math of club versus buying, and how listening works." />
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+
+  <SectionHero subline="The Audio Club, in full: every audiobook, and when buying beats joining." />
+  <SectionNav active="plans" />
+
+  <main class="max-w-4xl mx-auto px-5 pt-8 pb-20">
+    <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3" style="font-family: Fredoka, ui-rounded, system-ui">Every audiobook on the shelf, in your library.</h2>
+    <p class="text-stone-600 leading-relaxed max-w-2xl">Bedtime, car rides, quiet time: press play and the story goes. Every Big Brain Shelf audiobook is in your library while you are a member, and new books arrive as they publish.</p>
+    <p class="text-stone-600 leading-relaxed max-w-2xl mt-3">{monthlyLabel} a month, or {annualLabel} a year. Pause or cancel anytime.</p>
+    <div class="flex flex-wrap gap-3 mt-5">
+      <a href="/clubs" class="inline-flex items-center justify-center min-h-[44px] px-6 rounded-full bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition">Join The Audio Club</a>
+      <a href="/audiobooks" class="inline-flex items-center justify-center min-h-[44px] px-6 rounded-full border-2 border-[#1a3454] text-[#1a3454] text-sm font-semibold hover:bg-[#1a3454] hover:text-white transition">Hear the free samples</a>
+    </div>
+
+    <section class="mt-12 rounded-2xl bg-orange-50 border border-orange-100 p-6 sm:p-8">
+      <h3 class="text-2xl font-extrabold tracking-tight mb-3" style="font-family: Fredoka, ui-rounded, system-ui">Why not just buy them?</h3>
+      <p class="text-stone-700 leading-relaxed max-w-2xl">Sometimes you should. Every audiobook on the shelf bought to own comes to {ownAllLabel} today ({items.length} books at {audioPriceLabel} each), and owned books are yours forever, downloads included. If your reader wears out one or two favorites, buy those and be done.</p>
+      <p class="text-stone-700 leading-relaxed max-w-2xl mt-3">The club is for the other kind of listening: the whole shelf on tap, a different story every night, and new books arriving without another decision or another checkout. Rent the shelf while listening is a season of life, and buy the keepers as you find them. Plenty of families do both, and the club never punishes it: members buy to own at the same {audioPriceLabel} as everyone else.</p>
+    </section>
+
+    {items.length > 0 && (
+      <section class="mt-12">
+        <h3 class="text-2xl font-extrabold tracking-tight mb-1" style="font-family: Fredoka, ui-rounded, system-ui">In the library right now</h3>
+        <p class="text-sm text-stone-500">{items.length} audiobooks · {totalRuntime} of listening. Tap any book to hear its free sample: the introduction and the first chapter.</p>
+        <div class="mt-5 space-y-3">
+          {items.map((i) => (
+            <a href={i.href} class="group flex items-center gap-4 rounded-2xl border border-stone-200 p-3.5 hover:border-orange-300 transition">
+              <span class="relative shrink-0 w-14 rounded-lg overflow-hidden border border-stone-200">
+                <img src={i.cover} alt={`${i.title} cover`} loading="lazy" class="w-full aspect-[3/4] object-cover" />
+                <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+              </span>
+              <span class="flex-1 min-w-0">
+                <span class="block font-semibold leading-snug">{i.title}</span>
+                <span class="block text-sm text-stone-500 mt-0.5">{i.chapters} chapters · {formatClock(i.runtimeSecs)}</span>
+              </span>
+              <span class="shrink-0 inline-flex items-center justify-center min-h-[40px] px-4 rounded-full bg-orange-600 text-white text-sm font-semibold">Free sample</span>
+            </a>
+          ))}
+        </div>
+        <p class="text-sm text-stone-500 leading-relaxed mt-4">New books are added as they publish, at no extra cost. What is on the shelf today is the floor, not the ceiling.</p>
+      </section>
+    )}
+
+    <section class="mt-12">
+      <h3 class="text-2xl font-extrabold tracking-tight mb-4" style="font-family: Fredoka, ui-rounded, system-ui">Questions</h3>
+      <div class="space-y-3">
+        {faqs.map((f) => (
+          <details class="rounded-2xl border border-stone-200 px-5 py-4">
+            <summary class="font-semibold cursor-pointer">{f.q}</summary>
+            <p class="text-sm text-stone-600 leading-relaxed mt-2">{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <section class="mt-12 rounded-2xl bg-[#1a3454] text-white p-6 sm:p-8">
+      <h3 class="text-xl font-extrabold tracking-tight">Listening only, honestly priced.</h3>
+      <p class="text-white/75 text-sm leading-relaxed mt-2 max-w-2xl">{monthlyLabel} a month, or {annualLabel} a year. Nothing is yours to keep on this plan, and we would rather say that plainly than dress it up. Want the books themselves? That is <a href="/clubs/book-club" class="font-semibold text-orange-300 hover:text-orange-200">The Book Club</a>.</p>
+      <a href="/clubs" class="inline-flex items-center justify-center min-h-[44px] px-6 rounded-full bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition mt-5">Join The Audio Club</a>
+    </section>
+
+    <a href="/clubs" class="inline-block mt-12 text-sm text-stone-500 hover:text-stone-900">&larr; Back to the clubs</a>
+  </main>
+  <SiteFooter />
+
+  <script is:inline>
+    function bbsAccountLink() {
+      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+        var link = document.getElementById("account-link");
+        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
+      }).catch(function () {});
+    }
+    bbsAccountLink();
+    document.addEventListener("astro:page-load", bbsAccountLink);
+  </script>
+
+  <!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+  <CartSheet />
+
+</body>
+</html>

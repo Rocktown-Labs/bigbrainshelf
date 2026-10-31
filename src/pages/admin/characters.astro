@@ -1,0 +1,255 @@
+---
+import "../../styles/global.css";
+import AdminShell from "../../components/AdminShell.astro";
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>Characters · Big Brain Shelf admin</title>
+  <style is:global>
+    body{font-family:ui-sans-serif,system-ui,sans-serif;background:#fafaf9;color:#1c1917;margin:0}
+    .wrap{max-width:64rem;margin:0 auto;padding:1.75rem 1rem 4rem}
+    h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 1rem}
+    .card{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:20px;margin:16px 0;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .card h2,.card h3{margin-top:0}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-top:24px}
+    .status{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.85em;font-weight:600}
+    .draft{background:#f5f5f4;color:#44403c}.queued{background:#dbeafe;color:#1e40af}.building{background:#fef3c7;color:#92400e}.ready_for_qa{background:#cffafe;color:#155e75}.in_progress{background:#fef3c7;color:#92400e}.complete{background:#dcfce7;color:#166534}.failed{background:#fee2e2;color:#991b1b}
+    .meta{color:#78716c;font-size:.88em}
+    a{color:#c2410c}
+    .btn{display:inline-block;background:#ea580c;color:#fff;padding:10px 22px;border-radius:999px;font-weight:600;text-decoration:none;border:0;cursor:pointer;font-size:14px}
+    .btn:hover{background:#c2410c}
+    .ghostbtn{display:inline-block;background:#fff;color:#1c1917;border:1px solid #d6d3d1;padding:9px 18px;border-radius:999px;font-weight:600;cursor:pointer;font-size:14px;text-decoration:none}
+    .tabs{margin:16px 0;display:flex;flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px}.tabs button{padding:8px 16px;margin-right:8px;border:1px solid #d6d3d1;border-radius:999px;background:#fff;cursor:pointer;font-size:.95em;flex:0 0 auto;white-space:nowrap}
+    @media (min-width:768px){.tabs{flex-wrap:wrap;overflow-x:visible}}
+    .tabs button.active{background:#1a3454;color:#fff;border-color:#1a3454}
+    .group-title{margin:32px 0 12px;font-size:1.3em;font-weight:700}
+    .card img{width:100%;height:230px;object-fit:cover;border-radius:8px;background:#f5f5f4}
+    label{display:block;margin:16px 0 6px;font-weight:600;font-size:14px}
+    input,select,textarea{width:100%;padding:10px 12px;font-size:14px;border:1px solid #d6d3d1;border-radius:8px;box-sizing:border-box;background:#fff}
+    .hint{color:#78716c;font-size:.85em}
+  </style>
+  </head>
+<body>
+  <AdminShell current="/admin/characters" />
+  <main class="wrap">
+  <h1>Character Library</h1>
+  <p>Reusable characters with image-safe visual descriptions.</p>
+  <div class="card" id="studio">
+    <h2 style="margin-top:0">Character studio</h2>
+    <p class="meta">Generate a character sheet from a book's bible. The sheet is drawn from the visual description exactly as written, so edit the wording first if it needs a tweak. A new sheet stays pending until you approve it. Only approved sheets are used as reference art when a book builds.</p>
+    <label for="st-book">Book</label>
+    <select id="st-book"><option value="">Choose a book...</option></select>
+    <div id="st-cast" style="margin-top:16px"></div>
+    <div id="st-pending" style="margin-top:16px"></div>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0">Meet the Cast crops</h2>
+    <p class="meta">Adjust the portrait and pose framing used on the public Meet the Cast pages. The automatic sheet split is a starting point; here you can move and resize every pose box yourself, choose the portrait, and restore the previous gallery if a save goes wrong.</p>
+    <p style="margin:12px 0 0"><a class="btn" href="/admin/characters/cast-crops" style="text-decoration:none">Open the cast crop editor</a></p>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div id="groups"><p>Loading...</p></div>
+  <script is:inline>
+    var allChars = [];
+    var bookTitles = {};
+    var activeTab = "all";
+
+    function imgFor(c) {
+      // Sheets are admin-only art: serve through the gated sheet route.
+      if (c.jpg_key) return '/api/admin/character-sheet?id=' + encodeURIComponent(c.id) + '&kind=color';
+      return null;
+    }
+    function cardHtml(c) {
+      var img = imgFor(c);
+      var href = '/admin/characters/' + encodeURIComponent(c.id);
+      return '<a href="' + href + '" style="display:block;text-decoration:none;color:inherit">' +
+        '<div class="card" style="margin:0;height:100%;box-sizing:border-box">' +
+        (img ? '<img src="' + img + '" alt="' + c.name + '" loading="lazy" />' : '') +
+        '<h3>' + c.name + '</h3>' +
+        '<p class="meta">' + c.species + '</p>' +
+        '<p>' + c.visual + '</p>' +
+        (c.real_maps_to ? '<p class="meta">Maps to: ' + c.real_maps_to + '</p>' : '') +
+        '<p style="margin:12px 0 0;color:#c2410c;font-weight:600">View full sheet &rarr;</p>' +
+        '</div></a>';
+    }
+    function render() {
+      var tabsEl = document.getElementById('tabs');
+      var groupsEl = document.getElementById('groups');
+      var slugs = [];
+      allChars.forEach(function(c) {
+        var s = c.book_slug || 'unassigned';
+        if (slugs.indexOf(s) === -1) slugs.push(s);
+      });
+      var tabs = '<button data-tab="all" class="' + (activeTab === 'all' ? 'active' : '') + '">All characters</button>';
+      slugs.forEach(function(s) {
+        var label = bookTitles[s] || s;
+        tabs += '<button data-tab="' + s + '" class="' + (activeTab === s ? 'active' : '') + '">' + label + '</button>';
+      });
+      tabsEl.innerHTML = tabs;
+      tabsEl.querySelectorAll('button').forEach(function(b) {
+        b.addEventListener('click', function() { activeTab = b.getAttribute('data-tab'); render(); });
+      });
+      var html = '';
+      var showSlugs = activeTab === 'all' ? slugs : [activeTab];
+      showSlugs.forEach(function(s) {
+        var chars = allChars.filter(function(c) { return (c.book_slug || 'unassigned') === s; });
+        if (!chars.length) return;
+        var label = bookTitles[s] || (s === 'unassigned' ? 'Unassigned' : s);
+        html += '<h2 class="group-title">' + label + ' (' + chars.length + ')</h2>';
+        html += '<div class="grid">' + chars.map(cardHtml).join('') + '</div>';
+      });
+      groupsEl.innerHTML = html || '<p>No characters yet.</p>';
+    }
+    Promise.all([
+      fetch('/api/characters').then(function(r) { return r.json(); }),
+      fetch('/api/books').then(function(r) { return r.json(); }).catch(function() { return []; })
+    ]).then(function(res) {
+      allChars = res[0] || [];
+      (res[1] || []).forEach(function(b) { bookTitles[b.slug] = b.title; });
+      render();
+    }).catch(function() {
+      document.getElementById('groups').innerHTML = '<p>Could not load characters.</p>';
+    });
+  </script>
+  <script is:inline>
+    // ---- character studio ---------------------------------------------
+    var stBook = document.getElementById('st-book');
+    var stCast = document.getElementById('st-cast');
+    var stPending = document.getElementById('st-pending');
+    var stChars = [];
+    function escS(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function castOf(data) {
+      var cast = [];
+      if (Array.isArray(data.characters) && data.characters.length) cast = data.characters.slice();
+      else {
+        if (data.protagonist) cast.push(data.protagonist);
+        (data.supportingCast || []).forEach(function (c) { cast.push(c); });
+        (data.newCharacters || []).forEach(function (c) { cast.push(c); });
+      }
+      return cast.filter(function (c) { return c && c.name; });
+    }
+    function sheetFor(slug, name) {
+      for (var i = 0; i < stChars.length; i++) {
+        if (stChars[i].book_slug === slug && stChars[i].name === name) return stChars[i];
+      }
+      return null;
+    }
+    function renderCast(slug, cast) {
+      if (!cast.length) { stCast.innerHTML = '<p class="meta">No bible cast found for this book yet. Attach a bible first, or add a character below.</p>' + customRow(); return; }
+      var html = cast.map(function (c, i) {
+        var reg = sheetFor(slug, c.name);
+        var state = reg && reg.jpg_key
+          ? '<span class="status complete">approved sheet</span>'
+          : '<span class="status draft">no sheet yet</span>';
+        return '<div style="border-top:1px solid #e7e5e4;padding:14px 0">' +
+          '<p style="margin:0 0 6px"><strong>' + escS(c.name) + '</strong> ' + state + '</p>' +
+          '<textarea id="st-vis-' + i + '" rows="3">' + escS(c.visual || '') + '</textarea>' +
+          '<p style="margin:8px 0 0"><button class="btn st-gen" data-name="' + escS(c.name) + '" data-idx="' + i + '">Generate sheet</button></p>' +
+          '</div>';
+      }).join('');
+      stCast.innerHTML = html + customRow();
+      wireGen(slug);
+    }
+    function customRow() {
+      return '<div style="border-top:1px solid #e7e5e4;padding:14px 0">' +
+        '<p style="margin:0 0 6px"><strong>New character</strong></p>' +
+        '<input id="st-new-name" placeholder="Character name" />' +
+        '<textarea id="st-new-vis" rows="3" placeholder="Visual description: species, colors, one signature item, expression" style="margin-top:8px"></textarea>' +
+        '<p style="margin:8px 0 0"><button class="ghostbtn st-gen" data-custom="1">Generate sheet</button></p></div>';
+    }
+    function wireGen(slug) {
+      stCast.querySelectorAll('.st-gen').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          var name, visual;
+          if (btn.getAttribute('data-custom')) {
+            name = document.getElementById('st-new-name').value.trim();
+            visual = document.getElementById('st-new-vis').value.trim();
+          } else {
+            name = btn.getAttribute('data-name');
+            visual = document.getElementById('st-vis-' + btn.getAttribute('data-idx')).value.trim();
+          }
+          if (!name || !visual) { alert('A name and a visual description are both required.'); return; }
+          btn.disabled = true; btn.textContent = 'Drawing...';
+          stPending.innerHTML = '<p class="meta">Drawing ' + escS(name) + '...</p>';
+          try {
+            var res = await fetch('/api/characters/sheet', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ slug: slug, name: name, visual: visual })
+            });
+            var data = await res.json().catch(function () { return {}; });
+            if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+            stPending.innerHTML =
+              '<div style="border:2px solid #ea580c;border-radius:12px;padding:16px">' +
+              '<p style="margin:0 0 10px"><strong>Pending sheet: ' + escS(name) + '</strong></p>' +
+              '<img src="' + data.url + '" alt="' + escS(name) + '" style="max-width:340px;width:100%;border-radius:8px;border:1px solid #e7e5e4" />' +
+              '<p style="margin:12px 0 0"><button class="btn" id="st-approve">Approve this sheet</button> ' +
+              '<button class="ghostbtn" id="st-discard">Discard</button></p></div>';
+            document.getElementById('st-approve').addEventListener('click', async function () {
+              this.disabled = true; this.textContent = 'Approving...';
+              try {
+                var r2 = await fetch('/api/characters/approve-sheet', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ slug: slug, name: name })
+                });
+                var d2 = await r2.json().catch(function () { return {}; });
+                if (!r2.ok) throw new Error(d2.error || ('HTTP ' + r2.status));
+                stPending.innerHTML = '<p><strong>' + escS(name) + '</strong> is approved and in the library. Builds for this book will use it as the reference sheet.</p>';
+                setTimeout(function () { window.location.reload(); }, 1200);
+              } catch (err) { alert('Approve failed: ' + err.message); this.disabled = false; this.textContent = 'Approve this sheet'; }
+            });
+            document.getElementById('st-discard').addEventListener('click', function () { stPending.innerHTML = ''; });
+          } catch (err) {
+            stPending.innerHTML = '<p>Generation failed: ' + escS(err.message) + '</p>';
+          }
+          btn.disabled = false; btn.textContent = 'Generate sheet';
+        });
+      });
+    }
+    Promise.all([
+      fetch('/api/books').then(function (r) { return r.json(); }).catch(function () { return []; }),
+      fetch('/api/characters').then(function (r) { return r.json(); }).catch(function () { return []; })
+    ]).then(function (res) {
+      stChars = res[1] || [];
+      (res[0] || []).forEach(function (b) {
+        var o = document.createElement('option');
+        o.value = b.slug; o.textContent = b.title || "Untitled book";
+        stBook.appendChild(o);
+      });
+    });
+    stBook.addEventListener('change', function () {
+      var slug = stBook.value;
+      stPending.innerHTML = '';
+      if (!slug) { stCast.innerHTML = ''; return; }
+      stCast.innerHTML = '<p class="meta">Loading cast...</p>';
+      fetch('/api/bibles?slug=' + encodeURIComponent(slug)).then(function (r) { return r.json(); }).then(function (row) {
+        if (!row || !row.data) { stCast.innerHTML = '<p class="meta">No bible attached to this book yet.</p>' + customRow(); wireGen(slug); return; }
+        renderCast(slug, castOf(row.data));
+      }).catch(function () { stCast.innerHTML = '<p>Could not load the bible for this book.</p>'; });
+    });
+  </script>
+  </main>
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

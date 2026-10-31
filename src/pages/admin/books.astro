@@ -1,0 +1,327 @@
+---
+import "../../styles/global.css";
+import AdminShell from "../../components/AdminShell.astro";
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+---
+
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>Books · Big Brain Shelf admin</title>
+  <style is:global>
+    body{font-family:ui-sans-serif,system-ui,sans-serif;background:#fafaf9;color:#1c1917;margin:0}
+    .wrap{max-width:64rem;margin:0 auto;padding:1.75rem 1rem 4rem}
+    h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 1rem}
+    .card{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:20px;margin:16px 0;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .card h2,.card h3{margin-top:0}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-top:24px}
+    .status{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.85em;font-weight:600}
+    .draft{background:#f5f5f4;color:#44403c}.queued{background:#dbeafe;color:#1e40af}.building{background:#fef3c7;color:#92400e}.ready_for_qa{background:#cffafe;color:#155e75}.in_progress{background:#fef3c7;color:#92400e}.complete{background:#dcfce7;color:#166534}.failed{background:#fee2e2;color:#991b1b}
+    .meta{color:#78716c;font-size:.88em}
+    a{color:#c2410c}
+    .btn{display:inline-block;background:#ea580c;color:#fff;padding:10px 22px;border-radius:999px;font-weight:600;text-decoration:none;border:0;cursor:pointer;font-size:14px}
+    .btn:hover{background:#c2410c}
+    .ghostbtn{display:inline-block;background:#fff;color:#1c1917;border:1px solid #d6d3d1;padding:9px 18px;border-radius:999px;font-weight:600;cursor:pointer;font-size:14px;text-decoration:none}
+    .tabs{margin:16px 0}.tabs button{padding:8px 16px;margin-right:8px;border:1px solid #d6d3d1;border-radius:999px;background:#fff;cursor:pointer;font-size:.95em}
+    .tabs button.active{background:#1a3454;color:#fff;border-color:#1a3454}
+    .group-title{margin:32px 0 12px;font-size:1.3em;font-weight:700}
+    .card img{max-width:100%;border-radius:8px;background:#f5f5f4}
+    label{display:block;margin:16px 0 6px;font-weight:600;font-size:14px}
+    input,select,textarea{width:100%;padding:10px 12px;font-size:14px;border:1px solid #d6d3d1;border-radius:8px;box-sizing:border-box;background:#fff}
+    .hint{color:#78716c;font-size:.85em}
+  </style>
+  </head>
+<body>
+  <AdminShell current="/admin/books" />
+  <main class="wrap">
+  <h1>Books</h1>
+  <p><a href="/admin/books/new" class="btn">+ New book</a></p>
+  <div class="card" id="releases-block" style="display:none">
+    <h3 style="margin-bottom:6px">Releases and announcements</h3>
+    <p class="meta" style="margin:0 0 10px">Every published book announces in two waves: Book Club members first (immediate), then subscribers after 3 days. Counts are the announcement emails in the outbox.</p>
+    <div id="releases-list"></div>
+  </div>
+  <div class="tabs" id="topic-tabs"></div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:4px 0">
+    <input id="q" type="text" placeholder="Search title or slug..." style="flex:1;min-width:170px;width:auto" />
+    <select id="status-filter" style="width:auto">
+      <option value="">Any status</option>
+      <option value="building">Building</option>
+      <option value="ready_for_qa">Ready for QA</option>
+      <option value="in_progress">In progress</option>
+      <option value="draft">Draft</option>
+      <option value="queued">Queued</option>
+      <option value="complete">Complete</option>
+      <option value="failed">Failed</option>
+    </select>
+    <select id="sort-by" style="width:auto">
+      <option value="topic">Sort: Topic</option>
+      <option value="title">Sort: Title A-Z</option>
+      <option value="status">Sort: Status</option>
+      <option value="newest">Sort: Newest</option>
+    </select>
+  </div>
+  <p class="meta" id="count"></p>
+  <div id="books"><p>Loading...</p></div>
+  <script is:inline>
+    var R2 = "https://media.bigbrainshelf.com/";
+    var allBooks = [];
+    var topicFilter = "all";
+    var STATUS_RANK = { building: 0, ready_for_qa: 1, in_progress: 2, failed: 3, draft: 4, queued: 5, complete: 6 };
+    function escB(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+    function topicOf(b) { return (b.topic || "").trim() || "uncategorized"; }
+    function topicLabel(t) { return t === "uncategorized" ? "Uncategorized" : t.charAt(0).toUpperCase() + t.slice(1); }
+
+    function cardHtml(b) {
+      // Admin book links wear the PUBLIC slug (owner, 2026-10-29);
+      // data-slug attributes and API calls keep the internal slug.
+      var pub = b.public_slug || b.slug;
+      var stage = b.stage ? ' · ' + escB(b.stage) + (b.stage_detail ? ' (' + escB(b.stage_detail) + ')' : '') : '';
+      var cover = b.cover_key ? '<img src="' + R2 + b.cover_key + '" alt="" style="width:74px;height:98px;object-fit:cover;border-radius:6px;border:1px solid #e7e5e4;flex-shrink:0" />' : '<div style="width:74px;height:98px;border-radius:6px;background:#f5f5f4;border:1px solid #e7e5e4;flex-shrink:0"></div>';
+      return '<div class="card" style="display:flex;gap:18px;align-items:flex-start">' + cover +
+        '<div style="flex:1;min-width:0">' +
+        '<h2 style="margin:2px 0 6px"><a href="/admin/books/' + pub + '">' + escB(b.title) + '</a></h2>' +
+        '<p style="margin:4px 0"><span class="rchip" data-rslug="' + escB(b.slug) + '"></span><span class="meta">' + stage + '</span></p>' +
+        (b.published_at ? '<p class="meta" style="margin:4px 0">Published ' + escB(new Date(b.published_at * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })) + '</p>' : '') +
+        '<p class="meta" style="margin:4px 0">Public slug: ' + escB(b.public_slug || "not set") + (b.topic ? ' · Category: ' + escB(b.topic) : '') + (b.topics ? ' · Topics: ' + escB(b.topics) : '') + '</p>' +
+        '<p class="meta" id="ver-' + escB(b.slug) + '" style="margin:4px 0"></p>' +
+        '<p style="margin:10px 0 0"><a class="btn" href="/admin/books/' + pub + '">Open QC</a> ' +
+        '<a class="ghostbtn" href="/admin/books/' + pub + '/edit">Full editor</a> ' +
+        '<a class="ghostbtn" href="/books/' + pub + '">Storefront</a>' +
+        ' <a class="ghostbtn" href="/admin/books/' + pub + '/readiness">Readiness</a>' +
+        ((b.status === 'draft' || b.status === 'failed') ? ' <button class="ghostbtn build-btn" data-slug="' + escB(b.slug) + '" data-title="' + escB(b.title) + '">Build this book</button>' : '') +
+        ((b.stage === 'awaiting_pilot_approval') ? ' <button class="ghostbtn pilot-btn" data-slug="' + escB(b.slug) + '" data-title="' + escB(b.title) + '" style="color:#166534;border-color:#bbf7d0">Approve pilot, build the rest</button>' : '') +
+        (b.color_book_key ? ' <span class="meta">Color edition ready</span>' : '') +
+        ' <button class="ghostbtn delete-btn" data-slug="' + escB(b.slug) + '" data-title="' + escB(b.title) + '" style="color:#b91c1c;border-color:#fecaca">Delete</button>' +
+        '</p>' +
+        '</div></div>';
+    }
+
+    function render() {
+      var q = document.getElementById('q').value.trim().toLowerCase();
+      var st = document.getElementById('status-filter').value;
+      var sortBy = document.getElementById('sort-by').value;
+      var list = allBooks.filter(function (b) {
+        if (topicFilter !== "all" && topicOf(b) !== topicFilter) return false;
+        if (st && b.status !== st) return false;
+        if (q && (b.title + " " + b.slug).toLowerCase().indexOf(q) < 0) return false;
+        return true;
+      });
+      list.sort(function (a, b) {
+        if (sortBy === "title") return String(a.title).localeCompare(String(b.title));
+        if (sortBy === "status") return (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9) || String(a.title).localeCompare(String(b.title));
+        if (sortBy === "newest") return (b.created_at || 0) - (a.created_at || 0);
+        return topicOf(a).localeCompare(topicOf(b)) || String(a.title).localeCompare(String(b.title));
+      });
+      document.getElementById('count').textContent = list.length + (list.length === 1 ? " book" : " books");
+      var el = document.getElementById('books');
+      if (!list.length) { el.innerHTML = '<p>No books match.</p>'; return; }
+      if (sortBy === "topic") {
+        var html = "", lastTopic = null;
+        list.forEach(function (b) {
+          var t = topicOf(b);
+          if (t !== lastTopic) { html += '<h2 class="group-title">' + escB(topicLabel(t)) + '</h2>'; lastTopic = t; }
+          html += cardHtml(b);
+        });
+        el.innerHTML = html;
+      } else {
+        el.innerHTML = list.map(cardHtml).join('');
+      }
+      // Version lines: the factory archives a snapshot before any
+      // overwrite; versions.json lists them. Silent when none exist.
+      list.forEach(function (b) {
+        fetch('/api/admin/media?key=' + encodeURIComponent('books/' + b.slug + '/versions.json')).then(function (r) { return r.ok ? r.json() : null; }).then(function (m) {
+          if (!m || !m.versions || !m.versions.length) return;
+          var v = m.versions[m.versions.length - 1];
+          var when = v.at ? new Date(v.at * 1000).toLocaleDateString() : "";
+          var slot = document.getElementById('ver-' + b.slug);
+          if (slot) slot.textContent = 'Versions: ' + m.versions.length + ' archived (latest v' + v.version + (when ? ', ' + when : '') + ')';
+        }).catch(function () {});
+      });
+      // Delivery readiness chips (2026-10-31): the verdict from
+      // the same checklist the readiness page shows, one fetch
+      // per book, silent on failure.
+      document.querySelectorAll('.rchip').forEach(function (chip) {
+        var islug = chip.getAttribute('data-rslug');
+        fetch('/api/editor/readiness?book_slug=' + encodeURIComponent(islug)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+          var d = j && j.delivery;
+          if (!d) return;
+          var colors = { ready: 'background:#dcfce7;color:#166534', 'product-ready': 'background:#dbeafe;color:#1d4ed8', 'not-ready': 'background:#fef3c7;color:#92400e', unverified: 'background:#f5f5f4;color:#57534e' };
+          chip.setAttribute('style', 'display:inline-block;padding:3px 11px;border-radius:999px;font-size:12px;font-weight:600;' + (colors[d.verdict] || colors.unverified));
+          chip.textContent = d.statusLabel;
+        }).catch(function () {});
+      });
+    }
+
+    function renderTabs() {
+      var counts = {};
+      allBooks.forEach(function (b) { var t = topicOf(b); counts[t] = (counts[t] || 0) + 1; });
+      var topics = Object.keys(counts).sort();
+      var tabs = document.getElementById('topic-tabs');
+      var html = '<button data-topic="all" class="' + (topicFilter === "all" ? "active" : "") + '">All (' + allBooks.length + ')</button>';
+      topics.forEach(function (t) {
+        html += '<button data-topic="' + escB(t) + '" class="' + (topicFilter === t ? "active" : "") + '">' + escB(topicLabel(t)) + ' (' + counts[t] + ')</button>';
+      });
+      tabs.innerHTML = html;
+      tabs.querySelectorAll('button').forEach(function (btn) {
+        btn.addEventListener('click', function () { topicFilter = btn.getAttribute('data-topic'); renderTabs(); render(); });
+      });
+    }
+
+    function loadBooks() {
+      return fetch('/api/books').then(r => r.json()).then(books => {
+        allBooks = books || [];
+        if (!allBooks.length) { document.getElementById('books').innerHTML = '<p>No books yet.</p>'; return; }
+        renderTabs();
+        render();
+        // While anything is mid-flight, keep the list fresh on its own.
+        var active = allBooks.some(function (b) { return b.status === 'building' || b.status === 'queued'; });
+        if (active && !window.__bbPoll) {
+          window.__bbPoll = setInterval(function () {
+            if (!allBooks.some(function (b) { return b.status === 'building' || b.status === 'queued'; })) {
+              clearInterval(window.__bbPoll); window.__bbPoll = null; return;
+            }
+            loadBooks();
+          }, 30000);
+        }
+      });
+    }
+    function loadReleases() {
+      fetch('/api/admin/releases').then(function (r) { return r.json(); }).then(function (data) {
+        var rel = (data && data.releases) || [];
+        if (!rel.length) return;
+        var wave = function (label, w) {
+          return label + ': ' + w.sent + ' sent · ' + w.queued + ' queued' + (w.suppressed ? ' · ' + w.suppressed + ' suppressed' : '');
+        };
+        document.getElementById('releases-list').innerHTML = rel.map(function (r) {
+          return '<p style="margin:6px 0"><strong>' + escB(r.title) + '</strong> <span class="meta">· Published ' + escB(r.publishedLabel) + '</span><br />' +
+            '<span class="meta">' + escB(wave('Members', r.club)) + ' &nbsp;|&nbsp; ' + escB(wave('Subscribers', r.public)) + '</span></p>';
+        }).join('');
+        document.getElementById('releases-block').style.display = '';
+      }).catch(function () { /* the block simply stays hidden */ });
+    }
+    loadBooks();
+    loadReleases();
+    document.getElementById('q').addEventListener('input', render);
+    document.getElementById('status-filter').addEventListener('change', render);
+    document.getElementById('sort-by').addEventListener('change', render);
+    document.getElementById('books').addEventListener('click', async function (e) {
+      var dbtn = e.target.closest('.delete-btn');
+      if (dbtn) {
+        var dslug = dbtn.getAttribute('data-slug');
+        var dtitle = dbtn.getAttribute('data-title');
+        if (!confirm('Delete "' + dtitle + '" permanently? This removes the book, its bible, plans, page art, PDFs and EPUB from the store. This cannot be undone.')) return;
+        dbtn.disabled = true;
+        dbtn.textContent = 'Deleting...';
+        try {
+          var dres = await fetch('/api/books/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slug: dslug })
+          });
+          var ddata = await dres.json().catch(function () { return {}; });
+          if (!dres.ok) throw new Error(ddata.error || ('HTTP ' + dres.status));
+          setTimeout(loadBooks, 800);
+        } catch (err) {
+          dbtn.disabled = false;
+          dbtn.textContent = 'Delete';
+          alert('Could not delete: ' + err.message);
+        }
+        return;
+      }
+      var pbtn = e.target.closest('.pilot-btn');
+      if (pbtn) {
+        var pslug = pbtn.getAttribute('data-slug');
+        var ptitle = pbtn.getAttribute('data-title');
+        if (!confirm('Approve the chapter 1 pilot for "' + ptitle + '"? The factory will build the remaining chapters. Look at the chapter 1 pages in Open QC first if you have not.')) return;
+        pbtn.disabled = true;
+        pbtn.textContent = 'Approving...';
+        try {
+          var pres = await fetch('/api/books/pilot-approve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slug: pslug })
+          });
+          var pdata = await pres.json().catch(function () { return {}; });
+          if (!pres.ok) throw new Error(pdata.error || ('HTTP ' + pres.status));
+          pbtn.textContent = 'Approved, building...';
+          setTimeout(loadBooks, 2500);
+        } catch (err) {
+          pbtn.disabled = false;
+          pbtn.textContent = 'Approve pilot, build the rest';
+          alert('Could not approve the pilot: ' + err.message);
+        }
+        return;
+      }
+      var cbtn = e.target.closest('.colorize-btn');
+      if (cbtn) {
+        var cslug = cbtn.getAttribute('data-slug');
+        var ctitle = cbtn.getAttribute('data-title');
+        if (!confirm('Colorize "' + ctitle + '" now? This colors the book\'s own black and white pages into a separate full color edition. The base book does not change.')) return;
+        cbtn.disabled = true;
+        cbtn.textContent = 'Starting...';
+        try {
+          var cres = await fetch('/api/books/colorize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ slug: cslug })
+          });
+          var cdata = await cres.json().catch(function () { return {}; });
+          if (!cres.ok) throw new Error(cdata.error || ('HTTP ' + cres.status));
+          cbtn.textContent = 'Colorizing...';
+          setTimeout(loadBooks, 2500);
+        } catch (err) {
+          cbtn.disabled = false;
+          cbtn.textContent = 'Colorize';
+          alert('Could not start colorizing: ' + err.message);
+        }
+        return;
+      }
+      var btn = e.target.closest('.build-btn');
+      if (!btn) return;
+      var slug = btn.getAttribute('data-slug');
+      var title = btn.getAttribute('data-title');
+      if (!confirm('Build "' + title + '" in the factory now? This runs the full pipeline: plans, art, color pages, and assembly.')) return;
+      btn.disabled = true;
+      btn.textContent = 'Starting...';
+      try {
+        var res = await fetch('/api/books/build', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: slug })
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+        btn.textContent = 'Building...';
+        setTimeout(loadBooks, 2500);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Build this book';
+        alert('Could not start the build: ' + err.message);
+      }
+    });
+  </script>
+  </main>
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

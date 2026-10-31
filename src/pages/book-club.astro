@@ -1,0 +1,12 @@
+---
+export const prerender = false;
+
+// /book-club is not the club page anymore: the plans page lives at
+// /clubs now (CG, 2026-10-30). This route only redirects,
+// permanently, carrying the query string across verbatim: the club
+// checkout used to land here with ?joined=1 and ?join=cancelled, and
+// links like those are still out in the world (old emails, bookmarks,
+// Stripe sessions). New checkout sessions point at /clubs directly.
+const qs = Astro.url.search;
+return Astro.redirect("/clubs" + qs, 301);
+---

@@ -1,0 +1,230 @@
+---
+import "../../styles/global.css";
+import SiteFooter from "../../components/SiteFooter.astro";
+import SiteHeader from "../../components/SiteHeader.astro";
+import CartSheet from "../../components/CartSheet.astro";
+import SectionHero from "../../components/SectionHero.astro";
+import SectionNav from "../../components/SectionNav.astro";
+import Tracking from "../../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../../components/TransitionHooks.astro";
+import SeoHead from "../../components/SeoHead.astro";
+import {
+  clubPriceLabel,
+  CLUB_PRICE_CENTS,
+  CLUB_ANNUAL_PRICE_CENTS,
+  GIFT_SET_PRICE_CENTS,
+  STANDARD_DIGITAL_PRICE_CENTS,
+  STANDARD_PRINT_PRICE_CENTS,
+} from "../../lib/offers";
+import { listPublicShelfBooks } from "../../lib/books-public";
+import { coverDerivative } from "../../lib/derivatives";
+import { env } from "cloudflare:workers";
+export const prerender = false;
+const adminUser = Astro.locals.user;
+const e = env as any;
+
+// The Book Club, in full (learn-more page, 2026-10-31): the clubs
+// card carries the short version; everything it claims is spelled
+// out here, with every figure computed from the price constants so
+// the page cannot drift from what the store charges.
+const quarterlyLabel = clubPriceLabel(CLUB_PRICE_CENTS);
+const annualLabel = clubPriceLabel(CLUB_ANNUAL_PRICE_CENTS);
+const giftSetLabel = clubPriceLabel(GIFT_SET_PRICE_CENTS);
+const secondBookLabel = clubPriceLabel(STANDARD_PRINT_PRICE_CENTS);
+const secondDigitalLabel = clubPriceLabel(STANDARD_DIGITAL_PRICE_CENTS);
+const boxTotalLabel = clubPriceLabel(GIFT_SET_PRICE_CENTS + STANDARD_PRINT_PRICE_CENTS + STANDARD_DIGITAL_PRICE_CENTS);
+
+const TOPIC_LABELS: Record<string, string> = { tech: "Tech", money: "Money", courage: "Courage" };
+interface ShelfGroup { label: string; books: { title: string; href: string; cover: string }[] }
+let shelves: ShelfGroup[] = [];
+try {
+  const books = await listPublicShelfBooks(e.DB);
+  const byTopic = new Map<string, { title: string; href: string; cover: string }[]>();
+  for (const b of books as any[]) {
+    const key = String(b.topic || "tech").toLowerCase();
+    const cover = coverDerivative(b.slug, "card", b.cover_key) || (b.cover_key ? `https://media.bigbrainshelf.com/${b.cover_key}` : "");
+    if (!cover) continue;
+    if (!byTopic.has(key)) byTopic.set(key, []);
+    byTopic.get(key)!.push({ title: b.title, href: b.href, cover });
+  }
+  shelves = ["tech", "money", "courage"]
+    .filter((t) => byTopic.has(t))
+    .map((t) => ({ label: TOPIC_LABELS[t], books: byTopic.get(t)! }));
+} catch { /* the page still renders without the shelf covers */ }
+
+const faqs = [
+  {
+    q: "When does my first box ship?",
+    a: "The day you join. After that, a new box ships every 3 months from your join day, and the club book is in your library digitally from day one.",
+  },
+  {
+    q: "What does shipping cost?",
+    a: "Nothing. Shipping is on us for every club box.",
+  },
+  {
+    q: "Who picks the second book?",
+    a: "You do, in your account, any time before the box ships. If you would rather be surprised, choose Surprise me and we send a book you do not already own.",
+  },
+  {
+    q: "Can I cancel?",
+    a: "Anytime, from your account. No emails, no phone calls, no retention maze.",
+  },
+  {
+    q: "What do I keep if I cancel?",
+    a: "Everything that was ever shipped to you, and the digital edition of every club book you received. Those are yours to download and keep. The rest of the shelf stays open while you are a member.",
+  },
+  {
+    q: "What if my first box never arrives?",
+    a: "That is the first box guarantee: if your first box misses in 30 days, your first payment comes back, and the books stay on your shelf.",
+  },
+];
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-16.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>The Book Club — Big Brain Shelf</title>
+  <SeoHead title="The Book Club — Big Brain Shelf" socialDescription="A new big idea in your mailbox every 3 months: a printed gift set, a second printed book, and the whole Big Brain Shelf in your library." />
+  <meta name="description" content="The Book Club in full: what is in every box, how the picking works, the shelves, the guarantee, and the answers to the questions parents actually ask." />
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+
+  <SectionHero subline="The Book Club, in full: what arrives, what it costs, and what is yours." />
+  <SectionNav active="plans" />
+
+  <main class="max-w-4xl mx-auto px-5 pt-8 pb-20">
+    <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3" style="font-family: Fredoka, ui-rounded, system-ui">A new big idea in your mailbox every 3 months.</h2>
+    <p class="text-stone-600 leading-relaxed max-w-2xl">The question The Book Club answers is the one every parent knows: what do I put in front of my kid that is actually good, without spending an evening deciding? Decide once. Each box brings a printed gift set and a second printed book, and the whole shelf opens in your library.</p>
+    <p class="text-stone-600 leading-relaxed max-w-2xl mt-3">{quarterlyLabel} every 3 months, or {annualLabel} a year. First box the day you join.</p>
+    <a href="/clubs" class="inline-flex items-center justify-center min-h-[44px] px-6 rounded-full bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition mt-5">Join The Book Club</a>
+
+    <section class="mt-12">
+      <h3 class="text-2xl font-extrabold tracking-tight mb-4" style="font-family: Fredoka, ui-rounded, system-ui">How it works</h3>
+      <ol class="grid sm:grid-cols-3 gap-4">
+        <li class="rounded-2xl bg-stone-50 border border-stone-200 p-5">
+          <p class="text-xs font-bold uppercase tracking-wider text-orange-600">Step 1</p>
+          <p class="font-semibold mt-1.5">Join</p>
+          <p class="text-sm text-stone-600 leading-relaxed mt-1">Create a free account and pick your plan. That is the only decision.</p>
+        </li>
+        <li class="rounded-2xl bg-stone-50 border border-stone-200 p-5">
+          <p class="text-xs font-bold uppercase tracking-wider text-orange-600">Step 2</p>
+          <p class="font-semibold mt-1.5">First box, right away</p>
+          <p class="text-sm text-stone-600 leading-relaxed mt-1">Your first box ships the day you join, and the club book is in your library digitally the same day.</p>
+        </li>
+        <li class="rounded-2xl bg-stone-50 border border-stone-200 p-5">
+          <p class="text-xs font-bold uppercase tracking-wider text-orange-600">Step 3</p>
+          <p class="font-semibold mt-1.5">Every 3 months</p>
+          <p class="text-sm text-stone-600 leading-relaxed mt-1">A new box every 3 months from your join day. Pick the second book in your account, or take a surprise.</p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="mt-12">
+      <h3 class="text-2xl font-extrabold tracking-tight mb-4" style="font-family: Fredoka, ui-rounded, system-ui">What's in every box</h3>
+      <div class="rounded-2xl border border-stone-200 overflow-hidden">
+        <div class="flex items-baseline justify-between gap-4 px-5 py-4 border-b border-stone-100">
+          <div>
+            <p class="font-semibold">The gift set</p>
+            <p class="text-sm text-stone-500 leading-relaxed">The club book as a printed storybook and a printed coloring book.</p>
+          </div>
+          <p class="font-semibold whitespace-nowrap">{giftSetLabel}</p>
+        </div>
+        <div class="flex items-baseline justify-between gap-4 px-5 py-4 border-b border-stone-100">
+          <div>
+            <p class="font-semibold">A second printed book</p>
+            <p class="text-sm text-stone-500 leading-relaxed">Your pick from the shelf, or a surprise you do not own.</p>
+          </div>
+          <p class="font-semibold whitespace-nowrap">{secondBookLabel}</p>
+        </div>
+        <div class="flex items-baseline justify-between gap-4 px-5 py-4 border-b border-stone-100">
+          <div>
+            <p class="font-semibold">That book's digital edition</p>
+            <p class="text-sm text-stone-500 leading-relaxed">Storybook, coloring book, ebook and audiobook, in your library.</p>
+          </div>
+          <p class="font-semibold whitespace-nowrap">{secondDigitalLabel}</p>
+        </div>
+        <div class="flex items-baseline justify-between gap-4 px-5 py-4 bg-stone-50">
+          <p class="font-semibold">In books, every box</p>
+          <p class="font-extrabold whitespace-nowrap">{boxTotalLabel}</p>
+        </div>
+      </div>
+      <p class="text-sm text-stone-500 leading-relaxed mt-3">Plus a cast sticker sheet and a little extra in every box, and shipping is on us. The club book's own digital edition rides inside the gift set, and it is yours to keep even if you cancel.</p>
+    </section>
+
+    <section class="mt-12">
+      <h3 class="text-2xl font-extrabold tracking-tight mb-3" style="font-family: Fredoka, ui-rounded, system-ui">Your pick, or Surprise me</h3>
+      <p class="text-stone-600 leading-relaxed max-w-2xl">Every box has two books: the club book, which every member gets, and a second printed book that is up to you. Choose it in your account whenever you like before the box ships. Or choose Surprise me, and we pick a book you do not already own, so a box never repeats what is on your shelf.</p>
+    </section>
+
+    {shelves.length > 0 && (
+      <section class="mt-12">
+        <h3 class="text-2xl font-extrabold tracking-tight mb-4" style="font-family: Fredoka, ui-rounded, system-ui">The shelves your boxes come from</h3>
+        {shelves.map((s) => (
+          <div class="mt-6">
+            <p class="text-sm font-bold uppercase tracking-wider text-orange-600">{s.label} shelf</p>
+            <div class="flex gap-4 mt-3 overflow-x-auto pb-2">
+              {s.books.map((b) => (
+                <a href={b.href} class="group shrink-0 w-32 sm:w-36">
+                  <span class="block rounded-xl overflow-hidden border border-stone-200">
+                    <img src={b.cover} alt={`${b.title} cover`} loading="lazy" class="w-full aspect-[3/4] object-cover transition duration-200 group-hover:scale-105" />
+                  </span>
+                  <span class="block text-sm font-semibold leading-snug mt-2">{b.title}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        ))}
+      </section>
+    )}
+
+    <section class="mt-12 rounded-2xl bg-[#1a3454] text-white p-6 sm:p-8">
+      <h3 class="text-xl font-extrabold tracking-tight">The first box guarantee</h3>
+      <p class="text-white/75 text-sm leading-relaxed mt-2 max-w-2xl">If your first box misses in 30 days, your first payment comes back, and the books stay on your shelf. Membership is open to whoever joins, and every box gets the same care whether it is the fifth or the five hundredth.</p>
+      <a href="/clubs" class="inline-flex items-center justify-center min-h-[44px] px-6 rounded-full bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition mt-5">Join The Book Club</a>
+    </section>
+
+    <section class="mt-12">
+      <h3 class="text-2xl font-extrabold tracking-tight mb-4" style="font-family: Fredoka, ui-rounded, system-ui">Questions</h3>
+      <div class="space-y-3">
+        {faqs.map((f) => (
+          <details class="rounded-2xl border border-stone-200 px-5 py-4">
+            <summary class="font-semibold cursor-pointer">{f.q}</summary>
+            <p class="text-sm text-stone-600 leading-relaxed mt-2">{f.a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <a href="/clubs" class="inline-block mt-12 text-sm text-stone-500 hover:text-stone-900">&larr; Back to the clubs</a>
+  </main>
+  <SiteFooter />
+
+  <script is:inline>
+    function bbsAccountLink() {
+      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+        var link = document.getElementById("account-link");
+        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
+      }).catch(function () {});
+    }
+    bbsAccountLink();
+    document.addEventListener("astro:page-load", bbsAccountLink);
+  </script>
+
+  <!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+  <CartSheet />
+
+</body>
+</html>

@@ -1,0 +1,35 @@
+---
+import { env } from "cloudflare:workers";
+import BookDetailPage from "../../books/[slug].astro";
+import { resolveBookForPublicRoute, publicSlugFor } from "../../../lib/public-slugs";
+import { loadLocalizedBook } from "../../../lib/i18n";
+export const prerender = false;
+
+// THIN LOCALE ROUTE (i18n Phase 0): the Spanish book page is not a
+// separate page. This wrapper only guards the locale's dark-launch
+// conditions, then renders the canonical book page
+// (src/pages/books/[slug].astro), which is locale-aware: under this
+// route Astro.currentLocale is "es", so the same page body renders
+// with the book's stored Spanish edition package, Spanish chrome
+// strings, Intl prices, and commerce disabled. The guards:
+//   - unknown book: 404 here instead of the English page's redirect
+//     home, so a bad localized URL never leaks the English flow;
+//   - internal slug: 301 to this locale's public-slug URL, matching
+//     the English route's canonicalization;
+//   - no stored Spanish package for the book: 404 (the English page
+//     checks the same condition itself as a backstop).
+// The page stays dark: unlinked from navigation and shelves, and
+// the rendered page carries robots noindex (emitted by the page
+// itself in localized renders).
+const param = String(Astro.params.slug || "");
+const resolved = await resolveBookForPublicRoute(env.DB, param);
+if (!resolved) return new Response("Not found", { status: 404 });
+const publicSlug = publicSlugFor(resolved.book);
+if (resolved.via === "internal") {
+  return Astro.redirect(`/es/books/${publicSlug}${Astro.url.search}`, 301);
+}
+const pkg = await loadLocalizedBook(env as any, String(resolved.book.slug), "es");
+if (!pkg) return new Response("Not found", { status: 404 });
+---
+
+<BookDetailPage />

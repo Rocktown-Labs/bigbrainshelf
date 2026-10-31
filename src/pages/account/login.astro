@@ -1,0 +1,6 @@
+---
+export const prerender = false;
+// Unified sign-in lives at /login; keep old links working.
+const next = Astro.url.searchParams.get("next") || "/account";
+return Astro.redirect("/login?next=" + encodeURIComponent(next), 302);
+---

@@ -1,0 +1,63 @@
+---
+import "../styles/global.css";
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SectionNav from "../components/SectionNav.astro";
+import BackLink from "../components/BackLink.astro";
+import CartSheet from "../components/CartSheet.astro";
+import Tracking from "../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../components/TransitionHooks.astro";
+import SeoHead from "../components/SeoHead.astro";
+export const prerender = false;
+const adminUser = Astro.locals.user;
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>About — Big Brain Shelf</title>
+  <SeoHead title="About — Big Brain Shelf" />
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+  <SectionNav />
+  <main class="max-w-2xl mx-auto px-5 py-12 pb-20">
+    <BackLink />
+    <h1 class="text-3xl font-extrabold tracking-tight mb-5">Big ideas for little brains.</h1>
+    <p class="text-stone-600 leading-relaxed mb-4">Big Brain Shelf makes picture books and coloring books on tech, money and courage, told so kids can get it. Every book takes a real grown-up idea, like how the internet ships software or how money grows, and turns it into a story a four-year-old can follow.</p>
+    <p class="text-stone-600 leading-relaxed mb-4">Each title comes two ways: a full-color picture book for reading together, and a coloring book version of the same story for little hands that need to stay busy.</p>
+    <p class="text-stone-600 leading-relaxed">Written for curious kids ages 4 to 8, and the grown-ups reading along.</p>
+    <a href="/" class="inline-block mt-8 text-sm text-stone-500 hover:text-stone-900">&larr; Back to the shelf</a>
+  </main>
+  <SiteFooter />
+
+  <script is:inline>
+    // Keep the header account link in sync with the session. Runs now
+    // and again on astro:page-load so it also applies to the header
+    // swapped in by view transitions. The update is idempotent.
+    function bbsAccountLink() {
+      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+        var link = document.getElementById("account-link");
+        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
+      }).catch(function () {});
+    }
+    bbsAccountLink();
+    document.addEventListener("astro:page-load", bbsAccountLink);
+  </script>
+<!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+<CartSheet />
+
+</body>
+</html>

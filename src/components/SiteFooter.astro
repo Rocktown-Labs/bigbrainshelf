@@ -1,0 +1,328 @@
+---
+// Shared site footer: newsletter subscribe form + legal links.
+// The form feeds the free newsletter list (new release announcements)
+// in the subscribers table. It is NOT the paid Book Club; the club
+// lives at /clubs and is linked separately below.
+// Rendered by the public pages (home, about, book pages, privacy,
+// terms) so the form and the Privacy / Terms links appear everywhere.
+//
+// The form asks for an optional first name (stored on the subscriber
+// row). The first-name field stays hidden until the visitor types in
+// the email field.
+//
+// Bot check, lazy by design: when TURNSTILE_SITE_KEY is set on the
+// worker, NOTHING from the Turnstile origin ships in the initial
+// HTML: no widget, no script tag. The visitor sees only the email
+// field and the Subscribe button. On submit, after the email passes
+// the client-side check, the Turnstile script loads on demand and
+// the widget renders inside a small modal; its success token goes
+// to /api/subscribe, which verifies it server-side whenever both
+// Turnstile keys are present. With no site key configured, the form
+// submits directly, exactly as it did before Turnstile existed.
+import { env } from "cloudflare:workers";
+const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
+---
+<style is:inline>body{overflow-x:clip}img{max-width:100%}</style>
+<style is:inline>
+  .newsletter-name-reveal{max-height:0;opacity:0;visibility:hidden;overflow:hidden;margin-bottom:-.5rem;transition:max-height .28s ease,opacity .28s ease,margin-bottom .28s ease,visibility 0s linear .28s}
+  .newsletter-name-reveal.open{max-height:4rem;opacity:1;visibility:visible;margin-bottom:0;transition:max-height .28s ease,opacity .28s ease,margin-bottom .28s ease,visibility 0s}
+  .newsletter-modal{display:none}
+  .newsletter-modal.open{display:flex}
+  @media (prefers-reduced-motion: reduce){.newsletter-name-reveal{transition:none}}
+</style>
+<footer class="border-t border-stone-200">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div class="max-w-md w-full">
+        <p class="text-sm font-semibold text-stone-900">New books, by email</p>
+        <p class="text-sm text-stone-500 mt-1">One short email when a new book lands. New releases and the occasional offer, nothing else.</p>
+        <form class="newsletter-form mt-3 flex flex-col gap-2" novalidate data-ts-key={turnstileSiteKey || undefined}>
+          <div class="newsletter-name-reveal" aria-hidden="true">
+            <label class="sr-only" for="newsletter-name">First name (optional)</label>
+            <input id="newsletter-name" name="name" type="text" placeholder="First name (optional)" autocomplete="given-name" maxlength="60" tabindex="-1"
+              class="w-full bg-stone-100 border border-transparent rounded-full px-4 py-2.5 sm:py-2 text-sm outline-none focus:bg-white focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20 transition" />
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <label class="sr-only" for="newsletter-email">Email address</label>
+            <input id="newsletter-email" name="email" type="email" required placeholder="you@example.com" autocomplete="email"
+              class="flex-1 min-w-0 w-full bg-stone-100 border border-transparent rounded-full px-4 py-2.5 sm:py-2 text-sm outline-none focus:bg-white focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20 transition" />
+            <button type="submit" class="shrink-0 w-full sm:w-auto rounded-full bg-orange-600 text-white text-sm font-semibold px-4 py-2.5 sm:py-2 hover:bg-orange-700 transition">Subscribe</button>
+          </div>
+        </form>
+        {turnstileSiteKey && (
+          <div class="newsletter-modal fixed inset-0 z-50 items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="newsletter-modal-title">
+            <div class="newsletter-modal-backdrop absolute inset-0 bg-stone-900/50"></div>
+            <div class="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+              <h2 id="newsletter-modal-title" class="text-base font-semibold text-stone-900">One quick check</h2>
+              <p class="text-sm text-stone-500 mt-1">This keeps the bots off the list.</p>
+              <div class="newsletter-ts-box mt-4 flex min-h-[65px] items-center justify-center"></div>
+              <p class="newsletter-modal-msg mt-3 hidden text-sm text-red-600" role="alert"></p>
+              <button type="button" class="newsletter-modal-cancel mt-4 w-full rounded-full border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 transition">Cancel</button>
+            </div>
+          </div>
+        )}
+        <p class="newsletter-msg text-sm mt-2 hidden" role="status"></p>
+        <p class="text-sm mt-3">Want printed sets mailed to you? <a href="/clubs/book-club" class="text-orange-700 font-medium hover:text-orange-800">See how the Book Club works</a></p>
+      </div>
+      <nav class="flex flex-wrap gap-x-5 gap-y-2 text-sm text-stone-500 shrink-0" aria-label="Footer">
+        <a href="/about" class="py-1 hover:text-stone-900">About</a>
+        <a href="/shipping" class="py-1 hover:text-stone-900">Shipping &amp; returns</a>
+        <a href="/contact" class="py-1 hover:text-stone-900">Contact</a>
+        <a href="/privacy" class="py-1 hover:text-stone-900">Privacy Policy</a>
+        <a href="/terms" class="py-1 hover:text-stone-900">Terms of Service</a>
+      </nav>
+    </div>
+    <div class="mt-6 pt-5 border-t border-stone-100 flex justify-between flex-wrap gap-2 text-sm text-stone-500">
+      <span>&copy; 2026 Big Brain Shelf</span>
+      <span>Big ideas for little brains.</span>
+    </div>
+  </div>
+</footer>
+
+<script is:inline>
+  // Bind every newsletter form on the page. Runs on first render and
+  // again on astro:page-load so the form keeps working after Astro
+  // view-transition navigations swap in a fresh footer; the per-form
+  // flag keeps a form from ever being bound twice.
+  // emailLooksRight mirrors the server rules in
+  // src/lib/email-validate.ts so the visitor sees the same verdict
+  // (and the same message) without a round trip; the server still
+  // validates strictly and its 400 message is shown if it disagrees.
+  function emailLooksRight(raw) {
+    var email = (raw || "").trim().toLowerCase();
+    if (!email || email.length > 254) return false;
+    var parts = email.split("@");
+    if (parts.length !== 2) return false;
+    var local = parts[0], domain = parts[1];
+    if (!local || local.length > 64) return false;
+    if (/\s/.test(local) || local.indexOf("..") !== -1) return false;
+    if (local.charAt(0) === "." || local.charAt(local.length - 1) === ".") return false;
+    if (!domain || /\s/.test(domain)) return false;
+    var labels = domain.split(".");
+    if (labels.length < 2) return false;
+    for (var i = 0; i < labels.length; i++) {
+      if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(labels[i])) return false;
+    }
+    return /^[a-z]{2,}$/.test(labels[labels.length - 1]);
+  }
+  // The Turnstile API script loads ONLY when a visitor submits with
+  // a valid email: a plain page view fetches nothing from the widget
+  // origin. The URL is assembled in pieces so the initial HTML of
+  // every page carries no reference to that origin at all. The load
+  // promise is shared on window so re-binding after a view
+  // transition never injects the script twice.
+  var TS_API_URL = "https://challenges" + ".cloudflare.com" + "/turnstile/v0/api.js?render=explicit";
+  function loadTurnstileApi() {
+    if (window.turnstile) return Promise.resolve(window.turnstile);
+    if (window.__bbsTsApiPromise) return window.__bbsTsApiPromise;
+    window.__bbsTsApiPromise = new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = TS_API_URL;
+      s.async = true;
+      s.onload = function () {
+        if (window.turnstile) { resolve(window.turnstile); return; }
+        window.__bbsTsApiPromise = null;
+        reject(new Error("turnstile unavailable"));
+      };
+      s.onerror = function () {
+        window.__bbsTsApiPromise = null;
+        reject(new Error("turnstile failed to load"));
+      };
+      document.head.appendChild(s);
+    });
+    return window.__bbsTsApiPromise;
+  }
+  function bindNewsletterForms() {
+    document.querySelectorAll(".newsletter-form").forEach(function (form) {
+      if (form.__newsletterBound) return;
+      form.__newsletterBound = true;
+      var wrap = form.parentElement;
+      var msg = wrap.querySelector(".newsletter-msg");
+      var input = form.querySelector("input[name=email]");
+      var nameInput = form.querySelector("input[name=name]");
+      var nameReveal = form.querySelector(".newsletter-name-reveal");
+      var btn = form.querySelector("button[type=submit]");
+      var modal = wrap.querySelector(".newsletter-modal");
+      var tsKey = form.getAttribute("data-ts-key") || "";
+      var widgetId = null;
+      var modalOpen = false;
+      var openSeq = 0;
+      var lastFocus = null;
+      function show(text, ok) {
+        msg.textContent = text;
+        msg.classList.remove("hidden", "text-red-600", "text-green-700");
+        msg.classList.add(ok ? "text-green-700" : "text-red-600");
+      }
+      // First name stays hidden until the email field is dirty, then
+      // expands once and stays (collapsing it again could hide a
+      // name the visitor already typed). A successful subscribe
+      // resets the form, so the field tucks away again there.
+      function revealName() {
+        if (!nameReveal || nameReveal.classList.contains("open")) return;
+        nameReveal.classList.add("open");
+        nameReveal.setAttribute("aria-hidden", "false");
+        if (nameInput) nameInput.removeAttribute("tabindex");
+      }
+      function collapseName() {
+        if (!nameReveal) return;
+        nameReveal.classList.remove("open");
+        nameReveal.setAttribute("aria-hidden", "true");
+        if (nameInput) nameInput.setAttribute("tabindex", "-1");
+      }
+      if (input) {
+        input.addEventListener("input", function () { if (input.value.length > 0) revealName(); });
+        input.addEventListener("change", function () { if (input.value.length > 0) revealName(); });
+      }
+      function doSubscribe(payload, token) {
+        if (token) payload.turnstile_token = token;
+        btn.disabled = true;
+        fetch("/api/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        }).then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; });
+        }).then(function (res) {
+          if (res.ok && res.d && res.d.ok) {
+            if (!res.d.already && window.bbsTraks) window.bbsTraks("newsletter_signup", {});
+            show(res.d.already ? "You are already on the list." : "You are on the list.", true);
+            form.reset();
+            collapseName();
+          } else {
+            show((res.d && res.d.error) || "Something went wrong. Please try again.", false);
+          }
+        }).catch(function () {
+          show("Something went wrong. Please try again.", false);
+        }).finally(function () { btn.disabled = false; });
+      }
+      // Modal bot check. The widget renders explicitly into the
+      // modal on open and is removed on close, so every submit gets
+      // a fresh challenge and a cancelled check leaves nothing
+      // behind. Tokens are single-use; the success callback is the
+      // only path that posts, and it closes the modal first.
+      function modalSay(text) {
+        if (!modal) return;
+        var m = modal.querySelector(".newsletter-modal-msg");
+        if (!text) { m.textContent = ""; m.classList.add("hidden"); return; }
+        m.textContent = text;
+        m.classList.remove("hidden");
+      }
+      function cleanupWidget() {
+        if (widgetId !== null && window.turnstile) {
+          try { window.turnstile.remove(widgetId); } catch (e) {}
+        }
+        widgetId = null;
+        if (modal) {
+          var box = modal.querySelector(".newsletter-ts-box");
+          if (box) box.innerHTML = "";
+        }
+      }
+      function onEscKey(e) { if (e.key === "Escape") closeModal(); }
+      function openModal(payload) {
+        // No modal markup means no site key was configured; post
+        // directly rather than trapping the visitor.
+        if (!modal || !tsKey) { doSubscribe(payload, ""); return; }
+        modalOpen = true;
+        var seq = ++openSeq;
+        lastFocus = document.activeElement;
+        modalSay("");
+        modal.classList.add("open");
+        document.addEventListener("keydown", onEscKey);
+        var cancel = modal.querySelector(".newsletter-modal-cancel");
+        if (cancel) cancel.focus();
+        loadTurnstileApi().then(function (ts) {
+          if (!modalOpen || seq !== openSeq) return;
+          widgetId = ts.render(modal.querySelector(".newsletter-ts-box"), {
+            sitekey: tsKey,
+            theme: "light",
+            callback: function (token) {
+              closeModal();
+              doSubscribe(payload, token);
+            },
+            "error-callback": function () {
+              modalSay("That check did not work. Close this and try again.");
+            },
+            "expired-callback": function () {
+              modalSay("That check expired. A fresh one is on its way.");
+              if (widgetId !== null) { try { ts.reset(widgetId); } catch (e) {} }
+            }
+          });
+        }).catch(function () {
+          if (modalOpen && seq === openSeq) {
+            modalSay("That check did not load. Close this and try again.");
+          }
+        });
+      }
+      function closeModal() {
+        if (!modal) return;
+        modalOpen = false;
+        openSeq++;
+        cleanupWidget();
+        modal.classList.remove("open");
+        document.removeEventListener("keydown", onEscKey);
+        if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} }
+        lastFocus = null;
+      }
+      if (modal) {
+        modal.querySelector(".newsletter-modal-cancel").addEventListener("click", closeModal);
+        modal.querySelector(".newsletter-modal-backdrop").addEventListener("click", closeModal);
+      }
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var email = (input.value || "").trim();
+        if (!emailLooksRight(email)) {
+          show("That email does not look right.", false);
+          return;
+        }
+        var payload = { email: email, source: "footer" };
+        var name = nameInput ? (nameInput.value || "").trim() : "";
+        if (name) payload.name = name;
+        if (tsKey) openModal(payload);
+        else doSubscribe(payload, "");
+      });
+    });
+  }
+  bindNewsletterForms();
+  document.addEventListener("astro:page-load", bindNewsletterForms);
+</script>
+
+{/* Back to top (CG, 2026-10-31): a quiet round button that fades in
+    after the first stretch of scrolling and rides above the book
+    page's sticky buy bar when that bar is on the page. Ships with
+    the footer so every public page gets it from one place. */}
+<button id="back-to-top" type="button" aria-label="Back to top" class="fixed right-4 z-40 w-11 h-11 rounded-full bg-[#1a3454] text-white shadow-[0_10px_24px_-8px_rgba(26,52,84,0.55)] flex items-center justify-center opacity-0 pointer-events-none translate-y-2 transition duration-200 active:scale-[0.95]" style="bottom: calc(1rem + env(safe-area-inset-bottom, 0px))">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5m-7 7 7-7 7 7"/></svg>
+</button>
+
+<script is:inline>
+  function bbsBackToTop() {
+    var btn = document.getElementById("back-to-top");
+    if (!btn || btn.__bttBound) return;
+    btn.__bttBound = true;
+    function place() {
+      var bar = document.getElementById("sticky-buy");
+      var wrap = bar ? bar.closest(".fixed") : null;
+      if (wrap && window.innerWidth < 640) {
+        btn.style.bottom = (wrap.offsetHeight + 12) + "px";
+      } else {
+        btn.style.bottom = "calc(1rem + env(safe-area-inset-bottom, 0px))";
+      }
+    }
+    function paint() {
+      var on = window.scrollY > 600;
+      btn.classList.toggle("opacity-0", !on);
+      btn.classList.toggle("pointer-events-none", !on);
+      btn.classList.toggle("translate-y-2", !on);
+    }
+    window.addEventListener("scroll", paint, { passive: true });
+    window.addEventListener("resize", place);
+    btn.addEventListener("click", function () {
+      var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    });
+    place();
+    paint();
+  }
+  bbsBackToTop();
+  document.addEventListener("astro:page-load", bbsBackToTop);
+</script>

@@ -1,0 +1,341 @@
+---
+import "../../styles/global.css";
+import AdminShell from "../../components/AdminShell.astro";
+import { env } from "cloudflare:workers";
+import { getAdminDashboard } from "../../lib/admin-dashboard";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+export const prerender = false;
+
+// SaaS-style overview (pass 4, 2026-10-29; mobile redesign round 3):
+// every number comes from getAdminDashboard against live D1 rows,
+// zeros included honestly. Layout follows the mobile-native rules:
+// 44px+ touch targets, feedback on press not release, hover styles
+// gated behind (hover: hover) and (pointer: fine), no tap highlight.
+const e = env as any;
+const nowSec = Math.floor(Date.now() / 1000);
+const d = await getAdminDashboard(e.DB, nowSec);
+// The "you just made money" line (CG, 2026-10-31): completed
+// orders and revenue over the last 24 hours, shown under the
+// 30-day revenue card.
+const dayRow = await e.DB.prepare(
+  `SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS cents
+   FROM orders WHERE status = 'complete' AND created_at >= ?`
+)
+  .bind(nowSec - 86400)
+  .first()
+  .catch(() => null);
+const orders24h = Number(dayRow?.n ?? 0);
+const revenue24hCents = Number(dayRow?.cents ?? 0);
+const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
+const fmtDate = (sec: number) =>
+  new Date(sec * 1000).toLocaleDateString("en-US", { timeZone: "America/Chicago", month: "short", day: "numeric" });
+const todayLabel = new Date(nowSec * 1000).toLocaleDateString("en-US", {
+  timeZone: "America/Chicago", month: "long", day: "numeric",
+});
+const clubTotal = d.audience.clubActiveByPlan.reduce((a, p) => a + p.count, 0);
+const clubPlanLabel = d.audience.clubActiveByPlan.map((p) => `${p.plan}: ${p.count}`).join(" · ");
+const attentionEmpty =
+  d.attention.brokenBooks.length === 0 && d.attention.booksAtGates === 0 &&
+  d.attention.boxesNeedAttention === 0 && d.attention.outboxFailed === 0 &&
+  d.attention.outboxPending === 0 && d.attention.reviewsPending === 0 &&
+  d.attention.uncastLeads.length === 0;
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, viewport-fit=cover" />
+  <title>Dashboard · Big Brain Shelf admin</title>
+  <style is:global>
+    html{-webkit-tap-highlight-color:transparent}
+    body{font-family:ui-sans-serif,system-ui,sans-serif;background:#fafaf9;color:#1c1917;margin:0}
+    .wrap{max-width:72rem;margin:0 auto;padding:1.75rem 1rem calc(4rem + env(safe-area-inset-bottom, 0px))}
+    h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 .25rem}
+    .card{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:20px;margin:16px 0;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .meta{color:#78716c;font-size:.88em}
+    a{color:#c2410c}
+
+    /* Stat row: exactly three across at every width, compact on phones. */
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 4px}
+    .stat{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:12px;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .stat .k{font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#a8a29e;margin:0;line-height:1.3}
+    .stat .v{font-size:1.45rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 .1rem;font-variant-numeric:tabular-nums}
+    .stat .s{font-size:.72rem;color:#78716c;margin:0;line-height:1.35}
+    @media (min-width:640px){
+      .stats{gap:14px}
+      .stat{padding:16px 18px}
+      .stat .k{font-size:.72rem;letter-spacing:.12em}
+      .stat .v{font-size:1.9rem}
+      .stat .s{font-size:.8rem}
+    }
+
+    /* Quick actions: slim pill row, now below the stats. */
+    .actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 2px}
+    .actions a{display:inline-flex;align-items:center;min-height:40px;background:#fff;border:1px solid #e7e5e4;border-radius:999px;padding:6px 16px;font-size:.85rem;font-weight:600;color:#44403c;text-decoration:none;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    .actions a:active{background:#f5f5f4;transform:scale(.97)}
+    @media (hover:hover) and (pointer:fine){
+      .actions a:hover{border-color:#d6d3d1;color:#1c1917}
+    }
+
+    .cols{display:grid;grid-template-columns:1fr;gap:0 20px}
+    @media (min-width:900px){
+      .cols{grid-template-columns:repeat(2,1fr)}
+    }
+
+    /* Section header: a tappable row through to the owning page. */
+    .sec-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;text-decoration:none;color:inherit;touch-action:manipulation}
+    .sec-head h2{font-size:1.15rem;margin:0}
+    .sec-head .viewall{font-size:.85rem;font-weight:600;color:#c2410c;white-space:nowrap}
+    a.sec-head:active{opacity:.55}
+    .card > h2{font-size:1.15rem;margin:0 0 4px;min-height:44px;display:flex;align-items:center}
+
+    /* Native list rows: label left, value right, 44px+ targets. */
+    .list{list-style:none;margin:0;padding:0}
+    .list > li{border-bottom:1px solid #f5f5f4}
+    .list > li:last-child{border-bottom:0}
+    .row{display:flex;align-items:center;gap:12px;min-height:52px;padding:9px 2px;color:inherit}
+    a.row{text-decoration:none;touch-action:manipulation}
+    a.row:active{background:#f5f5f4}
+    .row-main{flex:1;min-width:0}
+    .row-title{display:block;font-weight:600;font-size:.95rem}
+    .row-sub{display:block;color:#78716c;font-size:.82rem;margin-top:1px}
+    .row-count{font-weight:700;font-variant-numeric:tabular-nums;flex:none}
+    .row-side{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none}
+    .chev{color:#d6d3d1;font-size:1.35rem;line-height:1;flex:none}
+    .badge{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 7px;border-radius:999px;background:#fef2f2;color:#b91c1c;font-weight:800;font-size:.85rem;flex:none;font-variant-numeric:tabular-nums}
+    .ok{color:#78716c}
+
+    /* Fulfillment stages: a connected segmented stepper. */
+    .steps{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:10px 0 4px}
+    .step{background:#f5f5f4;border-radius:10px;padding:10px 6px 9px;text-align:center}
+    .step::before{content:"";display:block;height:4px;border-radius:2px;background:#e7e5e4;margin-bottom:9px}
+    .step.on::before{background:#ea580c}
+    .step .n{display:block;font-size:1.25rem;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+    .step .l{display:block;font-size:.7rem;font-weight:600;color:#78716c;margin-top:2px}
+
+    /* Recent order status chips. */
+    .chip{font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;background:#f5f5f4;color:#57534e;text-transform:capitalize}
+    .chip-complete{background:#ecfdf5;color:#047857}
+    .chip-pending{background:#fffbeb;color:#b45309}
+  </style>
+  </head>
+<body>
+  <AdminShell current="/admin" />
+  <main class="wrap">
+    <h1>Dashboard</h1>
+    <p class="meta">{todayLabel}</p>
+
+    <div class="stats">
+      <div class="stat">
+        <p class="k">Total orders</p>
+        <p class="v">{d.ordersTotal}</p>
+        <p class="s">{d.orders7d} in the last 7 days</p>
+      </div>
+      <div class="stat">
+        <p class="k">Pending fulfillment</p>
+        <p class="v">{d.pendingFulfillment.total}</p>
+        <p class="s">{d.pendingFulfillment.printedWaiting} printed waiting · {d.pendingFulfillment.boxesNeedAttention} boxes flagged</p>
+      </div>
+      <div class="stat">
+        <p class="k">Revenue, last 30 days</p>
+        <p class="v">{money(d.revenue30dCents)}</p>
+        <p class="s">Completed orders only{orders24h > 0 ? ` · ${money(revenue24hCents)} in the last 24 hours (${orders24h} ${orders24h === 1 ? "order" : "orders"})` : ""}</p>
+      </div>
+    </div>
+
+    <nav class="actions" aria-label="Quick actions">
+      <a href="/admin/orders">Orders</a>
+      <a href="/admin/club">Club</a>
+      <a href="/admin/books">Books</a>
+      <a href="/admin/reviews">Reviews</a>
+      <a href="/admin/books/new">+ New story</a>
+    </nav>
+
+    <div class="cols">
+      <div class="card">
+        <h2>Needs attention</h2>
+        <ul class="list">
+          {d.attention.brokenBooks.map((b) => (
+            <li>
+              <a class="row" href={`/admin/books/${b.adminSlug}`}>
+                <span class="badge">!</span>
+                <span class="row-main">
+                  <span class="row-title">{b.title}</span>
+                  <span class="row-sub">{b.state}</span>
+                </span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          ))}
+          {d.attention.booksAtGates > 0 && (
+            <li>
+              <a class="row" href="/admin/books">
+                <span class="badge">{d.attention.booksAtGates}</span>
+                <span class="row-main">
+                  <span class="row-title">Books held at a review gate</span>
+                  <span class="row-sub">Pilot approval, QA, or repair</span>
+                </span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          )}
+          {d.attention.boxesNeedAttention > 0 && (
+            <li>
+              <a class="row" href="/admin/club">
+                <span class="badge">{d.attention.boxesNeedAttention}</span>
+                <span class="row-main"><span class="row-title">Club boxes need attention</span></span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          )}
+          {d.attention.outboxFailed > 0 && (
+            <li>
+              <a class="row" href="/admin/orders">
+                <span class="badge">{d.attention.outboxFailed}</span>
+                <span class="row-main"><span class="row-title">Emails failed to send</span></span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          )}
+          {d.attention.outboxPending > 0 && (
+            <li>
+              <a class="row" href="/admin/orders">
+                <span class="badge">{d.attention.outboxPending}</span>
+                <span class="row-main"><span class="row-title">Emails waiting in the outbox</span></span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          )}
+          {d.attention.reviewsPending > 0 && (
+            <li>
+              <a class="row" href="/admin/reviews">
+                <span class="badge">{d.attention.reviewsPending}</span>
+                <span class="row-main"><span class="row-title">Reviews awaiting moderation</span></span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          )}
+          {d.attention.uncastLeads.map((b) => (
+            <li>
+              <a class="row" href="/admin/cast-gemini">
+                <span class="badge">!</span>
+                <span class="row-main">
+                  <span class="row-title">{b.title}</span>
+                  <span class="row-sub">Published, but {b.lead} has no cast voice yet</span>
+                </span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          ))}
+          {attentionEmpty && (
+            <li><div class="row"><span class="ok">Nothing needs attention right now.</span></div></li>
+          )}
+        </ul>
+      </div>
+
+      <div>
+        <div class="card">
+          <a class="sec-head" href="/admin/orders" aria-label="Fulfillment: view all orders">
+            <h2>Fulfillment</h2>
+            <span class="viewall">View all ›</span>
+          </a>
+          <p class="meta" style="margin-top:0">Printed orders by stage (completed orders only):</p>
+          <div class="steps" role="list" aria-label="Printed orders by fulfillment stage">
+            {d.fulfillment.printedByStatus.map((s) => (
+              <div class={s.count > 0 ? "step on" : "step"} role="listitem">
+                <span class="n">{s.count}</span>
+                <span class="l">{s.label}</span>
+              </div>
+            ))}
+          </div>
+          <ul class="list" style="margin-top:8px;border-top:1px solid #f5f5f4">
+            <li>
+              <a class="row" href="/admin/club">
+                <span class="row-main"><span class="row-title">Club boxes due in the next 7 days</span></span>
+                <span class="row-count">{d.fulfillment.boxesDue7d}</span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+        <div class="card">
+          <h2>Audience</h2>
+          <ul class="list">
+            <li>
+              <div class="row">
+                <span class="row-main"><span class="row-title">Newsletter subscribers</span></span>
+                <span class="row-count">{d.audience.subscribers}</span>
+              </div>
+            </li>
+            <li>
+              <a class="row" href="/admin/club">
+                <span class="row-main">
+                  <span class="row-title">Book Club members</span>
+                  <span class="row-sub">{clubTotal > 0 ? clubPlanLabel : "No paid members yet"}</span>
+                </span>
+                <span class="row-count">{clubTotal}</span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+            <li>
+              <a class="row" href="/admin/club">
+                <span class="row-main"><span class="row-title">Audio Club members</span></span>
+                <span class="row-count">{d.audience.audioClubActive}</span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <a class="sec-head" href="/admin/orders" aria-label="Recent orders: view all orders">
+        <h2>Recent orders</h2>
+        <span class="viewall">View all ›</span>
+      </a>
+      {d.recentOrders.length === 0 ? (
+        <p class="meta">No orders yet.</p>
+      ) : (
+        <ul class="list">
+          {d.recentOrders.map((o) => (
+            <li>
+              <a class="row" href="/admin/orders">
+                <span class="row-main">
+                  <span class="row-title">{o.items.join(", ") || "Items unavailable"}</span>
+                  <span class="row-sub">{fmtDate(o.createdAt)} · {o.email || "Guest"}</span>
+                </span>
+                <span class="row-side">
+                  <span class="row-count">{money(o.amountCents)}</span>
+                  <span class={`chip chip-${o.status}`}>{o.status}</span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+
+  </main>
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,439 @@
+---
+import "../../../styles/global.css";
+import AdminShell from "../../../components/AdminShell.astro";
+export const prerender = false;
+// Order detail, modeled on the Tailwind Plus "Order history"
+// template themed to the store (stone surfaces, brand orange, navy
+// #1a3454): a heading with the status as a real chip, a stone
+// summary band (Date placed | Order number | Total amount) whose
+// right-hand action is contextual (the fulfillment advance, or the
+// label PDF once bought), a products table with real cover
+// thumbnails, then the operator machinery below in the same themed
+// style: buyer card, fulfillment stepper + Shippo label flow,
+// per-order emails, and the muted order-details block last. Data
+// comes from /api/admin/orders?order_id=... (admin session
+// required); all actions reuse the same POST actions as the list.
+const orderId = String(Astro.params.id || "");
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Order · Big Brain Shelf Admin</title>
+  <!-- is:global on purpose: the page body is injected by the script
+       below, and Astro's scoped styles carry a data-astro-cid
+       attribute injected nodes never get, so scoped rules would
+       silently miss everything the script renders (the same defect
+       that shipped giant chip SVGs in the orders list). -->
+  <style is:global>
+    html{-webkit-tap-highlight-color:transparent}
+    .tap{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    .tap:active{background:#f5f5f4}
+    @media (hover:hover) and (pointer:fine){ .tap:hover{background:#fafaf9} }
+    .chip{display:inline-flex;align-items:center;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;background:#f5f5f4;color:#57534e;white-space:nowrap}
+    .chip-complete{background:#ecfdf5;color:#047857}
+    .chip-pending{background:#fffbeb;color:#b45309}
+    .chip-failed,.chip-refunded{background:#fef2f2;color:#b91c1c}
+    .chip-print{background:#eef4fb;color:#1a3454}
+    .chip-sent{background:#ecfdf5;color:#047857}
+    .chip-suppressed{background:#f5f5f4;color:#78716c}
+    .chip-lg{font-size:.78rem;padding:4px 11px}
+    .steps{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:10px 0 4px}
+    .step{background:#f5f5f4;border-radius:10px;padding:10px 6px 9px;text-align:center}
+    .step::before{content:"";display:block;height:4px;border-radius:2px;background:#e7e5e4;margin-bottom:9px}
+    .step.on::before{background:#ea580c}
+    .step .l{display:block;font-size:.72rem;font-weight:700;color:#78716c;margin-top:2px}
+    .card{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    input,select,textarea{font-size:16px}
+  </style>
+  </head>
+<body class="bg-stone-50 text-stone-900 antialiased">
+  <AdminShell current="/admin/orders" />
+
+  <main class="mx-auto max-w-6xl px-4 py-8" style="padding-bottom:calc(2rem + env(safe-area-inset-bottom, 0px))">
+    <a href="/admin/orders" class="tap inline-flex items-center min-h-[44px] text-sm font-semibold text-orange-700 no-underline">‹ All orders</a>
+    <div id="order-root">
+      <p class="text-stone-400 text-sm mt-2">Loading...</p>
+    </div>
+  </main>
+
+  <script is:inline define:vars={{ orderId }}>
+    var FLOW = ["preorder_received", "in_print", "packed", "shipped", "delivered"];
+    var LABELS = { preorder_received: "Received", in_print: "In print", packed: "Packed", shipped: "Shipped", delivered: "Delivered" };
+
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+    function money(cents) { return "$" + ((cents || 0) / 100).toFixed(2); }
+    function fmtWhen(ts) {
+      return new Date((ts || 0) * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    }
+    function fmtDateLong(ts) {
+      return new Date((ts || 0) * 1000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    }
+    function nextStatus(o) {
+      var i = FLOW.indexOf(o.physical_status || "preorder_received");
+      return i >= 0 && i < FLOW.length - 1 ? FLOW[i + 1] : null;
+    }
+    // Format chips: the shared system from the global stylesheet
+    // (.fchip + .fmt-* colors), with the owner's icon language:
+    // digital = book, printed = pencil, audio = headphones, gift
+    // set rides the printed family. Fixed width/height attributes
+    // on the SVGs as a second guard.
+    var ICONS = {
+      audio: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2.5" y="14" width="4" height="6.5" rx="1.6"/><rect x="17.5" y="14" width="4" height="6.5" rx="1.6"/></svg>',
+      digital: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.2C10.3 4.7 8.2 4.2 5 4.2v13.6c3.2 0 5.3.5 7 2 1.7-1.5 3.8-2 7-2V4.2c-3.2 0-5.3.5-7 2Z"/><path d="M12 6.2v13.6"/></svg>',
+      printed: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.9 3.9a2.05 2.05 0 0 1 2.9 0l.3.3a2.05 2.05 0 0 1 0 2.9L8.2 19l-4.2 1.1L5.1 15.9Z"/><path d="m14.7 6.1 3.2 3.2"/></svg>'
+    };
+    var FMT = {
+      audio: { cls: "fmt-audio", label: "Audio", icon: ICONS.audio },
+      digital: { cls: "fmt-digital", label: "Digital", icon: ICONS.digital },
+      printed: { cls: "fmt-printed", label: "Printed", icon: ICONS.printed },
+      giftset: { cls: "fmt-printed", label: "Gift set", icon: ICONS.printed }
+    };
+    function fchip(format) {
+      var f = FMT[format] || FMT.digital;
+      return '<span class="fchip ' + f.cls + '">' + f.icon + esc(f.label) + "</span>";
+    }
+    // Downloads card: the per-file download counts for this order
+    // (5 per purchased file, lib/download-guard) and support's reset.
+    // Books are named by title; file kinds get plain labels.
+    var FILE_KIND_LABELS = {
+      picture: "Story book PDF", coloring: "Coloring book PDF",
+      color: "Color edition PDF", epub: "EPUB", audiobook: "Audiobook file",
+    };
+    function downloadsHtml(data) {
+      if (!data || !data.order || data.order.status !== "complete") return "";
+      var counts = data.download_counts || [];
+      var limit = data.download_limit || 5;
+      if (!counts.length) {
+        return '<section class="card mt-4"><h2 class="font-bold">Downloads</h2>' +
+          '<p class="text-sm text-stone-400 mt-1">No downloads recorded for this order yet. Each purchased file allows ' + limit + ' downloads.</p></section>';
+      }
+      var rows = counts.map(function (c) {
+        return '<li class="py-2 border-b border-stone-100 last:border-0 flex flex-wrap items-center gap-x-2 gap-y-1">' +
+          '<span class="text-sm font-medium">' + esc(c.title) + '</span>' +
+          '<span class="text-sm text-stone-500">' + esc(FILE_KIND_LABELS[c.file_kind] || c.file_kind) + '</span>' +
+          '<span class="text-sm tabular-nums ' + (c.count >= c.limit ? 'text-red-600 font-semibold' : 'text-stone-500') + '">' + c.count + ' of ' + c.limit + '</span>' +
+        "</li>";
+      }).join("");
+      return '<section class="card mt-4"><h2 class="font-bold">Downloads</h2>' +
+        '<ul class="mt-1">' + rows + '</ul>' +
+        '<div class="mt-3"><button id="reset-downloads" class="tap rounded-lg border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">Reset downloads</button></div>' +
+      '</section>';
+    }
+    function parseAddr(o) {
+      var a = {};
+      try { a = JSON.parse(o.ship_address || "{}"); } catch (e) {}
+      return a;
+    }
+    // The label block: an existing label (PDF link, carrier, tracking,
+    // cost vs what the buyer was charged) or the rate/buy flow when
+    // Shippo is ready. Mirrors the pre-redesign list behavior exactly.
+    function labelHtml(o, shippo) {
+      if (!o.physical_status || o.status !== "complete") return "";
+      var quotedLine = "";
+      if (Number(o.shipping_cents || 0) > 0) {
+        var qvia = [o.quoted_carrier, o.quoted_service].filter(Boolean).join(" ");
+        quotedLine = '<p class="text-sm text-stone-500 mt-2">Shipping charged: ' + money(o.shipping_cents) +
+          (qvia ? " (" + esc(qvia) + ", quoted at checkout)" : "") + "</p>";
+      }
+      if (o.label_url) {
+        var serviceLine = [o.carrier, o.carrier_service].filter(Boolean).join(" ");
+        var costLine = "";
+        if (o.label_cost_cents != null) {
+          costLine = '<p class="text-sm text-stone-500 mt-1">Label cost ' + money(o.label_cost_cents) + "</p>";
+          if (Number(o.shipping_cents || 0) > 0 && Number(o.label_cost_cents) !== Number(o.shipping_cents)) {
+            var diff = Number(o.label_cost_cents) - Number(o.shipping_cents);
+            costLine += '<p class="text-sm mt-1 ' + (diff > 0 ? "text-amber-600 font-medium" : "text-stone-500") + '">Difference vs charged: ' +
+              (diff > 0 ? "+" : "-") + money(Math.abs(diff)) +
+              (diff > 0 ? " (label cost more than the buyer paid; store covers it)" : " (label cost less than the buyer paid)") + "</p>";
+          }
+        }
+        return '<div class="mt-3">' +
+          '<a class="tap inline-flex items-center rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 min-h-[44px] no-underline" href="' + esc(o.label_url) + '" target="_blank" rel="noopener">Print shipping label (PDF)</a>' +
+          (o.tracking_number ? '<p class="text-sm text-stone-600 mt-2">' + esc(serviceLine) + " · Tracking: <span class='font-mono text-[13px]'>" + esc(o.tracking_number) + "</span></p>" : "") +
+          costLine + "</div>" + quotedLine;
+      }
+      if (!shippo || !shippo.configured) return quotedLine + '<p class="text-sm text-stone-400 mt-2">Label buying is not set up yet (see the Shippo note on the orders page).</p>';
+      if (!shippo.originConfigured) return quotedLine + '<p class="text-sm text-stone-400 mt-2">Ship-from address not configured yet (see the checklist on the orders page).</p>';
+      if (!o.ship_address) return quotedLine + '<p class="text-sm text-stone-400 mt-2">No shipping address on this order.</p>';
+      return quotedLine + '<div class="mt-3 flex flex-wrap items-center gap-2"><button id="quote-label" class="tap rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 min-h-[44px]">Get shipping rate</button><span id="quote-slot" class="inline-block align-middle"></span></div>';
+    }
+
+    async function load() {
+      var root = document.getElementById("order-root");
+      var r = await fetch("/api/admin/orders?order_id=" + encodeURIComponent(orderId));
+      if (!r.ok) {
+        root.innerHTML = '<p class="text-stone-500 mt-2">This order could not be loaded.</p>';
+        return;
+      }
+      var data = await r.json();
+      var o = data.order;
+      var shippo = data.shippo || { configured: false, originConfigured: false, ready: false, missing: ["SHIPPO_API_KEY"] };
+      var a = parseAddr(o);
+      var addrLines = [o.ship_name, a.line1, a.line2, [a.city, a.state].filter(Boolean).join(", "), a.postal_code, a.country].filter(Boolean);
+      var next = nextStatus(o);
+      var stageIdx = FLOW.indexOf(o.physical_status || "preorder_received");
+      var steps = o.physical_status ? '<div class="steps">' + FLOW.map(function (s, i) {
+        return '<div class="step' + (i <= stageIdx ? " on" : "") + '"><span class="l">' + LABELS[s] + "</span></div>";
+      }).join("") + "</div>" : "";
+      // Products: structured groups (full title, format, count,
+      // cover, product link, unit price) from the API via
+      // items_detail; items_display strings are the fallback.
+      var groups = o.items_detail || [];
+      // Per-row status maps to the truth: a pending order awaits
+      // payment; printed rows ride the order's fulfillment stage
+      // (tracking rides along once shipped); digital and audio rows
+      // on a completed order live in the buyer's library.
+      function rowStatus(g) {
+        if (o.status !== "complete") return "Awaiting payment";
+        if (g && (g.format === "printed" || g.format === "giftset")) {
+          var lbl = LABELS[o.physical_status || "preorder_received"] || "Received";
+          if (o.physical_status === "shipped" && o.tracking_number) {
+            var via = [o.carrier, o.carrier_service].filter(Boolean).join(" ");
+            return lbl + '<span class="block text-xs text-stone-400 mt-0.5">Tracking ' + esc((via ? via + " " : "") + o.tracking_number) + "</span>";
+          }
+          return lbl;
+        }
+        return "In your library";
+      }
+      var productRows = groups.length
+        ? groups.map(function (g) {
+            var priceCell = g.unitCents != null
+              ? money(g.unitCents) + (g.count > 1 ? ' <span class="text-stone-400 font-normal">× ' + g.count + "</span>" : "")
+              : '<span class="text-stone-400">—</span>';
+            return "<tr>" +
+              '<td><div class="flex items-center gap-3 min-w-0">' +
+                (g.cover
+                  ? '<img src="' + esc(g.cover) + '" alt="" width="64" height="64" class="w-16 h-16 rounded-lg object-cover border border-stone-200 flex-none" loading="lazy">'
+                  : '<span class="w-16 h-16 rounded-lg bg-stone-100 border border-stone-200 flex-none"></span>') +
+                '<div class="min-w-0"><p class="font-semibold text-sm leading-snug">' + esc(g.title) + "</p>" +
+                  '<p class="mt-1.5 flex items-center gap-2">' + fchip(g.format) +
+                    '<span class="text-[13px] text-stone-500 tabular-nums sm:hidden">' + priceCell + "</span></p>" +
+                "</div></div></td>" +
+              '<td class="hidden sm:table-cell whitespace-nowrap font-semibold text-sm tabular-nums">' + priceCell + "</td>" +
+              '<td class="hidden sm:table-cell text-sm text-stone-600">' + rowStatus(g) + "</td>" +
+              '<td class="hidden sm:table-cell whitespace-nowrap text-sm">' +
+                (g.href ? '<a href="' + esc(g.href) + '" target="_blank" rel="noopener" class="font-semibold text-orange-700 hover:text-orange-800">View Product</a>' : "") +
+              "</td></tr>";
+          }).join("")
+        : (o.items_display && o.items_display.length)
+          ? o.items_display.map(function (t) {
+              return "<tr>" +
+                '<td><div class="flex items-center gap-3 min-w-0"><span class="w-16 h-16 rounded-lg bg-stone-100 border border-stone-200 flex-none"></span>' +
+                  '<p class="font-semibold text-sm leading-snug">' + esc(t) + "</p></div></td>" +
+                '<td class="hidden sm:table-cell text-sm text-stone-400">—</td>' +
+                '<td class="hidden sm:table-cell text-sm text-stone-600">' + rowStatus(null) + "</td>" +
+                '<td class="hidden sm:table-cell"></td></tr>';
+            }).join("")
+          : '<tr><td colspan="4" class="text-sm text-stone-400">Items unavailable</td></tr>';
+      var productsTable =
+        '<section class="orderblock mt-4"><table class="ptable"><thead class="hidden sm:table-header-group"><tr>' +
+          '<th scope="col">Product</th><th scope="col">Price</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Info</span></th>' +
+        "</tr></thead><tbody>" + productRows + "</tbody>" +
+        (Number(o.shipping_cents || 0) > 0
+          ? '<tfoot><tr><td colspan="4" class="text-sm text-stone-500">Shipping <span class="float-right font-semibold text-stone-900 tabular-nums">' + money(o.shipping_cents) + "</span></td></tr></tfoot>"
+          : "") +
+        "</table></section>";
+      // The band's action is contextual, never a dead button: the
+      // next fulfillment step while one applies, else the label PDF
+      // once bought, else nothing (the label flow also keeps its own
+      // button in the Fulfillment card below).
+      var bandAction = "";
+      if (o.status === "complete" && o.physical_status && next) {
+        bandAction = '<button id="advance" class="tap rounded-full bg-orange-600 text-white text-sm font-bold px-5 min-h-[44px]">Mark ' + LABELS[next] + "</button>";
+      } else if (o.label_url) {
+        bandAction = '<a class="tap inline-flex items-center rounded-full bg-[#1a3454] text-white text-sm font-semibold px-5 min-h-[44px] no-underline" href="' + esc(o.label_url) + '" target="_blank" rel="noopener">Print shipping label (PDF)</a>';
+      }
+      // Buyer card body: name and email first, address when there is
+      // one; a guest with nothing on file gets one quiet line.
+      var buyerBody;
+      if (addrLines.length) {
+        buyerBody =
+          (o.ship_name ? '<p class="text-sm font-semibold mt-1">' + esc(o.ship_name) + "</p>" : "") +
+          '<p class="text-sm mt-0.5">' + esc(o.email || "(guest)") + "</p>" +
+          '<p class="text-sm text-stone-600 mt-2 leading-relaxed">' + addrLines.filter(function (l) { return l !== o.ship_name; }).map(esc).join("<br>") + "</p>";
+      } else if (o.email) {
+        buyerBody = '<p class="text-sm mt-1">' + esc(o.email) + '</p>' +
+          '<p class="text-sm text-stone-400 mt-1">No shipping address. Nothing to ship for this order.</p>';
+      } else {
+        buyerBody = '<p class="text-sm text-stone-400 mt-1">Guest checkout. No email or address on file.</p>';
+      }
+      // Stage buttons: every forward stage from here, in the
+      // template styling. The next stage is the orange primary; the
+      // rest are quiet outline buttons for the operator who is
+      // catching up (print, pack, hand off in one visit). Buying a
+      // label never moves the stage on its own (owner, 2026-10-29):
+      // these buttons are how packed and shipped actually happen.
+      var stageBtns = "";
+      if (o.physical_status) {
+        var fwd = FLOW.slice(stageIdx + 1);
+        if (fwd.length) {
+          stageBtns = '<div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Update fulfillment stage">' + fwd.map(function (s, i) {
+            return '<button data-stage="' + s + '" class="tap rounded-lg text-sm px-4 min-h-[44px] ' + (i === 0 ? "bg-orange-600 text-white font-bold" : "border border-stone-300 bg-white font-semibold") + '">Mark ' + LABELS[s] + "</button>";
+          }).join("") + "</div>";
+        }
+      }
+      var emails = (data.emails || []).map(function (m) {
+        return '<li class="py-2.5 border-b border-stone-100 last:border-0 flex flex-wrap items-center gap-x-2 gap-y-1">' +
+          '<span class="text-sm font-medium capitalize">' + esc(String(m.kind || "email").replace(/_/g, " ")) + '</span>' +
+          '<span class="chip chip-' + esc(m.status) + '">' + esc(m.status) + "</span>" +
+          '<span class="text-xs text-stone-400">' + fmtWhen(m.sent_at || m.created_at) + (m.attempts > 1 ? " · " + m.attempts + " attempts" : "") + "</span>" +
+          (m.last_error ? '<span class="w-full text-xs text-red-600">' + esc(m.last_error) + "</span>" : "") +
+        "</li>";
+      }).join("");
+      root.innerHTML =
+        '<div class="flex flex-wrap items-center gap-2.5 mt-1">' +
+          '<h1 class="text-[1.7rem] font-extrabold tracking-tight">' + esc(o.short_id || o.id) + "</h1>" +
+          '<span class="chip chip-lg chip-' + esc(o.status) + '">' + esc(o.status) + "</span>" +
+          (o.physical_status ? '<span class="chip chip-lg chip-print">' + esc(LABELS[o.physical_status] || o.physical_status) + "</span>" : "") +
+        "</div>" +
+
+        (o.status === "pending"
+          ? '<p class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"><strong>Checkout never completed.</strong> This order is unpaid, so nothing ships and nothing delivers until payment lands.</p>'
+          : "") +
+
+        // Summary band: Date placed | Order number | Total amount,
+        // with the contextual operator action at the right.
+        '<div class="orderband mt-4 flex flex-wrap items-center gap-x-8 gap-y-3">' +
+          '<dl class="grid grid-cols-3 gap-x-8 gap-y-2 flex-1 min-w-[240px]">' +
+            "<div><dt>Date placed</dt><dd>" + fmtDateLong(o.created_at) + "</dd></div>" +
+            "<div><dt>Order number</dt><dd>" + esc(o.short_id || o.id) + "</dd></div>" +
+            "<div><dt>Total amount</dt><dd>" + money(o.amount) + "</dd></div>" +
+          "</dl>" + bandAction +
+        "</div>" +
+
+        '<section class="card mt-4"><h2 class="font-bold">Buyer</h2>' + buyerBody + "</section>" +
+
+        productsTable +
+
+        (o.status !== "complete" ? "" :
+          o.physical_status ?
+          '<section class="card mt-4" id="label"><h2 class="font-bold">Fulfillment</h2>' + steps + stageBtns +
+            (o.tracking_status ? '<p class="text-sm text-stone-600 mt-2">Carrier status: ' + esc(o.tracking_status) + "</p>" : "") +
+            (o.tracking_number && !o.label_url ? '<p class="text-sm text-stone-600 mt-2">Tracking: <span class="font-mono text-[13px]">' + esc(([o.carrier, o.carrier_service].filter(Boolean).join(" ") + " " + o.tracking_number).trim()) + "</span></p>" : "") +
+            labelHtml(o, shippo) +
+          "</section>" :
+          '<section class="card mt-4"><h2 class="font-bold">Fulfillment</h2>' +
+            '<p class="text-sm text-stone-500 mt-1">Digital order. It was delivered automatically when payment completed, so there is nothing to pack or ship.</p>' +
+          "</section>") +
+
+        downloadsHtml(data) +
+
+        '<section class="card mt-4"><h2 class="font-bold">Emails for this order</h2>' +
+          (emails ? '<ul class="mt-1">' + emails + "</ul>" : '<p class="text-sm text-stone-400 mt-1">No emails recorded for this order yet.</p>') +
+        "</section>" +
+
+        // Reference data, deliberately last and quiet: the full id
+        // and the Stripe session reference in small monospace.
+        '<div class="mt-6 px-1 text-[11px] leading-relaxed text-stone-400">' +
+          '<p class="font-bold uppercase tracking-wider text-[10px]">Order details</p>' +
+          '<p class="font-mono break-all mt-1">Order ID: ' + esc(o.id) + "</p>" +
+          (o.stripe_session_id ? '<p class="font-mono break-all">Stripe session: ' + esc(o.stripe_session_id) + "</p>" : "") +
+        "</div>";
+
+      root.querySelectorAll("[data-stage]").forEach(function (b) {
+        b.addEventListener("click", async function () {
+          b.disabled = true;
+          b.textContent = "Saving...";
+          await fetch("/api/admin/orders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "set_physical_status", order_id: o.id, status: b.getAttribute("data-stage") }),
+          });
+          load();
+        });
+      });
+      var resetBtn = document.getElementById("reset-downloads");
+      if (resetBtn) resetBtn.addEventListener("click", async function () {
+        resetBtn.disabled = true;
+        resetBtn.textContent = "Resetting...";
+        await fetch("/api/admin/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "reset_downloads", order_id: o.id }),
+        });
+        load();
+      });
+      // Deep link from the orders table's Print label menu item:
+      // land on the fulfillment card.
+      if (window.location.hash === "#label") {
+        var sec = document.getElementById("label");
+        if (sec) sec.scrollIntoView({ block: "start" });
+      }
+      var adv = document.getElementById("advance");
+      if (adv) adv.addEventListener("click", async function () {
+        adv.disabled = true;
+        adv.textContent = "Saving...";
+        await fetch("/api/admin/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "set_physical_status", order_id: o.id, status: next }),
+        });
+        load();
+      });
+      var qBtn = document.getElementById("quote-label");
+      if (qBtn) qBtn.addEventListener("click", async function () {
+        var slot = document.getElementById("quote-slot");
+        qBtn.disabled = true;
+        qBtn.textContent = "Getting rate...";
+        var resp = await fetch("/api/admin/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "label_quote", order_id: o.id }),
+        });
+        var out = await resp.json().catch(function () { return {}; });
+        if (!resp.ok || !out.ok || !out.quote) {
+          qBtn.textContent = "Get shipping rate";
+          qBtn.disabled = false;
+          alert(out.error || "Could not get rates for this order.");
+          return;
+        }
+        var q = out.quote;
+        qBtn.classList.add("hidden");
+        slot.innerHTML = '<span class="text-sm text-stone-600">' +
+          esc(q.carrier) + " " + esc(q.service) + " · $" + Number(q.amount).toFixed(2) +
+          (q.estimatedDays != null ? " · about " + q.estimatedDays + " days" : "") +
+          (q.stored ? " · the rate quoted at checkout" : "") +
+          (q.twoDay === false ? '<span class="block text-sm text-amber-700 font-medium">No 2-day rate for this address; using the cheapest USPS/UPS option.</span>' : "") +
+          '</span> <span class="inline-flex flex-wrap gap-2 mt-2"><button id="confirm-label" class="tap rounded-lg bg-orange-600 text-white text-sm font-bold px-4 min-h-[44px]">Buy this label</button>' +
+          ' <button id="cancel-label" class="tap rounded-lg border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">Cancel</button></span>';
+        document.getElementById("cancel-label").addEventListener("click", function () { load(); });
+        document.getElementById("confirm-label").addEventListener("click", async function () {
+          var btn = document.getElementById("confirm-label");
+          btn.disabled = true;
+          btn.textContent = "Buying label...";
+          var resp2 = await fetch("/api/admin/orders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "buy_label", order_id: o.id, shipment_id: q.shipmentId, rate_id: q.rateId }),
+          });
+          var out2 = await resp2.json().catch(function () { return {}; });
+          if (!resp2.ok || !out2.ok) {
+            btn.disabled = false;
+            btn.textContent = "Buy this label";
+            alert(out2.error || "Label purchase failed.");
+            return;
+          }
+          load();
+        });
+      });
+    }
+    load();
+  </script>
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

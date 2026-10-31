@@ -1,0 +1,72 @@
+// Book-page chrome strings, Spanish.
+//
+// Placeholder-grade store chrome for the /es proof route: these are
+// the labels the localized book page renders, written once here so the
+// template pack produced by the factory translation pilot (the shared
+// tpl.* segments, translated once per language) can replace them value
+// for value when it lands. Book CONTENT (title, chapters, glossary,
+// back cover) does not live here; it comes from the book's stored i18n
+// package in R2 (src/lib/i18n.ts).
+
+import type { BookPageStrings } from "./en";
+
+export const BOOK_PAGE_STRINGS_ES: BookPageStrings = {
+  editionBadge: "Edición en español",
+  formatsHeading: "Formatos",
+  digitalLabel: "Descarga digital",
+  printLabel: "Libro impreso",
+  audioLabel: "Solo audiolibro",
+  giftSetLabel: "Set de regalo",
+  notAvailableButton: "Próximamente",
+  chaptersHeading: "Capítulos",
+  chapterLabel: "Capítulo {n}",
+  glossaryHeading: "Palabras para conocer",
+  backCoverHeading: "De la contraportada",
+  englishVersionLabel: "Ver esta página en inglés",
+  backToShelf: "Volver al estante",
+  publishedPrefix: "Publicado el",
+  includesPicture: "Libro de cuentos (libro ilustrado a todo color, para leer en voz alta)",
+  includesColoring: "Libro para colorear (cada página lista para colorear)",
+  includesEbook: "Libro electrónico (el archivo del cuento para tableta, lector electrónico o teléfono)",
+  includesAudio: "Audiolibro (el cuento completo, leído en voz alta)",
+  includesAriaLabel: "Lo que incluye este libro",
+  chipStory: "Libro ilustrado",
+  chipColoring: "Libro para colorear",
+  chipAudio: "Audiolibro",
+  coverAltWord: "portada",
+  availableSoon: "Disponible pronto.",
+  formatPickerLabel: "Elige el formato",
+  reviewOne: "reseña",
+  reviewMany: "reseñas",
+  basedOnPrefix: "Basado en",
+  reviewsHeading: "Reseñas de lectores",
+  verifiedPurchase: "Compra verificada",
+  noReviews: "Aún no hay reseñas. Sé la primera persona en compartir lo que pensó tu lector.",
+  readerPhotoAlt: "Foto de un lector",
+  reviewPromptHeading: "¿Ya lo leyeron?",
+  signInLabel: "Inicia sesión",
+  reviewPromptTail: " para escribir una reseña.",
+  reviewFormHeading: "Escribe una reseña",
+  reviewIntroOwner: "Tienes este libro, así que tu reseña llevará la insignia de Compra verificada.",
+  reviewIntroGuest: "Una persona real revisa las reseñas antes de que aparezcan, así que la tuya se mostrará aquí cuando sea aprobada.",
+  reviewNameLabel: "Tu nombre",
+  reviewRatingLabel: "Tu calificación",
+  reviewRating5: "5 estrellas: nos encanta",
+  reviewRating4: "4 estrellas: muy bueno",
+  reviewRating3: "3 estrellas: estuvo bien",
+  reviewRating2: "2 estrellas: no fue para nosotros",
+  reviewRating1: "1 estrella: no nos gustó",
+  reviewTitleLabel: "Título",
+  reviewTitlePlaceholder: "La parte que mi hijo pide una y otra vez",
+  reviewBodyLabel: "Tu reseña",
+  reviewBodyPlaceholder: "¿Qué pensó tu lector? ¿Qué le quedó grabado?",
+  reviewPhotosLabel: "Fotos (hasta 4, 10 MB cada una)",
+  reviewVideoLabel: "Video (uno, hasta 50 MB)",
+  reviewSubmitLabel: "Enviar reseña",
+  yourReviewHeading: "Tu reseña",
+  yourReviewPending: "Gracias por escribirla. Tu reseña está en la fila y aparecerá aquí cuando sea aprobada.",
+  yourReviewApproved: "Tu reseña ya está publicada en esta página. Gracias.",
+  yourReviewRejected: "Tu reseña anterior no fue aprobada, así que no aparece aquí.",
+  reviewThanksMsg: "Gracias. Tu reseña está en la fila y aparecerá aquí cuando sea aprobada.",
+  reviewErrorMsg: "Algo salió mal. Inténtalo de nuevo.",
+};

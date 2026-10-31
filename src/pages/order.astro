@@ -1,0 +1,305 @@
+---
+import "../styles/global.css";
+import SiteHeader from "../components/SiteHeader.astro";
+import CartSheet from "../components/CartSheet.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+import Tracking from "../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../components/TransitionHooks.astro";
+import SeoHead from "../components/SeoHead.astro";
+import { env } from "cloudflare:workers";
+import { loadBooksForOrder, buildConfirmationEmailModel, parseItems, shortOrderId } from "../lib/orders";
+import { publicSlugFor } from "../lib/public-slugs";
+import { coverDerivative, MEDIA_PUBLIC } from "../lib/derivatives";
+import { AUDIO_PRICE_CENTS, GIFT_SET_PRICE_CENTS } from "../lib/offers";
+import { getAuth } from "../lib/auth";
+import FormatChip from "../components/FormatChip.astro";
+export const prerender = false;
+
+// Guest order page. A guest checkout's Stripe success URL lands here
+// with the order's delivery_token; the token is the credential (the
+// same trust model as the emailed download links), so no account is
+// needed. Signed-in buyers land in /account instead and never need
+// this page, though their token links work here too.
+//
+// States: pending (payment still confirming; the page reloads itself
+// until the webhook lands), complete (items + download links +
+// shipping summary), anything else (a plain not-ready message).
+const SITE = (env as any).BETTER_AUTH_URL || "https://bigbrainshelf.com";
+const token = String(Astro.url.searchParams.get("token") || "");
+let order: any = null;
+if (token) {
+  try {
+    order = await (env.DB as any)
+      .prepare("SELECT * FROM orders WHERE delivery_token = ?")
+      .bind(token)
+      .first();
+  } catch { order = null; }
+}
+const complete = order?.status === "complete";
+const pending = order?.status === "pending";
+let model: ReturnType<typeof buildConfirmationEmailModel> | null = null;
+if (complete) {
+  const books = await loadBooksForOrder(env.DB as any, order);
+  model = buildConfirmationEmailModel(SITE, order, books);
+}
+const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
+
+// The completed state renders as the store's order block (the
+// Tailwind Plus "Order history" pattern): a stone summary band and
+// a products table with real cover thumbnails. Rows group the
+// order's items by book + format; per-row status maps to the truth
+// (printed rows ride the fulfillment stage, everything else is in
+// the buyer's library; this page only renders completed orders, so
+// nothing here is "awaiting payment"). The band's action is "Go to
+// my library" for a signed-in buyer and nothing for a guest: no
+// dead buttons.
+const STAGE_LABELS: Record<string, string> = {
+  preorder_received: "Received",
+  in_print: "In print",
+  packed: "Packed",
+  shipped: "Shipped",
+  delivered: "Delivered",
+};
+interface OrderProductRow {
+  title: string;
+  cover: string | null;
+  href: string;
+  format: string;
+  count: number;
+  unitCents: number | null;
+  status: string;
+  trackingNote: string | null;
+}
+let productRows: OrderProductRow[] = [];
+let purchaseTraksEvent: { name: string; props: Record<string, string>; value: number; onceKey: string } | null = null;
+let signedIn = false;
+let placedLabel = "";
+if (complete && order) {
+  placedLabel = new Date(Number(order.created_at || 0) * 1000).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  try {
+    const session = await getAuth().api.getSession({ headers: Astro.request.headers });
+    signedIn = !!session?.user;
+  } catch { signedIn = false; }
+  const parsed = parseItems(order);
+  // A guest checkout's Stripe success lands here, so the completed
+  // state is the guest purchase's truest fire point. Same shape as
+  // the account landing: format mix only, once-guarded per order so
+  // the tracking visits printed buyers make never re-count the sale.
+  {
+    const formats = [...new Set(parsed.map((i: any) => String(i.format || "digital")))].sort();
+    purchaseTraksEvent = {
+      name: "purchase",
+      props: {
+        format_mix: formats.join("+") || "digital",
+        has_printed: formats.some((f) => f === "printed" || f === "giftset") ? "yes" : "no",
+      },
+      value: Math.round(Number(order.amount || 0)) / 100,
+      onceKey: String(order.id || ""),
+    };
+  }
+  const slugs = [...new Set(parsed.map((i) => i.slug))];
+  const bookRows = new Map<string, any>();
+  if (slugs.length) {
+    const ph = slugs.map(() => "?").join(",");
+    const rows = await (env.DB as any)
+      .prepare(`SELECT slug, title, cover_key, price, price_print, public_slug FROM books WHERE slug IN (${ph})`)
+      .bind(...slugs)
+      .all();
+    for (const r of rows.results || []) bookRows.set(String(r.slug), r);
+  }
+  const stage = STAGE_LABELS[String(order.physical_status || "preorder_received")] || "Received";
+  const trackingNote =
+    order.physical_status === "shipped" && order.tracking_number
+      ? ["Tracking", [order.carrier, order.carrier_service].filter(Boolean).join(" "), order.tracking_number].filter(Boolean).join(" ")
+      : null;
+  const byKey = new Map<string, OrderProductRow>();
+  for (const item of parsed) {
+    const key = item.slug + "|" + item.format;
+    const existing = byKey.get(key);
+    if (existing) { existing.count += 1; continue; }
+    const book = bookRows.get(item.slug);
+    const title = String(book?.title || "Big Brain Shelf book");
+    const pub = book ? publicSlugFor(book) : "";
+    let unitCents: number | null = null;
+    if (book) {
+      if (item.format === "printed") unitCents = book.price_print != null ? Number(book.price_print) : null;
+      else if (item.format === "giftset") unitCents = GIFT_SET_PRICE_CENTS;
+      else if (item.format === "audio") unitCents = AUDIO_PRICE_CENTS;
+      else if (item.price != null) unitCents = Number(item.price);
+      // Digital bundle: the sticker price already includes the
+      // audiobook. (This used to subtract the audio price and
+      // showed a $7.00 row under an $8.99 total; caught on the
+      // 2026-10-31 test order.)
+      else if (book.price != null) unitCents = Number(book.price);
+    }
+    const physical = item.format === "printed" || item.format === "giftset";
+    byKey.set(key, {
+      title,
+      cover: book
+        ? coverDerivative(item.slug, "card", book.cover_key) || (book.cover_key ? MEDIA_PUBLIC + book.cover_key : null)
+        : null,
+      href: book ? (item.format === "audio" ? `/audiobooks/${pub}` : `/books/${pub}`) : "/",
+      format: item.format,
+      count: 1,
+      unitCents,
+      status: physical ? stage : "In your library",
+      trackingNote: physical ? trackingNote : null,
+    });
+  }
+  productRows = [...byKey.values()];
+}
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  {pending && <meta http-equiv="refresh" content="6" />}
+  <title>Your order · Big Brain Shelf</title>
+  <SeoHead title="Your order · Big Brain Shelf" />
+  <ClientRouter />
+  <TransitionHooks />
+  <Tracking traksEvent={purchaseTraksEvent} />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+
+  <main class="max-w-3xl mx-auto px-4 py-10">
+    {!order && (
+      <div class="text-center py-16">
+        <h1 class="text-2xl font-bold tracking-tight">We could not find that order</h1>
+        <p class="text-stone-500 text-sm mt-3">The link may be incomplete. Your download links are also in your order email, and those links do not expire.</p>
+        <a href="/" class="inline-block mt-6 rounded-lg bg-orange-600 text-white text-sm font-semibold px-5 py-2.5 hover:bg-orange-700">Browse the shelf</a>
+      </div>
+    )}
+
+    {order && pending && (
+      <div class="text-center py-16">
+        <h1 class="text-2xl font-bold tracking-tight">Thank you. Your payment is being confirmed.</h1>
+        <p class="text-stone-500 text-sm mt-3">This page refreshes on its own. As soon as your payment lands, your download links appear here. They are also on their way to your email.</p>
+      </div>
+    )}
+
+    {order && !pending && !complete && (
+      <div class="text-center py-16">
+        <h1 class="text-2xl font-bold tracking-tight">This order is not ready</h1>
+        <p class="text-stone-500 text-sm mt-3">If you just paid, give it a moment and open the link from your order email. If something looks wrong, reply to that email and we will sort it out.</p>
+      </div>
+    )}
+
+    {order && complete && model && (
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">Your order is ready</h1>
+        <p class="text-stone-500 text-sm mt-2">Thank you for your order from Big Brain Shelf. These links are yours and they do not expire. A copy is in your email too.</p>
+
+        <div class="orderband mt-6 flex flex-wrap items-center gap-x-8 gap-y-3">
+          <dl class="grid grid-cols-3 gap-x-8 gap-y-2 flex-1 min-w-[240px]">
+            <div><dt>Date placed</dt><dd>{placedLabel}</dd></div>
+            <div><dt>Order number</dt><dd>{shortOrderId(order.id)}</dd></div>
+            <div><dt>Total amount</dt><dd>{money(order.amount)}</dd></div>
+          </dl>
+          {signedIn && (
+            <a href="/account" class="inline-flex items-center justify-center min-h-[44px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition duration-100 active:scale-[0.97]">Go to my library</a>
+          )}
+        </div>
+
+        <section class="orderblock mt-4">
+          <table class="ptable">
+            <thead class="hidden sm:table-header-group">
+              <tr>
+                <th scope="col">Product</th>
+                <th scope="col">Price</th>
+                <th scope="col">Status</th>
+                <th scope="col"><span class="sr-only">Info</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {productRows.map((r) => (
+                <tr>
+                  <td>
+                    <div class="flex items-center gap-3 min-w-0">
+                      {r.cover
+                        ? <img src={r.cover} alt="" width="64" height="64" class="w-16 h-16 rounded-lg object-cover border border-stone-200 flex-none" loading="lazy" />
+                        : <span class="w-16 h-16 rounded-lg bg-stone-100 border border-stone-200 flex-none"></span>}
+                      <div class="min-w-0">
+                        <p class="font-semibold text-sm leading-snug">{r.title}</p>
+                        <p class="mt-1.5 flex items-center gap-2">
+                          <FormatChip format={r.format} />
+                          <span class="text-[13px] text-stone-500 tabular-nums sm:hidden">{r.unitCents != null ? money(r.unitCents) : ""}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="hidden sm:table-cell whitespace-nowrap font-semibold text-sm tabular-nums">
+                    {r.unitCents != null ? money(r.unitCents) : <span class="text-stone-400">—</span>}
+                    {r.count > 1 && <span class="text-stone-400 font-normal"> × {r.count}</span>}
+                  </td>
+                  <td class="hidden sm:table-cell text-sm text-stone-600">
+                    {r.status}
+                    {r.trackingNote && <span class="block text-xs text-stone-400 mt-0.5">{r.trackingNote}</span>}
+                  </td>
+                  <td class="hidden sm:table-cell whitespace-nowrap text-sm">
+                    <a href={r.href} class="font-semibold text-orange-700 hover:text-orange-800">View Product</a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            {model.shipping && (
+              <tfoot>
+                <tr>
+                  <td colspan="4" class="text-sm text-stone-500">
+                    Shipping{model.shipping.carrier || model.shipping.service ? ` (${[model.shipping.carrier, model.shipping.service].filter(Boolean).join(" ")})` : ""}
+                    <span class="float-right font-semibold text-stone-900 tabular-nums">{money(model.shipping.cents)}</span>
+                  </td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </section>
+
+        {model.downloads.length > 0 && (
+          <div class="mt-8">
+            <h2 class="text-base font-bold tracking-tight">Your downloads</h2>
+            {model.downloads.map((d) => (
+              <div class="mt-4">
+                <p class="text-sm font-semibold">{d.title}</p>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  {d.links.map((l) => (
+                    <a href={l.url} class="rounded-full bg-stone-100 hover:bg-stone-200 text-sm font-medium px-4 py-2 transition">{l.label}</a>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <p class="text-xs text-stone-400 mt-4">For your family's personal use.</p>
+          </div>
+        )}
+
+        {model.printed && (
+          <p class="text-sm text-stone-500 mt-8">
+            {model.giftsetOnly
+              ? "About your gift set: it is being made, the printed storybook and the printed coloring book prepared together. We will email you when it is being printed, when it ships, and when it is delivered. The digital files above are yours to enjoy right away."
+              : "About your printed book: it is being made. We will email you when it is being printed, when it ships, and when it is delivered. The digital files above are yours to enjoy right away."}
+          </p>
+        )}
+      </div>
+    )}
+  </main>
+
+  <SiteFooter />
+<!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+<CartSheet />
+
+</body>
+</html>

@@ -1,0 +1,283 @@
+/* Big Brain Shelf global stylesheet: Tailwind CSS v4, compiled at build
+   time by the @tailwindcss/vite plugin (see astro.config.mjs).
+ *
+ * This replaces the @tailwindcss/browser runtime CDN script that every
+ * page used to carry. The runtime compiler generated its <style> element
+ * in the live document, and Astro's ClientRouter page swaps dropped or
+ * stranded it, so soft-navigated pages rendered unstyled until a hard
+ * refresh reran the compiler. A real build-time stylesheet asset is
+ * linked from every page head and survives view transitions like any
+ * other static asset, so styling no longer depends on a runtime
+ * compiler at all.
+ *
+ * The explicit @source directives pin content detection to the source
+ * tree (every .astro page, component, and script string in src/, plus
+ * the React Email templates) instead of relying on automatic detection
+ * heuristics.
+ */
+@import "tailwindcss";
+
+@source "..";
+@source "../../emails";
+
+/* Fredoka, self-hosted (the display face for the hero and cast
+ * headings). It used to load from Google Fonts, whose stylesheet was
+ * the page's top render-blocker (~780ms on mobile): one cross-origin
+ * CSS fetch stood in front of every Fredoka paint. The font is a
+ * variable file, so one woff2 per subset covers weights 500-700; the
+ * subsets and unicode ranges mirror what Google served. Pages that
+ * paint Fredoka above the fold preload the latin file. */
+@font-face {
+  font-family: "Fredoka";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url("/fonts/fredoka-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Fredoka";
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url("/fonts/fredoka-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* View transitions (react-view-transitions skill, adapted to Astro).
+ *
+ * The skill's recipe layer: shared timing variables, fade and slide
+ * keyframes, directional root animations keyed off the nav-forward /
+ * nav-back / nav-lateral classes that components/TransitionHooks.astro
+ * stamps on both documents at astro:before-swap, shared-element morph
+ * tuning for the book covers (view-transition-name: book-cover-<slug>,
+ * set on the home and audio shelf cards and on the book and
+ * audiobook detail covers; merch cards carry no name, because they
+ * navigate nowhere and only stranded exit groups on tab switches), and the
+ * reduced-motion recipe. Animate only what communicates continuity:
+ * covers morph because they are the same object going deeper; lateral
+ * navigation only fades, because a slide would falsely imply depth.
+ */
+:root {
+  --duration-exit: 150ms;
+  --duration-enter: 210ms;
+  --duration-move: 400ms;
+  --slide-offset: 24px;
+}
+
+::view-transition {
+  pointer-events: none;
+}
+
+@keyframes vt-fade-out {
+  to { opacity: 0; }
+}
+@keyframes vt-fade-in {
+  from { opacity: 0; }
+}
+@keyframes vt-slide-in-forward {
+  from { opacity: 0; transform: translateX(var(--slide-offset)); }
+}
+@keyframes vt-slide-in-back {
+  from { opacity: 0; transform: translateX(calc(-1 * var(--slide-offset))); }
+}
+
+/* Default and lateral: a plain crossfade with the recipe's timing. */
+::view-transition-old(root) {
+  animation: var(--duration-exit) ease-out vt-fade-out;
+}
+::view-transition-new(root) {
+  animation: var(--duration-enter) ease-out vt-fade-in;
+}
+
+/* Hierarchical: forward slides the new page in from the right, back
+ * from the left; the old page only fades (never a fade-out exit paired
+ * against a morph, and no competing slide on the outgoing root). */
+html.nav-forward::view-transition-new(root) {
+  animation: var(--duration-enter) ease-out vt-slide-in-forward;
+}
+html.nav-back::view-transition-new(root) {
+  animation: var(--duration-enter) ease-out vt-slide-in-back;
+}
+
+/* Shared-element morphs for book covers: the move duration from the
+ * recipe, with the image pair clipped so the cover art never spills
+ * outside its frame mid-morph. */
+::view-transition-group(book-cover-mastery),
+::view-transition-group(book-cover-algorithms),
+::view-transition-group(book-cover-compoundeffect),
+::view-transition-group(book-cover-designpatterns),
+::view-transition-group(book-cover-docker),
+::view-transition-group(book-cover-motivationmanifesto),
+::view-transition-group(book-cover-richdadpoordad),
+::view-transition-group(book-cover-thewarofart),
+::view-transition-group(book-cover-iwillteach) {
+  animation-duration: var(--duration-move);
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+::view-transition-image-pair(book-cover-mastery),
+::view-transition-image-pair(book-cover-algorithms),
+::view-transition-image-pair(book-cover-compoundeffect),
+::view-transition-image-pair(book-cover-designpatterns),
+::view-transition-image-pair(book-cover-docker),
+::view-transition-image-pair(book-cover-motivationmanifesto),
+::view-transition-image-pair(book-cover-richdadpoordad),
+::view-transition-image-pair(book-cover-thewarofart),
+::view-transition-image-pair(book-cover-iwillteach) {
+  overflow: hidden;
+}
+
+/* Reduced motion: the skill's recipe, verbatim in spirit. Every
+ * transition animation collapses to zero duration. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+
+/* Mobile-native baseline (mobile-native skill). Unlayered on purpose:
+ * these rules must beat Tailwind's layered utilities where they apply.
+ * - No gray/blue flash on tap; press feedback is designed per-control
+ *   (:active states) instead.
+ * - touch-action: manipulation kills the double-tap zoom delay on
+ *   controls, so taps answer on pointer-down like native buttons.
+ * - Control labels are not selectable and get no long-press callout;
+ *   body copy stays selectable (this never goes on body).
+ * - On coarse pointers, inputs render at 16px so iOS Safari does not
+ *   zoom the page on focus (the fix for input zoom is the font size,
+ *   never maximum-scale). */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
+button,
+[role="button"] {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* ------------------------------------------------------------------
+ * Order format chips and circles: ONE system for every order view
+ * (admin orders list and detail, the guest order page, the account
+ * order history). The owner's color language: AUDIO = red circle,
+ * headphones (it fulfills automatically); DIGITAL = green circle,
+ * book icon; PRINTED = yellow circle, pencil icon; GIFT SET rides
+ * the printed treatment (yellow, pencil) because it is a printed
+ * bundle. The .fchip form carries the same colors with a text label.
+ *
+ * These rules live in the GLOBAL stylesheet on purpose. Astro scopes
+ * a page's own <style> block with a data-astro-cid attribute that
+ * only build-time elements carry, so page-scoped rules silently miss
+ * DOM the page's script injects at runtime: that is how the orders
+ * list shipped with unconstrained chip SVGs rendering at full row
+ * width (the giant headphones). Pinned here, with fixed pixel sizes,
+ * the constraint reaches injected nodes too and cannot recur.
+ * ------------------------------------------------------------------ */
+.fchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: .64rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.fchip svg {
+  width: 11px;
+  height: 11px;
+  flex: none;
+}
+.fcircle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  flex: none;
+}
+.fcircle svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.fmt-audio { background: #fee2e2; color: #b91c1c; }
+.fmt-digital { background: #dcfce7; color: #15803d; }
+.fmt-printed { background: #fef08a; color: #854d0e; }
+.fmt-giftset { background: #fef08a; color: #854d0e; }
+
+/* ------------------------------------------------------------------
+ * Order blocks (Tailwind Plus "Order history", themed to the store:
+ * stone surfaces, brand orange and navy #1a3454, rounded corners).
+ * One shared visual language for /admin/orders/[id], /order?token=,
+ * and the orders section of /account: a stone summary band with a
+ * definition list, then a products table whose headers are sr-only
+ * on mobile and visible from sm up. Global for the same reason as
+ * the format system above (the admin detail renders by script).
+ * ------------------------------------------------------------------ */
+.orderblock {
+  background: #fff;
+  border: 1px solid #e7e5e4;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.orderband {
+  background: #fafaf9;
+  border: 1px solid #e7e5e4;
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+.orderband dt {
+  font-size: .72rem;
+  font-weight: 600;
+  color: #78716c;
+}
+.orderband dd {
+  margin: 2px 0 0;
+  font-size: .875rem;
+  font-weight: 600;
+  color: #1c1917;
+}
+.ptable {
+  width: 100%;
+  border-collapse: collapse;
+}
+.ptable th {
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #a8a29e;
+  text-align: left;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e7e5e4;
+}
+.ptable td {
+  padding: 13px 16px;
+  border-bottom: 1px solid #f5f5f4;
+  vertical-align: top;
+}
+.ptable tbody tr:last-child td {
+  border-bottom: 0;
+}
+.ptable tfoot td {
+  border-bottom: 0;
+  border-top: 1px solid #e7e5e4;
+}

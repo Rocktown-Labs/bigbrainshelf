@@ -1,0 +1,61 @@
+---
+// The routes bar (A2 redesign): the navy section bar directly under
+// the hero on the four section pages. The current page's route is
+// shown active with the orange underline; the routes are Books (/),
+// Audio (/audiobooks), Merch (/merch), and Clubs (/clubs, renamed
+// from Plans 2026-10-30; Cast added 2026-10-31). On mobile the bar
+// is sticky (CG, 2026-10-30): it scrolls with the page until it
+// reaches the top of the viewport, then pins there, so the routes
+// stay tappable while the shelf scrolls underneath. Since
+// 2026-10-31 it pins UNDER the sticky site header (logo + search),
+// not over it: the pin offset is the header's measured height,
+// published as --bbs-head-h by the script below, because the header
+// is two rows tall on phones (search on its own row) and one row
+// from sm up. Desktop keeps the static bar.
+interface Props {
+  // Optional: the info pages (About, Shipping, Contact, Privacy,
+  // Terms) render the bar with no section underlined (CG,
+  // 2026-10-31: the footer pages get the full nav too).
+  active?: "books" | "audio" | "merch" | "plans" | "cast";
+}
+const { active } = Astro.props;
+const routes = [
+  { id: "books", label: "Books", href: "/" },
+  { id: "audio", label: "Audio", href: "/audiobooks" },
+  { id: "cast", label: "Cast", href: "/meet-the-cast" },
+  { id: "plans", label: "Clubs", href: "/clubs" },
+  { id: "merch", label: "Merch", href: "/merch" },
+] as const;
+---
+<nav class="bg-[#1a3454] sticky top-[var(--bbs-head-h,115px)] sm:top-[var(--bbs-head-h,65px)] z-40" aria-label="Sections">
+  <div class="max-w-7xl mx-auto flex px-2 sm:justify-center sm:gap-2">
+    {routes.map((r) => (
+      <a
+        href={r.href}
+        aria-current={active === r.id ? "page" : undefined}
+        class={`relative flex-1 sm:flex-none inline-flex items-center justify-center min-h-[48px] sm:px-[26px] text-[15px] font-medium select-none transition duration-100 active:scale-[0.97] ${active === r.id ? "text-white" : "text-white/55 hover:text-white"}`}
+      >
+        {r.label}
+        {active === r.id && <span aria-hidden="true" class="absolute left-[18%] right-[18%] bottom-0 h-[3px] rounded-t-[3px] bg-[#f97316]"></span>}
+      </a>
+    ))}
+  </div>
+</nav>
+
+<script is:inline>
+  // Publish the sticky header's height so the routes bar pins
+  // directly underneath it (see the component note). Measured, not
+  // assumed: the header wraps to two rows under sm and is one row
+  // above it, and fonts settling can move it by a pixel. Runs on
+  // first render, after view transitions, on load, and on resize.
+  function bbsNavOffset() {
+    var header = document.querySelector("header");
+    if (header && header.offsetHeight) {
+      document.documentElement.style.setProperty("--bbs-head-h", header.offsetHeight + "px");
+    }
+  }
+  bbsNavOffset();
+  document.addEventListener("astro:page-load", bbsNavOffset);
+  window.addEventListener("load", bbsNavOffset);
+  window.addEventListener("resize", bbsNavOffset);
+</script>

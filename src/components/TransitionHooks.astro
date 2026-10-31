@@ -1,0 +1,60 @@
+---
+// Direction-aware view transitions (Part A).
+//
+// Applies the vercel-labs react-view-transitions skill's patterns in
+// their platform form: the browser View Transitions API semantics the
+// skill teaches (shared elements, contextual/directional motion,
+// reduced motion) are framework-agnostic; the React components and
+// Next.js transitionTypes plumbing are not, so the classification
+// lives here instead.
+//
+// Astro's ClientRouter runs document.startViewTransition but passes
+// no transition types. Its astro:before-swap event does carry the
+// navigation direction, type, and from/to URLs, and this document is
+// still the OLD page at that moment while event.newDocument is the
+// incoming one. We classify each navigation once and stamp a class on
+// both roots; src/styles/global.css keys its ::view-transition rules
+// off those classes:
+//   nav-forward  deeper navigation (shelf to a book): new page slides
+//                in from the right while the old fades out
+//   nav-back     shallower navigation (book back to the shelf): the
+//                mirror image
+//   nav-lateral  same-depth navigation (tabs, footer links): a plain
+//                fade, because a slide would falsely imply depth
+// Hierarchy is path depth: / is 0, /books/<slug> and
+// /audiobooks/<slug> are 2, the rest is 1.
+// Browser back/forward (traverse) uses the router's own direction.
+// Shared-element morphs (book covers, view-transition-name in
+// global.css + the cover markup) take precedence over these root
+// animations in the browser, exactly as the skill prescribes.
+---
+
+<script is:inline>
+  (function () {
+    if (window.__vtHooksBound) return;
+    window.__vtHooksBound = true;
+    function depth(path) {
+      if (path === "/" || path === "") return 0;
+      if (path.indexOf("/books/") === 0 || path.indexOf("/audiobooks/") === 0) return 2;
+      return 1;
+    }
+    document.addEventListener("astro:before-swap", function (e) {
+      var cls = "nav-lateral";
+      try {
+        var from = new URL(e.from);
+        var to = new URL(e.to);
+        if (e.navigationType === "traverse") {
+          cls = e.direction === "back" ? "nav-back" : e.direction === "forward" ? "nav-forward" : "nav-lateral";
+        } else if (depth(to.pathname) > depth(from.pathname)) {
+          cls = "nav-forward";
+        } else if (depth(to.pathname) < depth(from.pathname)) {
+          cls = "nav-back";
+        }
+      } catch (err) { /* classification is decorative; never block a swap */ }
+      document.documentElement.classList.add(cls);
+      if (e.newDocument && e.newDocument.documentElement) {
+        e.newDocument.documentElement.classList.add(cls);
+      }
+    });
+  })();
+</script>

@@ -1,0 +1,1195 @@
+---
+import "../../../../styles/global.css";
+import { env } from "cloudflare:workers";
+import AdminShell from "../../../../components/AdminShell.astro";
+import { resolveBookForPublicRoute, publicSlugFor } from "../../../../lib/public-slugs";
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+// Admin book URLs carry the book's PUBLIC slug (owner, 2026-10-29):
+// resolve the param by public_slug first, internal slug as fallback.
+// The editor's API calls key on the internal slug (injected below);
+// only links wear the public one.
+const param = String(Astro.params.slug || "");
+const resolvedBook = await resolveBookForPublicRoute(env.DB as any, param).catch(() => null);
+const slug = resolvedBook ? String(resolvedBook.book.slug) : param;
+const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Page Editor - Kidsbook Hub</title>
+  <style is:global>
+    :root { --bg: #f7f5f0; --surface: #ffffff; --text: #1c2733; --dim: #6b7280; --border: #e2ddd4; --accent: #2563eb; --accent-strong: #1d4ed8; --qa: #1f9d66; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #14181d; --surface: #1e242b; --text: #e8e6e1; --dim: #9aa0a8; --border: #333b44; } }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0 12px 40px; }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    .topbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 0; }
+    .topbar h1 { font-size: 1.15rem; margin: 0; flex: 1; min-width: 200px; }
+    .topbar .sub { font-size: 0.8rem; color: var(--dim); margin: 2px 0 0; }
+    .tabs { display: flex; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); padding: 4px; }
+    .tabs button { border: 0; background: none; border-radius: 999px; padding: 8px 14px; font-size: 0.9rem; font-weight: 600; color: var(--text); cursor: pointer; }
+    .tabs button[aria-selected="true"] { background: var(--accent); color: #fff; }
+    .backlink { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+    select, input[type="number"] { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 10px 12px; font-size: 1rem; width: 100%; }
+    .lbl { display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; color: var(--dim); margin-top: 12px; }
+    .chtitle { font-size: 1.05rem; font-weight: 700; margin: 8px 0 0; }
+    .canvas-col { display: flex; justify-content: center; margin-top: 12px; }
+    .canvas-inner { width: 100%; max-width: 540px; }
+    .bleed-note { text-align: center; font-size: 11px; color: var(--dim); margin: 0 0 4px; }
+    .bleed-wrap { border: 1px dashed #c9a294; border-radius: 6px; background: repeating-linear-gradient(45deg, #f3e9e4, #f3e9e4 10px, #eee2da 10px, #eee2da 20px); }
+    .page { position: relative; width: 100%; touch-action: none; overflow: hidden; background: #fff; box-shadow: 0 10px 36px rgba(27,42,61,0.22); outline: 1px solid rgba(0,0,0,0.1); }
+    .guide-safe { position: absolute; border: 1px dashed #1F9D66; pointer-events: none; z-index: 40; }
+    .guide-safe span { position: absolute; left: 4px; top: 2px; background: rgba(255,255,255,0.85); padding: 0 4px; font-size: 10px; font-weight: 700; color: #157347; }
+    .guide-trim { position: absolute; bottom: 4px; right: 6px; z-index: 40; background: rgba(255,255,255,0.85); padding: 0 4px; font-size: 10px; font-weight: 700; color: #6b7280; pointer-events: none; }
+    .el-img { position: absolute; cursor: grab; touch-action: none; }
+    .el-img img { pointer-events: none; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .el-img .img-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; border: 2px dashed #d1d5db; background: #f3f4f6; color: #6b7280; font-size: 0.85rem; text-align: center; padding: 12px; }
+    .el-text { position: absolute; cursor: grab; touch-action: none; }
+    .el-text p { margin: 0; white-space: pre-wrap; line-height: 1.5; color: #1c2733; }
+    .sel-outline { position: absolute; inset: 0; outline: 2px solid var(--accent-strong); pointer-events: none; }
+    .sel-outline-t { position: absolute; inset: -6px; border-radius: 4px; outline: 2px solid var(--accent-strong); pointer-events: none; }
+    .handle { position: absolute; z-index: 50; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: none; border: 0; touch-action: none; cursor: nwse-resize; padding: 0; }
+    .handle span { display: block; width: 20px; height: 20px; border-radius: 50%; border: 2px solid #fff; background: var(--accent-strong); box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+    .hint { text-align: center; font-size: 0.75rem; color: var(--dim); margin-top: 8px; }
+    .pagenav { margin-top: 16px; }
+    .pagenav .row { display: flex; align-items: center; justify-content: space-between; }
+    .pagenav .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .chip { min-width: 40px; min-height: 40px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 0.85rem; font-weight: 600; cursor: pointer; padding: 4px 8px; }
+    .chip[aria-current="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .chip .ok { color: var(--qa); }
+    .chip[aria-current="true"] .ok { color: #b7f4d4; }
+    .btn { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 10px 12px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-qa { background: var(--qa); border-color: var(--qa); color: #fff; }
+    .btn-qa-outline { border-color: var(--qa); color: var(--qa); }
+    .card { border: 1px solid var(--border); background: var(--surface); border-radius: 16px; padding: 16px; margin-top: 16px; }
+    .card h2 { margin: 0; font-size: 1rem; }
+    .card .desc { font-size: 0.75rem; color: var(--dim); margin: 4px 0 0; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    @media (min-width: 640px) { .grid2 { grid-template-columns: 1fr 1fr 1fr; } }
+    .frow { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .progress { height: 12px; border-radius: 999px; background: #e5e7eb; overflow: hidden; margin-top: 8px; }
+    .progress > div { height: 100%; border-radius: 999px; background: var(--qa); }
+    .check { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+    .check input { width: 20px; height: 20px; }
+    .note { border-radius: 12px; padding: 10px 12px; font-size: 0.85rem; margin-top: 12px; background: #f0fdf4; color: #14532d; }
+    @media (prefers-color-scheme: dark) { .note { background: #052e16; color: #bbf7d0; } }
+    .hidden { display: none !important; }
+    #loading { text-align: center; padding: 64px 16px; color: var(--dim); }
+    textarea.ta { width: 100%; border-radius: 8px; border: 2px solid var(--accent-strong); background: rgba(255,255,255,0.95); padding: 8px; line-height: 1.5; color: #1c2733; font-family: Georgia, 'Times New Roman', serif; }
+  </style>
+  </head>
+<body>
+  <AdminShell current="/admin/books" />
+  <div class="wrap">
+    <div class="topbar">
+      <div style="flex:1;min-width:200px">
+        <a class="backlink" id="back-link" href="#">&larr; Back to book</a>
+        <h1 id="book-title">Loading...</h1>
+        <p class="sub" id="qa-sub"></p>
+      </div>
+      <div class="tabs" role="tablist" aria-label="View">
+        <button type="button" role="tab" id="tab-editor" aria-selected="true">Editor</button>
+        <button type="button" role="tab" id="tab-dashboard" aria-selected="false">QA Dashboard</button>
+      </div>
+    </div>
+
+    <div id="loading">Loading the book and your saved layouts...</div>
+
+    <div id="view-editor" class="hidden">
+      <label class="lbl" for="chapter-select">CHAPTER</label>
+      <select id="chapter-select" aria-label="Chapter"></select>
+      <p class="chtitle" id="chapter-title"></p>
+
+      <div class="canvas-col">
+        <div class="canvas-inner">
+          <p class="bleed-note hidden" id="bleed-note">Bleed zone: 0.125 in beyond the trim edge. Keep important art inside the white page.</p>
+          <div id="bleed-wrap">
+            <div class="page" id="page" role="application" aria-label="Book page canvas">
+              <div class="guide-safe hidden" id="guide-safe"><span>Safe area</span></div>
+              <div class="guide-trim hidden" id="guide-trim">Trim edge</div>
+              <div class="el-img" id="el-img">
+                <div class="img-ph hidden" id="img-ph"><span id="img-ph-text"></span></div>
+                <img id="el-img-tag" alt="" draggable="false" />
+                <div class="sel-outline hidden" id="img-sel"></div>
+                <button type="button" class="handle hidden" data-corner="nw" aria-label="Resize image from top left corner" style="left:-22px;top:-22px"><span></span></button>
+                <button type="button" class="handle hidden" data-corner="ne" aria-label="Resize image from top right corner" style="right:-22px;top:-22px"><span></span></button>
+                <button type="button" class="handle hidden" data-corner="sw" aria-label="Resize image from bottom left corner" style="left:-22px;bottom:-22px"><span></span></button>
+                <button type="button" class="handle hidden" data-corner="se" aria-label="Resize image from bottom right corner" style="right:-22px;bottom:-22px"><span></span></button>
+              </div>
+              <div class="el-text" id="el-text">
+                <p id="el-text-p"></p>
+                <div id="text-editor-wrap" class="hidden">
+                  <label class="lbl" for="story-ta" style="margin-top:0">Story text</label>
+                  <textarea class="ta" id="story-ta" rows="6"></textarea>
+                  <button type="button" class="btn btn-primary" id="text-done" style="margin-top:6px">Done editing</button>
+                </div>
+                <div class="sel-outline-t hidden" id="text-sel"></div>
+              </div>
+            </div>
+          </div>
+          <p class="hint">Tap the image or text to select it. Drag to move. Drag a corner dot to resize the image. Tap empty page space to deselect. <span id="save-note"></span></p>
+        </div>
+      </div>
+
+      <div class="pagenav">
+        <div class="row">
+          <button type="button" class="btn" id="prev-page">Prev</button>
+          <span id="page-label" style="font-size:0.9rem;font-weight:600"></span>
+          <button type="button" class="btn" id="next-page">Next</button>
+        </div>
+        <div class="chips" id="page-chips" aria-label="Pages in this chapter"></div>
+      </div>
+
+      <section class="card" aria-label="Layout controls">
+        <h2>Layout controls</h2>
+        <p class="desc" id="sel-label">Selected: Nothing. Tap the image or text on the page.</p>
+        <div class="grid2">
+          <button type="button" class="btn" id="btn-center">Center image</button>
+          <button type="button" class="btn" id="btn-snap">Snap text to bottom</button>
+          <button type="button" class="btn" id="btn-edit-text">Edit text</button>
+          <button type="button" class="btn" id="btn-reset">Reset page</button>
+        </div>
+        <div class="frow">
+          <span style="font-size:0.9rem;font-weight:600" id="fontsize-label">Text size</span>
+          <button type="button" class="btn" id="font-minus" aria-label="Decrease text size" style="width:44px">A-</button>
+          <input type="range" id="font-range" aria-label="Text size" min="2" max="6.5" step="0.05" style="flex:1" />
+          <button type="button" class="btn" id="font-plus" aria-label="Increase text size" style="width:44px">A+</button>
+          <span id="font-val" style="width:40px;text-align:right;font-size:0.85rem;color:var(--dim)"></span>
+        </div>
+        <div class="frow">
+          <button type="button" class="btn-qa btn hidden" id="btn-approve">Approve page</button>
+          <button type="button" class="btn btn-qa-outline hidden" id="btn-unapprove">Approved &#10003; &middot; Tap to unapprove</button>
+          <button type="button" class="btn" id="btn-redo-text">Redo text</button>
+          <button type="button" class="btn" id="btn-redo-image">Redo image</button>
+          <button type="button" class="btn btn-primary" id="btn-png">Download page PNG</button>
+        </div>
+        <div class="note hidden" id="all-approved-note">Every page is approved. Open the QA Dashboard to publish the book.</div>
+      </section>
+
+      <section class="card" aria-label="Page takes">
+        <h2>Takes</h2>
+        <p class="desc">Earlier versions of this page's art from the factory archive. Pick a take to preview it on the page, then Apply to keep it. Only this page changes.</p>
+        <label class="lbl" for="take-select">TAKE FOR THIS PAGE</label>
+        <select id="take-select" aria-label="Takes for this page">
+          <option value="current">Current (live)</option>
+        </select>
+        <p class="note hidden" id="take-preview-note" style="background:#fff7ed;color:#7c2d12"></p>
+        <div class="frow">
+          <button type="button" class="btn btn-primary" id="btn-apply-take" disabled>Apply this take</button>
+          <span id="take-status" style="font-size:0.85rem;color:var(--dim)"></span>
+        </div>
+        <p class="desc">Applying a take updates this page's art right away and un-approves the page. Your current art is saved as a new version first, so an apply can be undone from this same list. When the version also holds the page's color copy, that is applied with it. The store PDFs still show the last factory assembly until the next one runs.</p>
+      </section>
+
+      <section class="card" aria-label="Book versions">
+        <h2>Book versions</h2>
+        <p class="desc">Load one archived version across the whole book: every page with a copy in that version is swapped to it and un-approved. Pages without a copy stay as they are.</p>
+        <label class="lbl" for="book-version-select">BOOK VERSION</label>
+        <select id="book-version-select" aria-label="Archived book versions"></select>
+        <div class="frow">
+          <button type="button" class="btn" id="btn-load-version" disabled>Load version for whole book</button>
+          <span id="book-version-status" style="font-size:0.85rem;color:var(--dim)"></span>
+        </div>
+        <p class="desc">Your current art across the book is saved as a new version before anything is replaced, so a whole-book load can be undone by loading that version back. The store PDFs still show the last factory assembly until the next one runs.</p>
+      </section>
+
+      <section class="card" aria-label="Page setup">
+        <h2>Page setup</h2>
+        <p class="desc">Trim size applies to the whole book. Guides help you keep art and text clear of the edges.</p>
+        <label class="lbl" for="trim-preset">TRIM SIZE</label>
+        <select id="trim-preset">
+          <option value="letter">US Letter 8.5 x 11 in</option>
+          <option value="6x9">6 x 9 in</option>
+          <option value="8x10">8 x 10 in</option>
+          <option value="a4">A4 8.27 x 11.69 in</option>
+          <option value="custom">Custom size</option>
+        </select>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
+          <div><label class="lbl" for="custom-w" style="margin-top:0">Width (in)</label><input type="number" id="custom-w" min="3" max="20" step="0.01" /></div>
+          <div><label class="lbl" for="custom-h" style="margin-top:0">Height (in)</label><input type="number" id="custom-h" min="3" max="20" step="0.01" /></div>
+          <div><label class="lbl" for="safe-margin" style="margin-top:0">Safe margin (in)</label><input type="number" id="safe-margin" min="0" max="2" step="0.05" /></div>
+        </div>
+        <div class="frow">
+          <label class="check"><input type="checkbox" id="show-guides" /> Show safe area guides</label>
+          <label class="check"><input type="checkbox" id="show-bleed" /> Show bleed zone</label>
+        </div>
+      </section>
+    </div>
+
+    <div id="view-dashboard" class="hidden">
+      <section class="card" aria-label="Book QA progress">
+        <h2>Book QA progress</h2>
+        <p id="dash-summary" style="font-size:1rem;font-weight:600;margin:8px 0 0"></p>
+        <div class="progress" role="progressbar" aria-label="Book QA progress" id="dash-bar-wrap"><div id="dash-bar"></div></div>
+        <div id="dash-publish-zone" style="margin-top:12px"></div>
+      </section>
+      <div id="dash-chapters" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+<script is:inline define:vars={{ slug, adminSlug }}>
+(function() {
+  "use strict";
+  // The internal slug, resolved server-side from whichever slug form
+  // the URL carried: the editor's API calls key on it, never on the
+  // URL param (which is the public slug now).
+  var BOOK_SLUG = slug;
+  var PRESETS = {
+    letter: { w: 8.5, h: 11 }, "6x9": { w: 6, h: 9 },
+    "8x10": { w: 8, h: 10 }, a4: { w: 8.27, h: 11.69 }, custom: { w: 8.5, h: 11 }
+  };
+  var clamp = function(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); };
+  var keyOf = function(ch, pg) { return ch + "-" + pg; };
+
+  // Picture-book default: art fills the safe zone from the top corners down to
+  // the text block; text is bottom-snapped with a block sized to its content
+  // (short pages get more art, paragraph pages get room to breathe).
+  // The two never overlap, so the image can never cover the text.
+  function defaultLayout(text) {
+    var st = S.settings || { trimWidthIn: 8.5, trimHeightIn: 11, safeMarginIn: 0.5 };
+    var sx0 = st.safeMarginIn / st.trimWidthIn;
+    var sy0 = st.safeMarginIn / st.trimHeightIn;
+    var safeW = 1 - 2 * sx0, safeH = 1 - 2 * sy0;
+
+    var len = (text || "").length;
+    var fontSize = len <= 140 ? 4.0 : len <= 320 ? 3.4 : 3.0;
+    var charsPerLine = Math.max(20, Math.floor((safeW * 100) / (fontSize * 0.52)));
+    var lines = Math.max(1, Math.ceil(len / charsPerLine));
+    var pageHcqw = (st.trimHeightIn / st.trimWidthIn) * 100;
+    var textH = (lines * fontSize * 1.35) / pageHcqw;
+    textH = Math.min(Math.max(textH, (2.2 * fontSize) / pageHcqw), safeH * 0.45);
+
+    var textY = (1 - sy0) - textH;
+    return {
+      image: { x: sx0, y: sy0, w: safeW, h: Math.max(0.1, textY - sy0), z: 1 },
+      text: { x: sx0, y: textY, w: safeW, fontSize: fontSize, content: text }
+    };
+  }
+
+  var S = {
+    book: null, chapters: [], layouts: new Map(), approvals: new Map(),
+    readiness: null, overrides: [], delivery: null,
+    settings: { trimPreset: "letter", trimWidthIn: 8.5, trimHeightIn: 11, safeMarginIn: 0.5, showGuides: true, showBleed: false },
+    chNum: 1, pgIdx: 0, layout: null, selection: null, editingText: false,
+    imgSrc: null, imgFailed: false, view: "editor"
+  };
+
+  function $(id) { return document.getElementById(id); }
+  function api(path, opts) {
+    return fetch("/api/editor/" + path, opts).then(function(r) {
+      if (!r.ok) throw new Error("Request failed: " + r.status);
+      return r.json();
+    });
+  }
+  function proxyUrl(fullUrl) {
+    var m = /\/docker\/(S\d+-page-\d+\.jpg)/.exec(fullUrl || "");
+    if (m) return "/api/editor/image?key=docker/" + m[1];
+    var m2 = /^https:\/\/[^/]+\/((?:books\/[A-Za-z0-9_-]+\/images\/[A-Za-z0-9_.-]+\.jpg))/.exec(fullUrl || "");
+    if (m2) return "/api/editor/image?key=" + m2[1];
+    return fullUrl;
+  }
+
+  function currentChapter() {
+    for (var i = 0; i < S.chapters.length; i++) if (S.chapters[i].num === S.chNum) return S.chapters[i];
+    return S.chapters[0];
+  }
+  function currentPage() {
+    var c = currentChapter();
+    return c ? c.pages[S.pgIdx] : null;
+  }
+
+  function loadLayout() {
+    var page = currentPage();
+    if (!page) return;
+    var k = keyOf(S.chNum, S.pgIdx);
+    var saved = S.layouts.get(k);
+    if (saved) {
+      S.layout = JSON.parse(JSON.stringify(saved));
+    } else {
+      S.layout = defaultLayout(page.text);
+    }
+    S.layout.chapterNum = S.chNum; S.layout.pageIndex = S.pgIdx;
+    S.selection = null; S.editingText = false;
+    S.previewKey = null;
+    loadImage();
+    renderPage();
+    loadTakes();
+  }
+
+  function loadImage() {
+    var page = currentPage();
+    S.imgSrc = null; S.imgFailed = false;
+    renderImage();
+    if (!page) return;
+    var url = proxyUrl(page.image);
+    if (S.bust) url += (url.indexOf("?") >= 0 ? "&" : "?") + "t=" + S.bust;
+    var img = new Image();
+    img.onload = function() { S.imgSrc = url; renderImage(); };
+    img.onerror = function() { S.imgFailed = true; renderImage(); };
+    img.src = url;
+  }
+
+  var saveTimer = null;
+  function saveLayoutSoon() {
+    setSaveNote("Saving layout");
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function() {
+      var l = S.layout; if (!l) return;
+      api("layouts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ book_slug: BOOK_SLUG, chapterNum: l.chapterNum, pageIndex: l.pageIndex, image: l.image, text: l.text })
+      }).then(function() {
+        S.layouts.set(keyOf(l.chapterNum, l.pageIndex), JSON.parse(JSON.stringify(l)));
+        setSaveNote("Layout saved");
+      }).catch(function() { setSaveNote("Save failed. Check connection and try again."); });
+    }, 600);
+  }
+  function setSaveNote(t) { $("save-note").textContent = t ? t + "." : ""; }
+
+  /* ---------- rendering ---------- */
+  function renderPage() {
+    var st = S.settings, l = S.layout, page = currentPage();
+    if (!l || !page) return;
+    var pg = $("page");
+    pg.style.aspectRatio = st.trimWidthIn + " / " + st.trimHeightIn;
+
+    var safeX = (st.safeMarginIn / st.trimWidthIn) * 100;
+    var safeY = (st.safeMarginIn / st.trimHeightIn) * 100;
+    var gs = $("guide-safe");
+    gs.classList.toggle("hidden", !st.showGuides);
+    gs.style.left = safeX + "%"; gs.style.top = safeY + "%";
+    gs.style.right = safeX + "%"; gs.style.bottom = safeY + "%";
+    $("guide-trim").classList.toggle("hidden", !st.showGuides);
+
+    var bw = $("bleed-wrap");
+    if (st.showBleed) {
+      var bleedIn = 0.125;
+      bw.classList.add("bleed-wrap");
+      bw.style.padding = ((bleedIn / st.trimHeightIn) * 100) + "% " + ((bleedIn / st.trimWidthIn) * 100) + "%";
+      $("bleed-note").classList.remove("hidden");
+    } else {
+      bw.classList.remove("bleed-wrap");
+      bw.style.padding = "";
+      $("bleed-note").classList.add("hidden");
+    }
+
+    var im = $("el-img");
+    im.style.left = (l.image.x * 100) + "%"; im.style.top = (l.image.y * 100) + "%";
+    im.style.width = (l.image.w * 100) + "%"; im.style.height = (l.image.h * 100) + "%";
+    im.style.zIndex = 1;
+    renderImage();
+
+    var tx = $("el-text");
+    tx.style.left = (l.text.x * 100) + "%"; tx.style.top = (l.text.y * 100) + "%";
+    tx.style.width = (l.text.w * 100) + "%";
+    tx.style.zIndex = 2;
+    renderText();
+
+    var isImg = S.selection === "image", isTx = S.selection === "text";
+    $("img-sel").classList.toggle("hidden", !isImg);
+    document.querySelectorAll(".handle").forEach(function(h) { h.classList.toggle("hidden", !isImg); });
+    $("text-sel").classList.toggle("hidden", !(isTx && !S.editingText));
+    $("text-editor-wrap").classList.toggle("hidden", !S.editingText);
+    $("el-text-p").classList.toggle("hidden", S.editingText);
+    $("sel-label").textContent = "Selected: " + (isImg ? "Illustration" : isTx ? "Story text" : "Nothing. Tap the image or text on the page.");
+
+    var ok = S.approvals.get(keyOf(S.chNum, S.pgIdx)) === true;
+    $("btn-approve").classList.toggle("hidden", ok);
+    $("btn-unapprove").classList.toggle("hidden", !ok);
+
+    $("font-range").value = l.text.fontSize;
+    $("font-val").textContent = l.text.fontSize.toFixed(1);
+
+    renderChips(); renderTopbar();
+  }
+
+  function renderImage() {
+    var tag = $("el-img-tag"), ph = $("img-ph");
+    if (S.imgSrc) { tag.src = S.imgSrc; tag.classList.remove("hidden"); ph.classList.add("hidden"); }
+    else {
+      tag.classList.add("hidden"); ph.classList.remove("hidden");
+      var page = currentPage();
+      $("img-ph-text").textContent = S.imgFailed
+        ? ("Illustration unavailable. S" + S.chNum + " Page " + (S.pgIdx + 1) + " placeholder, still draggable and resizable.")
+        : "Loading illustration...";
+    }
+  }
+
+  function renderText() {
+    var l = S.layout; if (!l) return;
+    var p = $("el-text-p");
+    p.textContent = l.text.content;
+    p.style.fontSize = l.text.fontSize + "cqw";
+    p.style.fontFamily = "Georgia, 'Times New Roman', serif";
+    if (S.editingText) {
+      var ta = $("story-ta");
+      if (document.activeElement !== ta) ta.value = l.text.content;
+      ta.style.fontSize = l.text.fontSize + "cqw";
+    }
+  }
+
+  function renderChips() {
+    var c = currentChapter(); if (!c) return;
+    var wrap = $("page-chips"); wrap.innerHTML = "";
+    c.pages.forEach(function(_, i) {
+      var ok = S.approvals.get(keyOf(S.chNum, i)) === true;
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "chip";
+      b.setAttribute("aria-label", "Page " + (i + 1) + (ok ? ", approved" : ""));
+      if (i === S.pgIdx) b.setAttribute("aria-current", "true");
+      b.innerHTML = (i + 1) + (ok ? ' <span class="ok">&#10003;</span>' : "");
+      b.addEventListener("click", function() { S.pgIdx = i; loadLayout(); });
+      wrap.appendChild(b);
+    });
+    $("page-label").textContent = "Page " + (S.pgIdx + 1) + " of " + c.pages.length + " in S" + S.chNum;
+    $("prev-page").disabled = (S.pgIdx === 0 && S.chNum === 1);
+    $("next-page").disabled = (S.pgIdx === c.pages.length - 1 && S.chNum === 18);
+  }
+
+  function renderTopbar() {
+    var total = 0, done = 0;
+    S.chapters.forEach(function(c) {
+      total += c.pages.length;
+      c.pages.forEach(function(_, i) { if (S.approvals.get(keyOf(c.num, i))) done++; });
+    });
+    $("qa-sub").textContent = done + " of " + total + " pages QA'd";
+    var allOk = total > 0 && done >= total;
+    $("all-approved-note").classList.toggle("hidden", !allOk);
+  }
+
+  function renderChapterSelect() {
+    var sel = $("chapter-select"); sel.innerHTML = "";
+    S.chapters.forEach(function(c) {
+      var o = document.createElement("option");
+      o.value = c.num; o.textContent = "S" + c.num + ": " + c.title + " (" + c.pages.length + " pages)";
+      sel.appendChild(o);
+    });
+    sel.value = S.chNum;
+    var c = currentChapter();
+    $("chapter-title").textContent = c ? ("S" + c.num + ": " + c.title) : "";
+  }
+
+  function renderSettings() {
+    var st = S.settings;
+    $("trim-preset").value = st.trimPreset;
+    $("custom-w").value = st.trimWidthIn;
+    $("custom-h").value = st.trimHeightIn;
+    $("safe-margin").value = st.safeMarginIn;
+    $("show-guides").checked = !!st.showGuides;
+    $("show-bleed").checked = !!st.showBleed;
+  }
+
+  /* ---------- drag handling (pointer events: mouse + touch) ---------- */
+  var drag = null;
+  function pageRect() { return $("page").getBoundingClientRect(); }
+
+  function onDragMove(e) {
+    if (!drag || !S.layout) return;
+    var r = pageRect();
+    var dx = (e.clientX - drag.sx) / r.width;
+    var dy = (e.clientY - drag.sy) / r.height;
+    var s = drag.start, l = S.layout;
+    if (drag.mode === "move-image") {
+      l.image.x = clamp(s.image.x + dx, -0.08, 0.98);
+      l.image.y = clamp(s.image.y + dy, -0.05, 0.97);
+    } else if (drag.mode === "move-text") {
+      l.text.x = clamp(s.text.x + dx, -0.08, 0.98);
+      l.text.y = clamp(s.text.y + dy, -0.05, 0.97);
+    } else {
+      var aspectPx = (s.image.h * drag.rectH) / Math.max(1, s.image.w * drag.rectW);
+      var newW = s.image.w;
+      if (drag.corner.indexOf("e") >= 0) newW = s.image.w + dx;
+      if (drag.corner.indexOf("w") >= 0) newW = s.image.w - dx;
+      newW = clamp(newW, 0.12, 1.3);
+      var newH = (newW * drag.rectW * aspectPx) / drag.rectH;
+      var nx = s.image.x, ny = s.image.y;
+      if (drag.corner.indexOf("w") >= 0) nx = s.image.x + (s.image.w - newW);
+      if (drag.corner.indexOf("n") >= 0) ny = s.image.y + (s.image.h - newH);
+      l.image.x = nx; l.image.y = ny; l.image.w = newW; l.image.h = newH;
+    }
+    renderPage();
+  }
+  function onDragEnd() {
+    window.removeEventListener("pointermove", onDragMove);
+    drag = null;
+    saveLayoutSoon();
+  }
+  function beginDrag(e, mode, corner) {
+    if (S.editingText && mode === "move-text") return;
+    var r = pageRect();
+    if (!r || !S.layout) return;
+    e.preventDefault(); e.stopPropagation();
+    S.selection = (mode === "move-text") ? "text" : "image";
+    drag = { mode: mode, corner: corner || "", sx: e.clientX, sy: e.clientY,
+             rectW: r.width, rectH: r.height, start: JSON.parse(JSON.stringify(S.layout)) };
+    window.addEventListener("pointermove", onDragMove);
+    window.addEventListener("pointerup", onDragEnd, { once: true });
+    window.addEventListener("pointercancel", onDragEnd, { once: true });
+    renderPage();
+  }
+
+  /* ---------- layout actions ---------- */
+  function patch(fn) {
+    if (!S.layout) return;
+    fn(S.layout);
+    renderPage(); saveLayoutSoon();
+  }
+  function centerImage() { patch(function(l) { l.image.x = (1 - l.image.w) / 2; }); }
+  function snapTextBottom() {
+    var r = pageRect(), th = 0.24;
+    var t = $("el-text");
+    if (t && r) th = t.offsetHeight / r.height;
+    var mY = S.settings.safeMarginIn / S.settings.trimHeightIn;
+    patch(function(l) { l.text.y = clamp(1 - mY - th - 0.01, 0.05, 0.95); });
+  }
+  function changeFont(d) {
+    patch(function(l) { l.text.fontSize = clamp(Math.round((l.text.fontSize + d) * 100) / 100, 2, 6.5); });
+  }
+
+  /* ---------- PNG export ---------- */
+  function downloadPng() {
+    var l = S.layout, page = currentPage();
+    if (!l || !page || !S.imgSrc) return;
+    var W = Math.round(S.settings.trimWidthIn * 300), H = Math.round(S.settings.trimHeightIn * 300);
+    var canvas = document.createElement("canvas");
+    canvas.width = W; canvas.height = H;
+    var ctx = canvas.getContext("2d"); if (!ctx) return;
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
+    function drawText() {
+      var fs = (l.text.fontSize / 100) * W;
+      ctx.fillStyle = "#1c2733";
+      ctx.font = fs + "px Georgia, 'Times New Roman', serif";
+      ctx.textBaseline = "top";
+      var maxW = l.text.w * W, words = l.text.content.split(/\s+/), lines = [], line = "";
+      words.forEach(function(w) {
+        var t = line ? line + " " + w : w;
+        if (ctx.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t;
+      });
+      if (line) lines.push(line);
+      lines.forEach(function(ln, i) { ctx.fillText(ln, l.text.x * W, l.text.y * H + i * fs * 1.5); });
+    }
+    function drawImage() {
+      return new Promise(function(res) {
+        var img = new Image();
+        img.onload = function() {
+          var bx = l.image.x * W, by = l.image.y * H, bw = l.image.w * W, bh = l.image.h * H;
+          var sc = Math.max(bw / img.naturalWidth, bh / img.naturalHeight);
+          var sw = bw / sc, sh = bh / sc;
+          ctx.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) / 2, sw, sh, bx, by, bw, bh);
+          res();
+        };
+        img.onerror = function() { res(); };
+        img.src = S.imgSrc;
+      });
+    }
+    (async function() {
+      await drawImage(); drawText();
+      canvas.toBlob(function(blob) {
+        if (!blob) return;
+        var a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "S" + S.chNum + "-page-" + (S.pgIdx + 1) + ".png";
+        a.click();
+        setTimeout(function() { URL.revokeObjectURL(a.href); }, 4000);
+      }, "image/png");
+    })();
+  }
+
+  /* ---------- takes (factory archive versions) ---------- */
+  function fmtDate(unixSec) {
+    if (!unixSec) return "date unknown";
+    try { return new Date(unixSec * 1000).toLocaleString(); } catch (e) { return "date unknown"; }
+  }
+  function takeLabel(t) {
+    return "v" + t.version + " \u00B7 " + t.source + " \u00B7 " + fmtDate(t.at);
+  }
+
+  function loadTakes() {
+    var sel = $("take-select");
+    if (!sel) return;
+    sel.innerHTML = "";
+    var cur = document.createElement("option");
+    cur.value = "current"; cur.textContent = "Current (live)";
+    sel.appendChild(cur);
+    sel.value = "current";
+    $("btn-apply-take").disabled = true;
+    $("take-preview-note").classList.add("hidden");
+    $("take-status").textContent = "";
+    S.pageTakes = [];
+    api("takes?slug=" + encodeURIComponent(BOOK_SLUG) + "&chapterNum=" + S.chNum + "&pageIndex=" + S.pgIdx)
+      .then(function(d) {
+        S.pageTakes = d.takes || [];
+        if (!S.pageTakes.length) {
+          var o = document.createElement("option");
+          o.value = ""; o.disabled = true; o.textContent = "No earlier takes yet";
+          sel.appendChild(o);
+          return;
+        }
+        S.pageTakes.forEach(function(t) {
+          var o = document.createElement("option");
+          o.value = String(t.version);
+          o.textContent = takeLabel(t);
+          sel.appendChild(o);
+        });
+      })
+      .catch(function() {
+        var o = document.createElement("option");
+        o.value = ""; o.disabled = true; o.textContent = "Takes unavailable";
+        sel.appendChild(o);
+      });
+  }
+
+  function onTakeSelect() {
+    var sel = $("take-select");
+    var v = sel.value;
+    var note = $("take-preview-note");
+    if (v === "current" || v === "") {
+      S.previewKey = null;
+      note.classList.add("hidden");
+      $("btn-apply-take").disabled = true;
+      loadImage();
+      return;
+    }
+    var take = null;
+    (S.pageTakes || []).forEach(function(t) { if (String(t.version) === v) take = t; });
+    if (!take) return;
+    S.previewKey = take.key;
+    var url = "/api/editor/image?key=" + encodeURIComponent(take.key);
+    var img = new Image();
+    img.onload = function() { if (S.previewKey === take.key) { S.imgSrc = url; S.imgFailed = false; renderImage(); } };
+    img.onerror = function() { if (S.previewKey === take.key) { S.imgFailed = true; renderImage(); } };
+    S.imgSrc = null; renderImage();
+    img.src = url;
+    note.textContent = "Previewing " + takeLabel(take) + ". Not applied yet. Apply to keep this take on this page.";
+    note.classList.remove("hidden");
+    $("btn-apply-take").disabled = false;
+  }
+
+  function applyTake() {
+    var v = $("take-select").value;
+    if (v === "current" || v === "") return;
+    var btn = $("btn-apply-take");
+    btn.disabled = true;
+    $("take-status").textContent = "Applying...";
+    api("takes", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: BOOK_SLUG, chapterNum: S.chNum, pageIndex: S.pgIdx, version: Number(v) }) })
+      .then(function(d) {
+        if (d.image) currentPage().image = d.image;
+        S.approvals.set(keyOf(S.chNum, S.pgIdx), false);
+        S.bust = Date.now();
+        S.previewKey = null;
+        $("take-select").value = "current";
+        $("take-preview-note").classList.add("hidden");
+        var msg = "Applied v" + v + " to this page.";
+        if (d.snapshotVersion) msg += " Your previous art was saved as v" + d.snapshotVersion + " first, so this can be undone from the same list.";
+        if (d.twinApplied) msg += " The color copy from v" + v + " was applied with it.";
+        if (d.twinNote) msg += " " + d.twinNote;
+        msg += " The page is un-approved for a fresh QA pass.";
+        $("take-status").textContent = msg;
+        loadImage(); renderPage(); loadTakes(); loadBookVersions();
+      })
+      .catch(function() {
+        $("take-status").textContent = "";
+        alert("Applying that take failed. Try again.");
+      })
+      .finally(function() { btn.disabled = $("take-select").value === "current"; });
+  }
+
+  function loadBookVersions() {
+    var sel = $("book-version-select");
+    if (!sel) return;
+    api("takes?slug=" + encodeURIComponent(BOOK_SLUG))
+      .then(function(d) {
+        var versions = d.versions || [];
+        S.pdfStaleWarning = (d.pdfStale && d.pdfStale.warning) || null;
+        sel.innerHTML = "";
+        if (!versions.length) {
+          var o = document.createElement("option");
+          o.value = ""; o.textContent = "No earlier takes yet";
+          sel.appendChild(o);
+          $("btn-load-version").disabled = true;
+          return;
+        }
+        versions.forEach(function(v) {
+          var o = document.createElement("option");
+          o.value = String(v.version);
+          o.textContent = "v" + v.version + " \u00B7 " + v.source + " \u00B7 " + fmtDate(v.at) + " \u00B7 " + v.files + " files";
+          sel.appendChild(o);
+        });
+        sel.value = String(versions[versions.length - 1].version);
+        $("btn-load-version").disabled = false;
+      })
+      .catch(function() {
+        sel.innerHTML = "";
+        var o = document.createElement("option");
+        o.value = ""; o.textContent = "Versions unavailable";
+        sel.appendChild(o);
+      });
+  }
+
+  function loadWholeVersion() {
+    var v = $("book-version-select").value;
+    if (!v) return;
+    if (!confirm("Load v" + v + " across the whole book? Every page with a copy in that version is swapped to it and un-approved. Pages without a copy stay as they are.")) return;
+    var btn = $("btn-load-version");
+    btn.disabled = true;
+    $("book-version-status").textContent = "Loading v" + v + "...";
+    api("takes", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug: BOOK_SLUG, version: Number(v), wholeBook: true }) })
+      .then(function(d) {
+        $("book-version-status").textContent = "";
+        var msg = "Loaded v" + v + " across the book: " + d.applied + " pages updated (" + d.changed + " with different art), " +
+          d.missing + " pages had no copy in that version and were left as-is.";
+        if (d.snapshotVersion) msg += " Before loading, your current art was saved as v" + d.snapshotVersion + ", so this load can be undone by loading that version back.";
+        if (d.twinApplied) msg += " " + d.twinApplied + " color page(s) were updated to the matching copies from v" + v + ".";
+        msg += " Updated pages are un-approved for a fresh QA pass.";
+        alert(msg);
+        return api("approvals?book_slug=" + BOOK_SLUG).then(function(rows) {
+          S.approvals.clear();
+          rows.forEach(function(a) { S.approvals.set(keyOf(a.chapterNum, a.pageIndex), a.approved); });
+          S.bust = Date.now();
+          S.previewKey = null;
+          loadImage(); renderPage(); loadTakes(); loadBookVersions();
+        });
+      })
+      .catch(function() {
+        $("book-version-status").textContent = "";
+        alert("Loading that version failed. Try again.");
+      })
+      .finally(function() { btn.disabled = false; });
+  }
+
+  /* ---------- dashboard ---------- */
+  function renderDashboard() {
+    var total = 0, done = 0;
+    var per = S.chapters.map(function(c) {
+      var d = 0;
+      c.pages.forEach(function(_, i) { if (S.approvals.get(keyOf(c.num, i))) d++; });
+      total += c.pages.length; done += d;
+      return { c: c, done: d };
+    });
+    var pct = total ? Math.round(done / total * 100) : 0;
+    $("dash-summary").textContent = done + " of " + total + " pages QA'd (" + pct + "%)";
+    $("dash-bar").style.width = pct + "%";
+    $("dash-bar-wrap").setAttribute("aria-valuenow", done);
+    $("dash-bar-wrap").setAttribute("aria-valuemax", total);
+
+    var zone = $("dash-publish-zone"); zone.innerHTML = "";
+    if (done >= total && total > 0) {
+      var p = document.createElement("p");
+      p.style.cssText = "font-size:0.9rem;color:var(--dim)";
+      p.textContent = "Every page passed QA. Publishing sets the book live on the storefront.";
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "btn btn-qa"; b.style.marginTop = "8px";
+      b.textContent = "Publish book";
+      b.addEventListener("click", function() { doPublish(false); });
+      zone.appendChild(p); zone.appendChild(b);
+    } else {
+      var q = document.createElement("p");
+      q.style.cssText = "font-size:0.9rem;color:var(--dim)";
+      q.textContent = (total - done) + " pages still need approval before the Publish book button unlocks. Tap any page chip below to jump to it.";
+      zone.appendChild(q);
+    }
+    if (S.pdfStaleWarning) {
+      var w = document.createElement("p");
+      w.style.cssText = "margin-top:10px;background:#fff7ed;color:#7c2d12;font-size:0.9rem;padding:8px 10px;border-radius:8px";
+      w.textContent = S.pdfStaleWarning;
+      zone.appendChild(w);
+    }
+    renderAudioGate(zone, done >= total && total > 0);
+    renderDeliveryReadiness(zone);
+
+    var wrap = $("dash-chapters"); wrap.innerHTML = "";
+    per.forEach(function(entry) {
+      var c = entry.c, d = entry.done;
+      var cpct = c.pages.length ? Math.round(d / c.pages.length * 100) : 0;
+      var sec = document.createElement("section");
+      sec.className = "card"; sec.setAttribute("aria-label", "Chapter S" + c.num + " QA");
+      var head = document.createElement("div");
+      head.style.cssText = "display:flex;align-items:baseline;justify-content:space-between;gap:8px";
+      head.innerHTML = "<h3 style='margin:0;font-size:1rem'>S" + c.num + ": " + escapeHtml(c.title) + "</h3>" +
+        "<span style='font-size:0.85rem;font-weight:600;white-space:nowrap'>" + d + " of " + c.pages.length + " approved</span>";
+      var bar = document.createElement("div");
+      bar.className = "progress";
+      bar.innerHTML = "<div style='width:" + cpct + "%'></div>";
+      var chips = document.createElement("div");
+      chips.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;margin-top:10px";
+      c.pages.forEach(function(_, i) {
+        var ok = S.approvals.get(keyOf(c.num, i)) === true;
+        var cb = document.createElement("button");
+        cb.type = "button"; cb.className = "chip";
+        cb.setAttribute("aria-label", "S" + c.num + " page " + (i + 1) + ", " + (ok ? "approved" : "pending"));
+        if (ok) { cb.style.borderColor = "var(--qa)"; cb.style.color = "var(--qa)"; cb.style.background = "rgba(31,157,102,0.08)"; }
+        cb.innerHTML = (ok ? "&#10003; " : "") + "Page " + (i + 1);
+        (function(ch, pg) { cb.addEventListener("click", function() { goTo(ch, pg); }); })(c.num, i);
+        chips.appendChild(cb);
+      });
+      sec.appendChild(head); sec.appendChild(bar); sec.appendChild(chips);
+      wrap.appendChild(sec);
+    });
+  }
+
+  /* ---------- delivery readiness (whole advertised bundle) ---------- */
+  function renderDeliveryReadiness(zone) {
+    var d = S.delivery;
+    if (!d) return;
+    var box = document.createElement("div");
+    box.style.cssText = "margin-top:12px;border:1px solid var(--border);border-radius:12px;padding:10px 12px;font-size:0.9rem";
+    var head = document.createElement("div");
+    head.style.cssText = "font-weight:700";
+    head.textContent = "Delivery readiness";
+    box.appendChild(head);
+    var status = document.createElement("div");
+    status.style.cssText = "margin-top:4px;font-weight:600;color:" +
+      (d.verdict === "ready" ? "#15803d" : d.verdict === "product-ready" ? "#2563eb" : d.verdict === "not-ready" ? "#b45309" : "var(--dim)");
+    status.textContent = d.statusLabel;
+    box.appendChild(status);
+    (d.checks || []).forEach(function(ch) {
+      var row = document.createElement("div");
+      row.style.cssText = "margin-top:4px";
+      var mark = ch.state === "pass" ? "✓ " : ch.state === "fail" ? "✗ " : "? ";
+      row.textContent = mark + ch.detail;
+      if (ch.state === "fail") row.style.color = "#b45309";
+      if (ch.state === "unknown") row.style.color = "var(--dim)";
+      box.appendChild(row);
+    });
+    zone.appendChild(box);
+  }
+
+  /* ---------- publish readiness (audio gate) ---------- */
+  function loadReadiness() {
+    api("readiness?book_slug=" + BOOK_SLUG).then(function(j) {
+      S.readiness = j.readiness || null;
+      S.overrides = j.overrides || [];
+      S.delivery = j.delivery || null;
+      if (S.view === "dashboard") renderDashboard();
+    }).catch(function() { /* courtesy only; the publish gate speaks for itself */ });
+  }
+
+  function renderAudioGate(zone, publishUnlocked) {
+    if (S.overrides && S.overrides.length) {
+      var o = S.overrides[0];
+      var when = o.created_at ? new Date(o.created_at * 1000).toLocaleDateString() : "an earlier date";
+      var ob = document.createElement("p");
+      ob.style.cssText = "margin-top:10px;background:#fef3c7;color:#92400e;font-size:0.9rem;padding:8px 10px;border-radius:8px";
+      ob.textContent = "Let-it-ride record: this book was published on " + when + " with a manual audio override (" +
+        String(o.state || "").replace(/-/g, " ") + "). " + ((o.reasons || []).join(" ")) +
+        " The record stays on the book so a placeholder-voice publish is never mistaken for a final one.";
+      zone.appendChild(ob);
+    }
+    var r = S.readiness;
+    if (!r) return;
+    var box = document.createElement("div");
+    box.style.cssText = "margin-top:12px;border:1px solid var(--border);border-radius:12px;padding:10px 12px;font-size:0.9rem";
+    var head = document.createElement("div");
+    head.style.cssText = "font-weight:700";
+    head.textContent = "Audio gate";
+    box.appendChild(head);
+    var lines = [
+      "Cast voice: " + (r.castVoiceName
+        ? (r.protagonist || "The protagonist") + " is cast as " + r.castVoiceName
+        : (r.protagonist ? r.protagonist + " is not cast yet" : "protagonist not found")),
+      "Audiobook voice: " + (r.audiobookExists
+        ? (r.audiobookVoiceName || "on file, but unstamped")
+        : "not generated"),
+      "Audio status: " + r.statusLabel,
+    ];
+    lines.forEach(function(t) {
+      var d = document.createElement("div");
+      d.style.cssText = "margin-top:4px";
+      d.textContent = t;
+      box.appendChild(d);
+    });
+    if (!r.ready) {
+      (r.blockers || []).forEach(function(t) {
+        var d = document.createElement("div");
+        d.style.cssText = "margin-top:6px;color:#b45309";
+        d.textContent = t;
+        box.appendChild(d);
+      });
+      var hint = document.createElement("div");
+      hint.style.cssText = "margin-top:6px;color:var(--dim);font-size:0.85rem";
+      hint.textContent = "To finish the audio properly: cast on the Casting page, then ask RGM to regenerate the audiobook in the cast voice, about $0.20.";
+      box.appendChild(hint);
+    }
+    zone.appendChild(box);
+
+    if (publishUnlocked && !r.ready) {
+      var lw = document.createElement("div");
+      lw.style.cssText = "margin-top:12px;border-top:1px dashed var(--border);padding-top:10px";
+      var lp = document.createElement("p");
+      lp.style.cssText = "font-size:0.9rem;color:var(--dim);margin:0";
+      lp.textContent = "Or let it ride: publish now with the audiobook as it stands (" + r.statusLabel.toLowerCase() +
+        ") instead of waiting for the final cast-voice read. The override is recorded on the book.";
+      var lb = document.createElement("button");
+      lb.type = "button"; lb.className = "btn"; lb.style.marginTop = "8px";
+      lb.textContent = "Publish anyway: let it ride";
+      lb.addEventListener("click", function() {
+        var ok = window.confirm("Let it ride and publish " + (S.title || "this book") + "?\n\n" +
+          "It will go live with the current audiobook (" + r.statusLabel + ") instead of a final cast-voice read. " +
+          "This override is recorded on the book.");
+        if (ok) doPublish(true);
+      });
+      lw.appendChild(lp); lw.appendChild(lb);
+      zone.appendChild(lw);
+    }
+  }
+
+  function doPublish(override) {
+    fetch("/api/editor/publish", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ book_slug: BOOK_SLUG, audioGateOverride: override === true }) })
+      .then(function(r) {
+        return r.json().catch(function() { return {}; }).then(function(j) { return { ok: r.ok, status: r.status, j: j }; });
+      })
+      .then(function(res) {
+        if (!res.ok) {
+          alert(res.j.reason || ("Publish failed (" + res.status + ")."));
+          return;
+        }
+        var msg = res.j.reason || "Book published.";
+        if (res.j.audioOverride) {
+          msg += "\n\nPublished with a let-it-ride audio override (" + String(res.j.audioOverride.state || "").replace(/-/g, " ") + ")" +
+            (res.j.audioOverride.recorded ? ", recorded on the book." : ". Warning: the override could not be recorded.");
+        }
+        if (res.j.pdfStaleWarning) msg += "\n\nHeads up: " + res.j.pdfStaleWarning;
+        alert(msg);
+        location.reload();
+      })
+      .catch(function() { alert("Publish failed. Check your connection and try again."); });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function(c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function goTo(ch, pg) {
+    S.chNum = ch; S.pgIdx = pg;
+    $("chapter-select").value = ch;
+    var c = currentChapter();
+    $("chapter-title").textContent = c ? ("S" + c.num + ": " + c.title) : "";
+    setView("editor");
+    loadLayout();
+  }
+
+  function setView(v) {
+    S.view = v;
+    $("tab-editor").setAttribute("aria-selected", v === "editor" ? "true" : "false");
+    $("tab-dashboard").setAttribute("aria-selected", v === "dashboard" ? "true" : "false");
+    $("view-editor").classList.toggle("hidden", v !== "editor");
+    $("view-dashboard").classList.toggle("hidden", v !== "dashboard");
+    if (v === "dashboard") renderDashboard();
+  }
+
+  /* ---------- settings ---------- */
+  function saveSettings() {
+    var st = S.settings;
+    api("settings", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        book_slug: BOOK_SLUG, trimPreset: st.trimPreset, trimWidthIn: st.trimWidthIn,
+        trimHeightIn: st.trimHeightIn, safeMarginIn: st.safeMarginIn,
+        showGuides: st.showGuides, showBleed: st.showBleed
+      })
+    }).catch(function() {});
+  }
+
+  /* ---------- init ---------- */
+  function init() {
+    $("back-link").href = "/admin/books/" + adminSlug;
+    Promise.all([
+      api("chapters?slug=" + encodeURIComponent(BOOK_SLUG)),
+      api("layouts?book_slug=" + BOOK_SLUG),
+      api("approvals?book_slug=" + BOOK_SLUG),
+      api("settings?book_slug=" + BOOK_SLUG)
+    ]).then(function(res) {
+      var book = res[0];
+      S.book = book; S.chapters = book.chapters;
+      S.title = book.title;
+      $("book-title").textContent = book.title + " - Page Editor";
+      res[1].forEach(function(l) { S.layouts.set(keyOf(l.chapterNum, l.pageIndex), l); });
+      res[2].forEach(function(a) { S.approvals.set(keyOf(a.chapterNum, a.pageIndex), a.approved); });
+      if (res[3]) S.settings = res[3];
+      renderChapterSelect(); renderSettings();
+      $("loading").classList.add("hidden");
+      $("view-editor").classList.remove("hidden");
+      loadLayout();
+      loadBookVersions();
+      loadReadiness();
+    }).catch(function(e) {
+      var msg = (e && e.message) ? e.message : String(e);
+      $("loading").textContent = "The book could not be loaded: " + msg + ". Pull to refresh and try again.";
+    });
+    setTimeout(function() {
+      var l = $("loading");
+      if (l && !l.classList.contains("hidden") && !S.book) {
+        l.textContent = l.textContent + " (still waiting on the server...)";
+      }
+    }, 15000);
+
+    $("tab-editor").addEventListener("click", function() { setView("editor"); });
+    $("tab-dashboard").addEventListener("click", function() { setView("dashboard"); });
+    $("chapter-select").addEventListener("change", function(e) {
+      S.chNum = Number(e.target.value); S.pgIdx = 0;
+      var c = currentChapter();
+      $("chapter-title").textContent = c ? ("S" + c.num + ": " + c.title) : "";
+      loadLayout();
+    });
+
+    $("page").addEventListener("pointerdown", function() { S.selection = null; renderPage(); });
+    $("el-img").addEventListener("pointerdown", function(e) { beginDrag(e, "move-image"); });
+    document.querySelectorAll(".handle").forEach(function(h) {
+      h.addEventListener("pointerdown", function(e) { beginDrag(e, "resize-image", h.getAttribute("data-corner")); });
+    });
+    $("el-text").addEventListener("pointerdown", function(e) { beginDrag(e, "move-text"); });
+
+    $("btn-center").addEventListener("click", centerImage);
+    $("btn-snap").addEventListener("click", snapTextBottom);
+    $("btn-edit-text").addEventListener("click", function() {
+      S.selection = "text"; S.editingText = true; renderPage();
+      setTimeout(function() { $("story-ta").focus(); }, 50);
+    });
+    $("text-done").addEventListener("click", function() { S.editingText = false; renderPage(); saveLayoutSoon(); });
+    $("story-ta").addEventListener("input", function(e) {
+      if (S.layout) { S.layout.text.content = e.target.value; renderText(); }
+    });
+    $("story-ta").addEventListener("pointerdown", function(e) { e.stopPropagation(); });
+    $("btn-reset").addEventListener("click", function() {
+      api("layouts?book_slug=" + BOOK_SLUG + "&chapterNum=" + S.chNum + "&pageIndex=" + S.pgIdx, { method: "DELETE" })
+        .then(function() {
+          S.layouts.delete(keyOf(S.chNum, S.pgIdx));
+          loadLayout(); setSaveNote("Page reset to default layout");
+        });
+    });
+
+    $("font-minus").addEventListener("click", function() { changeFont(-0.2); });
+    $("font-plus").addEventListener("click", function() { changeFont(0.2); });
+    $("font-range").addEventListener("input", function(e) {
+      if (S.layout) { S.layout.text.fontSize = Number(e.target.value); renderPage(); }
+    });
+    $("font-range").addEventListener("change", saveLayoutSoon);
+
+    $("btn-approve").addEventListener("click", function() { setApproval(true); });
+    $("btn-unapprove").addEventListener("click", function() { setApproval(false); });
+
+    $("take-select").addEventListener("change", onTakeSelect);
+    $("btn-apply-take").addEventListener("click", applyTake);
+    $("btn-load-version").addEventListener("click", loadWholeVersion);
+
+    function redoBusy(btn, busy) {
+      btn.disabled = busy;
+      btn.textContent = busy ? "Working..." : btn.getAttribute("data-label");
+    }
+    ["btn-redo-text", "btn-redo-image"].forEach(function(id) {
+      $(id).setAttribute("data-label", $(id).textContent);
+    });
+
+    $("btn-redo-text").addEventListener("click", function() {
+      var btn = $("btn-redo-text");
+      if (!confirm("Regenerate this page's text with the full story context? The current text will be replaced and the page unapproved.")) return;
+      redoBusy(btn, true);
+      api("redo-text", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: BOOK_SLUG, chapterNum: S.chNum, pageIndex: S.pgIdx }) })
+        .then(function(d) {
+          if (d.text) { currentPage().text = d.text; }
+          S.approvals.set(keyOf(S.chNum, S.pgIdx), false);
+          renderPage();
+        })
+        .catch(function() { alert("Redo text failed. Try again."); })
+        .finally(function() { redoBusy(btn, false); });
+    });
+
+    $("btn-redo-image").addEventListener("click", function() {
+      var btn = $("btn-redo-image");
+      if (!confirm("Re-render this page's art from its image prompt? The current image will be replaced and the page unapproved.")) return;
+      redoBusy(btn, true);
+      api("redo-image", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: BOOK_SLUG, chapterNum: S.chNum, pageIndex: S.pgIdx }) })
+        .then(function(d) {
+          if (d.image) { currentPage().image = d.image; S.imgSrc = null; }
+          S.approvals.set(keyOf(S.chNum, S.pgIdx), false);
+          loadImage(); renderPage();
+        })
+        .catch(function() { alert("Redo image failed. Try again."); })
+        .finally(function() { redoBusy(btn, false); });
+    });
+    function setApproval(v) {
+      api("approvals", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ book_slug: BOOK_SLUG, chapterNum: S.chNum, pageIndex: S.pgIdx, approved: v }) })
+        .then(function() { S.approvals.set(keyOf(S.chNum, S.pgIdx), v); renderPage(); });
+    }
+
+    $("btn-png").addEventListener("click", downloadPng);
+
+    $("prev-page").addEventListener("click", function() {
+      if (S.pgIdx > 0) { S.pgIdx--; loadLayout(); }
+      else if (S.chNum > 1) {
+        S.chNum--; var c = currentChapter(); S.pgIdx = c.pages.length - 1;
+        $("chapter-select").value = S.chNum;
+        $("chapter-title").textContent = "S" + c.num + ": " + c.title;
+        loadLayout();
+      }
+    });
+    $("next-page").addEventListener("click", function() {
+      var c = currentChapter();
+      if (S.pgIdx < c.pages.length - 1) { S.pgIdx++; loadLayout(); }
+      else if (S.chNum < 18) {
+        S.chNum++; var n = currentChapter(); S.pgIdx = 0;
+        $("chapter-select").value = S.chNum;
+        $("chapter-title").textContent = "S" + n.num + ": " + n.title;
+        loadLayout();
+      }
+    });
+
+    $("trim-preset").addEventListener("change", function(e) {
+      var v = e.target.value, p = PRESETS[v] || PRESETS.letter;
+      S.settings.trimPreset = v;
+      if (v !== "custom") { S.settings.trimWidthIn = p.w; S.settings.trimHeightIn = p.h; }
+      renderSettings(); renderPage(); saveSettings();
+    });
+    $("custom-w").addEventListener("change", function(e) {
+      S.settings.trimPreset = "custom";
+      S.settings.trimWidthIn = clamp(Number(e.target.value) || 8.5, 3, 20);
+      renderSettings(); renderPage(); saveSettings();
+    });
+    $("custom-h").addEventListener("change", function(e) {
+      S.settings.trimPreset = "custom";
+      S.settings.trimHeightIn = clamp(Number(e.target.value) || 11, 3, 20);
+      renderSettings(); renderPage(); saveSettings();
+    });
+    $("safe-margin").addEventListener("change", function(e) {
+      S.settings.safeMarginIn = clamp(Number(e.target.value) || 0, 0, 2);
+      renderSettings(); renderPage(); saveSettings();
+    });
+    $("show-guides").addEventListener("change", function(e) { S.settings.showGuides = e.target.checked; renderPage(); saveSettings(); });
+    $("show-bleed").addEventListener("change", function(e) { S.settings.showBleed = e.target.checked; renderPage(); saveSettings(); });
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
+<script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,415 @@
+---
+import "../../styles/global.css";
+import SiteFooter from "../../components/SiteFooter.astro";
+import SiteHeader from "../../components/SiteHeader.astro";
+import CartSheet from "../../components/CartSheet.astro";
+import Tracking from "../../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../../components/TransitionHooks.astro";
+import SeoHead from "../../components/SeoHead.astro";
+import AudiobookBadge from "../../components/AudiobookBadge.astro";
+import { probeAudiobook, formatClock, chapterLabel, chapterDuration, edgeTrackMeta } from "../../lib/audiobooks";
+import { coverDerivative, MEDIA_PUBLIC } from "../../lib/derivatives";
+import { resolveBookForPublicRoute, publicSlugFor, bookHref } from "../../lib/public-slugs";
+import { AUDIO_PRICE_CENTS, AUDIO_CLUB_PRICE_CENTS, AUDIO_CLUB_ANNUAL_PRICE_CENTS, clubPriceLabel } from "../../lib/offers";
+import { env } from "cloudflare:workers";
+export const prerender = false;
+const e = env as any;
+
+// One book's listening page. The address bar carries the PUBLIC slug;
+// the internal slug is resolved server-side exactly like the book
+// page (an internal-slug hit 301s to the public URL). Every book
+// with a cover and an audiobook is audio-published (CG, 2026-10-29):
+// it gets this full page whatever its book status, keyed entirely
+// off the catalog row. Only the audio edition publishes this way;
+// the book editions stay behind their own gates.
+//
+// Page order is deliberate: buy block first, then the free sample
+// player (introduction + chapter 1, streamed publicly by
+// /api/audio-sample), then the locked remainder, the Audio Club
+// upsell, and the link back to the book page. No audio URL for a
+// locked chapter ever reaches this page.
+const param = Astro.params.slug || "";
+const resolved = await resolveBookForPublicRoute(e.DB, param);
+if (!resolved) return Astro.redirect("/", 404);
+const { book, via } = resolved;
+const publicSlug = publicSlugFor(book);
+if (via === "internal") {
+  return Astro.redirect(`/audiobooks/${publicSlug}${Astro.url.search}`, 301);
+}
+if (!book.cover_key || !book.audiobook_key) return Astro.redirect("/", 404);
+const probe = await probeAudiobook(e, book);
+if (!probe.chapterCount) return Astro.redirect("/", 404);
+
+const slug = String(book.slug);
+const title = String(book.title);
+const cover = coverDerivative(slug, "hero", book.cover_key) || (book.cover_key ? MEDIA_PUBLIC + book.cover_key : "");
+const runtimeLabel = formatClock(probe.runtimeSecs);
+const chapters = Array.from({ length: probe.chapterCount }, (_, i) => ({
+  n: i + 1,
+  label: chapterLabel(slug, i + 1),
+  duration: chapterDuration(slug, i + 1),
+}));
+const introMeta = edgeTrackMeta(slug, "intro");
+const outroMeta = edgeTrackMeta(slug, "outro");
+const sample = [
+  ...(probe.hasIntro
+    ? [{ id: "intro", label: introMeta.title, url: `/api/audio-sample/${publicSlug}/intro`, duration: introMeta.duration }]
+    : []),
+  ...(probe.hasChapter1
+    ? [{ id: "ch1", label: chapterLabel(slug, 1), url: `/api/audio-sample/${publicSlug}/ch1`, duration: chapterDuration(slug, 1) }]
+    : []),
+];
+const sampleSecs = sample.reduce((sum, t) => sum + (t.duration || 0), 0);
+const audioPriceLabel = clubPriceLabel(AUDIO_PRICE_CENTS);
+const digitalCents = Number(book.price || 0);
+// The "comes free with the digital book" clause may only point at a
+// digital edition that is actually on sale: the published book's.
+// An audio-published book whose book edition is not published yet
+// (docker carries stamped prices before publish) never shows it.
+const digitalLabel =
+  book.status === "complete" && digitalCents > 0 ? clubPriceLabel(digitalCents) : "";
+const clubMonthlyLabel = clubPriceLabel(AUDIO_CLUB_PRICE_CENTS);
+// Whole-dollar amounts render without cents ($49/yr), matching the
+// approved upsell copy; anything else keeps the cents.
+const clubAnnualLabel =
+  AUDIO_CLUB_ANNUAL_PRICE_CENTS % 100 === 0
+    ? `$${AUDIO_CLUB_ANNUAL_PRICE_CENTS / 100}`
+    : clubPriceLabel(AUDIO_CLUB_ANNUAL_PRICE_CENTS);
+const readHref = bookHref(book);
+// Right-column dressing mirrors the book page: the shelf eyebrow is
+// the book's topic (Tech when unset, as on books/[slug]) and the
+// description is the catalog's own, rendered when one exists.
+const topic = String(book.topic || "tech");
+const description = String(book.description || "").trim();
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{title} (Audiobook) — Big Brain Shelf</title>
+  <SeoHead title={`${title} (Audiobook) — Big Brain Shelf`} socialDescription={`Listen to ${title}: a Big Brain Shelf audiobook. Hear the introduction and first chapter free.`} image={cover || undefined} imageAlt={`${title} cover`} />
+  <meta name="description" content={`Listen to ${title}: a Big Brain Shelf audiobook. Hear the introduction and first chapter free.`} />
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking traksEvent={{ name: "audiobook_view", props: { topic } }} />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+
+  <!-- No SectionHero/SectionNav on this detail page, matching
+       books/[slug].astro exactly. Repeating the section chrome here
+       made the shelf-to-detail view transition composite the hero
+       against itself (the doubled headline in the owner's screen
+       recording) and padded the transition's DOM-update phase until
+       the browser skipped the transition outright on phone-class
+       hardware: no cover morph, just a raw crossfade. The listing
+       page keeps the hero and routes bar; detail pages do not. -->
+  <!-- The top section uses the book detail page's exact frame: the
+       max-w-7xl outer container (so the content lines up under the
+       header logo like /books/<slug>), the same back-link treatment,
+       and the same md:grid-cols-2 grid capped at max-w-5xl, cover in
+       the left column and the buy block in the right. Below md the
+       stacked order is the one this page has always had: cover
+       block, info, buy block, then the player. -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <a href="/audiobooks" class="inline-block mt-5 sm:mt-6 py-1 text-sm text-stone-500 hover:text-stone-900">&larr; All audiobooks</a>
+    <div class="grid gap-[18px] md:grid-cols-2 md:gap-10 py-4 sm:py-6 max-w-5xl">
+      <div class="relative w-44 md:w-full aspect-[3/4] bg-stone-100 rounded md:rounded-none" style={`view-transition-name: book-cover-${slug}`} role="img" aria-label={`${title} cover`}>
+        <span aria-hidden="true" class="absolute inset-0 z-10 pointer-events-none" style="box-shadow: inset 18px 0 26px -16px rgba(0,0,0,.5), inset -1px 0 2px rgba(0,0,0,.12), inset 0 0 0 1px rgba(0,0,0,.07)"></span>
+        {cover && (
+          <>
+            <img src={cover} alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover" />
+            <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 z-20 w-full h-full opacity-0" />
+            <AudiobookBadge locale="en" />
+          </>
+        )}
+      </div>
+      <div>
+        <span class="inline-block text-xs font-semibold uppercase tracking-wider text-orange-600 capitalize mb-2">{topic}</span>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight mb-3 break-words">{title}</h1>
+        <p class="text-sm text-stone-500 -mt-1">Audiobook &middot; {runtimeLabel} &middot; {probe.chapterCount} chapters</p>
+        <p class="text-stone-500 text-sm mt-0.5">A Big Brain Shelf Original.</p>
+        {description && <p class="text-stone-600 leading-relaxed mt-3 max-w-xl">{description}</p>}
+        <span class="inline-block mt-3 rounded-full bg-orange-100 text-orange-700 text-xs font-bold px-2.5 py-1">Free sample</span>
+        <p class="text-sm text-stone-600 leading-relaxed mt-2.5 max-w-xl">Hear the start free: the introduction and chapter 1. No account needed. The rest unlocks with the audiobook or the Audio Club.</p>
+
+        <!-- Buy area in the book page's pattern: the price prominent
+             beside one strong button, no card around it. -->
+        <section class="mt-6" aria-label="Buy this audiobook">
+          <div class="flex items-center gap-5 flex-wrap max-sm:flex-col max-sm:items-stretch max-sm:gap-4">
+            <span class="text-2xl font-bold tracking-tight">{audioPriceLabel}</span>
+            <button id="buy-audio" type="button" class="max-sm:w-full bg-stone-900 text-white rounded-full px-8 py-3 text-sm font-semibold hover:bg-black transition duration-100 active:scale-[0.97] disabled:opacity-60">Add to cart</button>
+          </div>
+          <p class="text-sm text-stone-500 mt-4 max-w-xl">Yours to keep. Listen in your library or download it.{digitalLabel && <> It also comes free with the {digitalLabel} digital book.</>}</p>
+          {digitalLabel && (
+            <p class="text-sm mt-2 max-w-xl">Want the books too? <a href={readHref} class="font-semibold text-orange-700 hover:text-orange-800">The {digitalLabel} digital bundle</a> adds the storybook, coloring book and ebook, and this audiobook comes with it.</p>
+          )}
+        </section>
+      </div>
+    </div>
+
+    <!-- Player and everything below it aligns with the top grid's
+         max-w-5xl column. The player is a compact bar: a 44px play
+         button (still a full-size touch target) and one tight row. -->
+    <div class="max-w-5xl pb-10 sm:pb-16">
+    <section class="bg-[#1a3454] text-white rounded-2xl px-3.5 py-3 sm:px-4" aria-label="Free sample player">
+      <div class="flex items-center gap-3">
+        <button id="ap-toggle" type="button" aria-label="Play the free sample" class="w-11 h-11 shrink-0 rounded-full bg-orange-600 text-white flex items-center justify-center transition duration-100 active:scale-[0.97] hover:bg-orange-500">
+          <svg id="ap-icon-play" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+          <svg id="ap-icon-pause" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="hidden"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+        </button>
+        <div class="min-w-0">
+          <p id="ap-now" class="font-bold text-sm leading-snug truncate">Free sample</p>
+          <p class="text-white/60 text-xs mt-0.5">Introduction and chapter 1 &middot; {formatClock(sampleSecs)} free</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2.5 mt-2.5">
+        <span id="ap-cur" class="text-xs text-white/70 tabular-nums">0:00</span>
+        <div id="ap-bar" class="flex-1 h-[6px] rounded-full bg-white/15 cursor-pointer" role="progressbar" aria-label="Sample progress">
+          <div id="ap-fill" class="h-full w-0 rounded-full bg-[#f97316]"></div>
+        </div>
+        <span id="ap-dur" class="text-xs text-white/70 tabular-nums">{sampleSecs ? formatClock(sampleSecs) : "0:00"}</span>
+      </div>
+      <audio id="ap-audio" preload="none"></audio>
+    </section>
+
+    <div id="ap-tracks" class="border border-stone-200 rounded-2xl overflow-hidden mt-4">
+      {sample.map((t, i) => (
+        <button type="button" data-sample-idx={i} class="ap-track flex items-center gap-2.5 w-full text-left px-3.5 py-2 border-b border-stone-100 last:border-b-0 transition duration-100 active:scale-[0.99] hover:bg-stone-50">
+          <span class="w-7 h-7 shrink-0 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+          </span>
+          <span class="flex-1 min-w-0">
+            <span class="block font-semibold text-[13px] truncate">{t.label}</span>
+            <span class="block text-[11px] text-orange-700 font-bold">Free</span>
+          </span>
+          <span class="text-xs text-stone-500 tabular-nums">{t.duration ? formatClock(t.duration) : ""}</span>
+        </button>
+      ))}
+      {chapters.slice(1).map((c) => (
+        <div class="flex items-center gap-2.5 px-3.5 py-2 border-b border-stone-100 last:border-b-0 text-stone-400" aria-label={`${c.label} (locked)`}>
+          <span class="w-7 h-7 shrink-0 rounded-full bg-stone-100 text-stone-400 flex items-center justify-center">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          </span>
+          <span class="flex-1 min-w-0">
+            <span class="block font-semibold text-[13px] truncate">{c.label}</span>
+            <span class="block text-[11px]">Locked</span>
+          </span>
+          <span class="text-xs tabular-nums">{c.duration ? formatClock(c.duration) : ""}</span>
+        </div>
+      ))}
+      {probe.hasOutro && (
+        <div class="flex items-center gap-2.5 px-3.5 py-2 text-stone-400" aria-label="The End (locked)">
+          <span class="w-7 h-7 shrink-0 rounded-full bg-stone-100 text-stone-400 flex items-center justify-center">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          </span>
+          <span class="flex-1 min-w-0">
+            <span class="block font-semibold text-[13px] truncate">{outroMeta.title}</span>
+            <span class="block text-[11px]">Locked</span>
+          </span>
+          <span class="text-xs tabular-nums">{outroMeta.duration ? formatClock(outroMeta.duration) : ""}</span>
+        </div>
+      )}
+    </div>
+
+    <!-- Audio Club upsell as a slim bar, not a second billboard. -->
+    <section class="bg-[#1a3454] text-white rounded-2xl px-4 py-3.5 sm:px-5 mt-4 flex flex-wrap items-center gap-x-5 gap-y-3" aria-label="Audio Club">
+      <div class="flex-1 min-w-[220px]">
+        <h3 class="text-[15px] font-bold leading-snug">Or hear everything: Audio Club</h3>
+        <p class="text-[13px] text-white/85 leading-relaxed mt-0.5">{clubMonthlyLabel}/mo or {clubAnnualLabel}/yr: every audiobook on the shelf, this one included, while you are a member.</p>
+      </div>
+      <a href="/clubs" class="inline-flex items-center justify-center min-h-[44px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold transition duration-100 active:scale-[0.97] hover:bg-orange-500">Join The Audio Club</a>
+    </section>
+
+    <p class="text-sm text-stone-600 mt-5">Prefer to read it? <a href={readHref} class="font-semibold text-orange-700 hover:text-orange-800">See the book page.</a></p>
+    <p class="text-[13px] text-stone-400 leading-relaxed mt-4">The sample is the real opening of this audiobook: the introduction plus the whole first chapter, free for anyone. Buying the audiobook unlocks every chapter in your library, plus the downloadable files. Joining The Audio Club unlocks every chapter in your library for as long as your membership is active.</p>
+    </div>
+  </main>
+
+  <SiteFooter />
+  <CartSheet />
+
+  <script is:inline>
+    // Keep the header account link in sync with the session (same
+    // pattern as the other public pages).
+    function bbsAccountLink() {
+      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+        var link = document.getElementById("account-link");
+        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
+      }).catch(function () {});
+    }
+    bbsAccountLink();
+    document.addEventListener("astro:page-load", bbsAccountLink);
+  </script>
+
+  <script is:inline define:vars={{ slug, publicSlug, audioCents: AUDIO_PRICE_CENTS }}>
+    // Buy block: adds this book's audio-only format to the real cart,
+    // the identical { slug, format: "audio" } entry the book page's
+    // format picker writes (internal slug; checkout and the cart
+    // sheet resolve it from there). Same bind pattern as the book
+    // page: path check + per-element flag, re-run on astro:page-load.
+    function initAudioBuy() {
+      if (window.location.pathname !== "/audiobooks/" + publicSlug) return;
+      var btn = document.getElementById("buy-audio");
+      if (!btn || btn.__buyBound) return;
+      btn.__buyBound = true;
+      function cartHasAudio() {
+        return window.bbsCart ? window.bbsCart.has(slug, "audio") : false;
+      }
+      function syncBtn() {
+        var has = cartHasAudio();
+        btn.disabled = has;
+        btn.textContent = has ? "In your cart" : "Add to cart";
+      }
+      syncBtn();
+      // The mirror also follows cart changes made anywhere else:
+      // remove the audiobook in the slide-over sheet and the button
+      // re-arms at once, no reload.
+      document.addEventListener("bbs:cart-changed", function () {
+        if (window.location.pathname === "/audiobooks/" + publicSlug) syncBtn();
+      });
+      btn.addEventListener("click", function () {
+        // The store writes, repaints the badge, and announces the
+        // change; add() reports whether the entry was new, which is
+        // what the tracking event has always keyed on.
+        var added = window.bbsCart && window.bbsCart.add(slug, "audio");
+        if (added && window.bbsTrack) window.bbsTrack("AddToCart", {
+          content_ids: [slug],
+          content_type: "product",
+          format: "audio",
+          value: audioCents / 100,
+          currency: "USD",
+        });
+        if (window.openCartSheet) window.openCartSheet();
+        syncBtn();
+      });
+    }
+    initAudioBuy();
+    document.addEventListener("astro:page-load", initAudioBuy);
+  </script>
+
+  <script is:inline define:vars={{ publicSlug, sample }}>
+    // Free sample player: plays the sample tracks in order (the
+    // introduction, then chapter 1) from /api/audio-sample, the
+    // public sample route. Locked chapters have no URLs on this page
+    // and are never requested.
+    function fmt(s) {
+      s = Math.max(0, Math.floor(Number(s) || 0));
+      return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+    }
+    function initSamplePlayer() {
+      if (window.location.pathname !== "/audiobooks/" + publicSlug) return;
+      var audio = document.getElementById("ap-audio");
+      var toggle = document.getElementById("ap-toggle");
+      if (!audio || !toggle || toggle.__playerBound) return;
+      toggle.__playerBound = true;
+      var nowEl = document.getElementById("ap-now");
+      var curEl = document.getElementById("ap-cur");
+      var durEl = document.getElementById("ap-dur");
+      var fillEl = document.getElementById("ap-fill");
+      var barEl = document.getElementById("ap-bar");
+      var playIcon = document.getElementById("ap-icon-play");
+      var pauseIcon = document.getElementById("ap-icon-pause");
+      var rows = Array.prototype.slice.call(document.querySelectorAll(".ap-track"));
+      var idx = -1;
+      // The scrubber spans the WHOLE sample (the introduction plus
+      // chapter 1), matching the total the header line promises
+      // ("Introduction and chapter 1 . N:NN free"): one continuous
+      // bar over both tracks via per-track offsets, not a per-track
+      // bar that resets at the chapter break and reads 0:19 against
+      // a 2:15 promise (site review, 2026-10-30).
+      var offsets = [];
+      var totalSecs = 0;
+      sample.forEach(function (t) { offsets.push(totalSecs); totalSecs += t.duration || 0; });
+      var pendingSeek = null;
+
+      function trackDur() {
+        if (idx < 0) return (sample[0] && sample[0].duration) || 0;
+        return sample[idx].duration || audio.duration || 0;
+      }
+      function globalCur() {
+        if (idx < 0) return 0;
+        return (offsets[idx] || 0) + (audio.currentTime || 0);
+      }
+      function paintProgress() {
+        var g = globalCur();
+        curEl.textContent = fmt(g);
+        fillEl.style.width = totalSecs > 0 ? Math.min(100, (g / totalSecs) * 100) + "%" : "0%";
+      }
+      function paint() {
+        var playing = !audio.paused && !audio.ended;
+        playIcon.classList.toggle("hidden", playing);
+        pauseIcon.classList.toggle("hidden", !playing);
+        toggle.setAttribute("aria-label", playing ? "Pause the free sample" : "Play the free sample");
+        rows.forEach(function (row, i) {
+          row.classList.toggle("bg-orange-50", i === idx);
+        });
+        if (idx >= 0) nowEl.textContent = sample[idx].label;
+        durEl.textContent = fmt(totalSecs || trackDur());
+        paintProgress();
+      }
+      function select(i, autoplay) {
+        idx = i;
+        audio.src = sample[idx].url;
+        audio.currentTime = 0;
+        paint();
+        if (autoplay) audio.play().catch(function () {});
+      }
+      toggle.addEventListener("click", function () {
+        if (idx < 0) { select(0, true); return; }
+        if (audio.paused) audio.play().catch(function () {}); else audio.pause();
+      });
+      rows.forEach(function (row) {
+        row.addEventListener("click", function () {
+          select(parseInt(row.getAttribute("data-sample-idx"), 10), true);
+        });
+      });
+      var samplePlayFired = false;
+      audio.addEventListener("play", function () {
+        if (samplePlayFired) return;
+        samplePlayFired = true;
+        if (window.bbsTraks) window.bbsTraks("sample_play", {});
+      });
+      audio.addEventListener("play", paint);
+      audio.addEventListener("pause", paint);
+      audio.addEventListener("loadedmetadata", function () {
+        if (pendingSeek !== null) { audio.currentTime = pendingSeek; pendingSeek = null; }
+        paint();
+      });
+      audio.addEventListener("timeupdate", paintProgress);
+      audio.addEventListener("ended", function () {
+        if (idx + 1 < sample.length) select(idx + 1, true);
+        else paint();
+      });
+      barEl.addEventListener("click", function (e) {
+        if (!totalSecs) return;
+        var r = barEl.getBoundingClientRect();
+        var t = Math.min(totalSecs - 0.1, Math.max(0, ((e.clientX - r.left) / r.width) * totalSecs));
+        var j = 0;
+        for (var k = 0; k < sample.length; k++) { if (t >= (offsets[k] || 0)) j = k; }
+        var within = t - (offsets[j] || 0);
+        if (j === idx) {
+          audio.currentTime = within;
+        } else {
+          var wasPlaying = !audio.paused && !audio.ended;
+          pendingSeek = within;
+          select(j, wasPlaying);
+        }
+        paintProgress();
+      });
+      paint();
+    }
+    initSamplePlayer();
+    document.addEventListener("astro:page-load", initSamplePlayer);
+  </script>
+</body>
+</html>

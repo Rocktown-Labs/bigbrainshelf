@@ -1,0 +1,397 @@
+---
+import "../../styles/global.css";
+import { env } from "cloudflare:workers";
+import SiteFooter from "../../components/SiteFooter.astro";
+import SiteHeader from "../../components/SiteHeader.astro";
+import SectionNav from "../../components/SectionNav.astro";
+import { coverDerivative } from "../../lib/derivatives";
+import CartSheet from "../../components/CartSheet.astro";
+import Tracking from "../../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../../components/TransitionHooks.astro";
+import SeoHead from "../../components/SeoHead.astro";
+import { buildCast, bookCast, objectPosition, TOPIC_TINTS, type CastMember, type GalleryFocal } from "../../lib/cast-public";
+import { loadCastGallery } from "../../lib/cast-gallery";
+import { ensurePublicSlugColumn } from "../../lib/public-slugs";
+export const prerender = false;
+
+const e = env as any;
+const adminUser = Astro.locals.user;
+const slug = String(Astro.params.character || "");
+
+await ensurePublicSlugColumn(e.DB).catch(() => {});
+const res = await e.DB.prepare(
+  `SELECT c.id, c.name, c.species, c.book_slug,
+          b.title AS book_title, b.topic AS book_topic, b.picture_book_key,
+          b.public_slug AS book_public_slug,
+          b.cover_key AS book_cover_key, b.price AS book_price,
+          b.audiobook_key AS book_audiobook_key, b.status AS book_status
+     FROM characters c
+     JOIN books b ON b.slug = c.book_slug`
+).all();
+const rows: any[] = res.results || res.rows || [];
+const galleryManifest = await loadCastGallery(e.BOOKS);
+const members: CastMember[] = buildCast(rows, galleryManifest);
+
+interface PageData {
+  name: string;
+  species: string;
+  role: string;
+  blurb: string;
+  bio: [string, string] | null;
+  fun: string;
+  portrait: string | null;
+  portraitHero: string | null;
+  poses: string[];
+  poseThumbs: (string | null)[];
+  portraitFocal: GalleryFocal;
+  poseFocals: GalleryFocal[];
+  poseActions: (string | null)[];
+  bookSlug: string;
+  bookPublicSlug: string;
+  bookTitle: string;
+  topic: string;
+  workshop: boolean;
+  cover: string | null;
+  priceCents: number;
+  hasAudio: boolean;
+  buyableDirect: boolean;
+  castmates: CastMember[];
+  prev: { slug: string; name: string } | null;
+  next: { slug: string; name: string } | null;
+}
+
+let page: PageData | null = null;
+
+{
+  const me = members.find((m) => m.slug === slug);
+  if (me) {
+    // The buy card's data (cover, price, audio, status) rides on the
+    // raw catalog row; buildCast's member shape does not carry it.
+    const myRow = rows.find((r: any) => String(r.name) === me.name && String(r.book_slug) === me.bookSlug);
+    const coverKey = myRow?.book_cover_key ? String(myRow.book_cover_key) : null;
+    const bookStatus = String(myRow?.book_status || "");
+    const cast = bookCast(members, me.bookSlug);
+    const names = cast.map((m) => m.name);
+    const idx = names.indexOf(me.name);
+    const navFor = (n: string | undefined) =>
+      !n ? null : { slug: cast.find((m) => m.name === n)!.slug, name: n };
+    page = {
+      name: me.name,
+      species: me.species,
+      role: me.role,
+      blurb: me.blurb,
+      bio: me.bio,
+      fun: me.fun,
+      portrait: me.portrait,
+      portraitHero: me.portraitHero,
+      poses: me.poses,
+      poseThumbs: me.poseThumbs,
+      portraitFocal: me.portraitFocal,
+      poseFocals: me.poseFocals,
+      poseActions: me.poseActions,
+      bookSlug: me.bookSlug,
+      bookPublicSlug: me.bookPublicSlug,
+      bookTitle: me.bookTitle,
+      topic: me.topic,
+      workshop: me.workshop,
+      cover: coverKey ? (coverDerivative(me.bookSlug, "card", coverKey) || `https://media.bigbrainshelf.com/${coverKey}`) : null,
+      priceCents: Number(myRow?.book_price || 0),
+      hasAudio: !!myRow?.book_audiobook_key,
+      // Direct add only when the digital bundle is actually on sale
+      // (same completeness gate the book page applies); every other
+      // published book's card links to its book page instead, where
+      // the real state is presented.
+      buyableDirect: bookStatus === "complete" && Number(myRow?.book_price || 0) > 0,
+      castmates: cast.filter((m) => m.slug !== me.slug),
+      prev: navFor(names[idx - 1]),
+      next: navFor(names[idx + 1]),
+    };
+  }
+}
+
+if (!page) Astro.response.status = 404;
+const tint = page ? (TOPIC_TINTS[page.topic] || TOPIC_TINTS.default) : TOPIC_TINTS.default;
+// Pose captions name the action a pose was tagged with, title-cased
+// ("carrying" -> "Carrying", "tightrope-walking" -> "Tightrope Walking");
+// untagged poses get no caption at all (no "Pose 1" numbering).
+const actionTitle = (a: string | null): string | null =>
+  a ? a.split("-").filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : null;
+const pageTitle = page ? `${page.name} — Meet the Cast | Big Brain Shelf` : "Character not found — Big Brain Shelf";
+const pageDesc = page ? page.blurb : "That character is not on the shelf.";
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{pageTitle}</title>
+  <SeoHead title={pageTitle} socialDescription={pageDesc} image={page?.portrait || undefined} />
+  <meta name="description" content={pageDesc} />
+  <link rel="preload" href="/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <style is:inline>
+    .cast-display { font-family: "Fredoka", ui-rounded, system-ui, sans-serif; }
+  </style>
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+  <SectionNav active="cast" />
+
+  {page ? (
+    <main>
+      <section style={`background:${tint}`} class="relative overflow-hidden">
+        <div class="pointer-events-none absolute -top-16 -right-16 w-64 h-64 rounded-full bg-white/40"></div>
+        <div class="pointer-events-none absolute -bottom-24 -left-10 w-56 h-56 rounded-full bg-white/30"></div>
+        <div class="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 grid md:grid-cols-[minmax(0,420px)_1fr] gap-8 md:gap-12 items-center">
+          <div>
+            <a href="/meet-the-cast" class="cast-display md:hidden inline-block text-sm font-semibold text-orange-700 hover:text-orange-800 mb-4">&larr; All of the cast</a>
+            {page.portrait ? (
+              <div class="relative rounded-[2rem] overflow-hidden border-4 border-white shadow-[0_24px_40px_-18px_rgba(26,52,84,0.45)] bg-[#faf6ee]" role="img" aria-label={`${page.name} the ${page.species}`}>
+                <img src={page.portraitHero || page.portrait} alt="" aria-hidden="true" style={`object-position:${objectPosition(page.portraitFocal)}`} class="w-full aspect-[4/5] object-cover" />
+                <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+              </div>
+            ) : (
+              <div class="rounded-[2rem] border-4 border-dashed border-white/80 bg-white/40 aspect-[4/5] flex flex-col items-center justify-center text-center px-8">
+                <p class="cast-display text-2xl font-semibold text-[#1a3454]">No portrait hangs here</p>
+                <p class="text-sm text-stone-600 leading-relaxed mt-2">This character is in and out too fast for sittings. Their story is below, and it is a good one.</p>
+              </div>
+            )}
+          </div>
+          <div>
+            <a href="/meet-the-cast" class="cast-display hidden md:inline-block text-sm font-semibold text-orange-700 hover:text-orange-800">&larr; All of the cast</a>
+            <h1 class="cast-display text-4xl sm:text-5xl font-semibold tracking-tight text-[#1a3454] mt-3">{page.name}</h1>
+            <p class="text-sm font-semibold uppercase tracking-wider text-orange-700 mt-2 capitalize">{page.species} &middot; {page.topic} shelf</p>
+            {page.role && <p class="cast-display text-xl sm:text-2xl font-semibold text-[#1a3454] mt-3">{page.role}</p>}
+            <p class="text-stone-700 leading-relaxed mt-3 max-w-xl">{page.blurb}</p>
+            <p class="text-sm text-stone-600 mt-5">
+              Stars in{" "}
+              {page.workshop
+                ? <span class="font-semibold text-[#1a3454]">{page.bookTitle}</span>
+                : <a href={`/books/${page.bookPublicSlug}`} class="font-semibold text-orange-700 hover:text-orange-800 underline underline-offset-2">{page.bookTitle}</a>}
+              {page.workshop && <span class="block mt-1 text-stone-500">A book in the workshop, still being made. {page.name} wanted to say hello early.</span>}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* The buy card (review fix, 2026-10-31): character pages are
+          promo landing pages, so the book gets a real offer here,
+          not just the small "Stars in" line in the hero. Sample goes
+          to the book page; the bundle button adds the digital format
+          directly when the book is on sale, and links to the book
+          page when it is not, so the card never writes a cart entry
+          the store cannot fulfill. Workshop books get no card. */}
+      {!page.workshop && page.cover && (
+        <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-10">
+          <div class="flex flex-col sm:flex-row gap-5 rounded-3xl border border-stone-200 bg-white p-5 sm:p-6 sm:items-center shadow-[0_10px_30px_-18px_rgba(26,52,84,0.35)]">
+            <a href={`/books/${page.bookPublicSlug}`} class="shrink-0 mx-auto sm:mx-0">
+              <span class="relative block w-28 sm:w-32 rounded-xl overflow-hidden border border-stone-200">
+                <img src={page.cover} alt={`${page.bookTitle} cover`} class="w-full aspect-[3/4] object-cover" />
+                <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+              </span>
+            </a>
+            <div class="flex-1 text-center sm:text-left">
+              <p class="text-xs font-bold uppercase tracking-wider text-orange-600">Join {page.name} in the story</p>
+              <h2 class="cast-display text-xl sm:text-2xl font-semibold text-[#1a3454] mt-1">{page.bookTitle}</h2>
+              <p class="text-sm text-stone-600 leading-relaxed mt-1.5">The digital bundle: storybook, coloring book, ebook{page.hasAudio ? " and audiobook" : ""}, delivered instantly.</p>
+              {page.priceCents > 0 && <p class="cast-display text-lg font-semibold text-[#1a3454] mt-2">${(page.priceCents / 100).toFixed(2)}</p>}
+            </div>
+            <div class="flex flex-col gap-2 w-full sm:w-auto shrink-0">
+              <a href={`/books/${page.bookPublicSlug}`} class="inline-flex items-center justify-center min-h-[44px] px-6 rounded-full border-2 border-[#1a3454] text-[#1a3454] text-sm font-semibold hover:bg-[#1a3454] hover:text-white transition duration-100 active:scale-[0.97]">Read a free sample</a>
+              {page.buyableDirect ? (
+                <button id="cast-buy" type="button" class="inline-flex items-center justify-center min-h-[44px] px-6 rounded-full bg-stone-900 text-white text-sm font-semibold hover:bg-black transition duration-100 active:scale-[0.97]">Add to cart</button>
+              ) : (
+                <a href={`/books/${page.bookPublicSlug}`} class="inline-flex items-center justify-center min-h-[44px] px-6 rounded-full bg-stone-900 text-white text-sm font-semibold hover:bg-black transition duration-100 active:scale-[0.97]">Get the book</a>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
+        <h2 class="cast-display text-2xl sm:text-3xl font-semibold text-[#1a3454]">Meet {page.name}</h2>
+        {page.bio && page.bio.map((p) => <p class="text-stone-700 leading-relaxed mt-4">{p}</p>)}
+        {page.fun && (
+          <div class="mt-8 rounded-3xl bg-orange-50 border border-orange-100 px-6 py-5">
+            <p class="text-xs font-bold uppercase tracking-wider text-orange-600">One more thing</p>
+            <p class="text-stone-700 leading-relaxed mt-1.5">{page.fun}</p>
+          </div>
+        )}
+      </section>
+
+      {page.poses.length > 0 && (
+        <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+          <h2 class="cast-display text-2xl sm:text-3xl font-semibold text-[#1a3454]">More of {page.name}</h2>
+          <p class="text-sm text-stone-500 mt-1.5">Tap a picture to see it big.</p>
+          <div class="flex flex-wrap justify-center gap-4 mt-6">
+            {page.poses.map((src, i) => {
+              const caption = actionTitle(page.poseActions[i]);
+              const label = caption ? `${page.name}, ${caption.toLowerCase()}` : page.name;
+              return (
+              <button type="button" aria-label={label} class="pose-btn group relative w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[calc(25%-0.75rem)] rounded-3xl border border-stone-200 bg-[#faf6ee] overflow-hidden transition duration-200 hover:-translate-y-1 hover:shadow-[0_16px_28px_-14px_rgba(26,52,84,0.4)]" data-full={src} data-label={label}>
+                <img src={page.poseThumbs[i] || src} alt="" aria-hidden="true" loading="lazy" style={`object-position:${objectPosition(page.poseFocals[i])}`} class="w-full aspect-[4/5] object-cover transition duration-300 group-hover:scale-105" />
+                <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+                {caption && <span class="block text-xs font-semibold text-stone-500 py-2">{caption}</span>}
+              </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {page.castmates.length > 0 && (
+        <section class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+          <h2 class="cast-display text-2xl sm:text-3xl font-semibold text-[#1a3454]">Also in {page.bookTitle}</h2>
+          <div class="flex flex-wrap gap-4 mt-6">
+            {page.castmates.map((c) => (
+              <a href={`/meet-the-cast/${c.slug}`} class="group w-28 sm:w-32">
+                <div class="relative rounded-3xl border border-stone-200 bg-[#faf6ee] overflow-hidden transition duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_14px_24px_-12px_rgba(26,52,84,0.4)]" role="img" aria-label={`${c.name} the ${c.species}`}>
+                  <img src={c.portraitCard || c.portrait} alt="" aria-hidden="true" loading="lazy" style={`object-position:${objectPosition(c.portraitFocal)}`} class="w-full aspect-square object-cover" />
+                  <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+                </div>
+                <p class="cast-display text-sm font-semibold text-[#1a3454] mt-2 text-center">{c.name}</p>
+                <p class="text-[11px] text-stone-400 text-center capitalize">{c.species}</p>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <nav class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-14" aria-label="More characters from this book">
+        <div class="flex items-center justify-between gap-4 border-t border-stone-200 pt-6">
+          {page.prev
+            ? <a href={`/meet-the-cast/${page.prev.slug}`} class="cast-display text-sm sm:text-base font-semibold text-[#1a3454] hover:text-orange-700">&larr; {page.prev.name}</a>
+            : <span></span>}
+          <a href="/meet-the-cast" class="cast-display text-sm sm:text-base font-semibold text-orange-600 hover:text-orange-700">All characters</a>
+          {page.next
+            ? <a href={`/meet-the-cast/${page.next.slug}`} class="cast-display text-sm sm:text-base font-semibold text-[#1a3454] hover:text-orange-700">{page.next.name} &rarr;</a>
+            : <span></span>}
+        </div>
+      </nav>
+
+      <div id="pose-lightbox" class="hidden fixed inset-0 z-50 bg-[#1a3454]/90 backdrop-blur-sm items-center justify-center p-4 sm:p-10" role="dialog" aria-modal="true" aria-label="Picture viewer">
+        <figure class="max-w-lg w-full">
+          <div class="relative rounded-[2rem] overflow-hidden bg-[#faf6ee] border-4 border-white shadow-2xl">
+            <img id="pose-lightbox-img" src="" alt="" class="w-full max-h-[75vh] object-contain bg-[#faf6ee]" />
+            <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+          </div>
+          <figcaption class="flex items-center justify-between mt-4">
+            <span id="pose-lightbox-label" class="cast-display text-white font-semibold"></span>
+            <span class="flex gap-2">
+              <button type="button" id="pose-prev" class="cast-display text-sm font-semibold bg-white/15 hover:bg-white/30 text-white px-4 py-2 rounded-full transition">&larr; Prev</button>
+              <button type="button" id="pose-next" class="cast-display text-sm font-semibold bg-white/15 hover:bg-white/30 text-white px-4 py-2 rounded-full transition">Next &rarr;</button>
+              <button type="button" id="pose-close" class="cast-display text-sm font-semibold bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-full transition">Close</button>
+            </span>
+          </figcaption>
+        </figure>
+      </div>
+    </main>
+  ) : (
+    <main class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+      <h1 class="cast-display text-3xl font-semibold text-[#1a3454]">That character is not on the shelf</h1>
+      <p class="text-stone-500 mt-3">They may still be in the workshop. <a href="/meet-the-cast" class="font-semibold text-orange-700 hover:text-orange-800">Meet the rest of the cast &rarr;</a></p>
+    </main>
+  )}
+
+  <SiteFooter />
+
+  {page?.buyableDirect && (
+    <script is:inline define:vars={{ bookSlug: page.bookSlug, priceCents: page.priceCents }}>
+      // Buy card: adds this character's book as the digital bundle,
+      // the same store entry the book page's picker writes, with the
+      // same cart mirroring as every other buy button on the site.
+      function initCastBuy() {
+        if (window.location.pathname.indexOf("/meet-the-cast/") !== 0) return;
+        var btn = document.getElementById("cast-buy");
+        if (!btn || btn.__buyBound) return;
+        btn.__buyBound = true;
+        function syncBtn() {
+          var has = window.bbsCart ? window.bbsCart.has(bookSlug, "digital") : false;
+          btn.disabled = has;
+          btn.textContent = has ? "In your cart" : "Add to cart";
+        }
+        syncBtn();
+        document.addEventListener("bbs:cart-changed", function () {
+          if (window.location.pathname.indexOf("/meet-the-cast/") === 0) syncBtn();
+        });
+        btn.addEventListener("click", function () {
+          var added = window.bbsCart && window.bbsCart.add(bookSlug, "digital");
+          if (added && window.bbsTrack) window.bbsTrack("AddToCart", {
+            content_ids: [bookSlug],
+            content_type: "product",
+            format: "digital",
+            value: priceCents / 100,
+            currency: "USD",
+          });
+          if (window.openCartSheet) window.openCartSheet();
+          syncBtn();
+        });
+      }
+      initCastBuy();
+      document.addEventListener("astro:page-load", initCastBuy);
+    </script>
+  )}
+
+  <script is:inline>
+    function bbsPoseLightbox() {
+      var box = document.getElementById("pose-lightbox");
+      if (!box || box.dataset.bound) return;
+      box.dataset.bound = "1";
+      var img = document.getElementById("pose-lightbox-img");
+      var label = document.getElementById("pose-lightbox-label");
+      var btns = Array.prototype.slice.call(document.querySelectorAll(".pose-btn"));
+      var idx = 0;
+      function show(i) {
+        if (!btns.length) return;
+        idx = (i + btns.length) % btns.length;
+        img.src = btns[idx].getAttribute("data-full");
+        img.alt = btns[idx].getAttribute("data-label");
+        label.textContent = btns[idx].getAttribute("data-label");
+        box.classList.remove("hidden"); box.classList.add("flex");
+        document.body.style.overflow = "hidden";
+      }
+      function hide() {
+        box.classList.add("hidden"); box.classList.remove("flex");
+        document.body.style.overflow = "";
+      }
+      btns.forEach(function (b, i) { b.addEventListener("click", function () { show(i); }); });
+      document.getElementById("pose-close").addEventListener("click", hide);
+      document.getElementById("pose-prev").addEventListener("click", function (ev) { ev.stopPropagation(); show(idx - 1); });
+      document.getElementById("pose-next").addEventListener("click", function (ev) { ev.stopPropagation(); show(idx + 1); });
+      box.addEventListener("click", function (ev) { if (ev.target === box) hide(); });
+      document.addEventListener("keydown", function (ev) {
+        if (box.classList.contains("hidden")) return;
+        if (ev.key === "Escape") hide();
+        if (ev.key === "ArrowLeft") show(idx - 1);
+        if (ev.key === "ArrowRight") show(idx + 1);
+      });
+    }
+    bbsPoseLightbox();
+    document.addEventListener("astro:page-load", bbsPoseLightbox);
+  </script>
+  <script is:inline>
+    // Keep the header account link in sync with the session.
+    function bbsAccountLink() {
+      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+        var link = document.getElementById("account-link");
+        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
+      }).catch(function () {});
+    }
+    bbsAccountLink();
+    document.addEventListener("astro:page-load", bbsAccountLink);
+  </script>
+<!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+<CartSheet />
+
+</body>
+</html>

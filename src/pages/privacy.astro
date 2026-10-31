@@ -1,0 +1,98 @@
+---
+import "../styles/global.css";
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SectionNav from "../components/SectionNav.astro";
+import BackLink from "../components/BackLink.astro";
+import CartSheet from "../components/CartSheet.astro";
+import Tracking from "../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../components/TransitionHooks.astro";
+import SeoHead from "../components/SeoHead.astro";
+export const prerender = false;
+const adminUser = Astro.locals.user;
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Privacy Policy - Big Brain Shelf</title>
+  <SeoHead title="Privacy Policy - Big Brain Shelf" socialDescription="What Big Brain Shelf collects, how we use it, and the choices you have." />
+  <meta name="description" content="What Big Brain Shelf collects, how we use it, and the choices you have." />
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+  <SectionNav />
+  <main class="max-w-2xl mx-auto px-5 py-12 pb-20">
+    <BackLink />
+    <h1 class="text-3xl font-extrabold tracking-tight mb-2">Privacy Policy</h1>
+    <p class="text-sm text-stone-500 mb-8">Last updated: October 27, 2026</p>
+
+    <p class="text-stone-600 leading-relaxed mb-4">Big Brain Shelf is a small bookstore run by Cameron Stewart in Searcy, Arkansas. This page explains, in plain language, what information we collect when you use bigbrainshelf.com, how we use it, and the choices you have. If anything here is unclear, email us at <a href="mailto:support@bigbrainshelf.com" class="text-orange-700 hover:text-orange-800">support@bigbrainshelf.com</a>.</p>
+
+    <h2 class="text-lg font-bold tracking-tight mt-8 mb-3">What we collect</h2>
+    <p class="text-stone-600 leading-relaxed mb-4"><strong class="text-stone-900">Account information.</strong> When you sign in with Google or create an account with your email, we store your name and email address so we can run your account and your library of purchased books.</p>
+    <p class="text-stone-600 leading-relaxed mb-4"><strong class="text-stone-900">Order information.</strong> When you buy a book, we store what you ordered, the price, and a record of your downloads so we can deliver your books and help with any problems. Payments are processed by Stripe. Your card details go straight to Stripe and are never seen or stored by us.</p>
+    <p class="text-stone-600 leading-relaxed mb-4"><strong class="text-stone-900">Newsletter emails.</strong> If you sign up for the newsletter, we store the email address you gave us, and nothing else, so we can send new release announcements.</p>
+    <p class="text-stone-600 leading-relaxed mb-4"><strong class="text-stone-900">Technical basics.</strong> Our hosting provider, Cloudflare, keeps standard server logs (such as IP address and browser type) to deliver the site and keep it secure. We use a small number of essential cookies to keep you signed in, and your shopping cart is kept in your own browser.</p>
+    <p class="text-stone-600 leading-relaxed mb-4"><strong class="text-stone-900">Visit counting.</strong> We use Traks, an analytics tool that runs inside our own Cloudflare account, to count visits and see which pages and books get attention, so we can tell what readers like. Traks uses no cookies, builds no profile of you, and does not follow you to other websites. Its data stays in our own account.</p>
+    <p class="text-stone-600 leading-relaxed mb-4"><strong class="text-stone-900">Advertising measurement.</strong> We run ads for the store, and a Meta (Facebook) pixel on our pages lets us tell whether an ad led to a visit, a book added to a cart, or a purchase. Meta receives information about the pages you view and those actions on our site, and handles it under Meta's own privacy policy. The pixel can use cookies for this measurement.</p>
+    <p class="text-stone-600 leading-relaxed mb-4"><strong class="text-stone-900">Error reports.</strong> If something on the site breaks, our error reporting tool, Sentry, may receive technical details about the error, such as the page address, the browser type, and what the error said, so we can find and fix the problem. These reports are about the site misbehaving, not about you.</p>
+
+    <h2 class="text-lg font-bold tracking-tight mt-8 mb-3">How we use it</h2>
+    <p class="text-stone-600 leading-relaxed mb-4">We use your information to run the store: delivering your downloads, keeping your library available, sending newsletter and Book Club emails to the people who asked for them, answering your messages, and protecting the site against fraud and abuse. That is the whole list. We do not sell your personal information, and we do not share it for anyone else's marketing.</p>
+
+    <h2 class="text-lg font-bold tracking-tight mt-8 mb-3">Who else is involved</h2>
+    <p class="text-stone-600 leading-relaxed mb-4">A few trusted services help us run the store: Stripe handles payments, Google provides optional sign-in, Cloudflare hosts and protects the site, Traks counts visits from inside our own Cloudflare account, Meta measures whether our ads work, and Sentry collects error reports. Each of them receives only what it needs to do its job and handles it under its own privacy policy.</p>
+
+    <h2 class="text-lg font-bold tracking-tight mt-8 mb-3">Children's privacy</h2>
+    <p class="text-stone-600 leading-relaxed mb-4">Our books are made for children, but this store is for grown-ups. Big Brain Shelf is directed at parents, grandparents, and teachers who buy books for kids. It is not directed at children under 13, and we do not knowingly collect personal information from children under 13. Accounts and purchases are for adults. If you believe a child under 13 has given us personal information, email us and we will delete it promptly.</p>
+
+    <h2 class="text-lg font-bold tracking-tight mt-8 mb-3">How long we keep it</h2>
+    <p class="text-stone-600 leading-relaxed mb-4">We keep account and order records for as long as your account is active, plus whatever time is needed for tax and accounting records. Newsletter email addresses are kept until you unsubscribe or ask us to remove them. You can ask us to delete your information at any time, and we will do so except where the law requires us to keep a record.</p>
+
+    <h2 class="text-lg font-bold tracking-tight mt-8 mb-3">Your choices and rights</h2>
+    <p class="text-stone-600 leading-relaxed mb-4">You can ask us what information we hold about you, ask us to correct it, or ask us to delete it. Just email <a href="mailto:support@bigbrainshelf.com" class="text-orange-700 hover:text-orange-800">support@bigbrainshelf.com</a> and we will take care of it, normally within 30 days. Every newsletter and Book Club email includes an unsubscribe link, and unsubscribing never affects your account or your books.</p>
+
+    <h2 class="text-lg font-bold tracking-tight mt-8 mb-3">Security</h2>
+    <p class="text-stone-600 leading-relaxed mb-4">We use reasonable technical and organizational measures to protect your information, including encrypted connections and access limited to the people who run the store. No system is perfect, but we treat your information with care.</p>
+
+    <h2 class="text-lg font-bold tracking-tight mt-8 mb-3">Changes to this policy</h2>
+    <p class="text-stone-600 leading-relaxed mb-4">If we change this policy, we will post the updated version on this page and update the date at the top. If a change is significant, we will do our best to note it clearly.</p>
+
+    <h2 class="text-lg font-bold tracking-tight mt-8 mb-3">Contact</h2>
+    <p class="text-stone-600 leading-relaxed">Big Brain Shelf, operated by Cameron Stewart, Searcy, Arkansas, USA. Email: <a href="mailto:support@bigbrainshelf.com" class="text-orange-700 hover:text-orange-800">support@bigbrainshelf.com</a>.</p>
+
+    <a href="/" class="inline-block mt-10 text-sm text-stone-500 hover:text-stone-900">&larr; Back to the shelf</a>
+  </main>
+  <SiteFooter />
+
+  <script is:inline>
+    // Keep the header account link in sync with the session. Runs now
+    // and again on astro:page-load so it also applies to the header
+    // swapped in by view transitions. The update is idempotent.
+    function bbsAccountLink() {
+      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+        var link = document.getElementById("account-link");
+        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
+      }).catch(function () {});
+    }
+    bbsAccountLink();
+    document.addEventListener("astro:page-load", bbsAccountLink);
+  </script>
+<!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+<CartSheet />
+
+</body>
+</html>

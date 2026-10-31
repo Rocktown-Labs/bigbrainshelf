@@ -1,0 +1,236 @@
+---
+// Site-wide measurement for the public storefront. Every block is gated
+// on a worker config value: when the value is absent the block renders
+// nothing, no script loads, and the site behaves exactly as before.
+// Config lives on the bigbrainshelf worker (Variables and Secrets):
+//   META_PIXEL_ID   Meta (Facebook) Pixel id, for ad measurement
+//   TRAKS_URL       Base URL of the self-hosted Traks instance
+//   TRAKS_SITE_KEY  Traks site key for bigbrainshelf.com
+//   SENTRY_DSN      Sentry DSN (browser errors here, worker errors in
+//                   the middleware via src/lib/sentry.ts)
+// Pages may pass pageEvent ({ name, data }) to fire one funnel event on
+// load, for example ViewContent on a book page or Purchase after a
+// completed checkout returns to /account. Pages may also pass
+// traksEvent ({ name, props, value?, onceKey? }) for the Traks custom
+// event taxonomy (see ~/workspace/gtm/bigbrainshelf/
+// traks-tracking-plan-2026-10-29.md): snake_case names, flat
+// low-cardinality props, no ids or personal data in props. onceKey is
+// a client-side refresh guard only; it is never sent to Traks.
+import { env } from "cloudflare:workers";
+import { parseSentryDsn } from "../lib/sentry";
+
+const e = env as any;
+const pixelId = String(e.META_PIXEL_ID || "").trim();
+const traksUrl = String(e.TRAKS_URL || "").trim().replace(/\/+$/, "");
+const traksKey = String(e.TRAKS_SITE_KEY || "").trim();
+const sentry = parseSentryDsn(e.SENTRY_DSN);
+const { pageEvent, traksEvent } = Astro.props;
+---
+
+{pixelId && (
+  <script is:inline define:vars={{ pixelId }}>
+    (function (w) {
+      if (w.fbq) return;
+      var n = (w.fbq = function () {
+        n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
+      });
+      if (!w._fbq) w._fbq = n;
+      n.push = n;
+      n.loaded = true;
+      n.version = "2.0";
+      n.queue = [];
+      var t = document.createElement("script");
+      t.async = true;
+      t.src = "https://connect.facebook.net/en_US/fbevents.js";
+      var s = document.getElementsByTagName("script")[0];
+      s.parentNode.insertBefore(t, s);
+    })(window);
+    fbq("init", pixelId);
+    fbq("track", "PageView");
+  </script>
+)}
+{pixelId && (
+  <noscript>
+    <img height="1" width="1" style="display:none" alt=""
+      src={"https://www.facebook.com/tr?id=" + pixelId + "&ev=PageView&noscript=1"} />
+  </noscript>
+)}
+
+{traksUrl && traksKey && (
+  <script is:inline>
+    window.traks = window.traks || function () { (window.traks.q = window.traks.q || []).push(arguments); };
+  </script>
+)}
+{traksUrl && traksKey && (
+  <script is:inline defer src={traksUrl + "/t.js"} data-site={traksKey}></script>
+)}
+
+<script is:inline>
+  // The one Traks call site: a guarded wrapper so page scripts can fire
+  // taxonomy events without caring whether the loader above ran.
+  window.bbsTraks = function (name, props, value) {
+    try {
+      if (window.traks) {
+        window.traks(name, props || {}, typeof value === "number" ? value : undefined);
+      }
+    } catch (err) {}
+  };
+
+  // One funnel call site for the whole store. Fans out to the Meta Pixel
+  // (standard event names and params) and, for the two click events that
+  // exist today, to Traks under their taxonomy names with curated props
+  // (add_to_cart carries the format; begin_checkout carries none). The
+  // Meta names themselves never reach Traks: pageviews are Traks-native
+  // (t.js records them, history navigations included), ViewContent is
+  // covered by the pages' own traksEvent (book_view / audiobook_view),
+  // and Purchase fires through traksEvent too, with format props and a
+  // once-guard the fan-out cannot give it. Each side is a no-op until
+  // its loader above has run.
+  window.bbsTrack = function (name, data) {
+    data = data || {};
+    try { if (window.fbq) window.fbq("track", name, data); } catch (err) {}
+    try {
+      if (name === "AddToCart") {
+        window.bbsTraks("add_to_cart", { format: String(data.format || "digital") });
+      } else if (name === "InitiateCheckout") {
+        window.bbsTraks("begin_checkout", {});
+      }
+    } catch (err) {}
+  };
+
+  // InitiateCheckout: the cart page button (#checkout) and the cart
+  // sheet button (#cart-checkout) share these ids on every page that
+  // has them. One delegated listener covers all of them. Guarded so
+  // view-transition navigations can never attach it twice.
+  if (!window.__bbsCheckoutHook) {
+    window.__bbsCheckoutHook = true;
+    document.addEventListener("click", function (ev) {
+    var t = ev.target && ev.target.closest ? ev.target.closest("#cart-checkout, #checkout") : null;
+    if (!t) return;
+    try {
+      var cart = [];
+      try { cart = JSON.parse(localStorage.getItem("bbs-cart") || "[]"); } catch (e2) {}
+      var ids = cart
+        .map(function (x) { return typeof x === "string" ? x : x && x.slug; })
+        .filter(Boolean);
+      var data = { content_ids: ids, content_type: "product", num_items: ids.length, currency: "USD" };
+      var totalEl = document.getElementById("cart-total") || document.getElementById("total");
+      if (totalEl) {
+        var v = parseFloat(String(totalEl.textContent || "").replace(/[^0-9.]/g, ""));
+        if (isFinite(v) && v > 0) data.value = v;
+      }
+      window.bbsTrack("InitiateCheckout", data);
+    } catch (e3) {}
+    }, true);
+  }
+
+  // Soft-navigation pageviews. The Meta Pixel init above fires its own
+  // PageView on a full load, and Traks' t.js records the first pageview
+  // itself (it then follows the history API on its own). With Astro
+  // view transitions, later navigations swap the page without a full
+  // load, so on every astro:page-load after the first one we fire
+  // PageView through bbsTrack, plus the new page's own funnel event
+  // (ViewContent, Purchase) when the page declares one in the
+  // #bbs-page-event marker rendered below. On the first page-load only
+  // the declared event fires, so nothing double-counts.
+  if (!window.__bbsNavHook) {
+    window.__bbsNavHook = true;
+    var bbsFirstLoad = true;
+    document.addEventListener("astro:page-load", function () {
+      var marker = null;
+      var el = document.getElementById("bbs-page-event");
+      if (el) {
+        try { marker = JSON.parse(el.textContent || "null"); } catch (err) {}
+      }
+      var ev = marker && marker.ev ? marker.ev : null;
+      var tev = marker && marker.traks ? marker.traks : null;
+      function fireTraks() {
+        if (!tev || !tev.name) return;
+        if (tev.onceKey) {
+          var key = "bbs-traks-once:" + tev.name + ":" + tev.onceKey;
+          try {
+            if (window.sessionStorage.getItem(key)) return;
+            window.sessionStorage.setItem(key, "1");
+          } catch (err) {}
+        }
+        window.bbsTraks(tev.name, tev.props || {}, typeof tev.value === "number" ? tev.value : undefined);
+      }
+      if (bbsFirstLoad) {
+        bbsFirstLoad = false;
+        if (ev && ev.name) window.bbsTrack(ev.name, ev.data || {});
+        fireTraks();
+        return;
+      }
+      window.bbsTrack("PageView");
+      if (ev && ev.name) window.bbsTrack(ev.name, ev.data || {});
+      fireTraks();
+    });
+  }
+
+  // Owned downloads: one delegated listener for the whole store. The
+  // account shelf, the reader, and the guest order page all link owned
+  // files through /api/download and /api/order-download with a format
+  // param; the Traks event keeps only the kind (book vs audio), never
+  // the slug. Guarded like the other hooks.
+  if (!window.__bbsDlHook) {
+    window.__bbsDlHook = true;
+    document.addEventListener("click", function (ev) {
+      var t = ev.target && ev.target.closest ? ev.target.closest('a[href*="/api/download?"], a[href*="/api/order-download?"]') : null;
+      if (!t) return;
+      var m = /[?&]format=([a-z]+)/.exec(t.getAttribute("href") || "");
+      window.bbsTraks("owned_download", { kind: m && m[1] === "audiobook" ? "audio" : "book" });
+    }, true);
+  }
+</script>
+
+{(pageEvent || traksEvent) && (
+  <script type="application/json" id="bbs-page-event" set:html={JSON.stringify({ ev: pageEvent || null, traks: traksEvent || null })}></script>
+)}
+
+{sentry && (
+  <script is:inline define:vars={{ sentryCfg: { host: sentry.host, projectId: sentry.projectId, publicKey: sentry.publicKey } }}>
+    // Minimal browser error reporter for Sentry (envelope protocol,
+    // same approach as src/lib/sentry.ts on the worker). Reports plain
+    // script errors and unhandled promise rejections, capped per page.
+    (function () {
+      var sent = 0;
+      function send(type, value, stack) {
+        if (sent >= 5) return;
+        sent++;
+        try {
+          var id = "";
+          var hex = "0123456789abcdef";
+          for (var i = 0; i < 32; i++) id += hex[Math.floor(Math.random() * 16)];
+          var event = {
+            event_id: id,
+            timestamp: Date.now() / 1000,
+            platform: "javascript",
+            level: "error",
+            exception: { values: [{ type: type || "Error", value: String(value || "Unknown error").slice(0, 500) }] },
+            request: { url: location.href },
+            extra: { stack: stack ? String(stack).slice(0, 4000) : undefined },
+          };
+          var payload = JSON.stringify(event);
+          var body =
+            JSON.stringify({ event_id: id, sent_at: new Date().toISOString() }) + "\n" +
+            JSON.stringify({ type: "event", length: payload.length }) + "\n" +
+            payload;
+          fetch(
+            "https://" + sentryCfg.host + "/api/" + sentryCfg.projectId +
+            "/envelope/?sentry_key=" + sentryCfg.publicKey +
+            "&sentry_version=7&sentry_client=bbs-sentry-lite/1.0",
+            { method: "POST", headers: { "Content-Type": "application/x-sentry-envelope" }, body: body, keepalive: true }
+          ).catch(function () {});
+        } catch (e) {}
+      }
+      window.addEventListener("error", function (ev) {
+        var err = ev.error || {};
+        send(err.name || "Error", ev.message || err.message, err.stack);
+      });
+      window.addEventListener("unhandledrejection", function (ev) {
+        var r = ev.reason || {};
+        send(r.name || "UnhandledRejection", r.message || String(r), r.stack);
+      });
+    })();
+  </script>
+)}

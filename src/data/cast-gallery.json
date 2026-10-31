@@ -1,0 +1,1567 @@
+{
+ "generatedAt": 1793209483,
+ "characters": {
+  "juno": {
+   "name": "Juno",
+   "bookSlug": "motivationmanifesto",
+   "sheetKey": "characters/juno.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/juno/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/juno/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/juno/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/juno/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/juno/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/juno/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.03013,
+     "y": 0.04833,
+     "w": 0.42857,
+     "h": 0.3725
+    },
+    {
+     "x": 0.43862,
+     "y": 0.02333,
+     "w": 0.51786,
+     "h": 0.45667
+    },
+    {
+     "x": 0.25781,
+     "y": 0.34833,
+     "w": 0.48214,
+     "h": 0.28083
+    },
+    {
+     "x": 0.02232,
+     "y": 0.55667,
+     "w": 0.51004,
+     "h": 0.39
+    },
+    {
+     "x": 0.58259,
+     "y": 0.57333,
+     "w": 0.3817,
+     "h": 0.40417
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 3
+  },
+  "pell": {
+   "name": "Pell",
+   "bookSlug": "motivationmanifesto",
+   "sheetKey": "characters/pell.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/pell/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/pell/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/pell/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/pell/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/pell/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/pell/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.02455,
+     "y": 0.10083,
+     "w": 0.53125,
+     "h": 0.52167
+    },
+    {
+     "x": 0.43862,
+     "y": 0.015,
+     "w": 0.53237,
+     "h": 0.3275
+    },
+    {
+     "x": 0.56585,
+     "y": 0.34833,
+     "w": 0.36496,
+     "h": 0.3025
+    },
+    {
+     "x": 0.01786,
+     "y": 0.59083,
+     "w": 0.54464,
+     "h": 0.38417
+    },
+    {
+     "x": 0.53683,
+     "y": 0.6525,
+     "w": 0.44531,
+     "h": 0.32333
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "tempo": {
+   "name": "Tempo",
+   "bookSlug": "motivationmanifesto",
+   "sheetKey": "characters/tempo.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tempo/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tempo/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tempo/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tempo/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tempo/pose-4.png"
+   ],
+   "poseCount": 4,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.10045,
+     "y": 0.01333,
+     "w": 0.32701,
+     "h": 0.5675
+    },
+    {
+     "x": 0.42969,
+     "y": 0.03833,
+     "w": 0.53683,
+     "h": 0.52417
+    },
+    {
+     "x": 0.03237,
+     "y": 0.55417,
+     "w": 0.51116,
+     "h": 0.42333
+    },
+    {
+     "x": 0.50558,
+     "y": 0.54167,
+     "w": 0.44085,
+     "h": 0.45
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1,
+   "poseMeta": [
+    {
+     "focal": {
+      "x": 0.5,
+      "y": 0.3
+     }
+    },
+    {},
+    {},
+    {}
+   ]
+  },
+  "mira": {
+   "name": "Mira",
+   "bookSlug": "mastery",
+   "sheetKey": "characters/mira.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/mira/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/mira/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/mira/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/mira/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/mira/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/mira/pose-5.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/mira/pose-6.png"
+   ],
+   "poseCount": 6,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.06473,
+     "y": 0.02167,
+     "w": 0.3683,
+     "h": 0.425
+    },
+    {
+     "x": 0.41183,
+     "y": 0.08167,
+     "w": 0.57366,
+     "h": 0.33167
+    },
+    {
+     "x": 0.07254,
+     "y": 0.41333,
+     "w": 0.28348,
+     "h": 0.26583
+    },
+    {
+     "x": 0.34375,
+     "y": 0.305,
+     "w": 0.47991,
+     "h": 0.4
+    },
+    {
+     "x": 0.09152,
+     "y": 0.64583,
+     "w": 0.30357,
+     "h": 0.34833
+    },
+    {
+     "x": 0.53237,
+     "y": 0.645,
+     "w": 0.43192,
+     "h": 0.33667
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1,
+   "poseMeta": [
+    {
+     "focal": {
+      "x": 0.5,
+      "y": 0.3
+     }
+    },
+    {},
+    {},
+    {},
+    {},
+    {}
+   ]
+  },
+  "ansel": {
+   "name": "Ansel",
+   "bookSlug": "mastery",
+   "sheetKey": "characters/ansel.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ansel/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ansel/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ansel/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ansel/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ansel/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ansel/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.08036,
+     "y": 0.035,
+     "w": 0.37946,
+     "h": 0.4875
+    },
+    {
+     "x": 0.45759,
+     "y": 0.05333,
+     "w": 0.48438,
+     "h": 0.46667
+    },
+    {
+     "x": 0.04353,
+     "y": 0.505,
+     "w": 0.38504,
+     "h": 0.47
+    },
+    {
+     "x": 0.44196,
+     "y": 0.51083,
+     "w": 0.39174,
+     "h": 0.26
+    },
+    {
+     "x": 0.40848,
+     "y": 0.71667,
+     "w": 0.54911,
+     "h": 0.25667
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1,
+   "poseMeta": [
+    {
+     "focal": {
+      "x": 0.5,
+      "y": 0.3
+     }
+    },
+    {},
+    {},
+    {},
+    {}
+   ]
+  },
+  "dell": {
+   "name": "Dell",
+   "bookSlug": "mastery",
+   "sheetKey": "characters/dell.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/dell/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/dell/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/dell/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/dell/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/dell/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/dell/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.07701,
+     "y": 0.02167,
+     "w": 0.38728,
+     "h": 0.3475
+    },
+    {
+     "x": 0.57366,
+     "y": 0.05333,
+     "w": 0.28683,
+     "h": 0.2575
+    },
+    {
+     "x": 0.06138,
+     "y": 0.34333,
+     "w": 0.41406,
+     "h": 0.3375
+    },
+    {
+     "x": 0.48996,
+     "y": 0.31833,
+     "w": 0.46763,
+     "h": 0.27833
+    },
+    {
+     "x": 0.21094,
+     "y": 0.6,
+     "w": 0.59821,
+     "h": 0.35083
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "wren": {
+   "name": "Wren",
+   "bookSlug": "thewarofart",
+   "sheetKey": "characters/wren.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wren/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wren/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wren/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wren/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wren/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wren/pose-5.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wren/pose-6.png"
+   ],
+   "poseCount": 6,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.10826,
+     "y": 0.055,
+     "w": 0.33929,
+     "h": 0.315
+    },
+    {
+     "x": 0.50223,
+     "y": 0.04833,
+     "w": 0.39062,
+     "h": 0.325
+    },
+    {
+     "x": 0.07924,
+     "y": 0.3675,
+     "w": 0.37277,
+     "h": 0.3175
+    },
+    {
+     "x": 0.51116,
+     "y": 0.36917,
+     "w": 0.41183,
+     "h": 0.28583
+    },
+    {
+     "x": 0.04911,
+     "y": 0.67167,
+     "w": 0.41964,
+     "h": 0.2925
+    },
+    {
+     "x": 0.48214,
+     "y": 0.6575,
+     "w": 0.47991,
+     "h": 0.29
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "cato": {
+   "name": "Cato",
+   "bookSlug": "thewarofart",
+   "sheetKey": "characters/cato.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/cato/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/cato/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/cato/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/cato/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/cato/pose-4.png"
+   ],
+   "poseCount": 4,
+   "method": "manual",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0,
+     "y": 0.04083,
+     "w": 0.47545,
+     "h": 0.5725
+    },
+    {
+     "x": 0.18192,
+     "y": 0.2775,
+     "w": 0.38393,
+     "h": 0.71583
+    },
+    {
+     "x": 0.44308,
+     "y": 0.21833,
+     "w": 0.375,
+     "h": 0.73417
+    },
+    {
+     "x": 0.64509,
+     "y": 0.38167,
+     "w": 0.35491,
+     "h": 0.6075
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "the-fog": {
+   "name": "the Fog",
+   "bookSlug": "thewarofart",
+   "sheetKey": "characters/fog.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-fog/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-fog/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-fog/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-fog/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-fog/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-fog/pose-5.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-fog/pose-6.png"
+   ],
+   "poseCount": 6,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.07143,
+     "y": 0.04667,
+     "w": 0.35603,
+     "h": 0.34
+    },
+    {
+     "x": 0.51228,
+     "y": 0.07917,
+     "w": 0.41518,
+     "h": 0.21583
+    },
+    {
+     "x": 0.10045,
+     "y": 0.3925,
+     "w": 0.44196,
+     "h": 0.31917
+    },
+    {
+     "x": 0.55246,
+     "y": 0.30667,
+     "w": 0.3471,
+     "h": 0.42083
+    },
+    {
+     "x": 0.02679,
+     "y": 0.73333,
+     "w": 0.57254,
+     "h": 0.21667
+    },
+    {
+     "x": 0.61272,
+     "y": 0.66583,
+     "w": 0.3404,
+     "h": 0.30417
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "maisie": {
+   "name": "Maisie",
+   "bookSlug": "compoundeffect",
+   "sheetKey": "characters/maisie.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/maisie/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/maisie/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/maisie/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/maisie/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/maisie/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/maisie/pose-5.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/maisie/pose-6.png"
+   ],
+   "poseCount": 6,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.05022,
+     "y": 0.03083,
+     "w": 0.3817,
+     "h": 0.38
+    },
+    {
+     "x": 0.41183,
+     "y": 0.04,
+     "w": 0.50893,
+     "h": 0.34833
+    },
+    {
+     "x": 0.14732,
+     "y": 0.37333,
+     "w": 0.40625,
+     "h": 0.31333
+    },
+    {
+     "x": 0.53125,
+     "y": 0.36917,
+     "w": 0.38058,
+     "h": 0.25083
+    },
+    {
+     "x": 0.0904,
+     "y": 0.64917,
+     "w": 0.40179,
+     "h": 0.33083
+    },
+    {
+     "x": 0.5346,
+     "y": 0.62917,
+     "w": 0.39732,
+     "h": 0.33667
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "jasper": {
+   "name": "Jasper",
+   "bookSlug": "compoundeffect",
+   "sheetKey": "characters/jasper.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/jasper/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/jasper/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/jasper/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/jasper/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/jasper/pose-4.png"
+   ],
+   "poseCount": 4,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.01116,
+     "y": 0.07333,
+     "w": 0.65848,
+     "h": 0.42417
+    },
+    {
+     "x": 0.49888,
+     "y": 0.08667,
+     "w": 0.47098,
+     "h": 0.305
+    },
+    {
+     "x": 0.00558,
+     "y": 0.525,
+     "w": 0.61161,
+     "h": 0.40583
+    },
+    {
+     "x": 0.46652,
+     "y": 0.54833,
+     "w": 0.53348,
+     "h": 0.375
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "willa": {
+   "name": "Willa",
+   "bookSlug": "compoundeffect",
+   "sheetKey": "characters/willa.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/willa/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/willa/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/willa/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/willa/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/willa/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/willa/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.00335,
+     "y": 0.13167,
+     "w": 0.35714,
+     "h": 0.41583
+    },
+    {
+     "x": 0.32478,
+     "y": 0.13083,
+     "w": 0.37054,
+     "h": 0.41167
+    },
+    {
+     "x": 0.68415,
+     "y": 0.14167,
+     "w": 0.29129,
+     "h": 0.42917
+    },
+    {
+     "x": 0.05915,
+     "y": 0.55167,
+     "w": 0.48103,
+     "h": 0.36167
+    },
+    {
+     "x": 0.52567,
+     "y": 0.56583,
+     "w": 0.40625,
+     "h": 0.3625
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "penny": {
+   "name": "Penny",
+   "bookSlug": "richdadpoordad",
+   "sheetKey": "characters/penny.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/penny/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/penny/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/penny/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/penny/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/penny/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/penny/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.04799,
+     "y": 0.005,
+     "w": 0.40067,
+     "h": 0.30833
+    },
+    {
+     "x": 0.49665,
+     "y": 0.01833,
+     "w": 0.47768,
+     "h": 0.40583
+    },
+    {
+     "x": 0.04911,
+     "y": 0.25583,
+     "w": 0.51562,
+     "h": 0.53
+    },
+    {
+     "x": 0.50223,
+     "y": 0.48083,
+     "w": 0.49777,
+     "h": 0.44
+    },
+    {
+     "x": 0.01116,
+     "y": 0.64917,
+     "w": 0.41071,
+     "h": 0.34833
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "bram": {
+   "name": "Bram",
+   "bookSlug": "richdadpoordad",
+   "sheetKey": "characters/bram.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/bram/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/bram/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/bram/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/bram/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/bram/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/bram/pose-5.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/bram/pose-6.png"
+   ],
+   "poseCount": 6,
+   "method": "manual",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.02232,
+     "y": 0.03333,
+     "w": 0.37388,
+     "h": 0.28167
+    },
+    {
+     "x": 0.36942,
+     "y": 0.03167,
+     "w": 0.30134,
+     "h": 0.23
+    },
+    {
+     "x": 0.68973,
+     "y": 0.03167,
+     "w": 0.29353,
+     "h": 0.22583
+    },
+    {
+     "x": 0.45982,
+     "y": 0.21417,
+     "w": 0.54018,
+     "h": 0.50917
+    },
+    {
+     "x": 0.01897,
+     "y": 0.37667,
+     "w": 0.55915,
+     "h": 0.62333
+    },
+    {
+     "x": 0.36049,
+     "y": 0.57333,
+     "w": 0.63951,
+     "h": 0.42667
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "hazel": {
+   "name": "Hazel",
+   "bookSlug": "richdadpoordad",
+   "sheetKey": "characters/hazel.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/hazel/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/hazel/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/hazel/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/hazel/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/hazel/pose-4.png"
+   ],
+   "poseCount": 4,
+   "method": "manual",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.02902,
+     "y": 0.38,
+     "w": 0.33594,
+     "h": 0.31917
+    },
+    {
+     "x": 0.28906,
+     "y": 0.35333,
+     "w": 0.33705,
+     "h": 0.3475
+    },
+    {
+     "x": 0.54911,
+     "y": 0.29333,
+     "w": 0.44196,
+     "h": 0.405
+    },
+    {
+     "x": 0.41853,
+     "y": 0.65833,
+     "w": 0.58147,
+     "h": 0.34167
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "fern": {
+   "name": "Fern",
+   "bookSlug": "algorithms",
+   "sheetKey": "characters/fern.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/fern/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/fern/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/fern/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/fern/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/fern/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/fern/pose-5.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/fern/pose-6.png"
+   ],
+   "poseCount": 6,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0,
+     "y": 0.13333,
+     "w": 0.38951,
+     "h": 0.425
+    },
+    {
+     "x": 0.33259,
+     "y": 0.12417,
+     "w": 0.58817,
+     "h": 0.67917
+    },
+    {
+     "x": 0.64955,
+     "y": 0.1575,
+     "w": 0.35045,
+     "h": 0.3675
+    },
+    {
+     "x": 0.05357,
+     "y": 0.68833,
+     "w": 0.28013,
+     "h": 0.2275
+    },
+    {
+     "x": 0.37388,
+     "y": 0.76583,
+     "w": 0.26339,
+     "h": 0.22083
+    },
+    {
+     "x": 0.68527,
+     "y": 0.73917,
+     "w": 0.27679,
+     "h": 0.2225
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "moss": {
+   "name": "Moss",
+   "bookSlug": "algorithms",
+   "sheetKey": "characters/moss.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/moss/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/moss/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/moss/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/moss/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/moss/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/moss/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.03571,
+     "y": 0.01333,
+     "w": 0.28013,
+     "h": 0.24083
+    },
+    {
+     "x": 0.55134,
+     "y": 0.05083,
+     "w": 0.40513,
+     "h": 0.43417
+    },
+    {
+     "x": 0.10491,
+     "y": 0.1575,
+     "w": 0.46429,
+     "h": 0.44917
+    },
+    {
+     "x": 0.05022,
+     "y": 0.57583,
+     "w": 0.4442,
+     "h": 0.42
+    },
+    {
+     "x": 0.52679,
+     "y": 0.53,
+     "w": 0.43415,
+     "h": 0.45
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "orin": {
+   "name": "Orin",
+   "bookSlug": "algorithms",
+   "sheetKey": "characters/orin.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/orin/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/orin/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/orin/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/orin/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/orin/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/orin/pose-5.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/orin/pose-6.png"
+   ],
+   "poseCount": 6,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.04241,
+     "y": 0.02917,
+     "w": 0.51562,
+     "h": 0.34083
+    },
+    {
+     "x": 0.54799,
+     "y": 0.03167,
+     "w": 0.37165,
+     "h": 0.32833
+    },
+    {
+     "x": 0.06696,
+     "y": 0.3475,
+     "w": 0.42746,
+     "h": 0.33083
+    },
+    {
+     "x": 0.57701,
+     "y": 0.34417,
+     "w": 0.32924,
+     "h": 0.32667
+    },
+    {
+     "x": 0.08147,
+     "y": 0.65,
+     "w": 0.34152,
+     "h": 0.32583
+    },
+    {
+     "x": 0.4375,
+     "y": 0.65,
+     "w": 0.5067,
+     "h": 0.3225
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "basil": {
+   "name": "Basil",
+   "bookSlug": "designpatterns",
+   "sheetKey": "characters/basil.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/basil/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/basil/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/basil/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/basil/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/basil/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/basil/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.04464,
+     "y": 0.03583,
+     "w": 0.44754,
+     "h": 0.3575
+    },
+    {
+     "x": 0.46987,
+     "y": 0.03583,
+     "w": 0.42411,
+     "h": 0.38167
+    },
+    {
+     "x": 0.02121,
+     "y": 0.37583,
+     "w": 0.49888,
+     "h": 0.33917
+    },
+    {
+     "x": 0.4654,
+     "y": 0.39583,
+     "w": 0.47991,
+     "h": 0.31
+    },
+    {
+     "x": 0.26116,
+     "y": 0.66083,
+     "w": 0.4308,
+     "h": 0.33583
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "ada": {
+   "name": "Ada",
+   "bookSlug": "designpatterns",
+   "sheetKey": "characters/ada.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ada/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ada/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ada/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ada/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ada/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ada/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.06585,
+     "y": 0.02833,
+     "w": 0.51562,
+     "h": 0.51667
+    },
+    {
+     "x": 0.46652,
+     "y": 0.03167,
+     "w": 0.51004,
+     "h": 0.36417
+    },
+    {
+     "x": 0.43862,
+     "y": 0.37667,
+     "w": 0.51451,
+     "h": 0.3375
+    },
+    {
+     "x": 0.00893,
+     "y": 0.55083,
+     "w": 0.49107,
+     "h": 0.43417
+    },
+    {
+     "x": 0.5904,
+     "y": 0.71583,
+     "w": 0.3471,
+     "h": 0.23167
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "nox": {
+   "name": "Nox",
+   "bookSlug": "designpatterns",
+   "sheetKey": "characters/nox.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/nox/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/nox/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/nox/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/nox/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/nox/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/nox/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.07924,
+     "y": 0.05417,
+     "w": 0.33929,
+     "h": 0.35667
+    },
+    {
+     "x": 0.4375,
+     "y": 0.10917,
+     "w": 0.52009,
+     "h": 0.25167
+    },
+    {
+     "x": 0.29129,
+     "y": 0.34417,
+     "w": 0.46652,
+     "h": 0.3125
+    },
+    {
+     "x": 0.08036,
+     "y": 0.6325,
+     "w": 0.38504,
+     "h": 0.3325
+    },
+    {
+     "x": 0.58371,
+     "y": 0.63167,
+     "w": 0.34263,
+     "h": 0.335
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "wally": {
+   "name": "Wally",
+   "bookSlug": "docker",
+   "sheetKey": "characters/wally-v2.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wally/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wally/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wally/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wally/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wally/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wally/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.0346,
+     "y": 0.03667,
+     "w": 0.54129,
+     "h": 0.30417
+    },
+    {
+     "x": 0.51674,
+     "y": 0.04583,
+     "w": 0.45201,
+     "h": 0.33
+    },
+    {
+     "x": 0.25,
+     "y": 0.3375,
+     "w": 0.52009,
+     "h": 0.34917
+    },
+    {
+     "x": 0.55915,
+     "y": 0.52833,
+     "w": 0.40625,
+     "h": 0.4475
+    },
+    {
+     "x": 0.04353,
+     "y": 0.65583,
+     "w": 0.52009,
+     "h": 0.2675
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "pip": {
+   "name": "Pip",
+   "bookSlug": "docker",
+   "sheetKey": "characters/pip-v2.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/pip/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/pip/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/pip/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/pip/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/pip/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/pip/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.10045,
+     "y": 0.05917,
+     "w": 0.34821,
+     "h": 0.35
+    },
+    {
+     "x": 0.60379,
+     "y": 0.05667,
+     "w": 0.32478,
+     "h": 0.35667
+    },
+    {
+     "x": 0.29576,
+     "y": 0.32833,
+     "w": 0.40179,
+     "h": 0.34
+    },
+    {
+     "x": 0.05915,
+     "y": 0.6075,
+     "w": 0.3817,
+     "h": 0.35667
+    },
+    {
+     "x": 0.56027,
+     "y": 0.6075,
+     "w": 0.38616,
+     "h": 0.35583
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "skipper": {
+   "name": "Skipper",
+   "bookSlug": "docker",
+   "sheetKey": "characters/skipper-v2.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/skipper/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/skipper/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/skipper/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/skipper/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/skipper/pose-4.png"
+   ],
+   "poseCount": 4,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.04129,
+     "y": 0.06667,
+     "w": 0.40513,
+     "h": 0.44917
+    },
+    {
+     "x": 0.42969,
+     "y": 0.15917,
+     "w": 0.53571,
+     "h": 0.33667
+    },
+    {
+     "x": 0.05246,
+     "y": 0.5225,
+     "w": 0.37612,
+     "h": 0.44417
+    },
+    {
+     "x": 0.46987,
+     "y": 0.57333,
+     "w": 0.4933,
+     "h": 0.37167
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "tilda": {
+   "name": "Tilda",
+   "bookSlug": "iwillteach",
+   "sheetKey": "characters/tilda.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tilda/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tilda/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tilda/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tilda/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tilda/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tilda/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.00558,
+     "y": 0.035,
+     "w": 0.48438,
+     "h": 0.36167
+    },
+    {
+     "x": 0.49665,
+     "y": 0.00583,
+     "w": 0.5,
+     "h": 0.36
+    },
+    {
+     "x": 0.11049,
+     "y": 0.33083,
+     "w": 0.78795,
+     "h": 0.37083
+    },
+    {
+     "x": 0.03237,
+     "y": 0.55417,
+     "w": 0.46205,
+     "h": 0.39917
+    },
+    {
+     "x": 0.47879,
+     "y": 0.66333,
+     "w": 0.4308,
+     "h": 0.30667
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "bix": {
+   "name": "Bix",
+   "bookSlug": "iwillteach",
+   "sheetKey": "characters/bix.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/bix/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/bix/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/bix/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/bix/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/bix/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/bix/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.03348,
+     "y": 0.03167,
+     "w": 0.44531,
+     "h": 0.42
+    },
+    {
+     "x": 0.57031,
+     "y": 0.03167,
+     "w": 0.34821,
+     "h": 0.42167
+    },
+    {
+     "x": 0.32701,
+     "y": 0.37167,
+     "w": 0.37388,
+     "h": 0.35
+    },
+    {
+     "x": 0.03348,
+     "y": 0.58083,
+     "w": 0.40737,
+     "h": 0.39667
+    },
+    {
+     "x": 0.60938,
+     "y": 0.6675,
+     "w": 0.35156,
+     "h": 0.30667
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "rook": {
+   "name": "Rook",
+   "bookSlug": "iwillteach",
+   "sheetKey": "characters/rook.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/rook/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/rook/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/rook/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/rook/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/rook/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/rook/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "contour",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.02679,
+     "y": 0.02667,
+     "w": 0.54688,
+     "h": 0.47083
+    },
+    {
+     "x": 0.50781,
+     "y": 0.03333,
+     "w": 0.46763,
+     "h": 0.37
+    },
+    {
+     "x": 0.41183,
+     "y": 0.365,
+     "w": 0.57254,
+     "h": 0.29917
+    },
+    {
+     "x": 0.01004,
+     "y": 0.5525,
+     "w": 0.56473,
+     "h": 0.42
+    },
+    {
+     "x": 0.54129,
+     "y": 0.62917,
+     "w": 0.43973,
+     "h": 0.34417
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "the-otter": {
+   "name": "The Otter",
+   "bookSlug": "mastery",
+   "sheetKey": "characters/the-otter.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-otter/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-otter/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-otter/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-otter/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-otter/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-otter/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "manual",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.07143,
+     "y": 0.04,
+     "w": 0.83705,
+     "h": 0.31167
+    },
+    {
+     "x": 0.08705,
+     "y": 0.35333,
+     "w": 0.27679,
+     "h": 0.27333
+    },
+    {
+     "x": 0.3683,
+     "y": 0.39333,
+     "w": 0.58929,
+     "h": 0.25333
+    },
+    {
+     "x": 0.04464,
+     "y": 0.63167,
+     "w": 0.52232,
+     "h": 0.25333
+    },
+    {
+     "x": 0.4442,
+     "y": 0.715,
+     "w": 0.53125,
+     "h": 0.25167
+    }
+   ],
+   "portraitIndex": 1,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 6
+  }
+ }
+}

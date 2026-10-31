@@ -1,0 +1,158 @@
+---
+import "../../styles/global.css";
+import { env } from "cloudflare:workers";
+import { getAuth } from "../../lib/auth";
+import { parseItems } from "../../lib/orders";
+import { GIFT_SET_PRICE_CENTS, AUDIO_PRICE_CENTS, formatLabel } from "../../lib/offers";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../../components/TransitionHooks.astro";
+import Tracking from "../../components/Tracking.astro";
+
+const e = env as any;
+const auth = getAuth();
+const session = await auth.api.getSession({ headers: Astro.request.headers });
+if (!session) {
+  return Astro.redirect("/login?next=/account");
+}
+const orderId = String(Astro.url.searchParams.get("order") || "");
+const order = orderId
+  ? await e.DB.prepare("SELECT * FROM orders WHERE id = ? AND user_id = ? AND status = 'complete'")
+      .bind(orderId, session.user.id).first()
+  : null;
+if (!order) return Astro.redirect("/account");
+
+const items = parseItems(order);
+const slugs = [...new Set(items.map((i) => i.slug))];
+let bookBySlug: Record<string, any> = {};
+if (slugs.length) {
+  const ph = slugs.map(() => "?").join(",");
+  const r = await e.DB.prepare(`SELECT slug, title, price, price_print FROM books WHERE slug IN (${ph})`).bind(...slugs).all();
+  for (const b of (r.results || []) as any[]) bookBySlug[b.slug] = b;
+}
+const priceFor = (slug: string, format: string): number => {
+  const b = bookBySlug[slug];
+  if (!b) return 0;
+  if (format === "printed") return Math.round(Number(b.price_print || 0));
+  if (format === "giftset") return GIFT_SET_PRICE_CENTS;
+  if (format === "audio") return AUDIO_PRICE_CENTS;
+  return Math.round(Number(b.price || 0));
+};
+const lines = items.map((it) => ({
+  title: bookBySlug[it.slug]?.title || it.slug,
+  formatLabel: formatLabel(it.format) + (it.upgrade === "audio-upgrade" ? " · audiobook credit applied" : ""),
+  price: it.upgrade === "audio-upgrade"
+    ? Math.max(0, priceFor(it.slug, "digital") - AUDIO_PRICE_CENTS)
+    : priceFor(it.slug, it.format),
+}));
+const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
+const date = new Date(Number(order.created_at) * 1000).toLocaleDateString("en-US", {
+  year: "numeric", month: "long", day: "numeric",
+});
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#1a3454" />
+  <title>Receipt · Big Brain Shelf</title>
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+  <style is:inline>
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; }
+    }
+  </style>
+</head>
+<body class="bg-stone-50 text-stone-900 antialiased">
+  <main class="max-w-2xl mx-auto px-4 py-10">
+    <div class="no-print mb-6 flex items-center justify-between">
+      <a href="/account" class="text-sm text-stone-500 hover:text-stone-900">&larr; Back to your library</a>
+      <button id="print-btn" class="rounded-lg bg-stone-900 text-white text-sm font-semibold px-4 py-2 hover:bg-stone-700">Print receipt</button>
+    </div>
+
+    <div class="bg-white border border-stone-200 rounded-xl p-8">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <span class="inline-flex items-center rounded-full bg-[#1a3454] px-4 py-1.5 text-lg font-extrabold leading-none tracking-tight text-white">big<span class="text-orange-400">brain</span>shelf</span>
+        <div class="text-right">
+          <p class="font-extrabold tracking-tight text-lg">Receipt</p>
+          <p class="text-sm text-stone-500">{date}</p>
+        </div>
+      </div>
+
+      <dl class="mt-8 grid sm:grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt class="text-stone-400 uppercase tracking-wide text-xs font-semibold">Order</dt>
+          <dd class="mt-1 font-mono text-xs break-all">{order.id}</dd>
+        </div>
+        <div>
+          <dt class="text-stone-400 uppercase tracking-wide text-xs font-semibold">Buyer</dt>
+          <dd class="mt-1">{order.email}</dd>
+        </div>
+        {order.ship_name && (
+          <div>
+            <dt class="text-stone-400 uppercase tracking-wide text-xs font-semibold">Ship to</dt>
+            <dd class="mt-1">
+              {order.ship_name}
+              {(() => {
+                try {
+                  const a = JSON.parse(order.ship_address || "{}");
+                  const parts = [a.line1, a.line2, [a.city, a.state].filter(Boolean).join(", "), a.postal_code].filter(Boolean);
+                  return parts.length ? <span class="block text-stone-500">{parts.join(" · ")}</span> : null;
+                } catch { return null; }
+              })()}
+            </dd>
+          </div>
+        )}
+      </dl>
+
+      <table class="w-full text-sm mt-8">
+        <thead>
+          <tr class="text-left text-xs uppercase tracking-wide text-stone-400 border-b border-stone-200">
+            <th class="py-2">Item</th>
+            <th class="py-2 text-right">Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((l) => (
+            <tr class="border-b border-stone-100">
+              <td class="py-3">
+                <span class="font-medium">{l.title}</span>
+                <span class="block text-xs text-stone-500">{l.formatLabel}</span>
+              </td>
+              <td class="py-3 text-right">{money(l.price)}</td>
+            </tr>
+          ))}
+          {Number(order.shipping_cents || 0) > 0 && (
+            <tr class="border-b border-stone-100">
+              <td class="py-3 text-stone-500">Shipping</td>
+              <td class="py-3 text-right">{money(order.shipping_cents)}</td>
+            </tr>
+          )}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td class="py-4 font-bold">Total</td>
+            <td class="py-4 text-right font-bold text-base">{money(order.amount)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <p class="text-xs text-stone-400 mt-6">Thank you for reading with us. Digital files live in your library at bigbrainshelf.com/account, and your emailed download links never expire.</p>
+    </div>
+  </main>
+
+  <script is:inline>
+    function initPrint() {
+      var btn = document.getElementById("print-btn");
+      if (!btn || btn.__printBound) return;
+      btn.__printBound = true;
+      btn.addEventListener("click", function () { window.print(); });
+    }
+    initPrint();
+    document.addEventListener("astro:page-load", initPrint);
+  </script>
+</body>
+</html>

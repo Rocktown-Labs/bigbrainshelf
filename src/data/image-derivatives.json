@@ -1,0 +1,393 @@
+{
+ "generatedAt": 1793300000,
+ "cast": {
+  "juno": {
+   "v": 3,
+   "poses": [
+    "cast-gallery/juno/pose-1-w640.webp",
+    "cast-gallery/juno/pose-2-w640.webp",
+    "cast-gallery/juno/pose-3-w640.webp",
+    "cast-gallery/juno/pose-4-w640.webp",
+    "cast-gallery/juno/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/juno/portrait-w560.webp",
+   "portraitHero": "cast-gallery/juno/portrait-w560.webp"
+  },
+  "pell": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/pell/pose-1-w640.webp",
+    "cast-gallery/pell/pose-2-w640.webp",
+    "cast-gallery/pell/pose-3-w640.webp",
+    "cast-gallery/pell/pose-4-w640.webp",
+    "cast-gallery/pell/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/pell/portrait-w560.webp",
+   "portraitHero": "cast-gallery/pell/portrait-w560.webp"
+  },
+  "tempo": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/tempo/pose-1-w640.webp",
+    "cast-gallery/tempo/pose-2-w640.webp",
+    "cast-gallery/tempo/pose-3-w640.webp",
+    "cast-gallery/tempo/pose-4-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/tempo/portrait-w560.webp",
+   "portraitHero": "cast-gallery/tempo/portrait-w560.webp"
+  },
+  "mira": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/mira/pose-1-w640.webp",
+    "cast-gallery/mira/pose-2-w640.webp",
+    "cast-gallery/mira/pose-3-w640.webp",
+    "cast-gallery/mira/pose-4-w640.webp",
+    "cast-gallery/mira/pose-5-w640.webp",
+    "cast-gallery/mira/pose-6-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/mira/portrait-w560.webp",
+   "portraitHero": "cast-gallery/mira/portrait-w560.webp"
+  },
+  "ansel": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/ansel/pose-1-w640.webp",
+    "cast-gallery/ansel/pose-2-w640.webp",
+    "cast-gallery/ansel/pose-3-w640.webp",
+    "cast-gallery/ansel/pose-4-w640.webp",
+    "cast-gallery/ansel/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/ansel/portrait-w560.webp",
+   "portraitHero": "cast-gallery/ansel/portrait-w560.webp"
+  },
+  "dell": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/dell/pose-1-w640.webp",
+    "cast-gallery/dell/pose-2-w640.webp",
+    "cast-gallery/dell/pose-3-w640.webp",
+    "cast-gallery/dell/pose-4-w640.webp",
+    "cast-gallery/dell/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/dell/portrait-w560.webp",
+   "portraitHero": "cast-gallery/dell/portrait-w560.webp"
+  },
+  "wren": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/wren/pose-1-w640.webp",
+    "cast-gallery/wren/pose-2-w640.webp",
+    "cast-gallery/wren/pose-3-w640.webp",
+    "cast-gallery/wren/pose-4-w640.webp",
+    "cast-gallery/wren/pose-5-w640.webp",
+    "cast-gallery/wren/pose-6-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/wren/portrait-w560.webp",
+   "portraitHero": "cast-gallery/wren/portrait-w560.webp"
+  },
+  "cato": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/cato/pose-1-w640.webp",
+    "cast-gallery/cato/pose-2-w640.webp",
+    "cast-gallery/cato/pose-3-w640.webp",
+    "cast-gallery/cato/pose-4-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/cato/portrait-w560.webp",
+   "portraitHero": "cast-gallery/cato/portrait-w560.webp"
+  },
+  "the-fog": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/the-fog/pose-1-w640.webp",
+    "cast-gallery/the-fog/pose-2-w640.webp",
+    "cast-gallery/the-fog/pose-3-w640.webp",
+    "cast-gallery/the-fog/pose-4-w640.webp",
+    "cast-gallery/the-fog/pose-5-w640.webp",
+    "cast-gallery/the-fog/pose-6-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/the-fog/portrait-w560.webp",
+   "portraitHero": "cast-gallery/the-fog/portrait-w560.webp"
+  },
+  "maisie": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/maisie/pose-1-w640.webp",
+    "cast-gallery/maisie/pose-2-w640.webp",
+    "cast-gallery/maisie/pose-3-w640.webp",
+    "cast-gallery/maisie/pose-4-w640.webp",
+    "cast-gallery/maisie/pose-5-w640.webp",
+    "cast-gallery/maisie/pose-6-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/maisie/portrait-w560.webp",
+   "portraitHero": "cast-gallery/maisie/portrait-w560.webp"
+  },
+  "jasper": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/jasper/pose-1-w640.webp",
+    "cast-gallery/jasper/pose-2-w640.webp",
+    "cast-gallery/jasper/pose-3-w640.webp",
+    "cast-gallery/jasper/pose-4-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/jasper/portrait-w560.webp",
+   "portraitHero": "cast-gallery/jasper/portrait-w560.webp"
+  },
+  "willa": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/willa/pose-1-w640.webp",
+    "cast-gallery/willa/pose-2-w640.webp",
+    "cast-gallery/willa/pose-3-w640.webp",
+    "cast-gallery/willa/pose-4-w640.webp",
+    "cast-gallery/willa/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/willa/portrait-w560.webp",
+   "portraitHero": "cast-gallery/willa/portrait-w560.webp"
+  },
+  "penny": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/penny/pose-1-w640.webp",
+    "cast-gallery/penny/pose-2-w640.webp",
+    "cast-gallery/penny/pose-3-w640.webp",
+    "cast-gallery/penny/pose-4-w640.webp",
+    "cast-gallery/penny/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/penny/portrait-w560.webp",
+   "portraitHero": "cast-gallery/penny/portrait-w560.webp"
+  },
+  "bram": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/bram/pose-1-w640.webp",
+    "cast-gallery/bram/pose-2-w640.webp",
+    "cast-gallery/bram/pose-3-w640.webp",
+    "cast-gallery/bram/pose-4-w640.webp",
+    "cast-gallery/bram/pose-5-w640.webp",
+    "cast-gallery/bram/pose-6-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/bram/portrait-w560.webp",
+   "portraitHero": "cast-gallery/bram/portrait-w560.webp"
+  },
+  "hazel": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/hazel/pose-1-w640.webp",
+    "cast-gallery/hazel/pose-2-w640.webp",
+    "cast-gallery/hazel/pose-3-w640.webp",
+    "cast-gallery/hazel/pose-4-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/hazel/portrait-w560.webp",
+   "portraitHero": "cast-gallery/hazel/portrait-w560.webp"
+  },
+  "fern": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/fern/pose-1-w640.webp",
+    "cast-gallery/fern/pose-2-w640.webp",
+    "cast-gallery/fern/pose-3-w640.webp",
+    "cast-gallery/fern/pose-4-w640.webp",
+    "cast-gallery/fern/pose-5-w640.webp",
+    "cast-gallery/fern/pose-6-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/fern/portrait-w560.webp",
+   "portraitHero": "cast-gallery/fern/portrait-w560.webp"
+  },
+  "moss": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/moss/pose-1-w640.webp",
+    "cast-gallery/moss/pose-2-w640.webp",
+    "cast-gallery/moss/pose-3-w640.webp",
+    "cast-gallery/moss/pose-4-w640.webp",
+    "cast-gallery/moss/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/moss/portrait-w560.webp",
+   "portraitHero": "cast-gallery/moss/portrait-w560.webp"
+  },
+  "orin": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/orin/pose-1-w640.webp",
+    "cast-gallery/orin/pose-2-w640.webp",
+    "cast-gallery/orin/pose-3-w640.webp",
+    "cast-gallery/orin/pose-4-w640.webp",
+    "cast-gallery/orin/pose-5-w640.webp",
+    "cast-gallery/orin/pose-6-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/orin/portrait-w560.webp",
+   "portraitHero": "cast-gallery/orin/portrait-w560.webp"
+  },
+  "basil": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/basil/pose-1-w640.webp",
+    "cast-gallery/basil/pose-2-w640.webp",
+    "cast-gallery/basil/pose-3-w640.webp",
+    "cast-gallery/basil/pose-4-w640.webp",
+    "cast-gallery/basil/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/basil/portrait-w560.webp",
+   "portraitHero": "cast-gallery/basil/portrait-w560.webp"
+  },
+  "ada": {
+   "v": 2,
+   "poses": [
+    "cast-gallery/ada/pose-1-w640.webp",
+    "cast-gallery/ada/pose-2-w640.webp",
+    "cast-gallery/ada/pose-3-w640.webp",
+    "cast-gallery/ada/pose-4-w640.webp",
+    "cast-gallery/ada/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/ada/portrait-w560.webp",
+   "portraitHero": "cast-gallery/ada/portrait-w560.webp"
+  },
+  "nox": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/nox/pose-1-w640.webp",
+    "cast-gallery/nox/pose-2-w640.webp",
+    "cast-gallery/nox/pose-3-w640.webp",
+    "cast-gallery/nox/pose-4-w640.webp",
+    "cast-gallery/nox/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/nox/portrait-w560.webp",
+   "portraitHero": "cast-gallery/nox/portrait-w560.webp"
+  },
+  "wally": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/wally/pose-1-w640.webp",
+    "cast-gallery/wally/pose-2-w640.webp",
+    "cast-gallery/wally/pose-3-w640.webp",
+    "cast-gallery/wally/pose-4-w640.webp",
+    "cast-gallery/wally/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/wally/portrait-w560.webp",
+   "portraitHero": "cast-gallery/wally/portrait-w560.webp"
+  },
+  "pip": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/pip/pose-1-w640.webp",
+    "cast-gallery/pip/pose-2-w640.webp",
+    "cast-gallery/pip/pose-3-w640.webp",
+    "cast-gallery/pip/pose-4-w640.webp",
+    "cast-gallery/pip/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/pip/portrait-w560.webp",
+   "portraitHero": "cast-gallery/pip/portrait-w560.webp"
+  },
+  "skipper": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/skipper/pose-1-w640.webp",
+    "cast-gallery/skipper/pose-2-w640.webp",
+    "cast-gallery/skipper/pose-3-w640.webp",
+    "cast-gallery/skipper/pose-4-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/skipper/portrait-w560.webp",
+   "portraitHero": "cast-gallery/skipper/portrait-w560.webp"
+  },
+  "tilda": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/tilda/pose-1-w640.webp",
+    "cast-gallery/tilda/pose-2-w640.webp",
+    "cast-gallery/tilda/pose-3-w640.webp",
+    "cast-gallery/tilda/pose-4-w640.webp",
+    "cast-gallery/tilda/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/tilda/portrait-w560.webp",
+   "portraitHero": "cast-gallery/tilda/portrait-w560.webp"
+  },
+  "bix": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/bix/pose-1-w640.webp",
+    "cast-gallery/bix/pose-2-w640.webp",
+    "cast-gallery/bix/pose-3-w640.webp",
+    "cast-gallery/bix/pose-4-w640.webp",
+    "cast-gallery/bix/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/bix/portrait-w560.webp",
+   "portraitHero": "cast-gallery/bix/portrait-w560.webp"
+  },
+  "rook": {
+   "v": 1,
+   "poses": [
+    "cast-gallery/rook/pose-1-w640.webp",
+    "cast-gallery/rook/pose-2-w640.webp",
+    "cast-gallery/rook/pose-3-w640.webp",
+    "cast-gallery/rook/pose-4-w640.webp",
+    "cast-gallery/rook/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/rook/portrait-w560.webp",
+   "portraitHero": "cast-gallery/rook/portrait-w560.webp"
+  },
+  "the-otter": {
+   "v": 6,
+   "poses": [
+    "cast-gallery/the-otter/pose-1-w640.webp",
+    "cast-gallery/the-otter/pose-2-w640.webp",
+    "cast-gallery/the-otter/pose-3-w640.webp",
+    "cast-gallery/the-otter/pose-4-w640.webp",
+    "cast-gallery/the-otter/pose-5-w640.webp"
+   ],
+   "portraitCard": "cast-gallery/the-otter/portrait-w560.webp",
+   "portraitHero": "cast-gallery/the-otter/portrait-w560.webp"
+  }
+ },
+ "covers": {
+  "mastery": {
+   "card": "books/mastery/cover-w400.webp",
+   "hero": "books/mastery/cover-w960.webp",
+   "sourceBytes": 469629,
+   "cardBytes": 34298
+  },
+  "algorithms": {
+   "card": "books/algorithms/cover-w400.webp",
+   "hero": "books/algorithms/cover-w960.webp",
+   "sourceBytes": 481698,
+   "cardBytes": 35226
+  },
+  "richdadpoordad": {
+   "card": "books/richdadpoordad/cover-w400.webp",
+   "hero": "books/richdadpoordad/cover-w960.webp",
+   "sourceBytes": 519076,
+   "cardBytes": 43522
+  },
+  "thewarofart": {
+   "card": "books/thewarofart/cover-w400.webp",
+   "hero": "books/thewarofart/cover-w960.webp",
+   "sourceBytes": 458358,
+   "cardBytes": 33014
+  },
+  "compoundeffect": {
+   "card": "books/compoundeffect/cover-w400.webp",
+   "hero": "books/compoundeffect/cover-w960.webp",
+   "sourceBytes": 477496,
+   "cardBytes": 35786
+  },
+  "motivationmanifesto": {
+   "card": "books/motivationmanifesto/cover-w400.webp",
+   "hero": "books/motivationmanifesto/cover-w960.webp",
+   "sourceBytes": 362144,
+   "cardBytes": 22072
+  },
+  "designpatterns": {
+   "card": "books/designpatterns/cover-w400.webp",
+   "hero": "books/designpatterns/cover-w960.webp",
+   "sourceBytes": 506633,
+   "cardBytes": 37422
+  },
+  "docker": {
+   "card": "books/docker/cover-w400.webp",
+   "hero": "books/docker/cover-w960.webp",
+   "sourceBytes": 325856,
+   "cardBytes": 20788
+  }
+ }
+}

@@ -1,0 +1,79 @@
+---
+import "../styles/global.css";
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SectionNav from "../components/SectionNav.astro";
+import BackLink from "../components/BackLink.astro";
+import CartSheet from "../components/CartSheet.astro";
+import Tracking from "../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../components/TransitionHooks.astro";
+import SeoHead from "../components/SeoHead.astro";
+export const prerender = false;
+const adminUser = Astro.locals.user;
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-16.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Shipping &amp; returns — Big Brain Shelf</title>
+  <SeoHead title="Shipping & returns — Big Brain Shelf" socialDescription="How Big Brain Shelf orders travel: digital delivery, printed books, club boxes, and what happens if something goes wrong." />
+  <meta name="description" content="How Big Brain Shelf orders travel: digital delivery, printed books, club boxes, and what happens if something goes wrong." />
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+  <SectionNav />
+
+  <main class="max-w-3xl mx-auto px-5 pt-10 pb-20">
+    <BackLink />
+    <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-6" style="font-family: Fredoka, ui-rounded, system-ui">Shipping &amp; returns</h1>
+
+    <section class="mt-8">
+      <h2 class="text-xl font-extrabold tracking-tight">Digital books and audiobooks</h2>
+      <p class="text-stone-600 leading-relaxed mt-2">Nothing ships. The moment checkout completes, your books are in <a href="/account" class="font-semibold text-orange-700 hover:text-orange-800">your library</a>: read and listen there right away, and download the files from the same place. If a download ever gives you trouble, email us and we will sort it out.</p>
+    </section>
+
+    <section class="mt-10">
+      <h2 class="text-xl font-extrabold tracking-tight">Printed books</h2>
+      <p class="text-stone-600 leading-relaxed mt-2">Printed books are printed after you order, so an order moves through stages you can watch: received, in print, packed, shipped, delivered. We email you as it moves, and the shipped email carries your tracking number. At checkout you see the real carrier rate for your address before you pay; printed orders travel by USPS or UPS.</p>
+    </section>
+
+    <section class="mt-10">
+      <h2 class="text-xl font-extrabold tracking-tight">Book Club boxes</h2>
+      <p class="text-stone-600 leading-relaxed mt-2">Club boxes ship free, always: shipping is on us. Your first box ships the day you join, and the next ones follow every 3 months from that day. The same stage emails and tracking apply. The full story is on <a href="/clubs/book-club" class="font-semibold text-orange-700 hover:text-orange-800">The Book Club page</a>.</p>
+    </section>
+
+    <section class="mt-10">
+      <h2 class="text-xl font-extrabold tracking-tight">If something goes wrong</h2>
+      <p class="text-stone-600 leading-relaxed mt-2">A book that arrives damaged, a box that never shows up, a file that will not download: email <a href="mailto:support@bigbrainshelf.com" class="font-semibold text-orange-700 hover:text-orange-800">support@bigbrainshelf.com</a> and we will make it right with a replacement or a refund. And every first club box carries the guarantee: if it misses in 30 days, your first payment comes back and the books stay on your shelf.</p>
+    </section>
+  </main>
+  <SiteFooter />
+
+  <script is:inline>
+    function bbsAccountLink() {
+      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+        var link = document.getElementById("account-link");
+        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
+      }).catch(function () {});
+    }
+    bbsAccountLink();
+    document.addEventListener("astro:page-load", bbsAccountLink);
+  </script>
+
+  <!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+  <CartSheet />
+
+</body>
+</html>

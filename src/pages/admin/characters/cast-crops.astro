@@ -1,0 +1,2215 @@
+---
+import "../../../styles/global.css";
+import AdminShell from "../../../components/AdminShell.astro";
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cast Crop Editor - Kidsbook Hub</title>
+  <style is:global>
+    :root { --bg: #f7f5f0; --surface: #ffffff; --text: #1c2733; --dim: #6b7280; --border: #e2ddd4; --accent: #2563eb; --accent-strong: #1d4ed8; --star: #ea580c; --qa: #1f9d66; --bad: #b91c1c; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #14181d; --surface: #1e242b; --text: #e8e6e1; --dim: #9aa0a8; --border: #333b44; } }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0 12px 40px; }
+    .wrap { max-width: 1240px; margin: 0 auto; }
+    .topbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 0; }
+    .topbar h1 { font-size: 1.15rem; margin: 0; }
+    .sub { font-size: 0.85rem; color: var(--dim); margin: 4px 0 0; max-width: 70ch; }
+    .backlink { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+    .card { border: 1px solid var(--border); background: var(--surface); border-radius: 16px; padding: 16px; margin-top: 16px; }
+    .card h2 { margin: 0; font-size: 1rem; }
+    .card .desc { font-size: 0.8rem; color: var(--dim); margin: 4px 0 0; }
+    .btn { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 10px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-primary:disabled { background: var(--surface); border-color: var(--border); color: var(--text); }
+    .btn-star { border-color: var(--star); color: var(--star); }
+    .btn-danger { border-color: var(--bad); color: var(--bad); }
+    .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+    select, input { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 10px 12px; font-size: 0.95rem; }
+    .frow { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .layout { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+    .stage-scroll { overflow: auto; max-width: 100%; border: 1px solid var(--border); border-radius: 8px; background: #fff; margin-top: 12px; }
+    .stage { position: relative; user-select: none; touch-action: none; }
+    .stage img { display: block; width: 100%; height: auto; pointer-events: none; }
+    .pbox { position: absolute; border: 2px solid var(--accent-strong); background: rgba(37, 99, 235, 0.10); cursor: move; }
+    .pbox.sel { border-color: var(--star); background: rgba(234, 88, 12, 0.10); z-index: 3; }
+    .pbox .tag { position: absolute; top: -1px; left: -1px; background: var(--accent-strong); color: #fff; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 0 0 6px 0; pointer-events: none; white-space: nowrap; }
+    .pbox.sel .tag { background: var(--star); }
+    .pbox .hdl { position: absolute; width: 12px; height: 12px; background: #fff; border: 2px solid var(--star); border-radius: 3px; display: none; z-index: 4; }
+    .pbox.sel .hdl { display: block; }
+    .side { width: 264px; flex: 0 0 264px; }
+    .poseitem { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--border); border-radius: 12px; padding: 8px; margin-top: 8px; cursor: pointer; background: var(--surface); }
+    .poseitem.sel { border-color: var(--star); box-shadow: 0 0 0 1px var(--star); }
+    .poseitem .thumb { width: 56px; height: 56px; flex: 0 0 56px; border-radius: 8px; background-color: #faf6ee; background-repeat: no-repeat; border: 1px solid var(--border); }
+    .poseitem .meta { font-size: 0.8rem; flex: 1; min-width: 0; }
+    .poseitem .meta .coords { color: var(--dim); font-variant-numeric: tabular-nums; font-size: 0.72rem; }
+    .poseitem .prow { display: flex; align-items: center; gap: 4px; }
+    .poseitem .mv { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; width: 24px; height: 24px; font-size: 0.8rem; line-height: 1; cursor: pointer; padding: 0; }
+    .poseitem .mv:disabled { opacity: 0.35; cursor: default; }
+    .poseitem .action-input { width: 100%; padding: 6px 8px; font-size: 0.8rem; border-radius: 8px; margin-top: 6px; }
+    .poseitem .tagprev { font-size: 0.7rem; color: var(--accent-strong); font-variant-numeric: tabular-nums; margin-top: 3px; word-break: break-all; }
+    .readout { font-size: 0.8rem; color: var(--dim); font-variant-numeric: tabular-nums; }
+    .note { border-radius: 12px; padding: 10px 12px; font-size: 0.85rem; margin-top: 12px; background: #f0fdf4; color: #14532d; }
+    .warn { border-radius: 12px; padding: 10px 12px; font-size: 0.85rem; margin-top: 12px; background: #fef2f2; color: #7f1d1d; }
+    @media (prefers-color-scheme: dark) { .note { background: #052e16; color: #bbf7d0; } .warn { background: #450a0a; color: #fecaca; } }
+    .hidden { display: none !important; }
+    #loading { text-align: center; padding: 64px 16px; color: var(--dim); }
+    .bigprev { width: 180px; border: 1px solid var(--border); border-radius: 12px; background-color: #faf6ee; background-repeat: no-repeat; margin-top: 8px; }
+    .pill { font-size: 0.75rem; font-weight: 700; border-radius: 999px; padding: 4px 10px; border: 1px solid var(--border); color: var(--dim); }
+    .pill.dirty { border-color: var(--star); color: var(--star); background: rgba(234, 88, 12, 0.08); }
+    .liftbadge { font-size: 0.68rem; font-weight: 700; color: #fff; background: var(--qa); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+    .editbadge { font-size: 0.68rem; font-weight: 700; color: #fff; background: var(--star); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+    .editbadge.saved { background: var(--dim); }
+    .erasewrap { overflow: auto; max-height: 62vh; border: 1px solid var(--border); border-radius: 8px; background: #faf6ee; margin-top: 12px; text-align: center; }
+    #erase-canvas { max-width: 100%; height: auto; touch-action: none; user-select: none; }
+    #erase-canvas.brush { cursor: cell; }
+    #erase-canvas.click { cursor: crosshair; }
+    #erase-canvas.lasso { cursor: crosshair; }
+    .histrow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border); }
+    .histrow .when { font-size: 0.82rem; }
+    .histrow .what { color: var(--muted); font-size: 0.78rem; }
+    .modal.erase { max-width: 720px; }
+    .modal.shape { max-width: 900px; }
+    #shape-canvas { max-width: 100%; height: auto; touch-action: none; user-select: none; cursor: crosshair; }
+    input[type="range"] { padding: 0; }
+    .focalvisitor { width: 100%; aspect-ratio: 4 / 5; border: 1px solid var(--border); border-radius: 12px; background-color: #faf6ee; background-repeat: no-repeat; margin-top: 8px; }
+    .focalbox { position: relative; width: 100%; border: 1px solid var(--border); border-radius: 12px; background-color: #faf6ee; background-repeat: no-repeat; margin-top: 8px; cursor: crosshair; touch-action: none; user-select: none; overflow: hidden; }
+    .focalwindow { position: absolute; border: 2px dashed var(--star); background: rgba(234, 88, 12, 0.07); pointer-events: none; }
+    .focaldot { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--star); border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.35); transform: translate(-50%, -50%); pointer-events: none; }
+    .modalwrap { position: fixed; inset: 0; background: rgba(20, 24, 29, 0.55); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+    .modal { background: var(--surface); color: var(--text); border-radius: 16px; padding: 20px; max-width: 440px; width: 100%; box-shadow: 0 24px 48px rgba(0,0,0,0.3); }
+    .modal h2 { margin: 0; font-size: 1.05rem; }
+    .modal p { font-size: 0.9rem; color: var(--dim); margin: 8px 0 0; }
+  </style>
+</head>
+<body>
+  <AdminShell current="/admin/characters" />
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <a class="backlink" id="back-link" href="/admin/characters">&larr; Back to Characters</a>
+        <h1>Cast crop editor</h1>
+        <p class="sub">Frame the Meet the Cast art yourself. Drag a box to move it, drag its corners or edges to resize, or drag on empty sheet to draw a new pose. Star one box to make it the portrait. Use the arrows to reorder poses (the list order is the saved pose order: first is Pose 1), tag a pose with an action to feed the factory&rsquo;s crop conditioning, and set each pose&rsquo;s focal point so the public frames keep the right part in view. Saving is per character: the Save button only lights up when this character actually differs from its saved gallery, and leaving with unsaved changes asks you first. A pose that shares its box with a neighbor can be <b>lifted</b>: the Lift button on a selected pose queues a background job that cuts the subject off the sheet and places it on clean cream. A pose can also be <b>shaped</b>: the Shape button on a selected pose opens the whole sheet so you can trace an outline around the object itself and cut the pose to that outline. Extra content inside a pose can be <b>erased</b>: the Erase button on a selected pose opens a canvas where a brush paints the clean background back in, or one click removes a whole extra thing.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="frow" style="margin-top:0">
+        <label for="picker"><b>Character</b></label>
+        <select id="picker"></select>
+        <span class="readout" id="char-meta"></span>
+        <span style="flex:1"></span>
+        <span class="readout">Sheet width:</span>
+        <button type="button" class="btn zoom-btn" data-w="560">S</button>
+        <button type="button" class="btn zoom-btn on" data-w="820">M</button>
+        <button type="button" class="btn zoom-btn" data-w="1240">L</button>
+        <button type="button" class="btn zoom-btn" data-w="1800">XL</button>
+      </div>
+      <div id="loading">Loading the cast…</div>
+      <div id="editor" class="hidden">
+        <div class="layout">
+          <div style="flex:1;min-width:320px">
+            <div class="stage-scroll"><div class="stage" id="stage"><img id="sheet" alt="" draggable="false" /></div></div>
+            <div class="frow hidden" id="sel-actions">
+              <b id="sel-actions-label">Pose 1</b>
+              <button type="button" class="btn" id="sel-lift-btn">Lift this pose</button>
+              <button type="button" class="btn" id="sel-shape-btn">Shape around the object</button>
+              <button type="button" class="btn" id="sel-erase-btn">Erase on this pose</button>
+              <button type="button" class="btn hidden" id="sel-undo-lift-btn">Undo lift</button>
+              <span class="readout" id="sel-actions-status"></span>
+            </div>
+            <p class="desc" id="sel-actions-hint">With a pose selected: Lift cuts it out whole onto clean cream. Shape traces around the object and cuts the rest away.</p>
+            <div class="frow">
+              <button type="button" class="btn" id="add-btn">+ Add pose box</button>
+              <button type="button" class="btn btn-star" id="star-btn">&#9733; Make selected the portrait</button>
+              <button type="button" class="btn btn-danger" id="del-btn">Delete selected</button>
+              <span class="readout" id="sel-readout">no box selected</span>
+            </div>
+            <div class="frow">
+              <button type="button" class="btn btn-primary" id="save-btn" disabled>Save crops</button>
+              <span class="pill" id="dirty-pill">Saved</span>
+              <button type="button" class="btn hidden" id="restore-btn">Restore previous gallery</button>
+              <span class="readout" id="status"></span>
+            </div>
+            <div id="msg"></div>
+          </div>
+          <div class="side">
+            <h2 style="font-size:0.95rem;margin:0">Portrait</h2>
+            <div class="bigprev" id="portrait-prev" role="img" aria-label="Portrait preview"></div>
+            <h2 style="font-size:0.95rem;margin:14px 0 0">Poses <span class="readout" id="pose-count"></span></h2>
+            <div id="pose-list"></div>
+            <div id="focal-panel" class="hidden">
+              <h2 style="font-size:0.95rem;margin:16px 0 0">Framing <span class="readout" id="focal-title"></span></h2>
+              <p class="desc">What visitors see in the 4:5 card frame:</p>
+              <div class="focalvisitor" id="focal-visitor"></div>
+              <p class="desc" style="margin-top:10px">Click or drag on the pose to set the point that must stay in frame:</p>
+              <div class="focalbox" id="focal-box">
+                <div class="focalwindow" id="focal-window"></div>
+                <div class="focaldot" id="focal-dot"></div>
+              </div>
+              <div class="frow">
+                <span class="readout" id="focal-readout"></span>
+                <span style="flex:1"></span>
+                <button type="button" class="btn" id="focal-center">Center</button>
+              </div>
+              <p class="desc" id="focal-note"></p>
+              <h2 style="font-size:0.95rem;margin:16px 0 0">Lift <span class="readout" id="lift-title"></span></h2>
+              <p class="desc">Lift cuts the selected pose out of the sheet (background removed) and places it on clean cream, so a pose that shares its box with a neighbor still ships clean. A lift runs as a background job and uses the pose&rsquo;s <b>saved</b> box, so save any box edits first. Editing a lifted pose&rsquo;s box and saving undoes the lift: a normal sheet crop ships instead.</p>
+              <div class="frow">
+                <button type="button" class="btn" id="lift-btn">Lift this pose</button>
+                <button type="button" class="btn hidden" id="undo-lift-btn">Undo lift</button>
+                <span class="readout" id="lift-status"></span>
+              </div>
+              <div id="lift-cutout-row" class="hidden" style="margin-top:6px">
+                <a id="lift-cutout-link" href="#" target="_blank" rel="noopener" class="readout">Open the transparent cutout</a>
+              </div>
+              <h2 style="font-size:0.95rem;margin:16px 0 0">Erase <span class="readout" id="erase-title"></span></h2>
+              <p class="desc">Erase cleans up what a rectangle cannot: a neighbor&rsquo;s head photobombing the edge, a stray mark, a second thing sharing the pose. Paint over small extras with the brush, click one whole thing to have it removed, or trace a lasso outline around a part and cut along your own line. Erasing works on the pose&rsquo;s <b>saved</b> picture, so save any box edits first. Erase edits ride on that saved box: if you later move or resize the box and save, the pose ships as a fresh sheet crop and its erase edits clear.</p>
+              <div class="frow">
+                <button type="button" class="btn" id="erase-btn">Erase on this pose</button>
+                <span class="readout" id="erase-status"></span>
+              </div>
+              <h2 style="font-size:0.95rem;margin:16px 0 0">History <span class="readout" id="history-title"></span></h2>
+              <p class="desc">Every save sets the current pictures aside. Roll this pose back to an earlier saved version here: its picture, box, and tags come back together. Restoring sets the current picture aside first, so a restore can itself be undone from this same list.</p>
+              <div id="history-list"><span class="readout">Pick a pose to see its saved versions.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="erase-modal" class="modalwrap hidden" role="dialog" aria-modal="true" aria-labelledby="erase-modal-title">
+    <div class="modal erase">
+      <h2 id="erase-modal-title">Erase</h2>
+      <p>Brush paints the sheet&rsquo;s clean background back in, for edges, photobombs, and stray marks. Click to remove takes out one whole thing you tap. The lasso traces an outline you draw yourself, straight lines and curves mixed, and cuts along it, so thin bits like a beak stay under your control. Nothing is saved until you press Save crops on the main page.</p>
+      <div class="frow">
+        <button type="button" class="btn on" id="erase-tool-brush">Brush</button>
+        <button type="button" class="btn" id="erase-tool-click">Click to remove</button>
+        <button type="button" class="btn" id="erase-tool-lasso">Lasso</button>
+        <span class="readout" id="erase-brush-row">Brush size <input type="range" id="erase-brush-size" min="4" max="80" value="20" style="vertical-align:middle"> <span id="erase-brush-val">20</span></span>
+        <span style="flex:1"></span>
+        <button type="button" class="btn" id="erase-undo">Undo</button>
+        <button type="button" class="btn" id="erase-reset">Reset</button>
+      </div>
+      <div class="frow hidden" id="erase-lasso-row">
+        <button type="button" class="btn" id="lasso-close">Close shape</button>
+        <button type="button" class="btn" id="lasso-undo-point">Undo point</button>
+        <button type="button" class="btn" id="lasso-clear">Clear</button>
+        <span style="flex:1"></span>
+        <button type="button" class="btn" id="lasso-erase-outside">Erase outside</button>
+        <button type="button" class="btn" id="lasso-erase-inside">Erase inside</button>
+      </div>
+      <p class="desc hidden" id="erase-lasso-help">Drag for curves, click for straight corners. Double-click, press Enter, or click back on the first point to close the loop: Erase outside keeps only the traced part, Erase inside removes it.</p>
+      <div class="erasewrap"><canvas id="erase-canvas" class="brush"></canvas></div>
+      <p class="readout" id="erase-modal-status" style="margin-top:10px"></p>
+      <div class="frow">
+        <button type="button" class="btn btn-primary" id="erase-done">Done</button>
+        <button type="button" class="btn" id="erase-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="shape-modal" class="modalwrap hidden" role="dialog" aria-modal="true" aria-labelledby="shape-modal-title">
+    <div class="modal shape">
+      <h2 id="shape-modal-title">Shape</h2>
+      <p>This is the whole sheet, not just the pose&rsquo;s box: trace one outline around the object itself, outlying wing, beak, and all. Drag for curves, click for straight corners. Double-click, press Enter, or click back on the first point to close the loop. Cutting makes the traced outline the pose: the picture inside your line is kept exactly, everything outside it is filled with the sheet&rsquo;s background, and the pose&rsquo;s box becomes the outline&rsquo;s bounding box. Nothing ships until you press Save on the main page.</p>
+      <div class="frow">
+        <button type="button" class="btn" id="shape-close">Close shape</button>
+        <button type="button" class="btn" id="shape-undo-point">Undo point</button>
+        <button type="button" class="btn" id="shape-clear">Clear</button>
+        <span style="flex:1"></span>
+        <span class="readout">The blue outline is the pose&rsquo;s current box, as a guide.</span>
+      </div>
+      <div class="erasewrap"><canvas id="shape-canvas"></canvas></div>
+      <p class="readout" id="shape-modal-status" style="margin-top:10px"></p>
+      <div class="frow">
+        <button type="button" class="btn btn-primary" id="shape-cut">Cut to this shape</button>
+        <button type="button" class="btn" id="shape-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="nav-modal" class="modalwrap hidden" role="dialog" aria-modal="true" aria-labelledby="nav-modal-title">
+    <div class="modal">
+      <h2 id="nav-modal-title">Unsaved changes</h2>
+      <p id="nav-modal-text">This character has unsaved crop changes.</p>
+      <div class="frow">
+        <button type="button" class="btn btn-primary" id="nav-save">Save and leave</button>
+        <button type="button" class="btn btn-danger" id="nav-discard">Discard changes</button>
+        <button type="button" class="btn" id="nav-stay">Stay</button>
+      </div>
+    </div>
+  </div>
+
+  <datalist id="action-list"></datalist>
+
+  <script>
+    // The lasso's path/mask math lives in src/lib/lasso.ts (pure and
+    // unit-tested); this bundled script hands it to the inline editor
+    // script below as window.BbsLasso. It loads deferred, long before
+    // anyone opens the Erase modal; the lasso tool fails soft with a
+    // status message if it is somehow missing.
+    import {
+      createLassoCapture, lassoPointerDown, lassoPointerMove, lassoPointerUp,
+      lassoPoints, lassoUndoLast, lassoClear, lassoHasPath, lassoCanClose,
+      lassoNearStart, pointInPolygon, rasterizeLassoMask, applyLassoErase,
+      sampleCornerBackground, shapeBoundingBox, cutSheetShape,
+    } from "../../../lib/lasso";
+    (window as any).BbsLasso = {
+      createLassoCapture, lassoPointerDown, lassoPointerMove, lassoPointerUp,
+      lassoPoints, lassoUndoLast, lassoClear, lassoHasPath, lassoCanClose,
+      lassoNearStart, pointInPolygon, rasterizeLassoMask, applyLassoErase,
+      sampleCornerBackground, shapeBoundingBox, cutSheetShape,
+    };
+  </script>
+  <script is:inline>
+    const state = {
+      characters: [],
+      slug: null,
+      entry: null,       // server entry for the current character
+      boxes: [],         // working copy [{x,y,w,h}] in pose order
+      poseMeta: [],      // working copy [{action: "", focal: {x,y}}], parallel to boxes
+      lifted: [],        // server-owned lift state [{cutoutKey} | null], parallel to boxes
+      edits: [],         // staged erase edits [dataURL | null], parallel to boxes
+      shapeEdits: [],    // per-pose flag: edits[i] is a sheet shape cut [bool], parallel
+      editFp: [],        // cheap fingerprints of edits[], parallel (dirty checks)
+      eraseInfo: [],     // saved erase summary per pose [{at, sam, brush, lasso?} | null]
+      eraseJobs: [],     // recent segment (click-to-remove) jobs for the character
+      erasePollTimer: null,
+      eraseSeen: {},     // segment job ids seen active this session (result lands once)
+      history: [],       // saved versions of the selected pose slot (null = loading)
+      historyKey: "",    // "slug:sel" the history list was fetched for
+      historySig: "",    // render signature so repaints stay cheap
+      liftJobs: [],      // recent lift jobs for the current character
+      liftPollTimer: null,
+      portraitIndex: 0,
+      savedData: null,   // last-saved working state (deep copy)
+      savedSnapshot: null,
+      sel: -1,
+      saving: false,
+      stageW: 820,
+    };
+
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+    function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+    function nameKey(s) {
+      return String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    }
+    function actionSlug(s) {
+      return String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    }
+    function deepCopy(o) { return JSON.parse(JSON.stringify(o)); }
+
+    // ---- per-character dirty model ------------------------------------
+    // Dirtiness is a COMPARISON, not a touched flag: the working state
+    // is serialized (numbers at manifest precision) and compared with
+    // the snapshot taken at load / after the last successful save.
+    // Dragging a box away and back to its exact start is clean again.
+    function normNum(v) { return Math.round(v * 100000) / 100000; }
+    function snapshotOf(boxes, poseMeta, portraitIndex) {
+      return JSON.stringify({
+        boxes: boxes.map((b) => [normNum(b.x), normNum(b.y), normNum(b.w), normNum(b.h)]),
+        portraitIndex,
+        poseMeta: poseMeta.map((m) => [
+          actionSlug(m.action || ""),
+          m.focal ? [normNum(m.focal.x), normNum(m.focal.y)] : null,
+        ]),
+      });
+    }
+    function currentSnapshot() {
+      return snapshotOf(state.boxes, state.poseMeta, state.portraitIndex) +
+        "|E:" + state.editFp.join(",");
+    }
+    function isDirty() {
+      return state.savedSnapshot !== null && currentSnapshot() !== state.savedSnapshot;
+    }
+    // Dirt in the boxes/tags/portrait alone (erase edits excluded):
+    // Erase works on the pose's SAVED picture, so it may open while
+    // only erase edits are unsaved, but not over unsaved box edits.
+    function boxesDirty() {
+      if (!state.savedData) return false;
+      return snapshotOf(state.boxes, state.poseMeta, state.portraitIndex) !==
+        snapshotOf(state.savedData.boxes, state.savedData.poseMeta, state.savedData.portraitIndex);
+    }
+    function editFingerprint(dataUrl) {
+      if (!dataUrl) return "";
+      let h = 5381;
+      for (let i = 0; i < dataUrl.length; i += 7) {
+        h = ((h * 33) ^ dataUrl.charCodeAt(i)) >>> 0;
+      }
+      return dataUrl.length + "." + h.toString(36);
+    }
+    function baseline() {
+      state.savedData = deepCopy({
+        boxes: state.boxes, poseMeta: state.poseMeta, portraitIndex: state.portraitIndex,
+        lifted: state.lifted, edits: state.edits, shapeEdits: state.shapeEdits, editFp: state.editFp,
+        eraseInfo: state.eraseInfo,
+      });
+      state.savedSnapshot = currentSnapshot();
+    }
+    function restoreFromSaved() {
+      if (!state.savedData) return;
+      const d = deepCopy(state.savedData);
+      state.boxes = d.boxes;
+      state.poseMeta = d.poseMeta;
+      state.portraitIndex = d.portraitIndex;
+      state.lifted = d.lifted || state.boxes.map(() => null);
+      state.edits = d.edits || state.boxes.map(() => null);
+      state.shapeEdits = d.shapeEdits || state.boxes.map(() => false);
+      state.editFp = d.editFp || state.boxes.map(() => "");
+      state.eraseInfo = d.eraseInfo || state.boxes.map(() => null);
+      if (state.sel >= state.boxes.length) state.sel = state.boxes.length - 1;
+      render();
+    }
+
+    const stage = document.getElementById("stage");
+    const sheetImg = document.getElementById("sheet");
+    const saveBtn = document.getElementById("save-btn");
+    const dirtyPill = document.getElementById("dirty-pill");
+
+    function refreshSaveUI() {
+      const dirty = isDirty();
+      saveBtn.disabled = !dirty || state.saving || !state.entry;
+      saveBtn.textContent = state.entry ? "Save " + state.entry.name : "Save crops";
+      dirtyPill.textContent = dirty ? "Unsaved changes" : "Saved";
+      dirtyPill.classList.toggle("dirty", dirty);
+      renderLift();
+      renderErase();
+      fetchHistory();
+    }
+
+    async function loadList() {
+      const r = await fetch("/api/admin/cast-gallery");
+      if (!r.ok) {
+        document.getElementById("loading").textContent = "Could not load the cast (" + r.status + ").";
+        return;
+      }
+      const d = await r.json();
+      state.characters = d.characters || [];
+      const picker = document.getElementById("picker");
+      picker.innerHTML = state.characters.map((c) =>
+        '<option value="' + esc(c.slug) + '">' + esc(c.name) + " · " + esc(c.bookSlug) + " (" + c.poseCount + " poses)</option>"
+      ).join("");
+      picker.addEventListener("change", () => {
+        const target = picker.value;
+        if (target === state.slug) return;
+        attemptNav(
+          () => loadCharacter(target),
+          () => { picker.value = state.slug; }
+        );
+      });
+      if (state.characters.length) loadCharacter(state.characters[0].slug);
+    }
+
+    async function loadCharacter(slug) {
+      const prevSel = state.slug === slug ? state.sel : -1;
+      stopLiftPolling();
+      stopErasePolling();
+      state.liftJobs = [];
+      state.eraseJobs = [];
+      state.eraseSeen = {};
+      state.slug = slug;
+      document.getElementById("picker").value = slug;
+      const r = await fetch("/api/admin/cast-gallery?slug=" + encodeURIComponent(slug));
+      const loading = document.getElementById("loading");
+      if (!r.ok) {
+        loading.textContent = "Could not load " + slug + " (" + r.status + ").";
+        loading.classList.remove("hidden");
+        return;
+      }
+      const d = await r.json();
+      state.entry = d.character;
+      state.boxes = (d.character.boxes || []).map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h }));
+      state.poseMeta = state.boxes.map((_, i) => {
+        const m = (d.character.poseMeta || [])[i] || {};
+        return {
+          action: m.action || "",
+          focal: m.focal ? { x: m.focal.x, y: m.focal.y } : { x: 0.5, y: 0.5 },
+        };
+      });
+      state.lifted = state.boxes.map((_, i) => {
+        const m = (d.character.poseMeta || [])[i] || {};
+        return m.lifted && m.cutoutKey ? { cutoutKey: m.cutoutKey } : null;
+      });
+      state.edits = state.boxes.map(() => null);
+      state.shapeEdits = state.boxes.map(() => false);
+      state.editFp = state.boxes.map(() => "");
+      state.eraseInfo = state.boxes.map((_, i) => {
+        const m = (d.character.poseMeta || [])[i] || {};
+        return m.edited && m.eraseInfo
+          ? { at: m.eraseInfo.at || 0, sam: m.eraseInfo.sam || 0, brush: !!m.eraseInfo.brush, ...(m.eraseInfo.lasso ? { lasso: true } : {}), ...(m.eraseInfo.shape ? { shape: true } : {}) }
+          : null;
+      });
+      state.history = [];
+      state.historyKey = "";
+      state.historySig = "";
+      state.portraitIndex = d.character.portraitIndex || 0;
+      state.sel = state.boxes.length ? (prevSel >= 0 && prevSel < state.boxes.length ? prevSel : 0) : -1;
+      baseline();
+      fetchLiftJobs();
+      fetchEraseJobs();
+      if (Array.isArray(d.actions) && d.actions.length) {
+        document.getElementById("action-list").innerHTML =
+          d.actions.map((a) => '<option value="' + esc(a) + '"></option>').join("");
+      }
+      loading.classList.add("hidden");
+      document.getElementById("editor").classList.remove("hidden");
+      document.getElementById("char-meta").textContent =
+        d.character.name + " · " + d.character.bookSlug + " · art v" + d.character.v +
+        (d.character.sheetSize ? " · sheet " + d.character.sheetSize.w + "x" + d.character.sheetSize.h : "");
+      const restoreBtn = document.getElementById("restore-btn");
+      if (d.backup) {
+        restoreBtn.classList.remove("hidden");
+        restoreBtn.textContent = "Restore previous gallery (" + new Date(d.backup.ts * 1000).toLocaleString() + ")";
+      } else {
+        restoreBtn.classList.add("hidden");
+      }
+      document.getElementById("msg").innerHTML = "";
+      document.getElementById("status").textContent = "";
+      sheetImg.src = d.character.sheetUrl;
+      applyStageWidth();
+      render();
+    }
+
+    function applyStageWidth() {
+      stage.style.width = state.stageW + "px";
+    }
+
+    // Sprite-style preview of one sheet region (fractions of the sheet).
+    function spriteStyle(rx, ry, rw, rh) {
+      const url = state.entry ? state.entry.sheetUrl : "";
+      const sx = (100 / Math.max(rw, 0.001)).toFixed(3);
+      const sy = (100 / Math.max(rh, 0.001)).toFixed(3);
+      const px = rw >= 0.999 ? 0 : (rx / (1 - rw)) * 100;
+      const py = rh >= 0.999 ? 0 : (ry / (1 - rh)) * 100;
+      return "background-image:url('" + url + "');background-size:" + sx + "% " + sy + "%;background-position:" + px.toFixed(2) + "% " + py.toFixed(2) + "%";
+    }
+    function previewStyle(b) {
+      return spriteStyle(b.x, b.y, b.w, b.h);
+    }
+
+    // The window of a pose box that an object-cover frame shows: the
+    // same math CSS object-position performs, with the focal point
+    // placing the window. Returns the window inside the box (fractions
+    // of the box) plus the sheet region it covers.
+    function visibleWindow(b, focal, frameAspect) {
+      const ss = (state.entry && state.entry.sheetSize) || { w: 896, h: 1200 };
+      const boxAspect = (b.w * ss.w) / Math.max(1, b.h * ss.h);
+      let visW = 1, visH = 1;
+      if (boxAspect > frameAspect) visW = frameAspect / boxAspect;
+      else if (boxAspect < frameAspect) visH = boxAspect / frameAspect;
+      const visX = (1 - visW) * clamp01(focal.x);
+      const visY = (1 - visH) * clamp01(focal.y);
+      return {
+        visX, visY, visW, visH,
+        rx: b.x + b.w * visX, ry: b.y + b.h * visY,
+        rw: b.w * visW, rh: b.h * visH,
+      };
+    }
+
+    function tagPreview(i) {
+      const a = actionSlug(state.poseMeta[i] ? state.poseMeta[i].action : "");
+      if (!a) return "";
+      return nameKey(state.entry ? state.entry.name : "") + "-p" + (i + 1) + "-" + a;
+    }
+
+    function render() {
+      // boxes over the sheet
+      stage.querySelectorAll(".pbox").forEach((n) => n.remove());
+      state.boxes.forEach((b, i) => {
+        const el = document.createElement("div");
+        el.className = "pbox" + (i === state.sel ? " sel" : "");
+        el.dataset.idx = String(i);
+        el.style.left = (b.x * 100) + "%";
+        el.style.top = (b.y * 100) + "%";
+        el.style.width = (b.w * 100) + "%";
+        el.style.height = (b.h * 100) + "%";
+        const act = actionSlug(state.poseMeta[i] ? state.poseMeta[i].action : "");
+        el.innerHTML = '<span class="tag">' + (i + 1) + (i === state.portraitIndex ? " &#9733; portrait" : "") +
+          (act ? " · " + esc(act) : "") + "</span>" +
+          ["nw", "n", "ne", "e", "se", "s", "sw", "w"].map((h) =>
+            '<span class="hdl" data-h="' + h + '" style="' + handlePos(h) + '"></span>').join("");
+        stage.appendChild(el);
+      });
+      // side list + portrait preview
+      const list = document.getElementById("pose-list");
+      document.getElementById("pose-count").textContent = "(" + state.boxes.length + ")";
+      list.innerHTML = state.boxes.map((b, i) =>
+        '<div class="poseitem' + (i === state.sel ? " sel" : "") + '" data-i="' + i + '">' +
+        '<div class="thumb" style="' + (state.edits[i]
+          ? "background-image:url('" + state.edits[i] + "');background-size:cover;background-position:center"
+          : state.lifted[i] && state.entry && state.entry.poses[i]
+          ? "background-image:url('" + state.entry.poses[i] + "');background-size:cover;background-position:center"
+          : previewStyle(b)) + '"></div>' +
+        '<div class="meta"><div class="prow"><b>Pose ' + (i + 1) + "</b>" +
+        (i === state.portraitIndex ? ' <span style="color:var(--star)">&#9733; portrait</span>' : "") +
+        (state.lifted[i] ? ' <span class="liftbadge">Lifted</span>' : "") +
+        (state.edits[i] ? ' <span class="editbadge">' + (state.shapeEdits[i] ? "Shaped" : "Edited") + "</span>"
+          : state.eraseInfo[i] ? ' <span class="editbadge saved">' + (state.eraseInfo[i].shape ? "Shaped" : "Erased") + "</span>" : "") +
+        '<span style="flex:1"></span>' +
+        '<button type="button" class="mv" data-mv="-1" data-i="' + i + '"' + (i === 0 ? " disabled" : "") + ' title="Move earlier">&uarr;</button>' +
+        '<button type="button" class="mv" data-mv="1" data-i="' + i + '"' + (i === state.boxes.length - 1 ? " disabled" : "") + ' title="Move later">&darr;</button></div>' +
+        '<div class="coords">x ' + b.x.toFixed(3) + " · y " + b.y.toFixed(3) + " · w " + b.w.toFixed(3) + " · h " + b.h.toFixed(3) + "</div>" +
+        '<input class="action-input" data-i="' + i + '" list="action-list" placeholder="action tag (optional)" value="' + esc(state.poseMeta[i] ? state.poseMeta[i].action : "") + '">' +
+        '<div class="tagprev" data-tagprev="' + i + '">' + esc(tagPreview(i)) + "</div></div></div>"
+      ).join("");
+      list.querySelectorAll(".poseitem").forEach((el) => {
+        el.addEventListener("click", (ev) => {
+          if (ev.target.closest("input") || ev.target.closest("button")) return;
+          state.sel = parseInt(el.dataset.i, 10);
+          render();
+        });
+      });
+      list.querySelectorAll(".mv").forEach((btn) => {
+        btn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          const i = parseInt(btn.dataset.i, 10);
+          swapPose(i, i + parseInt(btn.dataset.mv, 10));
+        });
+      });
+      list.querySelectorAll(".action-input").forEach((input) => {
+        input.addEventListener("click", (ev) => ev.stopPropagation());
+        input.addEventListener("input", () => {
+          const i = parseInt(input.dataset.i, 10);
+          state.poseMeta[i].action = input.value;
+          const tp = list.querySelector('[data-tagprev="' + i + '"]');
+          if (tp) tp.textContent = tagPreview(i);
+          refreshSaveUI();
+        });
+      });
+      const pb = state.boxes[state.portraitIndex];
+      const prev = document.getElementById("portrait-prev");
+      if (pb) {
+        const ss = (state.entry && state.entry.sheetSize) || { w: 896, h: 1200 };
+        const pxW = Math.max(1, pb.w * ss.w);
+        const pxH = Math.max(1, pb.h * ss.h);
+        prev.style.display = "";
+        prev.style.cssText = (state.edits[state.portraitIndex]
+          ? "background-image:url('" + state.edits[state.portraitIndex] + "');background-size:cover;background-position:center"
+          : previewStyle(pb)) + ";width:180px;height:" + Math.round(180 * pxH / pxW) + "px";
+      } else {
+        prev.style.display = "none";
+      }
+      const sb = state.boxes[state.sel];
+      document.getElementById("sel-readout").textContent = sb
+        ? "selected: pose " + (state.sel + 1) + " · x " + sb.x.toFixed(3) + ", y " + sb.y.toFixed(3) + ", w " + sb.w.toFixed(3) + ", h " + sb.h.toFixed(3)
+        : "no box selected";
+      document.getElementById("star-btn").disabled = state.sel < 0 || state.sel === state.portraitIndex;
+      document.getElementById("del-btn").disabled = state.sel < 0 || state.boxes.length <= 1;
+      renderFocal();
+      refreshSaveUI();
+    }
+
+    function renderFocal() {
+      const panel = document.getElementById("focal-panel");
+      const i = state.sel;
+      const b = state.boxes[i];
+      if (!b || !state.poseMeta[i]) {
+        panel.classList.add("hidden");
+        return;
+      }
+      panel.classList.remove("hidden");
+      const f = state.poseMeta[i].focal;
+      const win = visibleWindow(b, f, 4 / 5);
+      document.getElementById("focal-title").textContent = "· Pose " + (i + 1);
+      // A lifted or erase-edited pose's picture IS its image file;
+      // preview it directly (the sheet sprite would show the old
+      // neighborhood, photobombs included).
+      const directImg = state.edits[i] ||
+        (state.lifted[i] && state.entry && state.entry.poses[i]) || null;
+      if (directImg) {
+        document.getElementById("focal-visitor").style.cssText =
+          "background-image:url('" + directImg + "');background-size:cover;background-position:" +
+          (f.x * 100) + "% " + (f.y * 100) + "%";
+      } else {
+        document.getElementById("focal-visitor").style.cssText = spriteStyle(win.rx, win.ry, win.rw, win.rh);
+      }
+      const ss = (state.entry && state.entry.sheetSize) || { w: 896, h: 1200 };
+      const boxEl = document.getElementById("focal-box");
+      boxEl.style.cssText = (directImg
+        ? "background-image:url('" + directImg + "');background-size:cover;background-position:center"
+        : previewStyle(b)) + ";aspect-ratio:" + Math.max(1, Math.round(b.w * ss.w)) + " / " + Math.max(1, Math.round(b.h * ss.h));
+      const winEl = document.getElementById("focal-window");
+      winEl.style.left = (win.visX * 100) + "%";
+      winEl.style.top = (win.visY * 100) + "%";
+      winEl.style.width = (win.visW * 100) + "%";
+      winEl.style.height = (win.visH * 100) + "%";
+      const dot = document.getElementById("focal-dot");
+      dot.style.left = (f.x * 100) + "%";
+      dot.style.top = (f.y * 100) + "%";
+      document.getElementById("focal-readout").textContent =
+        "focal x " + f.x.toFixed(2) + " · y " + f.y.toFixed(2);
+      document.getElementById("focal-note").textContent = i === state.portraitIndex
+        ? "This pose is the portrait: its focal point drives the Meet the Cast index cards, this page's hero, and the castmate tiles."
+        : "The dashed outline is the part of the pose inside the 4:5 frame. Wide poses crop left/right, tall poses crop top/bottom.";
+    }
+
+    function swapPose(i, j) {
+      if (j < 0 || j >= state.boxes.length || i === j) return;
+      const tb = state.boxes[i]; state.boxes[i] = state.boxes[j]; state.boxes[j] = tb;
+      const tm = state.poseMeta[i]; state.poseMeta[i] = state.poseMeta[j]; state.poseMeta[j] = tm;
+      const tl = state.lifted[i]; state.lifted[i] = state.lifted[j]; state.lifted[j] = tl;
+      const te = state.edits[i]; state.edits[i] = state.edits[j]; state.edits[j] = te;
+      const ts = state.shapeEdits[i]; state.shapeEdits[i] = state.shapeEdits[j]; state.shapeEdits[j] = ts;
+      const tf = state.editFp[i]; state.editFp[i] = state.editFp[j]; state.editFp[j] = tf;
+      const ti = state.eraseInfo[i]; state.eraseInfo[i] = state.eraseInfo[j]; state.eraseInfo[j] = ti;
+      if (state.portraitIndex === i) state.portraitIndex = j;
+      else if (state.portraitIndex === j) state.portraitIndex = i;
+      if (state.sel === i) state.sel = j;
+      else if (state.sel === j) state.sel = i;
+      render();
+    }
+
+    function handlePos(h) {
+      const m = {
+        nw: "left:-7px;top:-7px;cursor:nwse-resize", n: "left:calc(50% - 6px);top:-7px;cursor:ns-resize",
+        ne: "right:-7px;top:-7px;cursor:nesw-resize", e: "right:-7px;top:calc(50% - 6px);cursor:ew-resize",
+        se: "right:-7px;bottom:-7px;cursor:nwse-resize", s: "left:calc(50% - 6px);bottom:-7px;cursor:ns-resize",
+        sw: "left:-7px;bottom:-7px;cursor:nesw-resize", w: "left:-7px;top:calc(50% - 6px);cursor:ew-resize",
+      };
+      return m[h] || "";
+    }
+
+    // ---- pointer interaction on the stage ------------------------------
+    let drag = null; // {mode: 'move'|'resize'|'draw', idx, handle, startX, startY, orig}
+    function fracs(ev) {
+      const r = stage.getBoundingClientRect();
+      return {
+        x: clamp01((ev.clientX - r.left) / r.width),
+        y: clamp01((ev.clientY - r.top) / r.height),
+      };
+    }
+    stage.addEventListener("pointerdown", (ev) => {
+      const p = fracs(ev);
+      const hdl = ev.target.closest(".hdl");
+      const boxEl = ev.target.closest(".pbox");
+      if (hdl && boxEl) {
+        const idx = parseInt(boxEl.dataset.idx, 10);
+        state.sel = idx;
+        drag = { mode: "resize", idx, handle: hdl.dataset.h, orig: { ...state.boxes[idx] } };
+      } else if (boxEl) {
+        const idx = parseInt(boxEl.dataset.idx, 10);
+        state.sel = idx;
+        drag = { mode: "move", idx, startX: p.x, startY: p.y, orig: { ...state.boxes[idx] } };
+      } else {
+        drag = { mode: "draw", startX: p.x, startY: p.y };
+        state.boxes.push({ x: p.x, y: p.y, w: 0.001, h: 0.001 });
+        state.poseMeta.push({ action: "", focal: { x: 0.5, y: 0.5 } });
+        state.lifted.push(null);
+        state.edits.push(null);
+        state.shapeEdits.push(false);
+        state.editFp.push("");
+        state.eraseInfo.push(null);
+        state.sel = state.boxes.length - 1;
+      }
+      stage.setPointerCapture(ev.pointerId);
+      ev.preventDefault();
+      render();
+    });
+    stage.addEventListener("pointermove", (ev) => {
+      if (!drag) return;
+      const p = fracs(ev);
+      const b = state.boxes[drag.idx !== undefined ? drag.idx : state.sel];
+      if (drag.mode === "move" && b) {
+        const dx = p.x - drag.startX;
+        const dy = p.y - drag.startY;
+        b.x = Math.max(0, Math.min(1 - drag.orig.w, drag.orig.x + dx));
+        b.y = Math.max(0, Math.min(1 - drag.orig.h, drag.orig.y + dy));
+      } else if (drag.mode === "resize" && b) {
+        const o = drag.orig;
+        let x0 = o.x, y0 = o.y, x1 = o.x + o.w, y1 = o.y + o.h;
+        if (drag.handle.includes("w")) x0 = Math.min(p.x, x1 - 0.01);
+        if (drag.handle.includes("e")) x1 = Math.max(p.x, x0 + 0.01);
+        if (drag.handle.includes("n")) y0 = Math.min(p.y, y1 - 0.01);
+        if (drag.handle.includes("s")) y1 = Math.max(p.y, y0 + 0.01);
+        b.x = clamp01(x0); b.y = clamp01(y0);
+        b.w = Math.max(0.01, Math.min(1 - b.x, x1 - x0));
+        b.h = Math.max(0.01, Math.min(1 - b.y, y1 - y0));
+      } else if (drag.mode === "draw" && b) {
+        b.x = Math.min(drag.startX, p.x);
+        b.y = Math.min(drag.startY, p.y);
+        b.w = Math.max(0.001, Math.abs(p.x - drag.startX));
+        b.h = Math.max(0.001, Math.abs(p.y - drag.startY));
+      }
+      render();
+    });
+    function endDrag() {
+      if (!drag) return;
+      if (drag.mode === "draw") {
+        const b = state.boxes[state.sel];
+        if (!b || b.w < 0.01 || b.h < 0.01) {
+          state.boxes.splice(state.sel, 1);
+          state.poseMeta.splice(state.sel, 1);
+          state.lifted.splice(state.sel, 1);
+          state.edits.splice(state.sel, 1);
+          state.shapeEdits.splice(state.sel, 1);
+          state.editFp.splice(state.sel, 1);
+          state.eraseInfo.splice(state.sel, 1);
+          if (state.portraitIndex >= state.boxes.length) state.portraitIndex = 0;
+          state.sel = state.boxes.length ? 0 : -1;
+        }
+      } else if ((drag.mode === "move" || drag.mode === "resize") && drag.idx !== undefined) {
+        // Erase edits are painted on the image the OLD box produced.
+        // If the box actually moved (snapshot precision), the staged
+        // edit no longer lines up: clear it and SAY so, the same
+        // bargain Lift makes. Wiggling back to the exact start keeps
+        // the edit, like every other dirty check in this editor.
+        const i = drag.idx;
+        const o = drag.orig;
+        const b = state.boxes[i];
+        const moved = b && o && (
+          normNum(b.x) !== normNum(o.x) || normNum(b.y) !== normNum(o.y) ||
+          normNum(b.w) !== normNum(o.w) || normNum(b.h) !== normNum(o.h));
+        if (moved && state.edits[i]) {
+          state.edits[i] = null;
+          state.shapeEdits[i] = false;
+          state.editFp[i] = "";
+          document.getElementById("status").textContent =
+            "Pose " + (i + 1) + "'s box changed, so its staged edits were cleared. The pose ships as a fresh sheet crop.";
+        }
+      }
+      drag = null;
+      render();
+    }
+    stage.addEventListener("pointerup", endDrag);
+    stage.addEventListener("pointercancel", endDrag);
+
+    // ---- focal point interaction ---------------------------------------
+    let focalDrag = false;
+    const focalBox = document.getElementById("focal-box");
+    function setFocalFromEvent(ev) {
+      const i = state.sel;
+      if (i < 0 || !state.poseMeta[i]) return;
+      const r = focalBox.getBoundingClientRect();
+      state.poseMeta[i].focal = {
+        x: clamp01((ev.clientX - r.left) / r.width),
+        y: clamp01((ev.clientY - r.top) / r.height),
+      };
+      renderFocal();
+      refreshSaveUI();
+    }
+    focalBox.addEventListener("pointerdown", (ev) => {
+      focalDrag = true;
+      focalBox.setPointerCapture(ev.pointerId);
+      setFocalFromEvent(ev);
+      ev.preventDefault();
+    });
+    focalBox.addEventListener("pointermove", (ev) => { if (focalDrag) setFocalFromEvent(ev); });
+    focalBox.addEventListener("pointerup", () => { focalDrag = false; });
+    focalBox.addEventListener("pointercancel", () => { focalDrag = false; });
+    document.getElementById("focal-center").addEventListener("click", () => {
+      if (state.sel >= 0 && state.poseMeta[state.sel]) {
+        state.poseMeta[state.sel].focal = { x: 0.5, y: 0.5 };
+        renderFocal();
+        refreshSaveUI();
+      }
+    });
+
+    document.querySelectorAll(".zoom-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".zoom-btn").forEach((x) => x.classList.remove("on"));
+        btn.classList.add("on");
+        state.stageW = parseInt(btn.dataset.w, 10);
+        applyStageWidth();
+      });
+    });
+
+    document.getElementById("add-btn").addEventListener("click", () => {
+      state.boxes.push({ x: 0.35, y: 0.35, w: 0.25, h: 0.3 });
+      state.poseMeta.push({ action: "", focal: { x: 0.5, y: 0.5 } });
+      state.lifted.push(null);
+      state.edits.push(null);
+      state.shapeEdits.push(false);
+      state.editFp.push("");
+      state.eraseInfo.push(null);
+      state.sel = state.boxes.length - 1;
+      render();
+      document.getElementById("status").textContent = "New box added in the middle of the sheet. Drag it onto a pose.";
+    });
+    document.getElementById("star-btn").addEventListener("click", () => {
+      if (state.sel >= 0) { state.portraitIndex = state.sel; render(); }
+    });
+    document.getElementById("del-btn").addEventListener("click", () => {
+      if (state.sel < 0 || state.boxes.length <= 1) return;
+      if (!confirm("Delete pose " + (state.sel + 1) + "? (Saving applies it; the old gallery stays backed up.)")) return;
+      const wasPortrait = state.sel === state.portraitIndex;
+      state.boxes.splice(state.sel, 1);
+      state.poseMeta.splice(state.sel, 1);
+      state.lifted.splice(state.sel, 1);
+      state.edits.splice(state.sel, 1);
+      state.shapeEdits.splice(state.sel, 1);
+      state.editFp.splice(state.sel, 1);
+      state.eraseInfo.splice(state.sel, 1);
+      if (wasPortrait) state.portraitIndex = 0;
+      else if (state.portraitIndex > state.sel) state.portraitIndex -= 1;
+      state.sel = Math.min(state.sel, state.boxes.length - 1);
+      render();
+    });
+
+    // ---- lift jobs -------------------------------------------------------
+    // A lift is a background job on the pose's SAVED box: the editor
+    // enqueues it, the VM lift worker mattes the subject off the sheet
+    // and posts back a cutout + a placed composition, and the hub
+    // swaps the pose's picture. While a job for the selected pose is
+    // queued or running the button stays disabled; the poll below
+    // reloads the character when the job lands so the new art, the
+    // Lifted badge, and the version all refresh together.
+    const ADMIN_MEDIA_BASE = "/api/admin/media?key=";
+    function activeLiftJob(i) {
+      return state.liftJobs.find((j) => j.pose_index === i && (j.status === "queued" || j.status === "running")) || null;
+    }
+    function latestLiftJob(i) {
+      return state.liftJobs.find((j) => j.pose_index === i) || null; // API lists newest first
+    }
+    // ---- selected-pose action bar --------------------------------------
+    // The bar under the sheet surfaces the panel's Lift and Erase for
+    // the selected pose, plus a Shape shortcut into the lasso, so the
+    // actions sit where the hand already is. The bar holds no state of
+    // its own: renderLift and renderErase compute the panel buttons'
+    // disabled states, labels, and status text, then call this to copy
+    // them, so the bar and the panel can never disagree.
+    function renderSelActions() {
+      const bar = document.getElementById("sel-actions");
+      if (!bar) return;
+      const i = state.sel;
+      if (!state.entry || i < 0 || !state.boxes[i]) {
+        bar.classList.add("hidden");
+        return;
+      }
+      bar.classList.remove("hidden");
+      document.getElementById("sel-actions-label").textContent = "Pose " + (i + 1);
+      const liftBtn = document.getElementById("lift-btn");
+      const selLift = document.getElementById("sel-lift-btn");
+      selLift.disabled = liftBtn.disabled;
+      selLift.textContent = liftBtn.textContent;
+      const eraseBtn = document.getElementById("erase-btn");
+      const selErase = document.getElementById("sel-erase-btn");
+      selErase.disabled = eraseBtn.disabled;
+      selErase.textContent = eraseBtn.textContent;
+      // Shape does NOT mirror Erase's disabled state: Erase works on
+      // the pose's SAVED picture (so it waits for a save), while
+      // Shape traces on the sheet and PRODUCES the pose's next box,
+      // so it is available whenever a pose is selected.
+      document.getElementById("sel-shape-btn").disabled = state.saving;
+      const liftText = document.getElementById("lift-status").textContent;
+      const eraseText = document.getElementById("erase-status").textContent;
+      document.getElementById("sel-actions-status").textContent = liftText || eraseText || "";
+    }
+    // Undo lift lives in two places (the action bar and the Lift
+    // panel section) but is one state: visible only while the
+    // selected pose is lifted and no lift job is running for it,
+    // disabled while unsaved box edits exist (the restore machinery
+    // works on saved pictures, like History's Restore).
+    function renderUndoLift(lifted, active) {
+      const show = !!lifted && !active;
+      const dis = boxesDirty() || state.saving;
+      for (const id of ["undo-lift-btn", "sel-undo-lift-btn"]) {
+        const b = document.getElementById(id);
+        if (!b) continue;
+        b.classList.toggle("hidden", !show);
+        b.disabled = dis;
+      }
+    }
+    function renderLift() {
+      const btn = document.getElementById("lift-btn");
+      if (!btn) return;
+      const status = document.getElementById("lift-status");
+      const i = state.sel;
+      if (!state.entry || i < 0 || !state.boxes[i]) {
+        document.getElementById("lift-title").textContent = "";
+        btn.disabled = true;
+        status.textContent = "";
+        document.getElementById("lift-cutout-row").classList.add("hidden");
+        renderUndoLift(false, null);
+        renderSelActions();
+        return;
+      }
+      document.getElementById("lift-title").textContent = "· Pose " + (i + 1);
+      const lifted = !!state.lifted[i];
+      const active = activeLiftJob(i);
+      const latest = latestLiftJob(i);
+      const dirty = isDirty();
+      btn.textContent = active
+        ? (active.status === "queued" ? "Lift queued…" : "Lifting…")
+        : (lifted ? "Lift again" : "Lift this pose");
+      btn.disabled = dirty || !!active || state.saving;
+      let text = "";
+      if (dirty) text = "Save first: a lift uses the saved box.";
+      else if (active) text = active.status === "queued" ? "Queued for the lift worker…" : "The lift worker is matting this pose…";
+      else if (latest && latest.status === "failed") text = "Last lift failed: " + (latest.error || "unknown error");
+      else if (lifted) text = "This pose is lifted: its picture is the placed cutout, not a sheet crop." +
+        (latest && latest.status === "done" ? " Not right? Undo lift brings back the plain crop it replaced." : "");
+      status.textContent = text;
+      renderUndoLift(lifted, active);
+      const row = document.getElementById("lift-cutout-row");
+      if (lifted && state.lifted[i].cutoutKey) {
+        row.classList.remove("hidden");
+        document.getElementById("lift-cutout-link").href = ADMIN_MEDIA_BASE + encodeURIComponent(state.lifted[i].cutoutKey);
+      } else {
+        row.classList.add("hidden");
+      }
+      renderSelActions();
+    }
+    function startLiftPolling() {
+      if (state.liftPollTimer) return;
+      state.liftPollTimer = setInterval(fetchLiftJobs, 3000);
+    }
+    function stopLiftPolling() {
+      if (state.liftPollTimer) {
+        clearInterval(state.liftPollTimer);
+        state.liftPollTimer = null;
+      }
+    }
+    async function fetchLiftJobs() {
+      if (!state.slug) return;
+      try {
+        const r = await fetch("/api/admin/cast-lift?slug=" + encodeURIComponent(state.slug));
+        if (!r.ok) return;
+        const d = await r.json();
+        const hadActive = state.liftJobs.some((j) => j.status === "queued" || j.status === "running");
+        state.liftJobs = d.jobs || [];
+        const hasActive = state.liftJobs.some((j) => j.status === "queued" || j.status === "running");
+        if (hasActive) startLiftPolling();
+        else stopLiftPolling();
+        renderLift();
+        if (hadActive && !hasActive && state.liftJobs[0] && state.liftJobs[0].status === "done") {
+          loadCharacter(state.slug); // new art landed; refresh thumbs, badge, version
+        }
+      } catch {
+        /* a failed poll retries on the next tick */
+      }
+    }
+    async function queueLift() {
+      const i = state.sel;
+      if (!state.entry || i < 0 || isDirty() || activeLiftJob(i)) return;
+      const btn = document.getElementById("lift-btn");
+      btn.disabled = true;
+      renderSelActions();
+      const r = await fetch("/api/admin/cast-lift", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: state.slug, poseIndex: i }),
+      });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (out.job) {
+          state.liftJobs = [out.job, ...state.liftJobs.filter((j) => j.id !== out.job.id)];
+          startLiftPolling();
+        }
+        renderLift();
+        document.getElementById("lift-status").textContent =
+          "Lift could not be queued: " + (out.error || r.status);
+        return;
+      }
+      state.liftJobs = [out.job, ...state.liftJobs];
+      renderLift();
+      startLiftPolling();
+    }
+    document.getElementById("lift-btn").addEventListener("click", queueLift);
+    document.getElementById("sel-lift-btn").addEventListener("click", queueLift);
+
+    // ---- pose history (post-save rollback) --------------------------------
+    // Every save snapshots the pre-save gallery server-side, so each
+    // pose slot accumulates saved versions. This panel lists the
+    // selected slot's recent versions and rolls one back; the
+    // restore snapshots the current gallery first, so the rollback
+    // itself lands in this same list and can be undone (a redo).
+    async function fetchHistory() {
+      if (!state.slug || state.sel < 0 || !state.entry) {
+        state.history = [];
+        state.historyKey = "";
+        renderHistory();
+        return;
+      }
+      const key = state.slug + ":" + state.sel;
+      if (state.historyKey === key) { renderHistory(); return; }
+      state.historyKey = key;
+      state.history = null; // loading
+      renderHistory();
+      try {
+        const r = await fetch("/api/admin/cast-gallery?slug=" + encodeURIComponent(state.slug) +
+          "&history=1&poseIndex=" + state.sel);
+        if (!r.ok) { if (state.historyKey === key) state.history = []; renderHistory(); return; }
+        const d = await r.json();
+        if (state.historyKey !== key) return; // selection moved on mid-fetch
+        state.history = d.versions || [];
+      } catch {
+        if (state.historyKey === key) state.history = [];
+      }
+      renderHistory();
+    }
+    function historySummary(m) {
+      if (!m) return "plain crop";
+      const bits = [];
+      if (m.lifted) bits.push("lifted");
+      if (m.edited) {
+        const e = m.eraseInfo || {};
+        const tools = [];
+        if (e.sam) tools.push(e.sam + " click-remove" + (e.sam > 1 ? "s" : ""));
+        if (e.brush) tools.push("brush");
+        if (e.lasso) tools.push("lasso");
+        if (tools.length) bits.push("erased (" + tools.join(", ") + ")");
+        else if (!e.shape) bits.push("erased");
+        if (e.shape) bits.push("shape cut");
+      }
+      if (m.action) bits.push("tag: " + m.action);
+      return bits.length ? bits.join(" · ") : "plain crop";
+    }
+    function renderHistory() {
+      const list = document.getElementById("history-list");
+      if (!list) return;
+      const i = state.sel;
+      document.getElementById("history-title").textContent =
+        state.entry && i >= 0 ? "· Pose " + (i + 1) : "";
+      const versions = state.history;
+      const sig = state.historyKey + "|" + (boxesDirty() ? "d" : "") + "|" +
+        (versions === null ? "loading" : (versions || []).map((v) => v.ts + (v.isCurrent ? "c" : "")).join(","));
+      if (sig === state.historySig) return;
+      state.historySig = sig;
+      if (!state.entry || i < 0) {
+        list.innerHTML = '<span class="readout">Pick a pose to see its saved versions.</span>';
+        return;
+      }
+      if (versions === null) {
+        list.innerHTML = '<span class="readout">Loading versions...</span>';
+        return;
+      }
+      if (!versions.length) {
+        list.innerHTML = '<span class="readout">No earlier versions yet. The next save sets the current picture aside as the first one.</span>';
+        return;
+      }
+      const dirty = boxesDirty();
+      list.innerHTML = versions.map((v) =>
+        '<div class="histrow"><div style="flex:1"><div class="when">' +
+        esc(new Date(v.ts * 1000).toLocaleString()) +
+        (v.isCurrent ? ' <span class="editbadge saved">Current</span>' : "") +
+        '</div><div class="what">' + esc(historySummary(v.meta)) + " · " +
+        Math.max(1, Math.round(v.size / 1024)) + " KB</div></div>" +
+        (v.isCurrent ? "" :
+          '<button type="button" class="btn" data-restore-pose="' + v.ts + '"' +
+          (dirty ? " disabled" : "") + ">Restore</button>") +
+        "</div>"
+      ).join("") +
+      (dirty ? '<p class="desc">Save the current box edits first: history works on saved pictures.</p>' : "");
+      list.querySelectorAll("[data-restore-pose]").forEach((btn) => {
+        btn.addEventListener("click", () => restorePoseFlow(parseInt(btn.dataset.restorePose, 10)));
+      });
+    }
+    async function postRestorePose(i, ts, noteHtml) {
+      const msg = document.getElementById("msg");
+      const r = await fetch("/api/admin/cast-gallery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: state.slug, restorePose: { poseIndex: i, ts } }),
+      });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        msg.innerHTML = '<div class="warn">Restore failed: ' + esc(out.error || r.status) + "</div>";
+        return;
+      }
+      msg.innerHTML = noteHtml(out);
+      state.historyKey = "";
+      loadCharacter(state.slug);
+    }
+    async function restorePoseFlow(ts) {
+      const i = state.sel;
+      if (!state.slug || i < 0 || boxesDirty()) return;
+      const when = new Date(ts * 1000).toLocaleString();
+      if (!confirm("Roll pose " + (i + 1) + " back to the version saved " + when +
+        "? Its picture, box, and tags return to that version. The current picture is set aside first, so this can be undone from the same list.")) return;
+      await postRestorePose(i, ts, (out) =>
+        '<div class="note">Pose ' + (i + 1) + " rolled back to the version saved " +
+        when + ". The picture it replaced was set aside " +
+        (out.snapshotTs ? "at " + new Date(out.snapshotTs * 1000).toLocaleString() : "in the backups") +
+        ", so restoring that entry from this list brings it back.</div>");
+    }
+    // Undo lift: a landed lift is server state, so the editor's
+    // in-session undo cannot reach it (that bit CG once: the Juno
+    // lift ate a wing and Undo had nothing to grab). The lift itself
+    // snapshotted the pre-lift gallery, so undoing = restoring the
+    // newest saved version of this pose whose meta is NOT lifted.
+    // Later saves snapshot the lifted state (meta lifted), so the
+    // scan skips them and lands on the lift's own backup.
+    async function undoLiftFlow() {
+      const i = state.sel;
+      if (!state.slug || i < 0 || !state.lifted[i] || boxesDirty() || state.saving) return;
+      const msg = document.getElementById("msg");
+      let versions = [];
+      try {
+        const r = await fetch("/api/admin/cast-gallery?slug=" + encodeURIComponent(state.slug) +
+          "&history=1&poseIndex=" + i + "&limit=50");
+        if (r.ok) versions = (await r.json()).versions || [];
+      } catch {
+        /* fall through to the not-found message */
+      }
+      const target = versions.find((v) => !(v.meta && v.meta.lifted));
+      if (!target) {
+        msg.innerHTML = '<div class="warn">No un-lifted version of pose ' + (i + 1) +
+          " was found in its saved history, so there is nothing to undo the lift to.</div>";
+        return;
+      }
+      const when = new Date(target.ts * 1000).toLocaleString();
+      if (!confirm("Undo the lift on pose " + (i + 1) + "? It goes back to the plain sheet crop saved " +
+        when + ". The lifted picture is set aside first, so History can bring it back.")) return;
+      await postRestorePose(i, target.ts, () =>
+        '<div class="note">Lift undone on pose ' + (i + 1) + ": it is the plain sheet crop from " +
+        when + " again. The lifted picture was set aside, so History can bring it back.</div>");
+    }
+    document.getElementById("undo-lift-btn").addEventListener("click", undoLiftFlow);
+    document.getElementById("sel-undo-lift-btn").addEventListener("click", undoLiftFlow);
+
+    // ---- erase: segment jobs ---------------------------------------------
+    // A click-to-remove is a background job like a lift, but its
+    // result is NOT applied to the gallery: it lands at a staging key
+    // and this page folds it into the pose's working edit, where it
+    // still needs Done + Save crops to ship. Jobs seen active during
+    // this page session are tracked in state.eraseSeen so a result is
+    // folded in exactly once; older done jobs from past sessions are
+    // left alone (their edits were staged or saved back then).
+    function activeEraseJob(i) {
+      return state.eraseJobs.find((j) => j.pose_index === i && (j.status === "queued" || j.status === "running")) || null;
+    }
+    function latestEraseJob(i) {
+      return state.eraseJobs.find((j) => j.pose_index === i) || null;
+    }
+    function renderErase() {
+      const btn = document.getElementById("erase-btn");
+      if (!btn) return;
+      const status = document.getElementById("erase-status");
+      const i = state.sel;
+      if (!state.entry || i < 0 || !state.boxes[i]) {
+        document.getElementById("erase-title").textContent = "";
+        btn.disabled = true;
+        status.textContent = "";
+        renderSelActions();
+        return;
+      }
+      document.getElementById("erase-title").textContent = "· Pose " + (i + 1);
+      const active = activeEraseJob(i);
+      const latest = latestEraseJob(i);
+      btn.textContent = active ? "Removing…" : "Erase on this pose";
+      btn.disabled = boxesDirty() || state.saving;
+      let text = "";
+      if (boxesDirty()) text = "Save first: erase works on the saved picture.";
+      else if (active) text = active.status === "queued" ? "A remove is queued for this pose…" : "The worker is removing the clicked thing…";
+      else if (latest && latest.status === "failed") text = "Last remove failed: " + (latest.error || "unknown error");
+      else if (state.edits[i] && state.shapeEdits[i]) text = "Shape staged on Pose " + (i + 1) + ". Save " + state.entry.name + " ships it.";
+      else if (state.edits[i]) text = "Edit staged on Pose " + (i + 1) + ". Save " + state.entry.name + " ships it.";
+      else if (state.eraseInfo[i]) text = "This pose's saved picture carries erase edits.";
+      status.textContent = text;
+      renderSelActions();
+    }
+    function startErasePolling() {
+      if (state.erasePollTimer) return;
+      state.erasePollTimer = setInterval(fetchEraseJobs, 3000);
+    }
+    function stopErasePolling() {
+      if (state.erasePollTimer) {
+        clearInterval(state.erasePollTimer);
+        state.erasePollTimer = null;
+      }
+    }
+    async function fetchEraseJobs() {
+      if (!state.slug) return;
+      try {
+        const r = await fetch("/api/admin/cast-erase?slug=" + encodeURIComponent(state.slug));
+        if (!r.ok) return;
+        const d = await r.json();
+        const jobs = d.jobs || [];
+        for (const j of jobs) {
+          if (j.status === "queued" || j.status === "running") {
+            state.eraseSeen[j.id] = true;
+          } else if (state.eraseSeen[j.id]) {
+            delete state.eraseSeen[j.id];
+            if (j.status === "done" && j.out_key) {
+              await applySegmentResult(j.pose_index, j.out_key);
+            } else if (j.status === "failed") {
+              onSegmentFailed(j.pose_index, j.error);
+            }
+          }
+        }
+        state.eraseJobs = jobs;
+        if (jobs.some((j) => j.status === "queued" || j.status === "running")) startErasePolling();
+        else stopErasePolling();
+        renderErase();
+        renderEraseModalState();
+      } catch {
+        /* a failed poll retries on the next tick */
+      }
+    }
+    async function imageToDataUrl(url) {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      c.getContext("2d").drawImage(img, 0, 0);
+      return c.toDataURL("image/png");
+    }
+    async function applySegmentResult(poseIndex, outKey) {
+      try {
+        const dataUrl = await imageToDataUrl(ADMIN_MEDIA_BASE + encodeURIComponent(outKey));
+        state.edits[poseIndex] = dataUrl;
+        state.shapeEdits[poseIndex] = false;
+        state.editFp[poseIndex] = editFingerprint(dataUrl);
+        const prev = state.eraseInfo[poseIndex] || { sam: 0, brush: false };
+        state.eraseInfo[poseIndex] = {
+          at: Date.now(),
+          sam: (prev.sam || 0) + 1,
+          brush: !!prev.brush,
+          ...(prev.lasso ? { lasso: true } : {}),
+        };
+        if (eraseSession && eraseSession.i === poseIndex) {
+          await eraseLoadImage(dataUrl, true);
+          setEraseStatus("Removed. The brush can tidy what is left; Done keeps it, Cancel throws it away.");
+        }
+        document.getElementById("status").textContent =
+          "Remove finished for pose " + (poseIndex + 1) + ": it is staged as an erase edit. Save crops to ship it.";
+        render();
+      } catch (err) {
+        document.getElementById("status").textContent =
+          "A remove finished for pose " + (poseIndex + 1) + " but its picture could not be loaded. Reopen Erase to try again.";
+      }
+    }
+    function onSegmentFailed(poseIndex, error) {
+      if (eraseSession && eraseSession.i === poseIndex) {
+        setEraseStatus("Remove failed: " + (error || "unknown error") + " Nothing changed. Click the thing again to retry.");
+      }
+      renderErase();
+    }
+
+    // ---- erase: the canvas modal ------------------------------------------
+    // The modal edits ONE pose's picture at natural size. The brush
+    // stamps a soft circle of the background color sampled from the
+    // image's own corners (median), so fills match the sheet's cream
+    // instead of a guessed constant. Every stroke and every landed
+    // remove pushes an undo snapshot (15 kept). Done writes the
+    // canvas back as the pose's staged edit; Cancel forgets the whole
+    // session, including a remove that landed mid-session.
+    let eraseSession = null; // { i, tool, bg, undo: [], baseSam, baseBrush, brushUsed, lasso, lassoClosed, lassoUsed, baseLasso, previewDirty, hover }
+    const eraseModal = document.getElementById("erase-modal");
+    const eraseCanvas = document.getElementById("erase-canvas");
+    const eraseCtx = eraseCanvas.getContext("2d");
+    // The committed working image, mirrored offscreen: the lasso
+    // preview draws its dashed outline on the visible canvas, so the
+    // untouched pixels live here while a trace is on screen.
+    const eraseBaseCanvas = document.createElement("canvas");
+    const eraseBaseCtx = eraseBaseCanvas.getContext("2d");
+    function eraseSyncBase() {
+      eraseBaseCanvas.width = eraseCanvas.width;
+      eraseBaseCanvas.height = eraseCanvas.height;
+      eraseBaseCtx.clearRect(0, 0, eraseBaseCanvas.width, eraseBaseCanvas.height);
+      eraseBaseCtx.drawImage(eraseCanvas, 0, 0);
+      if (eraseSession) eraseSession.previewDirty = false;
+    }
+
+    function setEraseStatus(t) {
+      document.getElementById("erase-modal-status").textContent = t;
+    }
+    function sampleCornerBg(imgData, w, h) {
+      const p = Math.max(1, Math.min(10, Math.floor(Math.min(w, h) / 2)));
+      const px = [];
+      const corners = [[0, 0], [w - p, 0], [0, h - p], [w - p, h - p]];
+      for (const [cx, cy] of corners) {
+        for (let y = cy; y < cy + p; y++) {
+          for (let x = cx; x < cx + p; x++) {
+            const k = (y * w + x) * 4;
+            px.push([imgData[k], imgData[k + 1], imgData[k + 2]]);
+          }
+        }
+      }
+      const med = (c) => {
+        const vals = px.map((v) => v[c]).sort((a, b) => a - b);
+        return vals[Math.floor(vals.length / 2)];
+      };
+      return { r: med(0), g: med(1), b: med(2) };
+    }
+    async function eraseLoadImage(dataUrl, pushUndo) {
+      const img = new Image();
+      img.src = dataUrl;
+      await img.decode();
+      if (pushUndo) erasePushUndo();
+      eraseCanvas.width = img.naturalWidth;
+      eraseCanvas.height = img.naturalHeight;
+      eraseCtx.drawImage(img, 0, 0);
+      const imgData = eraseCtx.getImageData(0, 0, eraseCanvas.width, eraseCanvas.height).data;
+      eraseSession.bg = sampleCornerBg(imgData, eraseCanvas.width, eraseCanvas.height);
+      // A fresh picture invalidates any half-drawn trace against the old one.
+      eraseSession.lasso = null;
+      eraseSession.lassoClosed = false;
+      eraseSyncBase();
+    }
+    function erasePushUndo() {
+      if (!eraseSession) return;
+      // While a lasso preview is on the visible canvas, snapshot the
+      // committed base image instead, so the dashed outline never
+      // bakes into an undo step.
+      const src = eraseSession.previewDirty ? eraseBaseCanvas : eraseCanvas;
+      eraseSession.undo.push(src.toDataURL("image/png"));
+      if (eraseSession.undo.length > 15) eraseSession.undo.shift();
+      renderEraseModalState();
+    }
+    async function openErase(startTool) {
+      const i = state.sel;
+      if (!state.entry || i < 0 || boxesDirty() || state.saving) return;
+      const src = state.edits[i] || state.entry.poses[i];
+      if (!src) return;
+      const prev = state.eraseInfo[i] || { sam: 0, brush: false };
+      // The action bar's Shape button deep-links here with "lasso" so
+      // the modal opens with the trace tool already active; every
+      // other caller gets the brush, exactly as before.
+      const tool = startTool === "lasso" ? "lasso" : "brush";
+      eraseSession = {
+        i, tool, bg: { r: 250, g: 246, b: 238 }, undo: [],
+        baseSam: prev.sam || 0, baseBrush: !!prev.brush, brushUsed: false,
+        lasso: null, lassoClosed: false, lassoUsed: false, baseLasso: !!prev.lasso,
+        previewDirty: false, hover: null,
+      };
+      document.getElementById("erase-modal-title").textContent =
+        "Erase · " + state.entry.name + " pose " + (i + 1);
+      setEraseStatus("Loading the pose…");
+      eraseModal.classList.remove("hidden");
+      setEraseTool(tool);
+      try {
+        await eraseLoadImage(src, false);
+        if (activeEraseJob(i)) {
+          setEraseStatus("A remove is already working on this pose. Tools unlock when it lands.");
+        } else if (tool === "lasso") {
+          lassoStatusHint();
+        } else {
+          setEraseStatus("Paint over the extra bits, trace them with the lasso, or switch to Click to remove and tap the whole thing.");
+        }
+      } catch {
+        setEraseStatus("The pose picture could not be loaded.");
+      }
+      renderEraseModalState();
+    }
+    function closeErase() {
+      eraseModal.classList.add("hidden");
+      eraseSession = null;
+    }
+    function setEraseTool(tool) {
+      if (!eraseSession) return;
+      // Leaving the lasso drops any unapplied trace: it was only a
+      // selection against the current picture.
+      if (eraseSession.tool === "lasso" && tool !== "lasso") clearLassoPath();
+      eraseSession.tool = tool;
+      document.getElementById("erase-tool-brush").classList.toggle("on", tool === "brush");
+      document.getElementById("erase-tool-click").classList.toggle("on", tool === "click");
+      document.getElementById("erase-tool-lasso").classList.toggle("on", tool === "lasso");
+      document.getElementById("erase-brush-row").style.visibility = tool === "brush" ? "" : "hidden";
+      document.getElementById("erase-lasso-row").classList.toggle("hidden", tool !== "lasso");
+      document.getElementById("erase-lasso-help").classList.toggle("hidden", tool !== "lasso");
+      eraseCanvas.className = tool;
+      if (tool === "lasso") lassoStatusHint();
+      renderEraseModalState();
+    }
+    function eraseToolsLocked() {
+      if (!eraseSession) return true;
+      return !!activeEraseJob(eraseSession.i);
+    }
+    function renderEraseModalState() {
+      if (!eraseSession) return;
+      const locked = eraseToolsLocked();
+      document.getElementById("erase-undo").disabled = locked || !eraseSession.undo.length;
+      document.getElementById("erase-reset").disabled = locked || !eraseSession.undo.length;
+      document.getElementById("erase-tool-brush").disabled = locked;
+      document.getElementById("erase-tool-click").disabled = locked;
+      document.getElementById("erase-tool-lasso").disabled = locked;
+      document.getElementById("erase-done").disabled = locked;
+      const L = window.BbsLasso || null;
+      const cap = eraseSession.lasso;
+      const hasPath = !!(L && cap && L.lassoHasPath(cap));
+      document.getElementById("lasso-close").disabled =
+        locked || !hasPath || eraseSession.lassoClosed || !(L && L.lassoCanClose(cap));
+      document.getElementById("lasso-undo-point").disabled = locked || !hasPath;
+      document.getElementById("lasso-clear").disabled = locked || !hasPath;
+      document.getElementById("lasso-erase-outside").disabled = locked || !eraseSession.lassoClosed;
+      document.getElementById("lasso-erase-inside").disabled = locked || !eraseSession.lassoClosed;
+      if (locked) setEraseStatus("Removing… SAM is segmenting the clicked thing. This takes a few seconds.");
+    }
+    function eraseCanvasPoint(ev) {
+      const r = eraseCanvas.getBoundingClientRect();
+      return {
+        x: (ev.clientX - r.left) / r.width * eraseCanvas.width,
+        y: (ev.clientY - r.top) / r.height * eraseCanvas.height,
+      };
+    }
+    function eraseStamp(x, y, r) {
+      const bg = eraseSession.bg;
+      const g = eraseCtx.createRadialGradient(x, y, 0, x, y, r);
+      const rgba = (a) => "rgba(" + bg.r + "," + bg.g + "," + bg.b + "," + a + ")";
+      g.addColorStop(0, rgba(1));
+      g.addColorStop(0.65, rgba(0.9));
+      g.addColorStop(1, rgba(0));
+      eraseCtx.fillStyle = g;
+      eraseCtx.beginPath();
+      eraseCtx.arc(x, y, r, 0, Math.PI * 2);
+      eraseCtx.fill();
+    }
+    // ---- erase: the lasso -------------------------------------------------
+    // The trace math is window.BbsLasso (src/lib/lasso.ts, bundled
+    // by the module script at the top of this page). The capture
+    // lives in eraseSession.lasso; the preview redraws the committed
+    // base image plus the dashed path on the visible canvas, in real
+    // image pixels, so what CG traces is exactly what gets cut.
+    function lassoLib() {
+      const L = window.BbsLasso || null;
+      if (!L && eraseSession) {
+        setEraseStatus("The lasso tools did not load. Reload the page and try again.");
+      }
+      return L;
+    }
+    function lassoDisplayScale() {
+      const r = eraseCanvas.getBoundingClientRect();
+      return r.width > 0 ? eraseCanvas.width / r.width : 1;
+    }
+    function lassoStatusHint() {
+      if (!eraseSession || eraseSession.tool !== "lasso" || eraseToolsLocked()) return;
+      const L = window.BbsLasso || null;
+      if (!L || !eraseSession.lasso || !L.lassoHasPath(eraseSession.lasso)) {
+        setEraseStatus("Trace around the part to cut: drag for curves, click for straight corners.");
+      } else if (eraseSession.lassoClosed) {
+        setEraseStatus("Shape closed. Erase outside keeps only what is inside the trace; Erase inside removes what you traced around.");
+      } else {
+        const n = L.lassoPoints(eraseSession.lasso).length;
+        setEraseStatus("Tracing: " + n + " point" + (n === 1 ? "" : "s") +
+          ". Double-click, press Enter, tap Close shape, or click the first point to close the loop.");
+      }
+    }
+    function drawLassoPreview() {
+      if (!eraseSession) return;
+      const L = window.BbsLasso || null;
+      if (!L || !eraseSession.lasso) return;
+      const cap = eraseSession.lasso;
+      eraseCtx.clearRect(0, 0, eraseCanvas.width, eraseCanvas.height);
+      eraseCtx.drawImage(eraseBaseCanvas, 0, 0);
+      eraseSession.previewDirty = true;
+      const pts = L.lassoPoints(cap);
+      if (pts.length) {
+        const lw = Math.max(2, eraseCanvas.width / 260);
+        eraseCtx.save();
+        eraseCtx.strokeStyle = "#e8590c";
+        eraseCtx.fillStyle = "#e8590c";
+        eraseCtx.lineWidth = lw;
+        eraseCtx.setLineDash(eraseSession.lassoClosed ? [] : [lw * 3, lw * 2]);
+        eraseCtx.beginPath();
+        pts.forEach((p, k) => { if (k === 0) eraseCtx.moveTo(p.x, p.y); else eraseCtx.lineTo(p.x, p.y); });
+        if (eraseSession.lassoClosed) eraseCtx.closePath();
+        else if (eraseSession.hover && !cap.drag) eraseCtx.lineTo(eraseSession.hover.x, eraseSession.hover.y);
+        eraseCtx.stroke();
+        eraseCtx.setLineDash([]);
+        for (const c of cap.contributions) {
+          const dots = c.kind === "vertex" ? c.points : [c.points[0]];
+          for (const p of dots) {
+            eraseCtx.beginPath();
+            eraseCtx.arc(p.x, p.y, lw * 1.1, 0, Math.PI * 2);
+            eraseCtx.fill();
+          }
+        }
+        if (!eraseSession.lassoClosed && L.lassoCanClose(cap)) {
+          eraseCtx.beginPath();
+          eraseCtx.arc(pts[0].x, pts[0].y, lw * 2.4, 0, Math.PI * 2);
+          eraseCtx.stroke();
+        }
+        eraseCtx.restore();
+      }
+      lassoStatusHint();
+      renderEraseModalState();
+    }
+    function closeLassoPath() {
+      const L = lassoLib();
+      if (!L || !eraseSession || !eraseSession.lasso) return;
+      if (!L.lassoCanClose(eraseSession.lasso)) {
+        setEraseStatus("A shape needs at least 3 points. Keep tracing.");
+        return;
+      }
+      eraseSession.lassoClosed = true;
+      drawLassoPreview();
+    }
+    function clearLassoPath() {
+      if (!eraseSession) return;
+      eraseSession.lasso = null;
+      eraseSession.lassoClosed = false;
+      eraseCtx.clearRect(0, 0, eraseCanvas.width, eraseCanvas.height);
+      eraseCtx.drawImage(eraseBaseCanvas, 0, 0);
+      eraseSession.previewDirty = false;
+      lassoStatusHint();
+      renderEraseModalState();
+    }
+    function applyLasso(mode) {
+      const L = lassoLib();
+      if (!L || !eraseSession || !eraseSession.lasso || !eraseSession.lassoClosed) return;
+      const poly = L.lassoPoints(eraseSession.lasso);
+      if (poly.length < 3) return;
+      erasePushUndo(); // preview is up: this snapshots the base image
+      const w = eraseCanvas.width, h = eraseCanvas.height;
+      const imgData = eraseBaseCtx.getImageData(0, 0, w, h);
+      const mask = L.rasterizeLassoMask(poly, w, h, 2);
+      L.applyLassoErase(imgData.data, w, h, mask, mode, eraseSession.bg);
+      eraseBaseCtx.putImageData(imgData, 0, 0);
+      eraseCtx.clearRect(0, 0, w, h);
+      eraseCtx.drawImage(eraseBaseCanvas, 0, 0);
+      eraseSession.previewDirty = false;
+      eraseSession.lassoUsed = true;
+      eraseSession.lasso = null;
+      eraseSession.lassoClosed = false;
+      setEraseStatus(mode === "outside"
+        ? "Kept only what is inside your trace; everything outside it is background now. Undo steps it back."
+        : "Removed what is inside your trace. Undo steps it back.");
+      renderEraseModalState();
+    }
+    document.getElementById("lasso-close").addEventListener("click", closeLassoPath);
+    document.getElementById("lasso-clear").addEventListener("click", () => { clearLassoPath(); setEraseStatus("Trace cleared."); });
+    document.getElementById("lasso-undo-point").addEventListener("click", () => {
+      const L = lassoLib();
+      if (!L || !eraseSession || !eraseSession.lasso || eraseToolsLocked()) return;
+      eraseSession.lassoClosed = false;
+      if (L.lassoUndoLast(eraseSession.lasso)) drawLassoPreview();
+      renderEraseModalState();
+    });
+    document.getElementById("lasso-erase-outside").addEventListener("click", () => applyLasso("outside"));
+    document.getElementById("lasso-erase-inside").addEventListener("click", () => applyLasso("inside"));
+    document.addEventListener("keydown", (ev) => {
+      if (!eraseSession || eraseModal.classList.contains("hidden")) return;
+      if (eraseSession.tool !== "lasso" || eraseToolsLocked()) return;
+      if (ev.key === "Enter") { ev.preventDefault(); closeLassoPath(); }
+      else if (ev.key === "Escape" && eraseSession.lasso) {
+        clearLassoPath();
+        setEraseStatus("Trace cleared.");
+      }
+    });
+
+    let eraseStroke = null; // { lastX, lastY }
+    eraseCanvas.addEventListener("pointerdown", (ev) => {
+      if (!eraseSession || eraseToolsLocked()) return;
+      ev.preventDefault();
+      const p = eraseCanvasPoint(ev);
+      if (eraseSession.tool === "lasso") {
+        const L = lassoLib();
+        if (!L || eraseSession.lassoClosed) return;
+        if (!eraseSession.lasso) eraseSession.lasso = L.createLassoCapture();
+        L.lassoPointerDown(eraseSession.lasso, p);
+        eraseCanvas.setPointerCapture(ev.pointerId);
+        drawLassoPreview();
+        return;
+      }
+      if (eraseSession.tool === "click") {
+        enqueueSegmentClick(Math.round(p.x), Math.round(p.y));
+        return;
+      }
+      erasePushUndo();
+      eraseSession.brushUsed = true;
+      const r = eraseBrushRadius();
+      eraseStamp(p.x, p.y, r);
+      eraseStroke = { lastX: p.x, lastY: p.y };
+      eraseCanvas.setPointerCapture(ev.pointerId);
+    });
+    eraseCanvas.addEventListener("pointermove", (ev) => {
+      if (!eraseSession || !eraseStroke || eraseToolsLocked()) return;
+      const p = eraseCanvasPoint(ev);
+      const r = eraseBrushRadius();
+      const dist = Math.hypot(p.x - eraseStroke.lastX, p.y - eraseStroke.lastY);
+      const step = Math.max(1, r * 0.35);
+      if (dist < step) return;
+      const n = Math.floor(dist / step);
+      for (let k = 1; k <= n; k++) {
+        eraseStamp(
+          eraseStroke.lastX + (p.x - eraseStroke.lastX) * k / n,
+          eraseStroke.lastY + (p.y - eraseStroke.lastY) * k / n,
+          r
+        );
+      }
+      eraseStroke.lastX = p.x;
+      eraseStroke.lastY = p.y;
+    });
+    function endEraseStroke() {
+      eraseStroke = null;
+      // A finished brush stroke commits to the base image; while a
+      // lasso preview is on screen the visible canvas is NOT the
+      // committed image, so the base stays untouched then.
+      if (eraseSession && !eraseSession.previewDirty) eraseSyncBase();
+    }
+    eraseCanvas.addEventListener("pointerup", endEraseStroke);
+    eraseCanvas.addEventListener("pointercancel", endEraseStroke);
+    eraseCanvas.addEventListener("pointermove", (ev) => {
+      if (!eraseSession || eraseSession.tool !== "lasso" || eraseToolsLocked()) return;
+      const L = window.BbsLasso || null;
+      if (!L || !eraseSession.lasso || eraseSession.lassoClosed) return;
+      const p = eraseCanvasPoint(ev);
+      eraseSession.hover = p;
+      if (eraseSession.lasso.drag) L.lassoPointerMove(eraseSession.lasso, p, 3, 6);
+      drawLassoPreview();
+    });
+    eraseCanvas.addEventListener("pointerup", (ev) => {
+      if (!eraseSession || eraseSession.tool !== "lasso" || eraseToolsLocked()) return;
+      const L = window.BbsLasso || null;
+      if (!L || !eraseSession.lasso || eraseSession.lassoClosed) return;
+      const cap = eraseSession.lasso;
+      // A click landing back on the first point closes the loop
+      // instead of adding a duplicate vertex there.
+      if (cap.drag && !cap.drag.moved) {
+        const tol = Math.max(10, 12 * lassoDisplayScale());
+        if (L.lassoCanClose(cap) && L.lassoNearStart(cap, cap.drag.start, tol)) {
+          cap.drag = null;
+          closeLassoPath();
+          return;
+        }
+      }
+      L.lassoPointerUp(cap);
+      drawLassoPreview();
+    });
+    eraseCanvas.addEventListener("dblclick", (ev) => {
+      if (!eraseSession || eraseSession.tool !== "lasso" || eraseToolsLocked()) return;
+      ev.preventDefault();
+      closeLassoPath();
+    });
+    function eraseBrushRadius() {
+      const sliderVal = parseFloat(document.getElementById("erase-brush-size").value) || 20;
+      const r = eraseCanvas.getBoundingClientRect();
+      const scale = r.width > 0 ? eraseCanvas.width / r.width : 1;
+      return Math.max(1, sliderVal * scale);
+    }
+    document.getElementById("erase-brush-size").addEventListener("input", (ev) => {
+      document.getElementById("erase-brush-val").textContent = ev.target.value;
+    });
+    document.getElementById("erase-tool-brush").addEventListener("click", () => setEraseTool("brush"));
+    document.getElementById("erase-tool-click").addEventListener("click", () => setEraseTool("click"));
+    document.getElementById("erase-tool-lasso").addEventListener("click", () => setEraseTool("lasso"));
+    document.getElementById("erase-undo").addEventListener("click", async () => {
+      if (!eraseSession || !eraseSession.undo.length || eraseToolsLocked()) return;
+      const prev = eraseSession.undo.pop();
+      const img = new Image();
+      img.src = prev;
+      await img.decode();
+      eraseCtx.clearRect(0, 0, eraseCanvas.width, eraseCanvas.height);
+      eraseCtx.drawImage(img, 0, 0);
+      eraseSession.lasso = null;
+      eraseSession.lassoClosed = false;
+      eraseSyncBase();
+      renderEraseModalState();
+    });
+    document.getElementById("erase-reset").addEventListener("click", async () => {
+      if (!eraseSession || !eraseSession.undo.length || eraseToolsLocked()) return;
+      const first = eraseSession.undo[0];
+      eraseSession.undo = [];
+      eraseSession.brushUsed = false;
+      eraseSession.lassoUsed = false;
+      const img = new Image();
+      img.src = first;
+      await img.decode();
+      eraseCtx.clearRect(0, 0, eraseCanvas.width, eraseCanvas.height);
+      eraseCtx.drawImage(img, 0, 0);
+      eraseSession.lasso = null;
+      eraseSession.lassoClosed = false;
+      eraseSyncBase();
+      setEraseStatus("Back to how this pose looked when you opened Erase.");
+      renderEraseModalState();
+    });
+    async function enqueueSegmentClick(x, y) {
+      const i = eraseSession.i;
+      if (activeEraseJob(i)) return; // duplicate clicks while one runs are ignored
+      const needsSource = !!state.edits[i] || eraseSession.undo.length > 0;
+      setEraseStatus("Removing…");
+      const body = { slug: state.slug, poseIndex: i, x, y };
+      if (needsSource) {
+        body.sourcePng = eraseCanvas.toDataURL("image/png").split(",")[1];
+      }
+      const r = await fetch("/api/admin/cast-erase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (out.job) {
+          state.eraseJobs = [out.job, ...state.eraseJobs.filter((j) => j.id !== out.job.id)];
+          state.eraseSeen[out.job.id] = true;
+          startErasePolling();
+        }
+        setEraseStatus("Remove could not be queued: " + (out.error || r.status));
+        renderEraseModalState();
+        return;
+      }
+      state.eraseJobs = [out.job, ...state.eraseJobs];
+      state.eraseSeen[out.job.id] = true;
+      startErasePolling();
+      renderErase();
+      renderEraseModalState();
+    }
+    document.getElementById("erase-btn").addEventListener("click", () => openErase());
+    document.getElementById("sel-erase-btn").addEventListener("click", () => openErase());
+    document.getElementById("sel-shape-btn").addEventListener("click", () => openSheetShape());
+    document.getElementById("erase-cancel").addEventListener("click", () => {
+      // Cancel forgets the session, including a remove that landed
+      // during it: the staged edit returns to its pre-session state.
+      if (eraseSession) {
+        const i = eraseSession.i;
+        if (state.savedData) {
+          state.edits[i] = state.savedData.edits ? state.savedData.edits[i] : null;
+          state.shapeEdits[i] = state.savedData.shapeEdits ? state.savedData.shapeEdits[i] : false;
+          state.editFp[i] = state.savedData.editFp ? state.savedData.editFp[i] : "";
+          state.eraseInfo[i] = state.savedData.eraseInfo ? state.savedData.eraseInfo[i] : state.eraseInfo[i];
+        }
+      }
+      closeErase();
+      render();
+    });
+    document.getElementById("erase-done").addEventListener("click", () => {
+      if (!eraseSession || eraseToolsLocked()) return;
+      const i = eraseSession.i;
+      if (eraseSession.undo.length > 0) {
+        // An unapplied trace may be previewing on the visible
+        // canvas; the staged bytes are the committed base image.
+        if (eraseSession.previewDirty) {
+          eraseCtx.clearRect(0, 0, eraseCanvas.width, eraseCanvas.height);
+          eraseCtx.drawImage(eraseBaseCanvas, 0, 0);
+          eraseSession.previewDirty = false;
+        }
+        const dataUrl = eraseCanvas.toDataURL("image/png");
+        state.edits[i] = dataUrl;
+        state.shapeEdits[i] = false;
+        state.editFp[i] = editFingerprint(dataUrl);
+        // The sam count already lives in state.eraseInfo: each
+        // landed remove folded +1 in when it arrived. Done only
+        // refreshes the timestamp and the brush/lasso flags.
+        const prev = state.eraseInfo[i] || { sam: eraseSession.baseSam, brush: eraseSession.baseBrush };
+        const info = {
+          at: Date.now(),
+          sam: prev.sam || 0,
+          brush: !!(prev.brush || eraseSession.brushUsed),
+        };
+        if (prev.lasso || eraseSession.baseLasso || eraseSession.lassoUsed) info.lasso = true;
+        state.eraseInfo[i] = info;
+      }
+      closeErase();
+      render();
+    });
+
+    // ---- sheet shape tracer ----------------------------------------------
+    // CG's real ask, in his words: "at the end of the boxes, i just
+    // need to be able to shape it around the object... i lasso'd
+    // around the wing, just cut it, and fill the background with the
+    // background." The pose-level lasso inside Erase works on the
+    // already-cropped pose; this tracer works on the SHEET. One
+    // closed outline anywhere on the sheet, then Cut: the trace's
+    // bounding-box region becomes the pose's picture (inside the
+    // line kept exactly, outside filled with the sheet's sampled
+    // background) and the pose's box becomes that bounding box.
+    // Staging follows the erase-edit model exactly (dirty state,
+    // Save ships it, Discard restores box + bytes together, History
+    // rolls it back). The box change here is programmatic, so it
+    // does NOT trip endDrag's clear-on-manual-move rule; a manual
+    // drag AFTER staging still clears the staged cut, like any
+    // staged edit whose box moved out from under it.
+    let shapeSession = null; // { i, lasso, closed, bg, hover }
+    const shapeModal = document.getElementById("shape-modal");
+    const shapeCanvas = document.getElementById("shape-canvas");
+    const shapeCtx = shapeCanvas.getContext("2d");
+    // The untouched sheet, mirrored offscreen: the preview draws the
+    // dashed trace on the visible canvas, so the source pixels live
+    // here while a trace is on screen (and the cut reads from here).
+    const shapeBaseCanvas = document.createElement("canvas");
+    const shapeBaseCtx = shapeBaseCanvas.getContext("2d");
+
+    function setShapeStatus(t) {
+      document.getElementById("shape-modal-status").textContent = t;
+    }
+    function shapeDisplayScale() {
+      const r = shapeCanvas.getBoundingClientRect();
+      return r.width > 0 ? shapeCanvas.width / r.width : 1;
+    }
+    function shapeCanvasPoint(ev) {
+      const r = shapeCanvas.getBoundingClientRect();
+      return {
+        x: Math.max(0, Math.min(shapeCanvas.width, (ev.clientX - r.left) / r.width * shapeCanvas.width)),
+        y: Math.max(0, Math.min(shapeCanvas.height, (ev.clientY - r.top) / r.height * shapeCanvas.height)),
+      };
+    }
+    async function openSheetShape() {
+      const i = state.sel;
+      if (!state.entry || i < 0 || state.saving) return;
+      const L = window.BbsLasso || null;
+      if (!L || !L.cutSheetShape) {
+        document.getElementById("status").textContent = "The shape tools did not load. Reload the page and try again.";
+        return;
+      }
+      const src = state.entry.sheetUrl;
+      if (!src) return;
+      shapeSession = { i, lasso: null, closed: false, bg: { r: 250, g: 246, b: 238 }, hover: null };
+      document.getElementById("shape-modal-title").textContent =
+        "Shape · " + state.entry.name + " pose " + (i + 1);
+      setShapeStatus("Loading the sheet…");
+      shapeModal.classList.remove("hidden");
+      try {
+        const img = new Image();
+        img.src = src;
+        await img.decode();
+        shapeCanvas.width = img.naturalWidth;
+        shapeCanvas.height = img.naturalHeight;
+        shapeCtx.drawImage(img, 0, 0);
+        shapeBaseCanvas.width = img.naturalWidth;
+        shapeBaseCanvas.height = img.naturalHeight;
+        shapeBaseCtx.drawImage(img, 0, 0);
+        const data = shapeBaseCtx.getImageData(0, 0, shapeBaseCanvas.width, shapeBaseCanvas.height).data;
+        shapeSession.bg = L.sampleCornerBackground
+          ? L.sampleCornerBackground(data, shapeBaseCanvas.width, shapeBaseCanvas.height)
+          : sampleCornerBg(data, shapeBaseCanvas.width, shapeBaseCanvas.height);
+        drawShapePreview();
+        setShapeStatus("Trace around the object on the sheet: drag for curves, click for straight corners. Get the whole wing inside your line.");
+      } catch {
+        setShapeStatus("The sheet picture could not be loaded.");
+      }
+      renderShapeState();
+    }
+    function closeSheetShape() {
+      shapeModal.classList.add("hidden");
+      shapeSession = null;
+    }
+    function shapeStatusHint() {
+      if (!shapeSession) return;
+      const L = window.BbsLasso || null;
+      if (!L || !shapeSession.lasso || !L.lassoHasPath(shapeSession.lasso)) {
+        setShapeStatus("Trace around the object on the sheet: drag for curves, click for straight corners. Get the whole wing inside your line.");
+      } else if (shapeSession.closed) {
+        setShapeStatus("Shape closed. Cut to this shape makes it the pose: inside your line kept exactly, outside filled with the sheet background.");
+      } else {
+        const n = L.lassoPoints(shapeSession.lasso).length;
+        setShapeStatus("Tracing: " + n + " point" + (n === 1 ? "" : "s") +
+          ". Double-click, press Enter, tap Close shape, or click the first point to close the loop.");
+      }
+    }
+    function drawShapePreview() {
+      if (!shapeSession) return;
+      const L = window.BbsLasso || null;
+      const W = shapeCanvas.width, H = shapeCanvas.height;
+      shapeCtx.clearRect(0, 0, W, H);
+      shapeCtx.drawImage(shapeBaseCanvas, 0, 0);
+      const lw = Math.max(2, W / 260);
+      // The pose's current box, as a guide under the trace.
+      const b = state.boxes[shapeSession.i];
+      if (b) {
+        shapeCtx.save();
+        shapeCtx.strokeStyle = "#1d4ed8";
+        shapeCtx.lineWidth = lw;
+        shapeCtx.strokeRect(b.x * W, b.y * H, b.w * W, b.h * H);
+        shapeCtx.restore();
+      }
+      if (!L || !shapeSession.lasso) { renderShapeState(); return; }
+      const cap = shapeSession.lasso;
+      const pts = L.lassoPoints(cap);
+      if (pts.length) {
+        shapeCtx.save();
+        shapeCtx.strokeStyle = "#e8590c";
+        shapeCtx.fillStyle = "#e8590c";
+        shapeCtx.lineWidth = lw;
+        shapeCtx.setLineDash(shapeSession.closed ? [] : [lw * 3, lw * 2]);
+        shapeCtx.beginPath();
+        pts.forEach((p, k) => { if (k === 0) shapeCtx.moveTo(p.x, p.y); else shapeCtx.lineTo(p.x, p.y); });
+        if (shapeSession.closed) shapeCtx.closePath();
+        else if (shapeSession.hover && !cap.drag) shapeCtx.lineTo(shapeSession.hover.x, shapeSession.hover.y);
+        shapeCtx.stroke();
+        shapeCtx.setLineDash([]);
+        for (const c of cap.contributions) {
+          const dots = c.kind === "vertex" ? c.points : [c.points[0]];
+          for (const p of dots) {
+            shapeCtx.beginPath();
+            shapeCtx.arc(p.x, p.y, lw * 1.1, 0, Math.PI * 2);
+            shapeCtx.fill();
+          }
+        }
+        if (!shapeSession.closed && L.lassoCanClose(cap)) {
+          shapeCtx.beginPath();
+          shapeCtx.arc(pts[0].x, pts[0].y, lw * 2.4, 0, Math.PI * 2);
+          shapeCtx.stroke();
+        }
+        shapeCtx.restore();
+      }
+      shapeStatusHint();
+      renderShapeState();
+    }
+    function renderShapeState() {
+      if (!shapeSession) return;
+      const L = window.BbsLasso || null;
+      const cap = shapeSession.lasso;
+      const hasPath = !!(L && cap && L.lassoHasPath(cap));
+      document.getElementById("shape-close").disabled =
+        !hasPath || shapeSession.closed || !(L && L.lassoCanClose(cap));
+      document.getElementById("shape-undo-point").disabled = !hasPath;
+      document.getElementById("shape-clear").disabled = !hasPath;
+      document.getElementById("shape-cut").disabled = !shapeSession.closed;
+    }
+    function closeShapePath() {
+      const L = window.BbsLasso || null;
+      if (!L || !shapeSession || !shapeSession.lasso) return;
+      if (!L.lassoCanClose(shapeSession.lasso)) {
+        setShapeStatus("A shape needs at least 3 points. Keep tracing.");
+        return;
+      }
+      shapeSession.closed = true;
+      drawShapePreview();
+    }
+    function clearShapePath() {
+      if (!shapeSession) return;
+      shapeSession.lasso = null;
+      shapeSession.closed = false;
+      drawShapePreview();
+      setShapeStatus("Trace cleared.");
+    }
+    function applySheetShape() {
+      const L = window.BbsLasso || null;
+      if (!L || !L.cutSheetShape || !shapeSession || !shapeSession.closed) return;
+      const poly = L.lassoPoints(shapeSession.lasso);
+      if (poly.length < 3) return;
+      const i = shapeSession.i;
+      const W = shapeBaseCanvas.width, H = shapeBaseCanvas.height;
+      const imgData = shapeBaseCtx.getImageData(0, 0, W, H);
+      const cut = L.cutSheetShape(imgData.data, W, H, poly, shapeSession.bg, 2);
+      if (!cut || cut.width < 16 || cut.height < 16) {
+        setShapeStatus("That outline is too small to be a pose (under 16px on a side). Trace a bigger shape.");
+        return;
+      }
+      const c = document.createElement("canvas");
+      c.width = cut.width;
+      c.height = cut.height;
+      c.getContext("2d").putImageData(new ImageData(cut.data, cut.width, cut.height), 0, 0);
+      const dataUrl = c.toDataURL("image/png");
+      state.edits[i] = dataUrl;
+      state.shapeEdits[i] = true;
+      state.editFp[i] = editFingerprint(dataUrl);
+      state.boxes[i] = {
+        x: cut.offsetX / W, y: cut.offsetY / H,
+        w: cut.width / W, h: cut.height / H,
+      };
+      state.eraseInfo[i] = { at: Date.now(), sam: 0, brush: false, shape: true };
+      // The staged picture is cut from the sheet, not the placed
+      // cutout: the pose stops presenting as lifted here, and the
+      // server clears the lifted state for real when the save lands.
+      state.lifted[i] = null;
+      closeSheetShape();
+      document.getElementById("status").textContent =
+        "Shape staged on pose " + (i + 1) + ". Save " + state.entry.name +
+        " ships it; Discard changes puts the old box and picture back.";
+      render();
+    }
+    document.getElementById("shape-close").addEventListener("click", closeShapePath);
+    document.getElementById("shape-clear").addEventListener("click", clearShapePath);
+    document.getElementById("shape-undo-point").addEventListener("click", () => {
+      const L = window.BbsLasso || null;
+      if (!L || !shapeSession || !shapeSession.lasso) return;
+      shapeSession.closed = false;
+      if (L.lassoUndoLast(shapeSession.lasso)) drawShapePreview();
+      renderShapeState();
+    });
+    document.getElementById("shape-cut").addEventListener("click", applySheetShape);
+    document.getElementById("shape-cancel").addEventListener("click", closeSheetShape);
+    shapeCanvas.addEventListener("pointerdown", (ev) => {
+      if (!shapeSession || shapeSession.closed) return;
+      const L = window.BbsLasso || null;
+      if (!L) return;
+      ev.preventDefault();
+      if (!shapeSession.lasso) shapeSession.lasso = L.createLassoCapture();
+      L.lassoPointerDown(shapeSession.lasso, shapeCanvasPoint(ev));
+      shapeCanvas.setPointerCapture(ev.pointerId);
+      drawShapePreview();
+    });
+    shapeCanvas.addEventListener("pointermove", (ev) => {
+      if (!shapeSession || shapeSession.closed) return;
+      const L = window.BbsLasso || null;
+      if (!L || !shapeSession.lasso) return;
+      const p = shapeCanvasPoint(ev);
+      shapeSession.hover = p;
+      if (shapeSession.lasso.drag) L.lassoPointerMove(shapeSession.lasso, p, 3, 6);
+      drawShapePreview();
+    });
+    shapeCanvas.addEventListener("pointerup", () => {
+      if (!shapeSession || shapeSession.closed) return;
+      const L = window.BbsLasso || null;
+      if (!L || !shapeSession.lasso) return;
+      const cap = shapeSession.lasso;
+      // A click landing back on the first point closes the loop
+      // instead of adding a duplicate vertex there.
+      if (cap.drag && !cap.drag.moved) {
+        const tol = Math.max(10, 12 * shapeDisplayScale());
+        if (L.lassoCanClose(cap) && L.lassoNearStart(cap, cap.drag.start, tol)) {
+          cap.drag = null;
+          closeShapePath();
+          return;
+        }
+      }
+      L.lassoPointerUp(cap);
+      drawShapePreview();
+    });
+    shapeCanvas.addEventListener("dblclick", (ev) => {
+      if (!shapeSession || shapeSession.closed) return;
+      ev.preventDefault();
+      closeShapePath();
+    });
+    document.addEventListener("keydown", (ev) => {
+      if (!shapeSession || shapeModal.classList.contains("hidden")) return;
+      if (ev.key === "Enter") { ev.preventDefault(); closeShapePath(); }
+      else if (ev.key === "Escape" && shapeSession.lasso) {
+        clearShapePath();
+      }
+    });
+
+    // ---- save (per character) -------------------------------------------
+    async function saveCharacter(opts) {
+      const reload = !opts || opts.reload !== false;
+      const msg = document.getElementById("msg");
+      state.saving = true;
+      refreshSaveUI();
+      document.getElementById("status").textContent = "Saving…";
+      const r = await fetch("/api/admin/cast-gallery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug: state.slug,
+          boxes: state.boxes,
+          portraitIndex: state.portraitIndex,
+          poseMeta: state.poseMeta.map((m) => ({
+            action: m.action ? m.action : undefined,
+            focal: m.focal,
+          })),
+          keepOrder: true,
+          poseEdits: state.edits.flatMap((dataUrl, i) => {
+            if (!dataUrl) return [];
+            const info = state.eraseInfo[i] || {};
+            return [{
+              index: i,
+              pngBase64: dataUrl.split(",")[1] || "",
+              // A sheet shape cut is the one edit whose box is
+              // supposed to move (to the trace's bounding box); the
+              // flag tells the server to expect exactly that.
+              ...(state.shapeEdits[i] ? { shape: true } : {}),
+              eraseInfo: {
+                at: info.at || Date.now(),
+                sam: info.sam || 0,
+                brush: !!info.brush,
+                ...(info.lasso ? { lasso: true } : {}),
+                ...(info.shape ? { shape: true } : {}),
+              },
+            }];
+          }),
+        }),
+      });
+      const out = await r.json().catch(() => ({}));
+      state.saving = false;
+      if (!r.ok) {
+        msg.innerHTML = '<div class="warn">Save failed: ' + esc(out.error || r.status) + "</div>";
+        document.getElementById("status").textContent = "";
+        refreshSaveUI();
+        return false;
+      }
+      baseline();
+      let note = "Saved. Poses kept the order shown, art is now v" + out.character.v +
+        ", and the previous gallery was backed up (" + new Date(out.backupTs * 1000).toLocaleString() +
+        "). The public pages pick this up within a minute.";
+      if (out.mirror && out.mirror.mirrored && out.mirror.mirrored.length) {
+        note += " Tagged poses mirrored to the book's factory crops: " + out.mirror.mirrored.join(", ") + ".";
+      }
+      if (out.mirror && out.mirror.skipped && out.mirror.skipped.length) {
+        note += " Skipped (tag already owned by another crop in the book manifest): " + out.mirror.skipped.join(", ") + ".";
+      }
+      if (out.mirrorError) {
+        note += " Tag mirror failed: " + out.mirrorError + " (the gallery save itself succeeded).";
+      }
+      msg.innerHTML = '<div class="note">' + esc(note) + "</div>";
+      document.getElementById("status").textContent = "";
+      if (reload) loadCharacter(state.slug);
+      else refreshSaveUI();
+      return true;
+    }
+    saveBtn.addEventListener("click", () => { saveCharacter(); });
+
+    document.getElementById("restore-btn").addEventListener("click", async () => {
+      if (!confirm("Restore the previous gallery for " + (state.entry ? state.entry.name : state.slug) + "? Your current crops will be replaced by the backup.")) return;
+      const btn = document.getElementById("restore-btn");
+      btn.disabled = true;
+      const r = await fetch("/api/admin/cast-gallery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: state.slug, restore: true }),
+      });
+      const out = await r.json().catch(() => ({}));
+      btn.disabled = false;
+      const msg = document.getElementById("msg");
+      if (!r.ok) {
+        msg.innerHTML = '<div class="warn">Restore failed: ' + esc(out.error || r.status) + "</div>";
+        return;
+      }
+      msg.innerHTML = '<div class="note">Restored the gallery from ' + new Date(out.restoredFrom * 1000).toLocaleString() + ".</div>";
+      loadCharacter(state.slug);
+    });
+
+    // ---- navigation guard -------------------------------------------------
+    // Switching characters (or leaving via the back link) while the
+    // current character is dirty asks first: Save and leave / Discard
+    // changes / Stay. beforeunload arms the browser's own warning so a
+    // tab close cannot silently lose edits either.
+    let pendingAction = null;
+    let pendingStay = null;
+    const navModal = document.getElementById("nav-modal");
+    function attemptNav(action, onStay) {
+      if (!isDirty() || state.saving) { action(); return; }
+      pendingAction = action;
+      pendingStay = onStay || null;
+      document.getElementById("nav-modal-text").textContent =
+        (state.entry ? state.entry.name : "This character") +
+        " has unsaved crop changes. Save them before leaving, discard them, or stay and keep editing.";
+      navModal.classList.remove("hidden");
+    }
+    function closeModal() {
+      navModal.classList.add("hidden");
+      pendingAction = null;
+      pendingStay = null;
+    }
+    document.getElementById("nav-save").addEventListener("click", async () => {
+      const action = pendingAction;
+      const onStay = pendingStay;
+      closeModal();
+      const ok = await saveCharacter({ reload: false });
+      if (ok && action) action();
+      else if (!ok && onStay) onStay();
+    });
+    document.getElementById("nav-discard").addEventListener("click", () => {
+      const action = pendingAction;
+      closeModal();
+      restoreFromSaved();
+      if (action) action();
+    });
+    document.getElementById("nav-stay").addEventListener("click", () => {
+      const onStay = pendingStay;
+      closeModal();
+      if (onStay) onStay();
+    });
+    document.getElementById("back-link").addEventListener("click", (ev) => {
+      if (!isDirty()) return;
+      ev.preventDefault();
+      const href = ev.currentTarget.href;
+      attemptNav(() => { window.location.href = href; }, null);
+    });
+    window.addEventListener("beforeunload", (ev) => {
+      if (isDirty()) {
+        ev.preventDefault();
+        ev.returnValue = "";
+      }
+    });
+
+    refreshSaveUI();
+    loadList();
+  </script>
+</body>
+</html>

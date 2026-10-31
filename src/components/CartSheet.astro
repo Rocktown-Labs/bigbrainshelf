@@ -1,0 +1,191 @@
+---
+// Slide-over cart: the ONE cart for the whole storefront, carried by
+// every public page. All cart state lives in the shared store
+// (src/components/CartStore.astro, window.bbsCart, shipped via
+// SiteHeader): this sheet only renders the store's cart and
+// re-renders whenever the store announces a change, so removing an
+// item here instantly re-syncs the badge and any buy button on the
+// page. Pages that include this component must render SiteHeader
+// with cartMode="sheet".
+//
+// The sheet never checks out itself: its Checkout button hands off
+// to the /checkout page, which runs the whole flow (line items, the
+// shipping address + carrier quote for physical carts, pay). /cart
+// is only a redirect into this sheet (see src/pages/cart.astro).
+---
+
+<!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+<div id="cart-sheet-root" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+  <div id="cart-backdrop" class="absolute inset-0 bg-stone-950/40 opacity-0 transition-opacity duration-200"></div>
+  <aside id="cart-panel" class="absolute right-0 top-0 h-full w-[400px] max-w-[92vw] bg-white shadow-2xl translate-x-full transition-transform duration-300 flex flex-col" role="dialog" aria-label="Your cart">
+    <div class="flex items-center justify-between px-5 h-16 border-b border-stone-200 shrink-0">
+      <h2 class="text-lg font-bold tracking-tight">Your cart</h2>
+      <button id="cart-close" class="text-stone-400 hover:text-stone-900 text-3xl leading-none px-2" aria-label="Close cart">&times;</button>
+    </div>
+    <div id="cart-items" class="flex-1 overflow-y-auto px-5"></div>
+    <div id="cart-foot" class="border-t border-stone-200 px-5 py-4 hidden shrink-0">
+      <div id="cart-ship-row" class="hidden justify-between items-baseline mb-1">
+        <span class="text-sm text-stone-500">Shipping</span>
+        <span id="cart-ship" class="text-sm font-semibold"></span>
+      </div>
+      <div class="flex justify-between items-baseline">
+        <span class="text-sm text-stone-500">Total</span>
+        <span id="cart-total" class="text-xl font-bold"></span>
+      </div>
+      <p class="text-xs text-stone-400 mt-1">Digital downloads. Yours forever after checkout.</p>
+      <p id="cart-err" class="text-sm text-red-600 hidden mt-3"></p>
+      <button id="cart-clear" class="cart-clear mt-3 w-full rounded-lg border border-stone-300 text-stone-600 text-sm font-semibold py-2.5 hover:bg-stone-50 hover:text-stone-900">Clear cart</button>
+      <button id="cart-checkout" class="mt-4 w-full rounded-lg bg-orange-600 text-white text-sm font-semibold py-3 hover:bg-orange-700">Checkout</button>
+    </div>
+  </aside>
+</div>
+<script is:inline>
+  (function () {
+    var store = window.bbsCart;
+
+    // Escape closes the sheet. Registered once for the whole session;
+    // it looks the sheet up in the live document, so it keeps working
+    // after view-transition swaps replace the sheet markup.
+    if (!window.__bbsSheetEsc) {
+      window.__bbsSheetEsc = true;
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        var r = document.getElementById("cart-sheet-root");
+        if (r && !r.classList.contains("hidden") && window.closeCartSheet) window.closeCartSheet();
+      });
+    }
+
+    // Bind the sheet instance currently in the document. Runs on first
+    // render and again on astro:page-load (view transitions swap in a
+    // fresh sheet); the per-element flag keeps one instance from ever
+    // being bound twice.
+    function initCartSheet() {
+      var root = document.getElementById("cart-sheet-root");
+      if (!root || root.__sheetBound || !store) return;
+      root.__sheetBound = true;
+      var backdrop = document.getElementById("cart-backdrop");
+      var panel = document.getElementById("cart-panel");
+      var itemsEl = document.getElementById("cart-items");
+      var footEl = document.getElementById("cart-foot");
+      var totalEl = document.getElementById("cart-total");
+
+      function render() {
+        var cart = store.get();
+        if (!cart.length) {
+          footEl.classList.add("hidden");
+          itemsEl.innerHTML = '<div class="text-center text-stone-500 py-16"><p class="text-stone-900 font-semibold text-lg">Your cart is empty.</p><button id="cart-browse" class="mt-6 rounded-lg bg-orange-600 text-white text-sm font-semibold px-5 py-2.5 hover:bg-orange-700">Browse the shelf</button></div>';
+          var b = document.getElementById("cart-browse");
+          if (b) b.addEventListener("click", function () {
+            closeSheet();
+            if (window.location.pathname !== "/") window.location.href = "/";
+          });
+          return;
+        }
+        itemsEl.innerHTML = '<p class="text-stone-500 text-sm py-6">Loading...</p>';
+        store.loadBooks().then(function (books) {
+          // A newer cart may have replaced this render's while the
+          // catalog was loading; paint only the cart still current.
+          if (store.get().length !== cart.length) return;
+          var bySlug = {};
+          books.forEach(function (b) { bySlug[b.slug] = b; });
+          var items = cart.filter(function (it) { return store.priceOf(bySlug, it) > 0; });
+          if (!items.length) {
+            footEl.classList.add("hidden");
+            itemsEl.innerHTML = '<p class="text-stone-500 text-sm py-6">Nothing in your cart is available for purchase yet.</p>' +
+              '<button class="cart-clear rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-600 hover:bg-stone-50 hover:text-stone-900">Clear cart</button>';
+            return;
+          }
+          var total = 0;
+          itemsEl.innerHTML = items.map(function (it, idx) {
+            var b = bySlug[it.slug];
+            var p = store.priceOf(bySlug, it);
+            total += p;
+            var fmt = it.format === "printed" ? "Full color printed book · digital included" : it.format === "giftset" ? "Gift Set · printed storybook + printed coloring book, digital included" : it.format === "audio" ? "Audiobook only" : "Digital download";
+            return '<div class="flex gap-4 py-4 border-b border-stone-100">' +
+              (b.cover_key ? '<img src="' + (b.cover_card || (store.R2 + b.cover_key)) + '" class="w-16 aspect-[3/4] object-cover rounded bg-stone-100" alt="" />' : '<div class="w-16 aspect-[3/4] rounded bg-stone-100"></div>') +
+              '<div class="flex-1"><p class="text-sm font-semibold">' + b.title + '</p><p class="text-xs text-stone-500 capitalize">' + (b.topic || "tech") + ' · ' + fmt + '</p>' +
+              '<button class="cart-remove text-xs text-stone-400 hover:text-red-600 mt-1" data-idx="' + idx + '">Remove</button></div>' +
+              '<p class="text-sm font-semibold">' + store.money(p) + '</p></div>';
+          }).join("");
+          var physical = store.hasPhysical(items);
+          var shipRow = document.getElementById("cart-ship-row");
+          if (shipRow) {
+            shipRow.classList.toggle("hidden", !physical);
+            shipRow.classList.toggle("flex", physical);
+            if (physical) document.getElementById("cart-ship").textContent = "At checkout";
+          }
+          totalEl.textContent = store.money(total);
+          footEl.classList.remove("hidden");
+          itemsEl.querySelectorAll(".cart-remove").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              var entry = items[parseInt(btn.getAttribute("data-idx"), 10)];
+              // The store writes, repaints the badge, and announces
+              // the change; the subscription below re-renders.
+              store.remove(entry.slug, entry.format);
+            });
+          });
+        });
+      }
+
+      function openSheet() {
+        render();
+        root.classList.remove("hidden");
+        root.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            backdrop.classList.remove("opacity-0");
+            panel.classList.remove("translate-x-full");
+          });
+        });
+      }
+      function closeSheet() {
+        backdrop.classList.add("opacity-0");
+        panel.classList.add("translate-x-full");
+        document.body.style.overflow = "";
+        root.setAttribute("aria-hidden", "true");
+        setTimeout(function () { root.classList.add("hidden"); }, 320);
+      }
+      window.openCartSheet = openSheet;
+      window.closeCartSheet = closeSheet;
+      document.getElementById("cart-close").addEventListener("click", closeSheet);
+      backdrop.addEventListener("click", closeSheet);
+      document.querySelectorAll(".js-cart-open").forEach(function (el) {
+        el.addEventListener("click", function (e) { e.preventDefault(); openSheet(); });
+      });
+      // Clear cart (the footer button, and the one offered when
+      // nothing in the cart is purchasable): one delegated binding,
+      // straight through the store, so every surface updates.
+      root.addEventListener("click", function (e) {
+        var btn = e.target.closest ? e.target.closest(".cart-clear") : null;
+        if (btn) store.clear();
+      });
+      // The sheet re-renders on every cart change, whoever made it:
+      // a buy button's add, a remove in this sheet, another tab. A
+      // swapped-out sheet unsubscribes itself.
+      var off = store.onChange(function () {
+        if (!document.body.contains(root)) { off(); return; }
+        render();
+      });
+      document.getElementById("cart-checkout").addEventListener("click", function () {
+        // One checkout path for every cart: the /checkout page runs
+        // the whole flow (line items, the shipping address + carrier
+        // quote for physical carts, pay). The drawer is the cart;
+        // it never checks out itself.
+        window.location.href = "/checkout";
+      });
+      // The /cart redirect arrives on the home page carrying the
+      // drawer's open signal: open the sheet, then scrub the param
+      // so a refresh stays closed.
+      var params = new URLSearchParams(window.location.search);
+      if (params.get("cart") === "open") {
+        openSheet();
+        params.delete("cart");
+        var qs = params.toString();
+        history.replaceState(null, "", window.location.pathname + (qs ? "?" + qs : "") + window.location.hash);
+      }
+    }
+    initCartSheet();
+    document.addEventListener("astro:page-load", initCartSheet);
+  })();
+</script>

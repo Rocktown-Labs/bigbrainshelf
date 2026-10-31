@@ -1,0 +1,44 @@
+---
+// Audiobook pill for audiobook covers (CG's design, 2026-10-30):
+// the language pill's sibling. A RED pill, the audio format red
+// from the format-icon system (the red-100/red-800 chip, deepened
+// here to red-700 so white text and icon stay legible on cover
+// art), carrying a white headphone icon and the word for
+// "Audiobook" in the page's language, from the i18n data layer
+// (audiobookLabelFor). Position matches the language pill: absolute
+// inside the cover container, horizontally centered, just below
+// the cover's baked-in title band (band bottom edge measures
+// 21.25% of the hero derivative's height; pill top at 22.5%).
+//
+// Callers pass a locale (or nothing for English) and/or an explicit
+// label; a future localized audio page passes its own locale and
+// gets its own word with no component change. The default "detail"
+// size is the original detail-page pill. The "card" size keeps the
+// same treatment proportionate on listing cards: 9px type, 11px
+// icon, and roughly three-fifths of the detail pill's padding. It
+// is a badge, not a control: no link, no pointer events.
+import { audiobookLabelFor, type LangCode } from "../lib/i18n";
+
+const { locale = "en", label, size = "detail" } = Astro.props as {
+  locale?: LangCode | string;
+  label?: string;
+  size?: "detail" | "card";
+};
+const text = label ?? audiobookLabelFor(String(locale));
+const isCard = size === "card";
+const pillClass = isCard
+  ? "absolute left-1/2 top-[22.5%] z-30 -translate-x-1/2 inline-flex items-center gap-1 rounded-full bg-red-700 text-white px-2.5 py-1 font-bold leading-none whitespace-nowrap select-none pointer-events-none"
+  : "absolute left-1/2 top-[22.5%] z-30 -translate-x-1/2 inline-flex items-center gap-1.5 rounded-full bg-red-700 text-white px-4 py-1.5 text-[13px] sm:text-sm font-bold leading-none whitespace-nowrap select-none pointer-events-none";
+const pillStyle = isCard
+  ? "font-size:9px; box-shadow: 0 0 0 1.5px #f7f2e6, 0 6px 12px -7px rgba(153,27,27,.55)"
+  : "box-shadow: 0 0 0 2px #f7f2e6, 0 10px 20px -10px rgba(153,27,27,.55)";
+const iconSize = isCard ? 11 : 16;
+const iconClass = isCard ? "shrink-0" : "w-4 h-4 shrink-0";
+---
+<span
+  class={pillClass}
+  style={pillStyle}
+>
+  <svg width={iconSize} height={iconSize} class={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3" /></svg>
+  {text}
+</span>

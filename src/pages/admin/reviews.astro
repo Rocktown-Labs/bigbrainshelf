@@ -1,0 +1,341 @@
+---
+import "../../styles/global.css";
+import AdminShell from "../../components/AdminShell.astro";
+export const prerender = false;
+// Review moderation (operator redesign, 2026-10-29; data table,
+// 2026-10-29): three stat cards, then a proper data table with a
+// status filter, sortable date/rating headers, and server pagination
+// (25 per page). Quick approve/reject sits on pending rows; tapping a
+// row opens the full review in a full-screen view. On small screens
+// the table shows priority columns only (book, rating, status, date)
+// so it never stretches; the excerpt and reviewer live in the detail
+// view. Nothing a customer writes appears on a book page until it is
+// approved here. Data comes from /api/admin/reviews.
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Reviews · Big Brain Shelf Admin</title>
+  <style>
+    html{-webkit-tap-highlight-color:transparent}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 4px}
+    .stat{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:12px;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .stat .k{font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#a8a29e;margin:0;line-height:1.3}
+    .stat .v{font-size:1.45rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 .1rem;font-variant-numeric:tabular-nums}
+    .stat .s{font-size:.72rem;color:#78716c;margin:0;line-height:1.35}
+    @media (min-width:640px){
+      .stats{gap:14px}
+      .stat{padding:16px 18px}
+      .stat .k{font-size:.72rem;letter-spacing:.12em}
+      .stat .v{font-size:1.9rem}
+      .stat .s{font-size:.8rem}
+    }
+    .tap{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    a.tap:active,.rowtap:active{background:#f5f5f4}
+    @media (hover:hover) and (pointer:fine){ .rowtap:hover{background:#fafaf9} }
+    .clamp1{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+    #review-detail .panel{overscroll-behavior:contain}
+    /* Status filter pills (same language as the orders tabs). */
+    .fbtn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 14px;border-radius:999px;border:1px solid #e7e5e4;background:#fff;font-size:.85rem;font-weight:600;color:#57534e;cursor:pointer}
+    .fbtn .n{font-variant-numeric:tabular-nums;font-weight:800}
+    .fbtn[aria-pressed="true"]{background:#1c1917;border-color:#1c1917;color:#fff}
+    .fbtn:active{transform:scale(.97)}
+    /* The data table: fixed layout, widths budgeted per breakpoint,
+       so it can never stretch past the viewport like the old orders
+       table did. Optional columns join at md and up. */
+    .rtable{width:100%;border-collapse:collapse;table-layout:fixed}
+    .rtable th{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#a8a29e;text-align:left;padding:10px 12px;border-bottom:1px solid #e7e5e4;background:#fafaf9}
+    .rtable td{padding:11px 12px;border-bottom:1px solid #f5f5f4;vertical-align:top}
+    .rtable tbody tr:last-child td{border-bottom:0}
+    .rtable tbody tr{cursor:pointer}
+    .c-book{width:29%}.c-rating{width:17%}.c-status{width:32%}.c-date{width:22%}
+    .col-opt{display:none}
+    @media (min-width:768px){
+      .col-opt{display:table-cell}
+      .c-book{width:19%}.c-rating{width:12%}.c-review{width:29%}.c-reviewer{width:13%}.c-status{width:16%}.c-date{width:11%}
+    }
+    .sortbtn{touch-action:manipulation;display:inline-flex;align-items:center;gap:4px;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;background:none;border:0;padding:0;cursor:pointer;min-height:28px}
+    .sortbtn .arr{font-size:.6rem;color:#ea580c;min-width:.7em}
+    input,select,textarea{font-size:16px}
+  </style>
+  </head>
+<body class="bg-stone-50 text-stone-900 antialiased">
+  <AdminShell current="/admin/reviews" />
+
+  <main class="mx-auto max-w-6xl px-4 py-8" style="padding-bottom:calc(2rem + env(safe-area-inset-bottom, 0px))">
+    <h1 class="text-2xl font-bold tracking-tight">Reviews</h1>
+    <p class="text-sm text-stone-500 mt-1">Every review waits here first. Approve it and it appears on the book page.</p>
+
+    <div class="stats">
+      <div class="stat">
+        <p class="k">Awaiting moderation</p>
+        <p class="v" id="stat-pending">–</p>
+        <p class="s">Pending reviews, oldest decision first.</p>
+      </div>
+      <div class="stat">
+        <p class="k">Average rating</p>
+        <p class="v" id="stat-avg">–</p>
+        <p class="s">Approved reviews only.</p>
+      </div>
+      <div class="stat">
+        <p class="k">Total reviews</p>
+        <p class="v" id="stat-total">–</p>
+        <p class="s">All time, every status.</p>
+      </div>
+    </div>
+
+    <div class="mt-5 flex flex-wrap gap-2" role="group" aria-label="Filter reviews by status">
+      <button class="fbtn" data-fstatus="all" aria-pressed="true">All <span class="n" data-fcount="all"></span></button>
+      <button class="fbtn" data-fstatus="pending" aria-pressed="false">Pending <span class="n" data-fcount="pending"></span></button>
+      <button class="fbtn" data-fstatus="approved" aria-pressed="false">Approved <span class="n" data-fcount="approved"></span></button>
+      <button class="fbtn" data-fstatus="rejected" aria-pressed="false">Rejected <span class="n" data-fcount="rejected"></span></button>
+    </div>
+
+    <div class="mt-3.5 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
+      <table class="rtable">
+        <thead>
+          <tr>
+            <th class="c-book" scope="col">Book</th>
+            <th class="c-rating" scope="col"><button class="sortbtn" data-sort="rating">Rating <span class="arr" data-arr="rating"></span></button></th>
+            <th class="c-review col-opt" scope="col">Review</th>
+            <th class="c-reviewer col-opt" scope="col">Reviewer</th>
+            <th class="c-status" scope="col">Status</th>
+            <th class="c-date" scope="col"><button class="sortbtn" data-sort="date">Date <span class="arr" data-arr="date"></span></button></th>
+          </tr>
+        </thead>
+        <tbody id="reviews-rows">
+          <tr><td colspan="6" class="text-stone-400 text-sm">Loading...</td></tr>
+        </tbody>
+      </table>
+      <p id="reviews-empty" class="hidden px-4 py-6 text-sm text-stone-400">No reviews here.</p>
+    </div>
+    <div id="reviews-pager" class="mt-4 hidden items-center justify-between gap-3">
+      <button id="page-prev" class="tap rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">‹ Prev</button>
+      <span id="page-label" class="text-sm text-stone-500"></span>
+      <button id="page-next" class="tap rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">Next ›</button>
+    </div>
+  </main>
+
+  <!-- Full-screen review detail -->
+  <div id="review-detail" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-stone-900/40" data-close></div>
+    <div class="panel absolute inset-0 sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[34rem] bg-stone-50 overflow-y-auto shadow-xl" style="padding-bottom:env(safe-area-inset-bottom, 0px)">
+      <div class="sticky top-0 bg-stone-50/95 backdrop-blur px-4 py-3 flex items-center gap-3 border-b border-stone-200" style="padding-top:calc(.75rem + env(safe-area-inset-top, 0px))">
+        <button id="detail-close" class="tap rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">‹ Back</button>
+        <span class="font-bold">Review</span>
+      </div>
+      <div id="detail-body" class="px-4 py-4"></div>
+    </div>
+  </div>
+
+  <script is:inline>
+    var PAGE_SIZE = 25;
+    var page = 1; // 1-based, matches the API
+    var statusFilter = "all";
+    var sortBy = "queue"; // queue = pending first, then newest
+    var sortDir = "desc";
+    var currentRows = [];
+
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+    function stars(n) {
+      var out = "";
+      for (var i = 1; i <= 5; i++) out += i <= n ? "★" : "☆";
+      return out;
+    }
+    function fmtDay(ts) {
+      var d = new Date((ts || 0) * 1000);
+      var opts = { month: "short", day: "numeric" };
+      if (d.getFullYear() !== new Date().getFullYear()) opts.year = "numeric";
+      return d.toLocaleDateString("en-US", opts);
+    }
+    function fmtWhen(ts) {
+      return new Date((ts || 0) * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    }
+    function mediaHtml(r) {
+      var keys = [];
+      try { keys = JSON.parse(r.media_keys || "[]"); } catch (e) {}
+      var html = "";
+      keys.forEach(function (k, i) {
+        html += '<img src="/api/admin/review-media?review=' + encodeURIComponent(r.id) + '&which=' + i + '" alt="Review photo" class="w-28 h-28 object-cover rounded-lg bg-stone-100" loading="lazy" />';
+      });
+      if (r.video_key) {
+        html += '<video controls preload="metadata" class="w-64 max-w-full rounded-lg bg-stone-100" src="/api/admin/review-media?review=' + encodeURIComponent(r.id) + '&which=video"></video>';
+      }
+      return html ? '<div class="flex flex-wrap gap-3 mt-3">' + html + "</div>" : "";
+    }
+    var STATUS = {
+      pending: '<span class="rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-xs font-semibold">Pending</span>',
+      approved: '<span class="rounded-full bg-green-100 text-green-800 px-2.5 py-0.5 text-xs font-semibold">Live</span>',
+      rejected: '<span class="rounded-full bg-red-100 text-red-700 px-2.5 py-0.5 text-xs font-semibold">Not approved</span>'
+    };
+
+    async function moderate(btn) {
+      btn.disabled = true;
+      btn.textContent = "Saving...";
+      await fetch("/api/admin/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: btn.getAttribute("data-act"), review_id: btn.getAttribute("data-id") }),
+      });
+      closeDetail();
+      load(true);
+    }
+
+    function openDetail(rev) {
+      var body = document.getElementById("detail-body");
+      var actions = rev.status === "pending"
+        ? '<div class="flex gap-2 mt-5">' +
+            '<button data-act="approve" data-id="' + rev.id + '" class="tap flex-1 rounded-lg bg-green-700 text-white text-sm font-bold px-4 min-h-[48px]">Approve</button>' +
+            '<button data-act="reject" data-id="' + rev.id + '" class="tap flex-1 rounded-lg bg-white border border-stone-300 text-sm font-bold px-4 min-h-[48px]">Reject</button>' +
+          "</div>"
+        : "";
+      body.innerHTML =
+        '<div class="rounded-xl bg-white border border-stone-200 px-5 py-4">' +
+          '<div class="flex flex-wrap items-center gap-2.5">' +
+            '<span class="text-orange-500 text-xl tracking-tight">' + stars(rev.rating) + "</span>" + (STATUS[rev.status] || "") +
+          "</div>" +
+          '<h2 class="font-bold text-lg mt-2 leading-snug">' + esc(rev.title) + "</h2>" +
+          '<p class="text-sm text-stone-500 mt-1.5 leading-relaxed">' + esc(rev.display_name) + " · " + esc(rev.user_email) + "<br>" +
+            "for <a class='text-orange-700 font-medium' href='/books/" + esc(rev.book_slug) + "'>" + esc(rev.book_title || "a book") + "</a>" +
+            (rev.verified_purchase ? ' · <span class="text-green-700 font-medium">Verified purchase</span>' : "") +
+            "<br>" + fmtWhen(rev.created_at) + "</p>" +
+          '<p class="text-[15px] leading-relaxed mt-3 whitespace-pre-line">' + esc(rev.body) + "</p>" +
+          mediaHtml(rev) + actions +
+        "</div>";
+      body.querySelectorAll("button[data-act]").forEach(function (btn) {
+        btn.addEventListener("click", function () { moderate(btn); });
+      });
+      document.getElementById("review-detail").classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+    }
+    function closeDetail() {
+      document.getElementById("review-detail").classList.add("hidden");
+      document.body.style.overflow = "";
+    }
+    document.getElementById("detail-close").addEventListener("click", closeDetail);
+    document.querySelector("#review-detail [data-close]").addEventListener("click", closeDetail);
+
+    function renderTable(data) {
+      var tbody = document.getElementById("reviews-rows");
+      var empty = document.getElementById("reviews-empty");
+      var pager = document.getElementById("reviews-pager");
+      var rows = data.reviews || [];
+      currentRows = rows;
+      page = data.page || 1;
+      var pages = data.pages || 1;
+      tbody.innerHTML = "";
+      if (!rows.length) {
+        empty.classList.remove("hidden");
+        empty.textContent = statusFilter === "all" ? "No reviews yet." : "No " + statusFilter + " reviews.";
+      } else {
+        empty.classList.add("hidden");
+      }
+      rows.forEach(function (rev) {
+        var tr = document.createElement("tr");
+        tr.className = "rowtap";
+        var actions = rev.status === "pending"
+          ? '<span class="flex flex-col gap-1.5 mt-2">' +
+              '<button data-act="approve" data-id="' + rev.id + '" class="tap rounded-lg bg-green-700 text-white text-xs font-bold px-3 min-h-[40px]">Approve</button>' +
+              '<button data-act="reject" data-id="' + rev.id + '" class="tap rounded-lg bg-white border border-stone-300 text-xs font-bold px-3 min-h-[40px]">Reject</button>' +
+            "</span>"
+          : "";
+        tr.innerHTML =
+          '<td class="c-book"><span class="block truncate text-sm font-semibold">' + esc(rev.book_title || "a book") + "</span></td>" +
+          '<td class="c-rating"><span class="text-orange-500 text-[13px] tracking-tight whitespace-nowrap">' + stars(rev.rating) + "</span></td>" +
+          '<td class="c-review col-opt"><span class="block truncate text-sm font-medium">' + esc(rev.title) + '</span><span class="clamp1 text-sm text-stone-500">' + esc(rev.body) + "</span></td>" +
+          '<td class="c-reviewer col-opt"><span class="block truncate text-sm text-stone-600">' + esc(rev.display_name) + "</span></td>" +
+          '<td class="c-status">' + (STATUS[rev.status] || "") + actions + "</td>" +
+          '<td class="c-date"><span class="text-sm text-stone-500 whitespace-nowrap">' + fmtDay(rev.created_at) + "</span></td>";
+        tr.addEventListener("click", function () { openDetail(rev); });
+        tr.querySelectorAll("button[data-act]").forEach(function (btn) {
+          btn.addEventListener("click", function (ev) {
+            ev.stopPropagation();
+            moderate(btn);
+          });
+        });
+        tbody.appendChild(tr);
+      });
+      document.querySelectorAll("[data-arr]").forEach(function (el) {
+        var key = el.getAttribute("data-arr");
+        el.textContent = sortBy === key ? (sortDir === "desc" ? "▼" : "▲") : "";
+      });
+      if (pages > 1) {
+        pager.classList.remove("hidden");
+        pager.classList.add("flex");
+        document.getElementById("page-label").textContent =
+          "Page " + page + " of " + pages + " · " + (data.total || 0) + " reviews";
+        document.getElementById("page-prev").disabled = page <= 1;
+        document.getElementById("page-next").disabled = page >= pages;
+        document.getElementById("page-prev").style.opacity = page <= 1 ? ".4" : "";
+        document.getElementById("page-next").style.opacity = page >= pages ? ".4" : "";
+      } else {
+        pager.classList.add("hidden");
+        pager.classList.remove("flex");
+      }
+    }
+    document.getElementById("page-prev").addEventListener("click", function () { if (page > 1) { page -= 1; load(true); window.scrollTo({ top: 0 }); } });
+    document.getElementById("page-next").addEventListener("click", function () { page += 1; load(true); window.scrollTo({ top: 0 }); });
+    document.querySelectorAll(".fbtn").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var s = b.getAttribute("data-fstatus");
+        if (s && s !== statusFilter) {
+          statusFilter = s;
+          document.querySelectorAll(".fbtn").forEach(function (x) {
+            x.setAttribute("aria-pressed", x.getAttribute("data-fstatus") === s ? "true" : "false");
+          });
+          page = 1;
+          load(true);
+        }
+      });
+    });
+    document.querySelectorAll(".sortbtn").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var key = b.getAttribute("data-sort");
+        if (sortBy === key) {
+          sortDir = sortDir === "desc" ? "asc" : "desc";
+        } else {
+          sortBy = key;
+          sortDir = "desc";
+        }
+        page = 1;
+        load(true);
+      });
+    });
+
+    async function load(keepPage) {
+      if (!keepPage) page = 1;
+      var qs = "?page=" + page + "&status=" + encodeURIComponent(statusFilter) +
+        "&sort=" + encodeURIComponent(sortBy) + "&dir=" + encodeURIComponent(sortDir);
+      var r = await fetch("/api/admin/reviews" + qs);
+      var data = await r.json();
+      var stats = data.stats || {};
+      document.getElementById("stat-pending").textContent = stats.pending != null ? stats.pending : (data.pending || 0);
+      document.getElementById("stat-avg").textContent = stats.avgApproved != null ? Number(stats.avgApproved).toFixed(1) : "–";
+      document.getElementById("stat-total").textContent = stats.total != null ? stats.total : (data.total || 0);
+      document.querySelectorAll("[data-fcount]").forEach(function (el) {
+        var key = el.getAttribute("data-fcount");
+        var n = key === "all" ? stats.total : stats[key];
+        el.textContent = n != null ? n : "";
+      });
+      renderTable(data);
+    }
+    load();
+  </script>
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

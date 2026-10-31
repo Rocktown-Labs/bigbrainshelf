@@ -1,0 +1,531 @@
+---
+import "../styles/global.css";
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import CartSheet from "../components/CartSheet.astro";
+import SectionHero from "../components/SectionHero.astro";
+import SectionNav from "../components/SectionNav.astro";
+import Tracking from "../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../components/TransitionHooks.astro";
+import SeoHead from "../components/SeoHead.astro";
+import { getAuth } from "../lib/auth";
+import {
+  clubPriceLabel,
+  CLUB_PRICE_CENTS,
+  CLUB_ANNUAL_PRICE_CENTS,
+  CLUB_FIRST_BOX_BOOK,
+  AUDIO_CLUB_PRICE_CENTS,
+  AUDIO_CLUB_ANNUAL_PRICE_CENTS,
+  GIFT_SET_PRICE_CENTS,
+  STANDARD_DIGITAL_PRICE_CENTS,
+  STANDARD_PRINT_PRICE_CENTS,
+} from "../lib/offers";
+import { shelfLabel, ensureClubTable, getClubSignup, clubPlanOf } from "../lib/club";
+import { ensureClubCycleTables, generateUpcomingCyclesForMember, getNextClubBox } from "../lib/club-cycles";
+import { formatClubDate } from "../lib/club-cycle-dates";
+import { env } from "cloudflare:workers";
+export const prerender = false;
+const adminUser = Astro.locals.user;
+const e = env as any;
+
+// Page state (src/lib/offers.ts + src/lib/club.ts). This page is a
+// plain pricing page: what the club is, the two offers, and how
+// signup works (account, then checkout, then the library). Two
+// states:
+//   member    the signed-in visitor already pays (webhook-activated)
+//   join      everyone else: pick a plan, then account and Stripe
+//             subscription checkout
+// There is no member cap (CG, 2026-10-31): The Book Club is open to
+// whoever joins. The old founding cap and its waitlist card were
+// removed from the page, the checkout route, and the copy.
+let member: any = null;
+let firstBoxTitle = "";
+let nextBox: any = null;
+let nextBoxTitle = "";
+let sessionEmail = "";
+try {
+  const session = await getAuth().api.getSession({ headers: Astro.request.headers }).catch(() => null);
+  sessionEmail = String(session?.user?.email || "").toLowerCase();
+  await ensureClubTable(e.DB);
+  if (sessionEmail) {
+    member = await getClubSignup(e.DB, sessionEmail);
+    if (member?.status === "paid") {
+      const slug = CLUB_FIRST_BOX_BOOK[String(member.shelf || "")];
+      if (slug) {
+        const b = await e.DB.prepare("SELECT title FROM books WHERE slug = ?").bind(slug).first();
+        firstBoxTitle = String((b as any)?.title || "");
+      }
+      // Book Club V2: the member's next box and its current pick, so
+      // the panel can point at the choice that is actually in effect.
+      try {
+        await ensureClubCycleTables(e.DB);
+        await generateUpcomingCyclesForMember(e.DB, member);
+        nextBox = await getNextClubBox(e.DB, member.id);
+        if (nextBox) {
+          const pickSlug = nextBox.resolved_book_slug || nextBox.selected_book_slug;
+          if (pickSlug) {
+            const b = await e.DB.prepare("SELECT title FROM books WHERE slug = ?").bind(pickSlug).first();
+            nextBoxTitle = String((b as any)?.title || "");
+          }
+        }
+      } catch { /* panel still renders without cycle data */ }
+    }
+  }
+} catch { /* the page still renders its join state without club data */ }
+const signedIn = !!sessionEmail;
+const isMember = member?.status === "paid";
+const reserved = member && !isMember ? member : null;
+const joined = Astro.url.searchParams.get("joined") === "1";
+const joinCancelled = Astro.url.searchParams.get("join") === "cancelled";
+const quarterlyLabel = clubPriceLabel(CLUB_PRICE_CENTS);
+const annualLabel = clubPriceLabel(CLUB_ANNUAL_PRICE_CENTS);
+// Whole-dollar framings for the approved offer copy (Option A,
+// 2026-10-29; price set by CG 2026-10-31): "$60 every 3 months, or
+// $199 a year. That is $20 a month." Derived from the same price
+// constants, never typed twice.
+const wholeDollars = (cents: number) => `$${Math.round(cents / 100)}`;
+const clubWholeLabel = wholeDollars(CLUB_PRICE_CENTS);
+const clubAnnualWholeLabel = wholeDollars(CLUB_ANNUAL_PRICE_CENTS);
+const clubMonthlyEquivalentLabel = wholeDollars(CLUB_PRICE_CENTS / 3);
+const audioMonthlyLabel = clubPriceLabel(AUDIO_CLUB_PRICE_CENTS);
+const audioAnnualLabel = clubPriceLabel(AUDIO_CLUB_ANNUAL_PRICE_CENTS);
+// The Audio card's price line uses the whole-dollar annual, matching
+// the Book Club card's framing: "$5.99 a month, or $49 a year."
+const audioAnnualWholeLabel = wholeDollars(AUDIO_CLUB_ANNUAL_PRICE_CENTS);
+// Owned value per Book Club box, itemized from the same constants
+// the store charges (review fix, 2026-10-30): the gift set, the
+// second printed book, and that book's digital edition (the club
+// book's own digital rides inside the gift set). The page used to
+// claim a flat "$59.99 of owned value" that no combination of the
+// visible prices reproduces; the itemized sum is computed here so
+// the figure can never drift from the prices.
+const boxValueLabel = clubPriceLabel(GIFT_SET_PRICE_CENTS + STANDARD_PRINT_PRICE_CENTS + STANDARD_DIGITAL_PRICE_CENTS);
+const giftSetValueLabel = clubPriceLabel(GIFT_SET_PRICE_CENTS);
+const secondBookValueLabel = clubPriceLabel(STANDARD_PRINT_PRICE_CENTS);
+const secondDigitalValueLabel = clubPriceLabel(STANDARD_DIGITAL_PRICE_CENTS);
+// Yearly savings tags, computed from the same constants: four
+// quarterly payments against the annual, twelve monthly against it.
+const clubSaveLabel = wholeDollars(CLUB_PRICE_CENTS * 4 - CLUB_ANNUAL_PRICE_CENTS);
+const audioSaveLabel = clubPriceLabel(AUDIO_CLUB_PRICE_CENTS * 12 - AUDIO_CLUB_ANNUAL_PRICE_CENTS);
+// Per-month equivalents for the annual plans, so each plan's radio
+// card can spell out its own rhythm ("about $12.42 a month, billed
+// once a year") instead of one floating figure under both prices.
+const clubAnnualMonthlyLabel = clubPriceLabel(Math.round(CLUB_ANNUAL_PRICE_CENTS / 12));
+const audioAnnualMonthlyLabel = clubPriceLabel(Math.round(AUDIO_CLUB_ANNUAL_PRICE_CENTS / 12));
+// Savings as percentages for the yearly badges, computed from the
+// same constants (2026-10-31): 17% on The Book Club, 32% on The
+// Audio Club at today's prices, and they move on their own if the
+// prices ever change. The card's "about" figure is the itemized box
+// value rounded the way a person would say it: about $54.
+const clubSavePct = Math.round((1 - CLUB_ANNUAL_PRICE_CENTS / (CLUB_PRICE_CENTS * 4)) * 100);
+const audioSavePct = Math.round((1 - AUDIO_CLUB_ANNUAL_PRICE_CENTS / (AUDIO_CLUB_PRICE_CENTS * 12)) * 100);
+const boxAboutLabel = `$${Math.round((GIFT_SET_PRICE_CENTS + STANDARD_PRINT_PRICE_CENTS + STANDARD_DIGITAL_PRICE_CENTS) / 100)}`;
+// The member's club plan (physical | audio) drives the member panel:
+// audio members see listening copy, never boxes or shelves.
+const memberPlan = member ? clubPlanOf(member) : null;
+const memberIsAudio = memberPlan === "audio";
+// Analytics: the club checkout's Stripe success_url lands on
+// ?joined=1, so this load is the subscription's confirmed-success
+// point. Plan and period come from the membership record when the
+// webhook has already landed; when it has not, the event fires
+// without them rather than guessing. The onceKey keeps refreshes of
+// the landing from counting the subscription twice.
+const clubTraksEvent = joined
+  ? {
+      name: "club_subscribed",
+      props: {
+        ...(isMember && memberPlan ? { plan: memberPlan } : {}),
+        ...(isMember && member?.plan ? { period: String(member.plan) } : {}),
+      },
+      onceKey: member?.id ? "club-" + String(member.id) : "club-joined",
+    }
+  : null;
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-16.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>The Book Club &amp; The Audio Club — Big Brain Shelf</title>
+  <SeoHead title="The Book Club & The Audio Club — Big Brain Shelf" socialDescription="Two subscriptions for Big Brain Shelf books: The Book Club (a gift set plus a second printed book every 3 months, and every book digitally) and The Audio Club (every audiobook, listening only)." />
+  <meta name="description" content="Two subscriptions for Big Brain Shelf books: The Book Club (a gift set plus a second printed book every 3 months, and every book digitally) and The Audio Club (every audiobook, listening only)." />
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking traksEvent={clubTraksEvent} />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+
+  <SectionHero subline="Two simple clubs: printed books by mail, or every audiobook on the shelf." />
+  <SectionNav active="plans" />
+
+  <main class="max-w-4xl mx-auto px-5 pt-6 sm:pt-8 pb-20">
+    <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3" style="font-family: Fredoka, ui-rounded, system-ui">The Book Club &amp; The Audio Club</h2>
+    <p class="text-stone-600 leading-relaxed max-w-2xl">A subscription for Big Brain Shelf books, in two versions. The Book Club mails you a gift set plus a second printed book every 3 months and unlocks every book digitally. The Audio Club is every audiobook, listening only. Cancel anytime.</p>
+    <p class="text-stone-500 text-sm leading-relaxed mt-3">How it works: create a free account, check out, and your books are in your library.</p>
+
+    {joined && !isMember && (
+      <div class="rounded-xl bg-green-50 border border-green-200 px-5 py-4 mt-6">
+        <p class="font-semibold text-green-800">Welcome to the club.</p>
+        <p class="text-sm text-green-700 leading-relaxed mt-1">Your membership is being set up now, and your library will fill in shortly.</p>
+      </div>
+    )}
+    {joinCancelled && !isMember && (
+      <div class="rounded-xl bg-amber-50 border border-amber-200 px-5 py-4 mt-6">
+        <p class="text-sm text-amber-800 leading-relaxed">Checkout was cancelled, and nothing was charged.</p>
+      </div>
+    )}
+
+    {isMember && memberIsAudio ? (
+      <div class="rounded-2xl bg-[#1a3454] text-white p-6 sm:p-8 mt-8">
+        <h2 class="text-xl font-extrabold tracking-tight mb-1">You are a member of The Audio Club</h2>
+        <p class="text-white/70 text-sm leading-relaxed">
+          {member.plan === "annual" ? `Annual plan · ${audioAnnualLabel} a year` : `Monthly plan · ${audioMonthlyLabel} a month`} · Every Big Brain Shelf audiobook is in your library while your membership is active. Listening only: no boxes ship on this plan.
+        </p>
+        <a href="/account" class="inline-block mt-5 rounded-full bg-orange-600 text-white text-sm font-semibold px-6 py-2.5 hover:bg-orange-700 transition">Listen in your library</a>
+      </div>
+    ) : isMember ? (
+      <div class="rounded-2xl bg-[#1a3454] text-white p-6 sm:p-8 mt-8">
+        <h2 class="text-xl font-extrabold tracking-tight mb-1">You are a member of The Book Club</h2>
+        <p class="text-white/70 text-sm leading-relaxed">
+          {member.plan === "annual" ? `Annual plan · ${annualLabel} a year` : `Quarterly plan · ${quarterlyLabel} every 3 months`} · Starting shelf: {shelfLabel(member.shelf)} · Every book on the shelf is in your library, digital and audio, while your membership is active.
+        </p>
+        {firstBoxTitle && (
+          <p class="text-white/70 text-sm leading-relaxed mt-2">The digital bundle for {firstBoxTitle} is in your library now.</p>
+        )}
+        {nextBox && (
+          <p class="text-white/70 text-sm leading-relaxed mt-2">
+            {nextBox.status === "needs_attention"
+              ? <>Your next box ({formatClubDate(nextBox.ship_date)}) needs a pick from you: surprise ran out of new books, so choose a repeat or gift copy in your account.</>
+              : <>Next box: {formatClubDate(nextBox.ship_date)} · {nextBoxTitle ? <>Book: {nextBoxTitle}</> : "Surprise me (we will pick a book you do not already have)"} · <a href="/account" class="font-semibold text-orange-300 hover:text-orange-200">Choose or change your book</a></>}
+          </p>
+        )}
+        <a href="/account" class="inline-block mt-5 rounded-full bg-orange-600 text-white text-sm font-semibold px-6 py-2.5 hover:bg-orange-700 transition">See it in your account</a>
+      </div>
+    ) : (
+      <>
+      <div id="plan-switch" class="flex gap-2 mt-8 sm:hidden" role="group" aria-label="Choose a club">
+        <button type="button" data-plan-switch="physical" aria-pressed="true" class="flex-1 min-h-[46px] rounded-full border border-[#1a3454] bg-[#1a3454] text-white text-[15px] font-semibold transition duration-100 active:scale-[0.97]">The Book Club</button>
+        <button type="button" data-plan-switch="audio" aria-pressed="false" class="flex-1 min-h-[46px] rounded-full border border-[#1a3454] bg-white text-[#1a3454] text-[15px] font-semibold transition duration-100 active:scale-[0.97]">The Audio Club</button>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-4 mt-4 sm:mt-8">
+          <div class="plan-card-physical flex flex-col h-full rounded-2xl bg-[#1a3454] text-white p-6 sm:p-8">
+            <h2 class="text-xl font-extrabold tracking-tight mb-1">The Book Club</h2>
+            <p class="text-lg font-bold leading-snug">A new big idea in your mailbox every 3 months.</p>
+            <p class="text-white/70 text-sm leading-relaxed mt-2">Decide once. Each box brings a printed gift set and a second printed book, and the whole shelf opens in your library. The club book is yours to keep digitally, even if you cancel. First box the day you join, then every 3 months.</p>
+            <p class="text-white/70 text-sm leading-relaxed mt-2">About {boxAboutLabel} in books in every box, plus a cast sticker sheet and a little extra. Shipping is on us.</p>
+            <ul class="text-sm text-white/85 leading-relaxed mt-4 space-y-2 list-disc pl-5">
+              <li>The gift set: a printed storybook and a printed coloring book.</li>
+              <li>A second printed book: your pick, or a surprise you do not own.</li>
+              <li>First box guarantee: if it misses in 30 days, your first payment comes back.</li>
+            </ul>
+            <form id="club-form" novalidate class="mt-auto pt-5">
+              <fieldset class="mb-4">
+                <legend class="text-sm font-medium mb-2">Pick your plan</legend>
+                <div class="grid gap-2">
+                  <label class="flex items-center gap-3 rounded-xl border border-white/25 p-3 cursor-pointer hover:border-orange-400 has-checked:border-orange-400 has-checked:bg-white/10">
+                    <input type="radio" name="plan" value="quarterly" checked class="appearance-none shrink-0 w-4 h-4 rounded-full border-2 border-white/60 bg-transparent checked:border-orange-400 checked:bg-orange-500 checked:shadow-[inset_0_0_0_2px_#1a3454]" />
+                    <span class="flex-1 min-w-0">
+                      <span class="block font-semibold text-sm">Every 3 months</span>
+                      <span class="block text-xs text-white/60 mt-0.5">{clubMonthlyEquivalentLabel} a month, billed every 3 months</span>
+                    </span>
+                    <span class="text-xl font-extrabold tracking-tight whitespace-nowrap">{quarterlyLabel}</span>
+                  </label>
+                  <label class="flex items-center gap-3 rounded-xl border border-white/25 p-3 cursor-pointer hover:border-orange-400 has-checked:border-orange-400 has-checked:bg-white/10">
+                    <input type="radio" name="plan" value="annual" class="appearance-none shrink-0 w-4 h-4 rounded-full border-2 border-white/60 bg-transparent checked:border-orange-400 checked:bg-orange-500 checked:shadow-[inset_0_0_0_2px_#1a3454]" />
+                    <span class="flex-1 min-w-0">
+                      <span class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span class="font-semibold text-sm">Yearly</span>
+                        <span class="rounded-full bg-green-400/20 text-green-200 text-[11px] font-bold px-2 py-0.5 whitespace-nowrap">Save {clubSaveLabel} · {clubSavePct}%</span>
+                      </span>
+                      <span class="block text-xs text-white/60 mt-0.5">About {clubAnnualMonthlyLabel} a month, billed once a year</span>
+                    </span>
+                    <span class="text-xl font-extrabold tracking-tight whitespace-nowrap">{annualLabel}</span>
+                  </label>
+                </div>
+              </fieldset>
+              {reserved && (
+                <p class="text-xs text-white/60 leading-relaxed mt-4">You are already on the list with the {shelfLabel(reserved.shelf)} shelf. Joining turns that into your membership, and you pick your books in your account.</p>
+              )}
+              <button type="submit" id="club-submit" class="mt-6 w-full rounded-full bg-orange-600 text-white text-sm font-semibold px-8 py-3 hover:bg-orange-700 transition">
+                {signedIn ? "Join The Book Club" : "Create an account to join"}
+              </button>
+              <p class="text-xs text-white/60 leading-relaxed mt-3">Charges today, and your first box is on its way. Cancel anytime. What you own stays yours.</p>
+              <p class="text-xs text-white/60 leading-relaxed mt-3">Not sure yet? <a href="/" class="font-semibold text-orange-300 hover:text-orange-200">Read a free sample</a>, or <a href="/clubs/book-club" class="font-semibold text-orange-300 hover:text-orange-200">learn more about The Book Club</a>.</p>
+              <p id="club-msg" class="text-sm mt-3 hidden" role="status"></p>
+            </form>
+          </div>
+
+        <div class="plan-card-audio max-sm:hidden flex flex-col h-full rounded-2xl border-2 border-orange-200 bg-orange-50 p-6 sm:p-8">
+          <h2 class="text-xl font-extrabold tracking-tight mb-1 text-[#1a3454]">The Audio Club</h2>
+          <p class="text-stone-600 text-sm leading-relaxed">{audioMonthlyLabel} a month, or {audioAnnualWholeLabel} a year.</p>
+          <ul class="text-sm text-stone-700 leading-relaxed mt-4 space-y-2 list-disc pl-5">
+            <li>Every audiobook on the shelf, in your library.</li>
+            <li>Listen in the reader, as much as you like, while you are a member.</li>
+            <li>New books are added as they publish.</li>
+            <li>Listening only: no boxes ship on this plan, and nothing is yours to keep. Want the books themselves? That is The Book Club.</li>
+          </ul>
+          <form id="audio-form" novalidate class="mt-auto pt-5">
+            <fieldset class="mb-4">
+              <legend class="text-sm font-medium mb-2 text-stone-800">Pick your plan</legend>
+              <div class="grid gap-2">
+                <label class="flex items-center gap-3 rounded-xl border border-stone-300 bg-white p-3 cursor-pointer hover:border-orange-400 has-checked:border-orange-500 has-checked:bg-orange-100/60">
+                  <input type="radio" name="plan" value="monthly" checked class="appearance-none shrink-0 w-4 h-4 rounded-full border-2 border-stone-400 bg-white checked:border-orange-500 checked:bg-orange-500 checked:shadow-[inset_0_0_0_2px_#ffffff]" />
+                  <span class="flex-1 min-w-0">
+                    <span class="block font-semibold text-sm text-stone-900">Monthly</span>
+                    <span class="block text-xs text-stone-500 mt-0.5">Billed every month</span>
+                  </span>
+                  <span class="text-xl font-extrabold tracking-tight whitespace-nowrap text-stone-900">{audioMonthlyLabel}</span>
+                </label>
+                <label class="flex items-center gap-3 rounded-xl border border-stone-300 bg-white p-3 cursor-pointer hover:border-orange-400 has-checked:border-orange-500 has-checked:bg-orange-100/60">
+                  <input type="radio" name="plan" value="annual" class="appearance-none shrink-0 w-4 h-4 rounded-full border-2 border-stone-400 bg-white checked:border-orange-500 checked:bg-orange-500 checked:shadow-[inset_0_0_0_2px_#ffffff]" />
+                  <span class="flex-1 min-w-0">
+                    <span class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span class="font-semibold text-sm text-stone-900">Yearly</span>
+                      <span class="rounded-full bg-green-100 text-green-800 text-[11px] font-bold px-2 py-0.5 whitespace-nowrap">Save {audioSaveLabel} · {audioSavePct}%</span>
+                    </span>
+                    <span class="block text-xs text-stone-500 mt-0.5">About {audioAnnualMonthlyLabel} a month, billed once a year</span>
+                  </span>
+                  <span class="text-xl font-extrabold tracking-tight whitespace-nowrap text-stone-900">{audioAnnualLabel}</span>
+                </label>
+              </div>
+            </fieldset>
+            <button type="submit" id="audio-submit" class="mt-2 w-full rounded-full bg-orange-600 text-white text-sm font-semibold px-8 py-3 hover:bg-orange-700 transition">
+              {signedIn ? "Join The Audio Club" : "Create an account to join"}
+            </button>
+            <p class="text-xs text-stone-500 leading-relaxed mt-3">Charges today. Pause or cancel anytime from your account.</p>
+            <p id="audio-msg" class="text-sm mt-3 hidden" role="status"></p>
+            <p class="text-sm mt-4">Not sure yet? <a href="/audiobooks" class="font-semibold text-orange-700 hover:text-orange-800">Hear a free sample</a> <span class="text-stone-500">of any book first: the introduction and chapter 1, no account needed.</span></p>
+            <p class="text-sm mt-2"><a href="/clubs/audio-club" class="font-semibold text-orange-700 hover:text-orange-800">Learn more about The Audio Club</a></p>
+          </form>
+        </div>
+      </div>
+
+      <p class="text-sm text-stone-600 mt-6">Or <a href="/" class="font-semibold text-orange-700 hover:text-orange-800">buy books one at a time</a>, no subscription.</p>
+      </>
+    )}
+
+    <a href="/" class="inline-block mt-10 text-sm text-stone-500 hover:text-stone-900">&larr; Back to the shelf</a>
+  </main>
+  <SiteFooter />
+
+  <script is:inline>
+    // Keep the header account link in sync with the session (same
+    // pattern as the other public pages).
+    function bbsAccountLink() {
+      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+        var link = document.getElementById("account-link");
+        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
+      }).catch(function () {});
+    }
+    bbsAccountLink();
+    document.addEventListener("astro:page-load", bbsAccountLink);
+
+    // Signup is account first, then checkout, then access: a visitor
+    // who starts joining signed out is sent to /signup with
+    // next=/clubs, and their picks ride along in sessionStorage
+    // and are restored here when they land back signed in.
+    var STASH_KEY = "bbs-club-join";
+    function stashPicks(picks) {
+      try { sessionStorage.setItem(STASH_KEY, JSON.stringify(picks)); } catch (e) {}
+    }
+    function clearStash() {
+      try { sessionStorage.removeItem(STASH_KEY); } catch (e) {}
+    }
+    function formFor(stash) {
+      if (stash.waitlist) return document.getElementById("waitlist-form");
+      // Stashes from before the Audio Club existed carry no club_plan
+      // and are physical.
+      return document.getElementById(stash.club_plan === "audio" ? "audio-form" : "club-form");
+    }
+    function msgFor(form) {
+      if (!form) return null;
+      return document.getElementById(form.id === "audio-form" ? "audio-msg" : "club-msg");
+    }
+    function restoreStash() {
+      var raw = null;
+      try { raw = sessionStorage.getItem(STASH_KEY); } catch (e) {}
+      if (!raw) return;
+      var stash = {};
+      try { stash = JSON.parse(raw) || {}; } catch (e) { return; }
+      var form = formFor(stash);
+      if (!form) return;
+      // A returning audio joiner lands on the Audio Club panel, even
+      // on mobile where the switch defaults to the Book Club.
+      if (stash.club_plan === "audio" && typeof setMobilePlan === "function") setMobilePlan("audio");
+      ["plan"].forEach(function (field) {
+        if (!stash[field]) return;
+        var radio = form.querySelector("input[name=" + field + "][value=" + stash[field] + "]");
+        if (radio) radio.checked = true;
+      });
+      var msg = msgFor(form);
+      if (msg) {
+        msg.textContent = "You are signed in. Check your picks and join to finish.";
+        msg.classList.remove("hidden", "text-red-300", "text-red-600");
+        msg.classList.add(form.id === "audio-form" ? "text-green-700" : "text-green-300");
+      }
+    }
+    restoreStash();
+    document.addEventListener("astro:page-load", restoreStash);
+
+    // Mobile plan switch (A2): on narrow screens the two plan cards
+    // collapse to the two side-by-side buttons above them, with only
+    // the selected plan's card below (Book Club is the default). At sm
+    // and up both cards always show side by side and the switch is
+    // hidden, so this only ever toggles the max-sm:hidden classes.
+    function setMobilePlan(which) {
+      var physical = document.querySelector(".plan-card-physical");
+      var audio = document.querySelector(".plan-card-audio");
+      if (physical) physical.classList.toggle("max-sm:hidden", which === "audio");
+      if (audio) audio.classList.toggle("max-sm:hidden", which !== "audio");
+      document.querySelectorAll("[data-plan-switch]").forEach(function (btn) {
+        var on = btn.getAttribute("data-plan-switch") === which;
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+        btn.classList.toggle("bg-[#1a3454]", on);
+        btn.classList.toggle("text-white", on);
+        btn.classList.toggle("bg-white", !on);
+        btn.classList.toggle("text-[#1a3454]", !on);
+      });
+    }
+    function bindPlanSwitch() {
+      var wrap = document.getElementById("plan-switch");
+      if (!wrap || wrap.__bound) return;
+      wrap.__bound = true;
+      wrap.addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-plan-switch]");
+        if (btn) setMobilePlan(btn.getAttribute("data-plan-switch"));
+      });
+    }
+    bindPlanSwitch();
+    document.addEventListener("astro:page-load", bindPlanSwitch);
+
+    function showMsg(form, text, ok) {
+      var msg = msgFor(form);
+      if (!msg) return;
+      var light = form && form.id === "audio-form";
+      msg.textContent = text;
+      msg.classList.remove("hidden", "text-red-300", "text-green-300", "text-red-600", "text-green-700");
+      msg.classList.add(ok ? (light ? "text-green-700" : "text-green-300") : (light ? "text-red-600" : "text-red-300"));
+    }
+    function getSession() {
+      return fetch("/api/auth/get-session").then(function (r) { return r.json(); }).catch(function () { return {}; });
+    }
+    function postJson(url, body) {
+      return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, d: d }; });
+      });
+    }
+    // Shared join flow for all three forms: signed out, stash the
+    // picks and detour through signup; signed in, post to the
+    // endpoint (which keys everything to the session server-side).
+    // A 401 from the endpoint takes the same signup detour, in case
+    // the session expired between page load and submit.
+    function joinFlow(form, picks, btn, submit) {
+      btn.disabled = true;
+      getSession().then(function (s) {
+        if (!s || !s.user) {
+          stashPicks(picks);
+          window.location.href = "/signup?next=" + encodeURIComponent("/clubs");
+          return null;
+        }
+        return submit();
+      }).then(function (res) {
+        if (!res) return; // redirecting to signup
+        if (res.status === 401) {
+          stashPicks(picks);
+          window.location.href = "/signup?next=" + encodeURIComponent("/clubs");
+          return;
+        }
+        if (res.ok && res.d && res.d.url) {
+          clearStash();
+          window.location.href = res.d.url;
+          return;
+        }
+        if (res.d && (res.d.alreadyMember || res.d.waitlist)) { window.location.reload(); return; }
+        if (res.ok && res.d && res.d.ok) {
+          clearStash();
+          showMsg(form, "You are on the waitlist. We will email you when a spot opens.", true);
+          return;
+        }
+        showMsg(form, (res.d && res.d.error) || "Something went wrong. Please try again.", false);
+        btn.disabled = false;
+      }).catch(function () {
+        showMsg(form, "Something went wrong. Please try again.", false);
+        btn.disabled = false;
+      });
+    }
+    function picked(form, name) {
+      var el = form.querySelector("input[name=" + name + "]:checked");
+      return el ? el.value : "";
+    }
+
+    function initClubForm() {
+      var form = document.getElementById("club-form");
+      if (!form || form.__clubBound) return;
+      form.__clubBound = true;
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        // The card sells the plan only: no shelf pick before
+        // subscribing (owner, 2026-10-29). Members configure their
+        // offering after joining, in their account.
+        var picks = { club_plan: "physical", plan: picked(form, "plan") || "quarterly" };
+        if (window.bbsTraks) window.bbsTraks("club_join_click", { plan: "physical" });
+        joinFlow(form, picks, document.getElementById("club-submit"), function () {
+          if (window.bbsTraks) window.bbsTraks("club_checkout_start", { plan: "physical" });
+          return postJson("/api/club/checkout", { plan: picks.plan, club_plan: "physical" });
+        });
+      });
+    }
+    initClubForm();
+    document.addEventListener("astro:page-load", initClubForm);
+
+    function initAudioForm() {
+      var form = document.getElementById("audio-form");
+      if (!form || form.__clubBound) return;
+      form.__clubBound = true;
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var picks = { club_plan: "audio", plan: picked(form, "plan") || "monthly" };
+        if (window.bbsTraks) window.bbsTraks("club_join_click", { plan: "audio" });
+        joinFlow(form, picks, document.getElementById("audio-submit"), function () {
+          if (window.bbsTraks) window.bbsTraks("club_checkout_start", { plan: "audio" });
+          return postJson("/api/club/checkout", { plan: picks.plan, club_plan: "audio" });
+        });
+      });
+    }
+    initAudioForm();
+    document.addEventListener("astro:page-load", initAudioForm);
+
+    function initWaitlistForm() {
+      var form = document.getElementById("waitlist-form");
+      if (!form || form.__clubBound) return;
+      form.__clubBound = true;
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var picks = { club_plan: "physical", waitlist: true };
+        joinFlow(form, picks, document.getElementById("waitlist-submit"), function () {
+          return postJson("/api/club-signup", {});
+        });
+      });
+    }
+    initWaitlistForm();
+    document.addEventListener("astro:page-load", initWaitlistForm);
+  </script>
+
+  <!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+  <CartSheet />
+
+</body>
+</html>

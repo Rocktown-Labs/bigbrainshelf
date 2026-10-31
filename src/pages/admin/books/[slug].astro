@@ -1,0 +1,727 @@
+---
+import "../../../styles/global.css";
+import { env } from "cloudflare:workers";
+import AdminShell from "../../../components/AdminShell.astro";
+import { resolveBookForPublicRoute, publicSlugFor } from "../../../lib/public-slugs";
+export const prerender = false;
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+// Admin book URLs carry the book's PUBLIC slug (owner, 2026-10-29):
+// the route param resolves by public_slug first and falls back to
+// the internal slug, so existing links and bookmarks keep working.
+// Everything internal (the API calls this page makes, R2 keys,
+// factory calls) keys on the internal slug; only links wear the
+// public one. An unresolvable param falls through as-is and the
+// page shows its usual not-found state.
+const param = String(Astro.params.slug || "");
+const resolvedBook = await resolveBookForPublicRoute(env.DB as any, param).catch(() => null);
+const slug = resolvedBook ? String(resolvedBook.book.slug) : param;
+const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>Book QC · Big Brain Shelf admin</title>
+  <style is:global>
+    * { box-sizing: border-box; }
+    body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; color: #1c1917; background: #fafaf9; }
+    a { color: #c2410c; }
+    .subbar { position: sticky; top: 0; z-index: 6; background: #fff; border-bottom: 1px solid #e7e5e4; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .subbar h1 { font-size: 16px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .subbar select { padding: 7px 10px; border: 1px solid #d6d3d1; border-radius: 8px; font-size: 14px; background: #fff; }
+    .status { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .draft { background: #f5f5f4; color: #44403c; } .queued { background: #dbeafe; color: #1e40af; }
+    .building { background: #fef3c7; color: #92400e; } .ready_for_qa { background: #cffafe; color: #155e75; }
+    .in_progress { background: #fef3c7; color: #92400e; } .complete { background: #dcfce7; color: #166534; }
+    .failed { background: #fee2e2; color: #991b1b; }
+    .seg { display: inline-flex; border: 1px solid #d6d3d1; border-radius: 8px; overflow: hidden; }
+    .seg button { border: 0; background: #fff; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+    .seg button.on { background: #1a3454; color: #fff; }
+    #wrap { display: flex; align-items: flex-start; }
+    #rail { width: 212px; flex-shrink: 0; position: sticky; top: 57px; height: calc(100vh - 57px); overflow-y: auto; padding: 10px; background: #fff; border-right: 1px solid #e7e5e4; }
+    .rail-page { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; background: none; border: 1px solid transparent; border-radius: 8px; padding: 5px; cursor: pointer; margin-bottom: 2px; font-family: inherit; }
+    .rail-page:hover { background: #f5f5f4; }
+    .rail-page.cur { border-color: #1a3454; background: #f5f5f4; }
+    .rail-page img { width: 40px; height: 40px; object-fit: cover; border: 1px solid #e7e5e4; border-radius: 4px; }
+    .rail-page .tocthumb { width: 40px; height: 40px; flex: none; display: flex; align-items: center; justify-content: center; border: 1px solid #e7e5e4; border-radius: 4px; background: #fafaf9; font-size: 8.5px; font-weight: 700; color: #78716c; text-transform: uppercase; letter-spacing: .04em; }
+    .toccard { background: #fff; border: 1px solid #e7e5e4; border-radius: 10px; padding: 22px 26px; max-width: 560px; margin: 0 auto; text-align: left; }
+    .toccard h3 { margin: 0 0 12px; font-size: 20px; }
+    .toccard .tocrow { display: flex; justify-content: space-between; gap: 16px; margin: 0; padding: 6px 0; border-bottom: 1px dotted #d6d3d1; font-size: 14px; }
+    .toccard .tocrow:last-child { border-bottom: 0; }
+    .toccard .tocpg { color: #78716c; font-variant-numeric: tabular-nums; }
+    .rail-page .lbl { font-size: 12px; line-height: 1.35; }
+    .rail-page .ch { color: #78716c; font-size: 11px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 128px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-left: auto; }
+    .dot.queued { background: #f59e0b; } .dot.in_progress { background: #f59e0b; } .dot.done { background: #16a34a; }
+    .dot.good { background: #16a34a; } .dot.bad { background: #dc2626; }
+    .markbar { display: flex; gap: 8px; margin: 10px 0 2px; }
+    .markbar button { min-height: 40px; padding: 8px 18px; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; border: 2px solid; background: #fff; }
+    .markbar .mk-good { color: #15803d; border-color: #16a34a; }
+    .markbar .mk-good.on { background: #16a34a; color: #fff; }
+    .markbar .mk-bad { color: #b91c1c; border-color: #dc2626; }
+    .markbar .mk-bad.on { background: #dc2626; color: #fff; }
+    #qc-progress { font-size: 13px; font-weight: 700; color: #44403c; white-space: nowrap; }
+    #qc-colorize { min-height: 36px; padding: 6px 14px; border-radius: 8px; border: 0; background: #ea580c; color: #fff; font-weight: 700; font-size: 13px; cursor: pointer; }
+    #main { flex: 1; min-width: 0; padding: 18px; }
+    .stage { max-width: 680px; margin: 0 auto; }
+    .stage img.page { width: 100%; max-height: 62vh; object-fit: contain; background: #fff; border: 1px solid #e7e5e4; }
+    .ptext { background: #fff; border: 1px solid #e7e5e4; border-radius: 10px; padding: 14px 16px; margin-top: 12px; font-size: 16px; line-height: 1.55; white-space: pre-wrap; }
+    .captext { background: #fff; border: 1px solid #e7e5e4; border-radius: 10px; padding: 10px 16px; margin-top: 12px; font-size: 14px; color: #57534e; }
+    .nav { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+    .nav button, .reqbox button { padding: 8px 16px; border: 1px solid #d6d3d1; background: #fff; border-radius: 8px; cursor: pointer; font-size: 14px; font-family: inherit; }
+    .nav button:hover, .reqbox button:hover { background: #f5f5f4; }
+    .nav .count { font-size: 13px; color: #78716c; }
+    .reqbox { max-width: 680px; margin: 16px auto 0; background: #fff; border: 1px solid #e7e5e4; border-radius: 10px; padding: 12px 14px; }
+    .reqbox summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+    .reqbox select, .reqbox textarea { width: 100%; margin-top: 8px; padding: 8px; border: 1px solid #d6d3d1; border-radius: 6px; font-size: 14px; font-family: inherit; }
+    .reqbox button { margin-top: 8px; background: #1a3454; color: #fff; border-color: #1a3454; }
+    .req-status { font-size: 13px; margin-top: 8px; color: #78716c; }
+    .pageblock { max-width: 680px; margin: 0 auto 28px; }
+    .pageblock img.page { width: 100%; background: #fff; border: 1px solid #e7e5e4; }
+    .pageblock .cap { font-size: 12px; color: #78716c; margin-bottom: 6px; }
+    #msg { max-width: 680px; margin: 40px auto; color: #78716c; text-align: center; }
+    .panel { max-width: 860px; margin: 0 auto; }
+    .card { background: #fff; border: 1px solid #e7e5e4; border-radius: 12px; padding: 20px; margin: 16px 0; box-shadow: 0 1px 2px rgba(28,25,23,.05); }
+    .card h2 { margin-top: 0; font-size: 1.15rem; }
+    .btn { display: inline-block; background: #ea580c; color: #fff; padding: 10px 22px; border-radius: 999px; font-weight: 600; text-decoration: none; border: 0; cursor: pointer; font-size: 14px; font-family: inherit; }
+    .btn:hover { background: #c2410c; }
+    .btn:disabled { background: #a8a29e; cursor: wait; }
+    .ghostbtn { display: inline-block; background: #fff; color: #1c1917; border: 1px solid #d6d3d1; padding: 9px 18px; border-radius: 999px; font-weight: 600; cursor: pointer; font-size: 14px; text-decoration: none; font-family: inherit; }
+    .meta { color: #78716c; font-size: .9em; }
+    .doclist { list-style: none; padding: 0; margin: 8px 0; }
+    .doclist li { padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: .95em; }
+    .doclist .sz { color: #888; font-size: .85em; margin-left: 8px; }
+    .coverimg { max-width: 300px; width: 100%; border-radius: 10px; border: 1px solid #e7e5e4; display: block; }
+    @media (max-width: 720px) { #rail { display: none; } }
+  </style>
+  </head>
+<body>
+  <AdminShell current="/admin/books" />
+
+  <div class="subbar">
+    <a href="/admin/books" style="font-size:14px">&larr; Books</a>
+    <h1 id="title">Loading...</h1>
+    <span id="bookstatus"></span>
+    <a href={"/admin/books/" + adminSlug + "/review"} style="font-size:14px">Story review</a>
+    <a href={"/admin/books/" + adminSlug + "/edit"} style="font-size:14px">Edit</a>
+    <a href={"/admin/books/" + adminSlug + "/readiness"} style="font-size:14px">Readiness</a>
+    <span style="margin-left:auto;display:flex;gap:10px;align-items:center">
+      <label style="font-size:13px;color:#78716c" for="view-sel">View</label>
+      <select id="view-sel" aria-label="View">
+        <option value="story">Story book QC</option>
+        <option value="coloring">Coloring book QC</option>
+        <option value="color">Full color book QC</option>
+        <option value="cover">Cover</option>
+        <option value="details">Details &amp; generation</option>
+      </select>
+      <span class="seg" role="group" aria-label="Reading mode" id="mode-seg">
+        <button id="mode-flip" class="on">Flip</button>
+        <button id="mode-scroll">Scroll</button>
+      </span>
+      <span id="qc-progress"></span>
+      <button id="qc-colorize" style="display:none">Colorize</button>
+    </span>
+  </div>
+
+  <div id="wrap">
+    <nav id="rail" aria-label="Pages"></nav>
+    <main id="main"><p id="msg">Loading the book...</p></main>
+  </div>
+
+  <script is:inline define:vars={{ slug, adminSlug }}>
+    var R2 = "https://media.bigbrainshelf.com/";
+    var pages = [];
+    var cur = 0;
+    var mode = "flip";
+    var view = "story";
+    var reqs = {};
+    var reqList = [];
+    var book = null;
+    // QC marks (CG, 2026-10-31): every assembled page (cover,
+    // contents, story pages, back cover) gets a green check or a
+    // red X. Green = approved. X = not approved, and it opens the
+    // problems box so the defect is filed as you go; the filed
+    // requests are the fix queue. When every page is green, QC is
+    // complete and Colorize unlocks, here and on Readiness.
+    var approvals = {};
+
+    function loadApprovals() {
+      return fetch("/api/editor/approvals?book_slug=" + encodeURIComponent(slug))
+        .then(function (r) { return r.json(); })
+        .then(function (rows) {
+          approvals = {};
+          (rows || []).forEach(function (r) { approvals[key(r.chapterNum, r.pageIndex)] = !!r.approved; });
+          renderRail();
+          updateQcProgress();
+        })
+        .catch(function () { /* marks just show unset */ });
+    }
+
+    function markBarHtml(idSuffix, cn, pi) {
+      var a = approvals[key(cn, pi)];
+      return '<div class="markbar">' +
+        '<button class="mk-good' + (a === true ? " on" : "") + '" data-mkgood="' + idSuffix + '" data-cn="' + cn + '" data-pi="' + pi + '">&#10003; Good</button>' +
+        '<button class="mk-bad' + (a === false ? " on" : "") + '" data-mkbad="' + idSuffix + '" data-cn="' + cn + '" data-pi="' + pi + '">&#10007; Problem</button>' +
+        "</div>";
+    }
+
+    function paintMarks(cn, pi) {
+      var a = approvals[key(cn, pi)];
+      document.querySelectorAll('[data-mkgood][data-cn="' + cn + '"][data-pi="' + pi + '"]').forEach(function (b) { b.classList.toggle("on", a === true); });
+      document.querySelectorAll('[data-mkbad][data-cn="' + cn + '"][data-pi="' + pi + '"]').forEach(function (b) { b.classList.toggle("on", a === false); });
+      renderRail();
+      updateQcProgress();
+    }
+
+    function postApproval(cn, pi, ok) {
+      approvals[key(cn, pi)] = ok;
+      paintMarks(cn, pi);
+      fetch("/api/editor/approvals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ book_slug: slug, chapterNum: cn, pageIndex: pi, approved: ok })
+      }).catch(function () { /* the paint already shows the mark; a reload re-reads the server */ });
+    }
+
+    function wireMark(idSuffix) {
+      var good = document.querySelector('[data-mkgood="' + idSuffix + '"]');
+      var bad = document.querySelector('[data-mkbad="' + idSuffix + '"]');
+      if (good) good.addEventListener("click", function () {
+        postApproval(parseInt(good.getAttribute("data-cn"), 10), parseInt(good.getAttribute("data-pi"), 10), true);
+      });
+      if (bad) bad.addEventListener("click", function () {
+        var cn = parseInt(bad.getAttribute("data-cn"), 10);
+        var pi = parseInt(bad.getAttribute("data-pi"), 10);
+        postApproval(cn, pi, false);
+        // Open this page's problems box and put the cursor in it,
+        // so the defect gets written and sent right now.
+        var host = bad.closest(".stage, .pageblock");
+        var box = host ? host.querySelector("details.reqbox") : null;
+        if (box) {
+          box.open = true;
+          var ta = box.querySelector("textarea");
+          if (ta) { ta.focus(); ta.scrollIntoView({ block: "center", behavior: "smooth" }); }
+        }
+      });
+    }
+
+    function updateQcProgress() {
+      var el = document.getElementById("qc-progress");
+      var cz = document.getElementById("qc-colorize");
+      if (!el || !pages.length) return;
+      var green = 0;
+      pages.forEach(function (p) { if (approvals[key(p.chapterNum, p.pageIndex)] === true) green += 1; });
+      el.textContent = green === pages.length ? "QC complete: all " + pages.length + " pages green" : "QC: " + green + " of " + pages.length + " pages green";
+      if (cz) cz.style.display = green === pages.length ? "" : "none";
+    }
+
+    function key(cn, pi) { return cn + ":" + pi; }
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+    function money(c) { return "$" + (Number(c || 0) / 100).toFixed(2); }
+
+    function reqStatusHtml(cn, pi) {
+      var r = reqs[key(cn, pi)];
+      if (!r) return "";
+      var label = r.status === "done" ? "Change applied" : "Change queued";
+      return '<p class="req-status">' + label + (r.note ? ": " + esc(r.note) : "") + "</p>";
+    }
+
+    function reqBoxHtml(idSuffix, cn, pi) {
+      return '<details class="reqbox"><summary>Request a change</summary>' +
+        '<select id="kind-' + idSuffix + '"><option value="art">New art</option><option value="text">New text</option><option value="both">Both</option></select>' +
+        '<textarea id="note-' + idSuffix + '" rows="2" placeholder="What should change?"></textarea>' +
+        '<button data-req="' + idSuffix + '" data-cn="' + cn + '" data-pi="' + pi + '">Send request</button>' +
+        '<div id="reqdone-' + idSuffix + '">' + reqStatusHtml(cn, pi) + "</div></details>";
+    }
+
+    function wireReq(idSuffix) {
+      var btn = document.querySelector('[data-req="' + idSuffix + '"]');
+      if (!btn) return;
+      btn.addEventListener("click", function () {
+        var cn = parseInt(btn.getAttribute("data-cn"), 10);
+        var pi = parseInt(btn.getAttribute("data-pi"), 10);
+        var kind = document.getElementById("kind-" + idSuffix).value;
+        var note = document.getElementById("note-" + idSuffix).value.trim();
+        btn.disabled = true;
+        btn.textContent = "Sending...";
+        fetch("/api/change-requests", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: slug, chapterNum: cn, pageIndex: pi, kind: kind, note: note })
+        }).then(function (r) { return r.json(); }).then(function (res) {
+          reqs[key(cn, pi)] = { status: res.status || "queued", note: note };
+          btn.textContent = "Sent";
+          var done = document.getElementById("reqdone-" + idSuffix);
+          if (done) done.innerHTML = reqStatusHtml(cn, pi);
+          renderRail();
+          loadRequests();
+        }).catch(function () {
+          btn.disabled = false;
+          btn.textContent = "Send request";
+        });
+      });
+    }
+
+    function tocCardHtml() {
+      var rows = [];
+      var pageNo = 0;
+      var seen = {};
+      pages.forEach(function (p) {
+        if (p.cover || p.toc || p.backcover) return;
+        pageNo += 1;
+        if (!seen[p.chapterNum]) {
+          seen[p.chapterNum] = true;
+          rows.push({ title: p.chapterTitle, start: pageNo });
+        }
+      });
+      return '<div class="toccard"><h3>Contents</h3>' + rows.map(function (r) {
+        return '<p class="tocrow"><span>' + esc(r.title) + '</span><span class="tocpg">' + r.start + '</span></p>';
+      }).join("") + "</div>";
+    }
+
+    function pageLabel(p) {
+      if (p.cover) return "Cover";
+      if (p.toc) return "Contents";
+      if (p.backcover) return "Back cover";
+      return esc(p.chapterTitle) + " · Page " + (p.pageIndex + 1);
+    }
+
+    function pageTextHtml(p) {
+      if (p.cover) {
+        return '<div class="captext">Cover · the front cover, shared by the story book and the coloring book</div>';
+      }
+      if (p.toc) {
+        return '<div class="captext">Contents · the story book\'s table of contents, as the book prints it</div>';
+      }
+      if (p.backcover) {
+        return '<div class="captext">Back cover · the painted back cover that closes the book</div>';
+      }
+      if (view === "coloring") {
+        var cap = [p.character, p.concept].filter(Boolean).join(" · ");
+        return '<div class="captext">Coloring page' + (cap ? " · " + esc(cap) : "") + "</div>";
+      }
+      if (view === "color") {
+        return '<div class="ptext">' + esc(p.text) + "</div>" +
+          (p.imageColor ? "" : '<div class="captext">No color version of this page yet. Showing the line page.</div>');
+      }
+      return '<div class="ptext">' + esc(p.text) + "</div>";
+    }
+
+    // Story and coloring QC always show the line pages, exactly as the
+    // books ship. The full color view shows each page's color version
+    // when one exists and falls back to the line page when it does not.
+    function imgFor(p) {
+      return view === "color" && p.imageColor ? p.imageColor : p.image;
+    }
+
+    function renderRail() {
+      var rail = document.getElementById("rail");
+      if (view !== "story" && view !== "coloring" && view !== "color") { rail.style.display = "none"; return; }
+      rail.style.display = "";
+      rail.innerHTML = pages.map(function (p, i) {
+        var a = approvals[key(p.chapterNum, p.pageIndex)];
+        var r = reqs[key(p.chapterNum, p.pageIndex)];
+        var dot = a === true ? '<span class="dot good"></span>'
+          : a === false ? '<span class="dot bad"></span>'
+          : r ? '<span class="dot ' + esc(r.status) + '"></span>' : "";
+        var thumb = p.toc
+          ? '<span class="tocthumb">Contents</span>'
+          : '<img loading="lazy" src="' + esc(imgFor(p)) + '" alt="" />';
+        var lbl = p.cover ? 'Cover<span class="ch">Front cover</span>'
+          : p.toc ? 'Contents<span class="ch">Table of contents</span>'
+          : p.backcover ? 'Back cover<span class="ch">Back cover</span>'
+          : esc(p.chapterTitle) + '<span class="ch">Page ' + (p.pageIndex + 1) + "</span>";
+        return '<button class="rail-page' + (i === cur && mode === "flip" ? " cur" : "") + '" data-go="' + i + '">' +
+          thumb +
+          '<span class="lbl">' + lbl + "</span>" + dot + "</button>";
+      }).join("");
+    }
+
+    function renderFlip() {
+      var main = document.getElementById("main");
+      var p = pages[cur];
+      if (!p) { main.innerHTML = '<p id="msg">No pages yet.</p>'; return; }
+      main.innerHTML = '<div class="stage">' +
+        (p.toc ? tocCardHtml() : '<img class="page" src="' + esc(imgFor(p)) + '" alt="page art" />') +
+        pageTextHtml(p) +
+        '<div class="nav">' +
+          '<button id="prev"' + (cur === 0 ? " disabled" : "") + ">&larr; Prev</button>" +
+          '<span class="count">' + pageLabel(p) + " · " + (cur + 1) + " of " + pages.length + "</span>" +
+          '<button id="next"' + (cur === pages.length - 1 ? " disabled" : "") + ">Next &rarr;</button>" +
+        "</div>" + markBarHtml("cur", p.chapterNum, p.pageIndex) + reqBoxHtml("cur", p.chapterNum, p.pageIndex) + "</div>";
+      document.getElementById("prev").addEventListener("click", function () { go(cur - 1); });
+      document.getElementById("next").addEventListener("click", function () { go(cur + 1); });
+      wireReq("cur");
+      wireMark("cur");
+      renderRail();
+      updateQcProgress();
+    }
+
+    function renderScroll() {
+      var main = document.getElementById("main");
+      main.innerHTML = pages.map(function (p, i) {
+        return '<div class="pageblock" id="pb-' + i + '">' +
+          '<p class="cap">' + pageLabel(p) + "</p>" +
+          (p.toc ? tocCardHtml() : '<img class="page" loading="lazy" src="' + esc(imgFor(p)) + '" alt="page art" />') +
+          pageTextHtml(p) + markBarHtml("s" + i, p.chapterNum, p.pageIndex) + reqBoxHtml("s" + i, p.chapterNum, p.pageIndex) + "</div>";
+      }).join("");
+      pages.forEach(function (p, i) { wireReq("s" + i); wireMark("s" + i); });
+      renderRail();
+      updateQcProgress();
+    }
+
+    function coverRequestsHtml() {
+      var list = reqList.filter(function (r) { return r.chapter_num === 0; });
+      if (!list.length) return '<p class="meta">No cover requests yet.</p>';
+      return list.map(function (r) {
+        return '<p class="req-status"><span class="dot ' + esc(r.status) + '" style="display:inline-block;margin-right:6px"></span>' +
+          esc(r.status) + " · " + esc(r.kind) + (r.note ? " · " + esc(r.note) : "") + "</p>";
+      }).join("");
+    }
+
+    function renderCover() {
+      var main = document.getElementById("main");
+      var cover = book && book.cover_key ? R2 + book.cover_key : "";
+      main.innerHTML = '<div class="panel">' +
+        '<div class="card"><h2>Cover</h2>' +
+        (cover ? '<img class="coverimg" src="' + esc(cover) + '" alt="Current cover" />' : '<p class="meta">No cover yet.</p>') +
+        reqBoxHtml("cover", 0, 0) +
+        '<div id="cover-reqs">' + coverRequestsHtml() + "</div></div>" +
+        '<div class="card"><h2>Replace cover</h2>' +
+        '<form id="cover-form"><input type="file" id="cover-file" accept="image/*" /> ' +
+        '<button class="ghostbtn" type="submit" id="cover-btn">Upload cover</button></form>' +
+        '<p id="cover-msg" class="meta"></p>' +
+        '<p class="meta">House style: title in Fredoka Bold (white, navy outline) over the art, 1200x1600, navy bigbrainshelf pill at the bottom (white text, brain in orange, same logo as the site header).</p></div>' +
+        "</div>";
+      wireReq("cover");
+      var form = document.getElementById("cover-form");
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var files = document.getElementById("cover-file").files;
+        if (!files.length) return;
+        var btn = document.getElementById("cover-btn");
+        var msg = document.getElementById("cover-msg");
+        btn.disabled = true;
+        msg.textContent = "Uploading...";
+        var fd = new FormData();
+        fd.append("slug", slug);
+        fd.append("file", files[0]);
+        fetch("/api/editor/cover", { method: "POST", body: fd }).then(function (r) {
+          if (!r.ok) throw new Error("Cover upload failed.");
+          msg.textContent = "Cover saved.";
+          return loadBook();
+        }).then(function () { renderCover(); }).catch(function (err) {
+          msg.textContent = err.message;
+        }).finally(function () { btn.disabled = false; });
+      });
+      renderRail();
+    }
+
+    function outputsHtml(b) {
+      var outs = [
+        { fmt: "picture", label: "Story book PDF", key: b.picture_book_key },
+        { fmt: "coloring", label: "Coloring book PDF", key: b.coloring_book_key },
+        { fmt: "epub", label: "EPUB", key: b.epub_key },
+        { fmt: "color", label: "Color edition PDF", key: b.color_book_key },
+        { fmt: "video", label: "Video (MP4)", key: b.video_key }
+      ];
+      var rows = outs.map(function (o) {
+        if (o.key) {
+          return '<li>' + esc(o.label) +
+            ' <a class="ghostbtn" style="padding:4px 12px;font-size:13px;margin-left:8px" href="/api/admin-download?slug=' +
+            encodeURIComponent(slug) + "&format=" + o.fmt + '">Download</a></li>';
+        }
+        return '<li>' + esc(o.label) + ' <span class="meta">not generated yet</span></li>';
+      }).join("");
+      return '<div class="card"><h2>Outputs</h2>' +
+        '<p class="meta">The assembled files for this book. Downloads work at any status, no purchase needed.</p>' +
+        '<ul class="doclist">' + rows + "</ul></div>";
+    }
+
+    function renderDetails() {
+      var main = document.getElementById("main");
+      var b = book || {};
+      main.innerHTML = '<div class="panel">' +
+        '<div class="card"><h2>Book</h2>' +
+        '<p><span class="status ' + esc(b.status || "") + '">' + esc(b.status || "") + "</span>" +
+        (b.stage ? ' <span class="meta">' + esc(b.stage) + (b.stage_detail ? " · " + esc(b.stage_detail) : "") + "</span>" : "") + "</p>" +
+        '<p class="meta">Slug: ' + esc(b.slug || slug) + " · Category: " + esc(b.topic || "") + " · Topics: " + esc(b.topics || "") + "</p>" +
+        '<p class="meta">Digital: ' + money(b.price) + " · Printed pre-order: " + (Number(b.price_print || 0) > 0 ? money(b.price_print) : "not offered") + "</p>" +
+        (b.description ? '<p>' + esc(b.description) + "</p>" : "") +
+        '<p><a class="btn" href="/admin/books/' + esc(adminSlug) + '/edit">Open full editor</a> ' +
+        '<a class="ghostbtn" href="/admin/books/' + esc(adminSlug) + '/crops">Pose crops</a> ' +
+        '<a class="ghostbtn" href="/books/' + esc(adminSlug) + '">View on storefront</a></p></div>' +
+        outputsHtml(b) +
+        '<div class="card"><h2>Generation</h2>' +
+        '<h3 style="margin:0 0 4px;font-size:1rem">Source documents</h3>' +
+        '<ul class="doclist" id="docs"><li>Loading...</li></ul>' +
+        '<form id="upload-form"><input type="file" id="more-files" multiple accept=".pdf,.md,.markdown,.txt" /> ' +
+        '<button class="ghostbtn" type="submit" id="upload-btn">Upload</button></form>' +
+        '<h3 style="margin:14px 0 4px;font-size:1rem">Factory run</h3>' +
+        '<div id="gen-status"><p>Checking...</p></div>' +
+        '<p id="gen-error" style="color:#b91c1c;min-height:1.2em"></p>' +
+        '<button class="btn" id="generate-btn">Generate book</button> ' +
+        '<button class="ghostbtn" id="refresh-btn">Refresh status</button></div>' +
+        "</div>";
+      wireDetails();
+      renderRail();
+    }
+
+    function wireDetails() {
+      var genBtn = document.getElementById("generate-btn");
+      var genStatus = document.getElementById("gen-status");
+      var genError = document.getElementById("gen-error");
+      var docsEl = document.getElementById("docs");
+      function loadDocs() {
+        fetch("/api/uploads?slug=" + encodeURIComponent(slug)).then(function (r) { return r.json(); }).then(function (d) {
+          if (!d.files || !d.files.length) { docsEl.innerHTML = "<li>No source documents yet.</li>"; return; }
+          docsEl.innerHTML = d.files.map(function (f) {
+            var kb = f.size ? ' <span class="sz">' + Math.round(f.size / 1024) + " KB</span>" : "";
+            return "<li>" + esc(f.name) + kb + "</li>";
+          }).join("");
+        }).catch(function () {});
+      }
+      function loadStatus() {
+        fetch("/api/generation-status?slug=" + encodeURIComponent(slug)).then(function (r) { return r.json(); }).then(function (d) {
+          if (!d.job) { genStatus.innerHTML = "<p>No generation runs yet.</p>"; return; }
+          var j = d.job;
+          var html = "<p><strong>Job:</strong> " + esc(j.status) +
+            (j.instance_id ? ' <span style="color:#888">(' + esc(j.instance_id.slice(0, 8)) + "...)</span>" : "") + "</p>";
+          if (d.live) html += "<p><strong>Factory says:</strong> " + esc(JSON.stringify(d.live).slice(0, 300)) + "</p>";
+          if (d.liveError) html += '<p style="color:#a60">' + esc(d.liveError) + "</p>";
+          genStatus.innerHTML = html;
+        }).catch(function () {});
+      }
+      genBtn.addEventListener("click", function () {
+        genError.textContent = "";
+        genBtn.disabled = true;
+        genBtn.textContent = "Starting...";
+        fetch("/api/generate", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug: slug })
+        }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); }).then(function (res) {
+          if (!res.ok) throw new Error(res.d.error || "Generation failed.");
+          loadStatus();
+        }).catch(function (err) { genError.textContent = err.message || "Generation failed."; })
+          .finally(function () { genBtn.disabled = false; genBtn.textContent = "Generate book"; });
+      });
+      document.getElementById("refresh-btn").addEventListener("click", loadStatus);
+      document.getElementById("upload-form").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var files = document.getElementById("more-files").files;
+        if (!files.length) return;
+        var btn = document.getElementById("upload-btn");
+        btn.disabled = true;
+        var fd = new FormData();
+        fd.append("slug", slug);
+        for (var i = 0; i < files.length; i++) fd.append("files", files[i]);
+        fetch("/api/uploads", { method: "POST", body: fd }).then(function (r) {
+          if (!r.ok) throw new Error("Upload failed.");
+          document.getElementById("more-files").value = "";
+          loadDocs();
+        }).catch(function (err) { genError.textContent = err.message; })
+          .finally(function () { btn.disabled = false; });
+      });
+      loadDocs();
+      loadStatus();
+    }
+
+    function render() {
+      var seg = document.getElementById("mode-seg");
+      if (view === "story" || view === "coloring" || view === "color") {
+        seg.style.display = "";
+        if (mode === "flip") renderFlip(); else renderScroll();
+      } else {
+        seg.style.display = "none";
+        if (view === "cover") renderCover(); else renderDetails();
+      }
+    }
+
+    function go(i) {
+      cur = Math.max(0, Math.min(pages.length - 1, i));
+      if (mode === "flip") { renderFlip(); window.scrollTo(0, 0); }
+      else {
+        var el = document.getElementById("pb-" + cur);
+        if (el) el.scrollIntoView({ block: "start" });
+        renderRail();
+      }
+    }
+
+    function loadRequests() {
+      return fetch("/api/change-requests?slug=" + encodeURIComponent(slug))
+        .then(function (r) { return r.json(); })
+        .then(function (list) {
+          reqList = list || [];
+          reqs = {};
+          reqList.forEach(function (r) {
+            var k = key(r.chapter_num, r.page_index);
+            if (!reqs[k]) reqs[k] = r;
+          });
+          renderRail();
+          if (view === "cover") {
+            var el = document.getElementById("cover-reqs");
+            if (el) el.innerHTML = coverRequestsHtml();
+          }
+        }).catch(function () {});
+    }
+
+    function loadBook() {
+      return fetch("/api/books").then(function (r) { return r.json(); }).then(function (books) {
+        book = (books || []).find(function (b) { return b.slug === slug; }) || null;
+        if (book) {
+          document.getElementById("title").textContent = book.title || slug;
+          document.getElementById("bookstatus").innerHTML =
+            '<span class="status ' + esc(book.status) + '">' + esc(book.status) + "</span>";
+        }
+      }).catch(function () {});
+    }
+
+    document.getElementById("rail").addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-go]");
+      if (btn) go(parseInt(btn.getAttribute("data-go"), 10));
+    });
+    document.getElementById("view-sel").addEventListener("change", function () {
+      view = this.value;
+      render();
+    });
+    document.getElementById("mode-flip").addEventListener("click", function () {
+      mode = "flip";
+      this.classList.add("on");
+      document.getElementById("mode-scroll").classList.remove("on");
+      render();
+    });
+    document.getElementById("mode-scroll").addEventListener("click", function () {
+      mode = "scroll";
+      this.classList.add("on");
+      document.getElementById("mode-flip").classList.remove("on");
+      render();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (view !== "story" && view !== "coloring" && view !== "color") return;
+      if (mode !== "flip") return;
+      if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+      if (e.key === "ArrowRight") go(cur + 1);
+      if (e.key === "ArrowLeft") go(cur - 1);
+    });
+
+    loadBook().then(function () {
+      return fetch("/api/editor/chapters?slug=" + encodeURIComponent(slug));
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!book) document.getElementById("title").textContent = data.title || slug;
+        (data.chapters || []).forEach(function (ch, ci) {
+          (ch.pages || []).forEach(function (pg, pi) {
+            pages.push({
+              chapterNum: ci + 1,
+              // Chapter references wear the "Ch: {n} - " prefix
+              // (owner, 2026-10-29): the rail, the flip position
+              // line, and the scroll captions all read chapterTitle,
+              // so one construction labels them all.
+              chapterTitle: ch.title ? "Ch: " + (ci + 1) + " - " + ch.title : "Ch: " + (ci + 1),
+              pageIndex: pi,
+              text: pg.text || "",
+              character: pg.character || "",
+              concept: pg.concept || "",
+              image: pg.image || "",
+              imageColor: pg.imageColor || ""
+            });
+          });
+        });
+        // The cover rides along as page zero in both QC modes, so it is
+        // reviewed with the book. Its change requests use chapter 0.
+        if (book && book.cover_key) {
+          pages.unshift({
+            cover: true,
+            chapterNum: 0,
+            chapterTitle: "Cover",
+            pageIndex: 0,
+            text: "",
+            character: "",
+            concept: "",
+            image: R2 + book.cover_key
+          });
+        }
+        // The whole assembled book, in order (CG, 2026-10-31):
+        // front cover, the table of contents as the story book
+        // prints it, every story page, and the back cover closing
+        // it. Flipping through QC is flipping through the book.
+        pages.push({
+          backcover: true,
+          chapterNum: 0,
+          chapterTitle: "Back cover",
+          pageIndex: 2,
+          text: "",
+          character: "",
+          concept: "",
+          image: R2 + "books/" + slug + "/back-cover-color.jpg"
+        });
+        pages.splice(pages.length && pages[0].cover ? 1 : 0, 0, {
+          toc: true,
+          chapterNum: 0,
+          chapterTitle: "Contents",
+          pageIndex: 1,
+          text: "",
+          character: "",
+          concept: "",
+          image: ""
+        });
+        return loadRequests();
+      })
+      .then(render)
+      .then(function () { loadApprovals(); })
+      .catch(function () {
+        document.getElementById("msg").textContent = "Could not load this book's pages yet.";
+      });
+
+    var qcCz = document.getElementById("qc-colorize");
+    if (qcCz) qcCz.addEventListener("click", function () {
+      qcCz.disabled = true;
+      qcCz.textContent = "Starting...";
+      fetch("/api/books/colorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: slug })
+      }).then(function (r) { return r.json().catch(function () { return {}; }); }).then(function (j) {
+        if (j && j.ok === false) {
+          qcCz.disabled = false;
+          qcCz.textContent = "Colorize";
+          document.getElementById("qc-progress").textContent = "Colorize did not start: " + (j.error || "unknown error");
+        } else {
+          qcCz.textContent = "Colorizing...";
+          document.getElementById("qc-progress").textContent = "Colorize started. Watch it land on the Readiness page.";
+        }
+      }).catch(function () {
+        qcCz.disabled = false;
+        qcCz.textContent = "Colorize";
+      });
+    });
+
+    setInterval(loadRequests, 25000);
+  </script>
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+---
+import "../../../styles/global.css";
+import AdminShell from "../../../components/AdminShell.astro";
+import { env } from "cloudflare:workers";
+import { resolveCharacterSheets, type SheetKind } from "../../../lib/character-sheets";
+
+export const prerender = false;
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+const e = env as any;
+const { id } = Astro.params;
+const row = await e.DB.prepare("SELECT * FROM characters WHERE id = ?").bind(id).first() as any;
+if (!row) return Astro.redirect("/admin/characters", 404);
+
+let bookTitle = "";
+if (row.book_slug) {
+  const book = await e.DB.prepare("SELECT title FROM books WHERE slug = ?").bind(row.book_slug).first() as any;
+  bookTitle = book?.title ? String(book.title) : "";
+}
+const sheets = await resolveCharacterSheets(e, row);
+const kinds: { kind: SheetKind; label: string }[] = [
+  { kind: "color", label: "Color sheet" },
+  { kind: "line", label: "Line sheet" },
+];
+let personality: string[] = [];
+try {
+  const p = JSON.parse(row.personality || "[]");
+  if (Array.isArray(p)) personality = p.map((s: any) => String(s)).filter(Boolean);
+} catch { /* personality is optional decoration */ }
+const viewUrl = (kind: SheetKind) => `/api/admin/character-sheet?id=${encodeURIComponent(row.id)}&kind=${kind}`;
+const downloadUrl = (kind: SheetKind) => `${viewUrl(kind)}&download=1`;
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>{row.name} · Characters · Big Brain Shelf admin</title>
+  <style is:global>
+    body{font-family:ui-sans-serif,system-ui,sans-serif;background:#fafaf9;color:#1c1917;margin:0}
+    .wrap{max-width:64rem;margin:0 auto;padding:1.75rem 1rem 4rem}
+    h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 .5rem}
+    .card{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:20px;margin:16px 0;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .card h2{margin-top:0}
+    .status{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.85em;font-weight:600}
+    .complete{background:#dcfce7;color:#166534}.draft{background:#f5f5f4;color:#44403c}.building{background:#fef3c7;color:#92400e}
+    .meta{color:#78716c;font-size:.88em}
+    a{color:#c2410c}
+    .btn{display:inline-block;background:#ea580c;color:#fff;padding:12px 26px;border-radius:999px;font-weight:600;text-decoration:none;border:0;cursor:pointer;font-size:15px}
+    .btn:hover{background:#c2410c}
+    .sheetimg{width:100%;height:auto;display:block;border-radius:8px;background:#f5f5f4;border:1px solid #e7e5e4}
+  </style>
+  </head>
+<body>
+  <AdminShell current="/admin/characters" />
+  <main class="wrap">
+    <p><a href="/admin/characters">&larr; Back to all characters</a></p>
+    <h1>{row.name}</h1>
+    <p class="meta" style="margin-top:0">
+      {row.species}{bookTitle ? <> · {bookTitle}</> : null}
+    </p>
+    <p>
+      {sheets.color.exists || sheets.line.exists
+        ? <span class="status complete">Approved sheet</span>
+        : <span class="status draft">No approved sheet yet</span>}
+    </p>
+    <div class="card">
+      <h2>About this character</h2>
+      <p>{row.visual}</p>
+      {personality.length > 0 && <p class="meta">Personality: {personality.join(", ")}</p>}
+      {row.real_maps_to && <p class="meta">Maps to: {row.real_maps_to}</p>}
+    </div>
+
+    {kinds.map(({ kind, label }) => {
+      const info = sheets[kind];
+      return (
+        <div class="card">
+          <h2>{label}</h2>
+          {info.exists ? (
+            <>
+              <a href={viewUrl(kind)}><img class="sheetimg" src={viewUrl(kind)} alt={`${row.name} ${label.toLowerCase()}`} /></a>
+              <p style="margin:16px 0 0">
+                <a class="btn" href={downloadUrl(kind)}>Download full sheet</a>
+              </p>
+              <p class="meta">Tap the image to open it on its own, pinch to zoom, or use the button to save the full resolution original.</p>
+            </>
+          ) : info.pendingExists ? (
+            <p>A {label.toLowerCase()} has been drawn and is waiting for approval in the character studio. It will appear here once approved.</p>
+          ) : (
+            <p>No {label.toLowerCase()} for this character yet. Generate one in the character studio on the characters page.</p>
+          )}
+        </div>
+      );
+    })}
+  </main>
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

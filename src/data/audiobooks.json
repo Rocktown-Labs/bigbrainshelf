@@ -1,0 +1,343 @@
+{
+  "mastery": {
+    "intro": {
+      "title": "Introduction",
+      "duration": 19.0
+    },
+    "chapters": [
+      {
+        "duration": 115.6,
+        "title": "The Thing That Pulls"
+      },
+      {
+        "duration": 111.9,
+        "title": "The Watching Weeks"
+      },
+      {
+        "duration": 142.6,
+        "title": "The Morning Path"
+      },
+      {
+        "duration": 123.0,
+        "title": "The Flat Days"
+      },
+      {
+        "duration": 152.6,
+        "title": "A Master's Eye"
+      },
+      {
+        "duration": 116.8,
+        "title": "Reading the Ripples"
+      },
+      {
+        "duration": 130.7,
+        "title": "Her Own Current"
+      },
+      {
+        "duration": 137.4,
+        "title": "The Long Path"
+      }
+    ],
+    "outro": {
+      "title": "The End",
+      "duration": 11.1
+    }
+  },
+  "richdadpoordad": {
+    "intro": {
+      "title": "Introduction",
+      "duration": 18.0
+    },
+    "outro": {
+      "title": "The End",
+      "duration": 11.2
+    },
+    "chapters": [
+      {
+        "duration": 103.3
+      },
+      {
+        "duration": 118.2
+      },
+      {
+        "duration": 107.3
+      },
+      {
+        "duration": 73.6
+      },
+      {
+        "duration": 143.0
+      },
+      {
+        "duration": 96.6
+      },
+      {
+        "duration": 131.7
+      },
+      {
+        "duration": 127.8
+      }
+    ]
+  },
+  "algorithms": {
+    "intro": {
+      "title": "Introduction",
+      "duration": 20.9
+    },
+    "outro": {
+      "title": "The End",
+      "duration": 10.2
+    },
+    "chapters": [
+      {
+        "duration": 132.0
+      },
+      {
+        "duration": 80.1
+      },
+      {
+        "duration": 119.0
+      },
+      {
+        "duration": 102.4
+      },
+      {
+        "duration": 115.9
+      },
+      {
+        "duration": 77.1
+      },
+      {
+        "duration": 63.1
+      },
+      {
+        "duration": 77.0
+      },
+      {
+        "duration": 107.9
+      },
+      {
+        "duration": 81.2
+      },
+      {
+        "duration": 93.3
+      },
+      {
+        "duration": 95.4
+      }
+    ]
+  },
+  "designpatterns": {
+    "intro": {
+      "title": "Introduction",
+      "duration": 17.2
+    },
+    "outro": {
+      "title": "The End",
+      "duration": 10.8
+    },
+    "chapters": [
+      {
+        "duration": 124.7
+      },
+      {
+        "duration": 132.3
+      },
+      {
+        "duration": 136.2
+      },
+      {
+        "duration": 107.5
+      },
+      {
+        "duration": 146.3
+      },
+      {
+        "duration": 125.0
+      },
+      {
+        "duration": 110.1
+      },
+      {
+        "duration": 103.9
+      }
+    ]
+  },
+  "docker": {
+    "intro": {
+      "title": "Introduction",
+      "duration": 19.8
+    },
+    "outro": {
+      "title": "The End",
+      "duration": 11.6
+    },
+    "chapters": [
+      {
+        "duration": 122.4
+      },
+      {
+        "duration": 113.9
+      },
+      {
+        "duration": 114.9
+      },
+      {
+        "duration": 148.4
+      },
+      {
+        "duration": 111.7
+      },
+      {
+        "duration": 91.5
+      },
+      {
+        "duration": 134.0
+      },
+      {
+        "duration": 130.0
+      },
+      {
+        "duration": 119.8
+      },
+      {
+        "duration": 126.2
+      },
+      {
+        "duration": 117.0
+      },
+      {
+        "duration": 151.8
+      },
+      {
+        "duration": 133.9
+      },
+      {
+        "duration": 130.0
+      },
+      {
+        "duration": 135.4
+      },
+      {
+        "duration": 126.6
+      },
+      {
+        "duration": 115.6
+      },
+      {
+        "duration": 124.6
+      }
+    ]
+  },
+  "compoundeffect": {
+    "intro": {
+      "title": "Introduction",
+      "duration": 21.4
+    },
+    "outro": {
+      "title": "The End",
+      "duration": 11.4
+    },
+    "chapters": [
+      {
+        "duration": 116.7
+      },
+      {
+        "duration": 102.6
+      },
+      {
+        "duration": 78.2
+      },
+      {
+        "duration": 65.1
+      },
+      {
+        "duration": 120.6
+      },
+      {
+        "duration": 68.6
+      },
+      {
+        "duration": 140.0
+      },
+      {
+        "duration": 114.6
+      }
+    ]
+  },
+  "motivationmanifesto": {
+    "intro": {
+      "title": "Introduction",
+      "duration": 22.4
+    },
+    "outro": {
+      "title": "The End",
+      "duration": 10.5
+    },
+    "chapters": [
+      {
+        "duration": 94.3
+      },
+      {
+        "duration": 107.8
+      },
+      {
+        "duration": 117.8
+      },
+      {
+        "duration": 86.3
+      },
+      {
+        "duration": 106.7
+      },
+      {
+        "duration": 81.9
+      },
+      {
+        "duration": 117.7
+      },
+      {
+        "duration": 99.8
+      },
+      {
+        "duration": 101.9
+      }
+    ]
+  },
+  "thewarofart": {
+    "intro": {
+      "title": "Introduction",
+      "duration": 24.2
+    },
+    "outro": {
+      "title": "The End",
+      "duration": 11.2
+    },
+    "chapters": [
+      {
+        "duration": 101.1
+      },
+      {
+        "duration": 120.6
+      },
+      {
+        "duration": 107.9
+      },
+      {
+        "duration": 97.5
+      },
+      {
+        "duration": 153.3
+      },
+      {
+        "duration": 116.2
+      },
+      {
+        "duration": 93.0
+      },
+      {
+        "duration": 76.8
+      }
+    ]
+  }
+}

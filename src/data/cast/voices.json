@@ -1,0 +1,1683 @@
+{
+  "meta": {
+    "catalog": "Deepgram Aura-2 voices for Big Brain Shelf narration and casting",
+    "source": "https://developers.deepgram.com/docs/tts-models (read 2026-10-27)",
+    "modelFormat": "aura-2-{name}-{lang}",
+    "workersAiNote": "On Cloudflare Workers AI the English model id is @cf/deepgram/aura-2-en. Per-language ids follow the same pattern (@cf/deepgram/aura-2-es, etc.) but availability per language must be checked on the Workers AI account on generation day; the bare @cf/deepgram/aura-2 id returned 403 on this account.",
+    "featuredMeaning": "Deepgram's own Featured subset per language, selected by Deepgram for versatility and quality.",
+    "codeswitching": {
+      "es": [
+        "aquila",
+        "carina",
+        "diana",
+        "javier",
+        "selena"
+      ],
+      "note": "These Spanish voices switch seamlessly between English and Spanish inside one read."
+    },
+    "voiceCount": 90
+  },
+  "languages": {
+    "en": [
+      {
+        "model": "aura-2-amalthea-en",
+        "name": "amalthea",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Young Adult",
+        "accent": "Filipino",
+        "characteristics": [
+          "Engaging",
+          "Natural",
+          "Cheerful"
+        ],
+        "use_cases": [
+          "Casual chat"
+        ]
+      },
+      {
+        "model": "aura-2-andromeda-en",
+        "name": "andromeda",
+        "featured": true,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Casual",
+          "Expressive",
+          "Comfortable"
+        ],
+        "use_cases": [
+          "Customer service",
+          "IVR"
+        ]
+      },
+      {
+        "model": "aura-2-apollo-en",
+        "name": "apollo",
+        "featured": true,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Confident",
+          "Comfortable",
+          "Casual"
+        ],
+        "use_cases": [
+          "Casual chat"
+        ]
+      },
+      {
+        "model": "aura-2-arcas-en",
+        "name": "arcas",
+        "featured": true,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Natural",
+          "Smooth",
+          "Clear",
+          "Comfortable"
+        ],
+        "use_cases": [
+          "Customer service",
+          "Casual chat"
+        ]
+      },
+      {
+        "model": "aura-2-aries-en",
+        "name": "aries",
+        "featured": true,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Warm",
+          "Energetic",
+          "Caring"
+        ],
+        "use_cases": [
+          "Casual chat"
+        ]
+      },
+      {
+        "model": "aura-2-asteria-en",
+        "name": "asteria",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Clear",
+          "Confident",
+          "Knowledgeable",
+          "Energetic"
+        ],
+        "use_cases": [
+          "Advertising"
+        ]
+      },
+      {
+        "model": "aura-2-athena-en",
+        "name": "athena",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Mature",
+        "accent": "American",
+        "characteristics": [
+          "Calm",
+          "Smooth",
+          "Professional"
+        ],
+        "use_cases": [
+          "Storytelling"
+        ]
+      },
+      {
+        "model": "aura-2-atlas-en",
+        "name": "atlas",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Mature",
+        "accent": "American",
+        "characteristics": [
+          "Enthusiastic",
+          "Confident",
+          "Approachable",
+          "Friendly"
+        ],
+        "use_cases": [
+          "Advertising"
+        ]
+      },
+      {
+        "model": "aura-2-aurora-en",
+        "name": "aurora",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Cheerful",
+          "Expressive",
+          "Energetic"
+        ],
+        "use_cases": [
+          "Interview"
+        ]
+      },
+      {
+        "model": "aura-2-callista-en",
+        "name": "callista",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Clear",
+          "Energetic",
+          "Professional",
+          "Smooth"
+        ],
+        "use_cases": [
+          "IVR"
+        ]
+      },
+      {
+        "model": "aura-2-cora-en",
+        "name": "cora",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Smooth",
+          "Melodic",
+          "Caring"
+        ],
+        "use_cases": [
+          "Storytelling"
+        ]
+      },
+      {
+        "model": "aura-2-cordelia-en",
+        "name": "cordelia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Young Adult",
+        "accent": "American",
+        "characteristics": [
+          "Approachable",
+          "Warm",
+          "Polite"
+        ],
+        "use_cases": [
+          "Storytelling"
+        ]
+      },
+      {
+        "model": "aura-2-delia-en",
+        "name": "delia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Young Adult",
+        "accent": "American",
+        "characteristics": [
+          "Casual",
+          "Friendly",
+          "Cheerful",
+          "Breathy"
+        ],
+        "use_cases": [
+          "Interview"
+        ]
+      },
+      {
+        "model": "aura-2-draco-en",
+        "name": "draco",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "British",
+        "characteristics": [
+          "Warm",
+          "Approachable",
+          "Trustworthy",
+          "Baritone"
+        ],
+        "use_cases": [
+          "Storytelling"
+        ]
+      },
+      {
+        "model": "aura-2-electra-en",
+        "name": "electra",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Professional",
+          "Engaging",
+          "Knowledgeable"
+        ],
+        "use_cases": [
+          "IVR",
+          "Advertising",
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-harmonia-en",
+        "name": "harmonia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Empathetic",
+          "Clear",
+          "Calm",
+          "Confident"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-helena-en",
+        "name": "helena",
+        "featured": true,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Caring",
+          "Natural",
+          "Positive",
+          "Friendly",
+          "Raspy"
+        ],
+        "use_cases": [
+          "IVR",
+          "Casual chat"
+        ]
+      },
+      {
+        "model": "aura-2-hera-en",
+        "name": "hera",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Smooth",
+          "Warm",
+          "Professional"
+        ],
+        "use_cases": [
+          "Informative"
+        ]
+      },
+      {
+        "model": "aura-2-hermes-en",
+        "name": "hermes",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Expressive",
+          "Engaging",
+          "Professional"
+        ],
+        "use_cases": [
+          "Informative"
+        ]
+      },
+      {
+        "model": "aura-2-hyperion-en",
+        "name": "hyperion",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Australian",
+        "characteristics": [
+          "Caring",
+          "Warm",
+          "Empathetic"
+        ],
+        "use_cases": [
+          "Interview"
+        ]
+      },
+      {
+        "model": "aura-2-iris-en",
+        "name": "iris",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Young Adult",
+        "accent": "American",
+        "characteristics": [
+          "Cheerful",
+          "Positive",
+          "Approachable"
+        ],
+        "use_cases": [
+          "IVR",
+          "Advertising",
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-janus-en",
+        "name": "janus",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Southern",
+          "Smooth",
+          "Trustworthy"
+        ],
+        "use_cases": [
+          "Storytelling"
+        ]
+      },
+      {
+        "model": "aura-2-juno-en",
+        "name": "juno",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Natural",
+          "Engaging",
+          "Melodic",
+          "Breathy"
+        ],
+        "use_cases": [
+          "Interview"
+        ]
+      },
+      {
+        "model": "aura-2-jupiter-en",
+        "name": "jupiter",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Expressive",
+          "Knowledgeable",
+          "Baritone"
+        ],
+        "use_cases": [
+          "Informative"
+        ]
+      },
+      {
+        "model": "aura-2-luna-en",
+        "name": "luna",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Young Adult",
+        "accent": "American",
+        "characteristics": [
+          "Friendly",
+          "Natural",
+          "Engaging"
+        ],
+        "use_cases": [
+          "IVR"
+        ]
+      },
+      {
+        "model": "aura-2-mars-en",
+        "name": "mars",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Smooth",
+          "Patient",
+          "Trustworthy",
+          "Baritone"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-minerva-en",
+        "name": "minerva",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Positive",
+          "Friendly",
+          "Natural"
+        ],
+        "use_cases": [
+          "Storytelling"
+        ]
+      },
+      {
+        "model": "aura-2-neptune-en",
+        "name": "neptune",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Professional",
+          "Patient",
+          "Polite"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-odysseus-en",
+        "name": "odysseus",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Calm",
+          "Smooth",
+          "Comfortable",
+          "Professional"
+        ],
+        "use_cases": [
+          "Advertising"
+        ]
+      },
+      {
+        "model": "aura-2-ophelia-en",
+        "name": "ophelia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Expressive",
+          "Enthusiastic",
+          "Cheerful"
+        ],
+        "use_cases": [
+          "Interview"
+        ]
+      },
+      {
+        "model": "aura-2-orion-en",
+        "name": "orion",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Approachable",
+          "Comfortable",
+          "Calm",
+          "Polite"
+        ],
+        "use_cases": [
+          "Informative"
+        ]
+      },
+      {
+        "model": "aura-2-orpheus-en",
+        "name": "orpheus",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Professional",
+          "Clear",
+          "Confident",
+          "Trustworthy"
+        ],
+        "use_cases": [
+          "Customer service",
+          "Storytelling"
+        ]
+      },
+      {
+        "model": "aura-2-pandora-en",
+        "name": "pandora",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "British",
+        "characteristics": [
+          "Smooth",
+          "Calm",
+          "Melodic",
+          "Breathy"
+        ],
+        "use_cases": [
+          "IVR",
+          "Informative"
+        ]
+      },
+      {
+        "model": "aura-2-phoebe-en",
+        "name": "phoebe",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Energetic",
+          "Warm",
+          "Casual"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-pluto-en",
+        "name": "pluto",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Smooth",
+          "Calm",
+          "Empathetic",
+          "Baritone"
+        ],
+        "use_cases": [
+          "Interview",
+          "Storytelling"
+        ]
+      },
+      {
+        "model": "aura-2-saturn-en",
+        "name": "saturn",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Knowledgeable",
+          "Confident",
+          "Baritone"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-selene-en",
+        "name": "selene",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Expressive",
+          "Engaging",
+          "Energetic"
+        ],
+        "use_cases": [
+          "Informative"
+        ]
+      },
+      {
+        "model": "aura-2-thalia-en",
+        "name": "thalia",
+        "featured": true,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Clear",
+          "Confident",
+          "Energetic",
+          "Enthusiastic"
+        ],
+        "use_cases": [
+          "Casual chat",
+          "Customer service",
+          "IVR"
+        ]
+      },
+      {
+        "model": "aura-2-theia-en",
+        "name": "theia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Australian",
+        "characteristics": [
+          "Expressive",
+          "Polite",
+          "Sincere"
+        ],
+        "use_cases": [
+          "Informative"
+        ]
+      },
+      {
+        "model": "aura-2-vesta-en",
+        "name": "vesta",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Natural",
+          "Expressive",
+          "Patient",
+          "Empathetic"
+        ],
+        "use_cases": [
+          "Customer service",
+          "Interview",
+          "Storytelling"
+        ]
+      },
+      {
+        "model": "aura-2-zeus-en",
+        "name": "zeus",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "American",
+        "characteristics": [
+          "Deep",
+          "Trustworthy",
+          "Smooth"
+        ],
+        "use_cases": [
+          "IVR"
+        ]
+      }
+    ],
+    "es": [
+      {
+        "model": "aura-2-agustina-es",
+        "name": "agustina",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Peninsular",
+        "characteristics": [
+          "Calm",
+          "Clear",
+          "Expressive",
+          "Knowledgeable",
+          "Professional"
+        ],
+        "use_cases": [
+          "Interview",
+          "Casual chat"
+        ]
+      },
+      {
+        "model": "aura-2-alvaro-es",
+        "name": "alvaro",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Peninsular",
+        "characteristics": [
+          "Calm",
+          "Professional",
+          "Clear",
+          "Knowledgeable",
+          "Approachable"
+        ],
+        "use_cases": [
+          "Interview",
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-antonia-es",
+        "name": "antonia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Argentine",
+        "characteristics": [
+          "Approachable",
+          "Enthusiastic",
+          "Friendly",
+          "Natural",
+          "Professional"
+        ],
+        "use_cases": [
+          "Customer service",
+          "Interview",
+          "Casual chat"
+        ]
+      },
+      {
+        "model": "aura-2-aquila-es",
+        "name": "aquila",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Latin American",
+        "characteristics": [
+          "Expressive",
+          "Enthusiastic",
+          "Confident",
+          "Casual",
+          "Comfortable"
+        ],
+        "use_cases": [
+          "Casual chat",
+          "Informative"
+        ],
+        "codeswitching": true
+      },
+      {
+        "model": "aura-2-carina-es",
+        "name": "carina",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Peninsular",
+        "characteristics": [
+          "Professional",
+          "Raspy",
+          "Energetic",
+          "Breathy",
+          "Confident"
+        ],
+        "use_cases": [
+          "Interview",
+          "Customer service",
+          "IVR"
+        ],
+        "codeswitching": true
+      },
+      {
+        "model": "aura-2-celeste-es",
+        "name": "celeste",
+        "featured": true,
+        "gender": "feminine",
+        "age": "Young Adult",
+        "accent": "Colombian",
+        "characteristics": [
+          "Clear",
+          "Energetic",
+          "Positive",
+          "Friendly",
+          "Enthusiastic"
+        ],
+        "use_cases": [
+          "Casual chat",
+          "Advertising",
+          "IVR"
+        ]
+      },
+      {
+        "model": "aura-2-diana-es",
+        "name": "diana",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Peninsular",
+        "characteristics": [
+          "Professional",
+          "Confident",
+          "Expressive",
+          "Polite",
+          "Knowledgeable"
+        ],
+        "use_cases": [
+          "Storytelling",
+          "Advertising"
+        ],
+        "codeswitching": true
+      },
+      {
+        "model": "aura-2-estrella-es",
+        "name": "estrella",
+        "featured": true,
+        "gender": "feminine",
+        "age": "Mature",
+        "accent": "Mexican",
+        "characteristics": [
+          "Approachable",
+          "Natural",
+          "Calm",
+          "Comfortable",
+          "Expressive"
+        ],
+        "use_cases": [
+          "Casual chat",
+          "Interview"
+        ]
+      },
+      {
+        "model": "aura-2-gloria-es",
+        "name": "gloria",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Young Adult",
+        "accent": "Colombian",
+        "characteristics": [
+          "Casual",
+          "Clear",
+          "Expressive",
+          "Natural",
+          "Smooth"
+        ],
+        "use_cases": [
+          "Customer service",
+          "Casual chat"
+        ]
+      },
+      {
+        "model": "aura-2-javier-es",
+        "name": "javier",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Mexican",
+        "characteristics": [
+          "Approachable",
+          "Professional",
+          "Friendly",
+          "Comfortable",
+          "Calm"
+        ],
+        "use_cases": [
+          "Casual chat",
+          "IVR",
+          "Storytelling"
+        ],
+        "codeswitching": true
+      },
+      {
+        "model": "aura-2-luciano-es",
+        "name": "luciano",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Mexican",
+        "characteristics": [
+          "Charismatic",
+          "Cheerful",
+          "Energetic",
+          "Expressive",
+          "Friendly"
+        ],
+        "use_cases": [
+          "Customer service",
+          "Casual chat"
+        ]
+      },
+      {
+        "model": "aura-2-nestor-es",
+        "name": "nestor",
+        "featured": true,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Peninsular",
+        "characteristics": [
+          "Calm",
+          "Professional",
+          "Approachable",
+          "Clear",
+          "Confident"
+        ],
+        "use_cases": [
+          "Casual chat",
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-olivia-es",
+        "name": "olivia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Mexican",
+        "characteristics": [
+          "Breathy",
+          "Calm",
+          "Casual",
+          "Expressive",
+          "Warm"
+        ],
+        "use_cases": [
+          "Customer service",
+          "Casual chat"
+        ]
+      },
+      {
+        "model": "aura-2-selena-es",
+        "name": "selena",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Young Adult",
+        "accent": "Latin American",
+        "characteristics": [
+          "Approachable",
+          "Casual",
+          "Friendly",
+          "Calm",
+          "Positive"
+        ],
+        "use_cases": [
+          "Customer service",
+          "Informative"
+        ],
+        "codeswitching": true
+      },
+      {
+        "model": "aura-2-silvia-es",
+        "name": "silvia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Peninsular",
+        "characteristics": [
+          "Charismatic",
+          "Clear",
+          "Expressive",
+          "Natural",
+          "Warm"
+        ],
+        "use_cases": [
+          "Customer service",
+          "Casual chat"
+        ]
+      },
+      {
+        "model": "aura-2-sirio-es",
+        "name": "sirio",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Mexican",
+        "characteristics": [
+          "Calm",
+          "Professional",
+          "Comfortable",
+          "Empathetic",
+          "Baritone"
+        ],
+        "use_cases": [
+          "Casual chat",
+          "Interview"
+        ]
+      },
+      {
+        "model": "aura-2-valerio-es",
+        "name": "valerio",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Mexican",
+        "characteristics": [
+          "Deep",
+          "Knowledgeable",
+          "Natural",
+          "Polite",
+          "Professional"
+        ],
+        "use_cases": [
+          "Customer service",
+          "Informative"
+        ]
+      }
+    ],
+    "de": [
+      {
+        "model": "aura-2-aurelia-de",
+        "name": "aurelia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Young Adult",
+        "accent": "German",
+        "characteristics": [
+          "Approachable",
+          "Casual",
+          "Comfortable",
+          "Natural",
+          "Sincere"
+        ],
+        "use_cases": [
+          "Healthcare",
+          "Customer service",
+          "Sales",
+          "Financial services"
+        ]
+      },
+      {
+        "model": "aura-2-elara-de",
+        "name": "elara",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "German",
+        "characteristics": [
+          "Calm",
+          "Clear",
+          "Natural",
+          "Patient",
+          "Trustworthy"
+        ],
+        "use_cases": [
+          "Healthcare",
+          "Customer service",
+          "Sales",
+          "Financial services"
+        ]
+      },
+      {
+        "model": "aura-2-fabian-de",
+        "name": "fabian",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Mature",
+        "accent": "German",
+        "characteristics": [
+          "Confident",
+          "Knowledgeable",
+          "Natural",
+          "Polite",
+          "Professional"
+        ],
+        "use_cases": [
+          "Healthcare",
+          "Customer service",
+          "Sales",
+          "Financial services"
+        ]
+      },
+      {
+        "model": "aura-2-julius-de",
+        "name": "julius",
+        "featured": true,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "German",
+        "characteristics": [
+          "Casual",
+          "Cheerful",
+          "Engaging",
+          "Expressive",
+          "Friendly"
+        ],
+        "use_cases": [
+          "Healthcare",
+          "Customer service",
+          "Sales",
+          "Financial services"
+        ]
+      },
+      {
+        "model": "aura-2-kara-de",
+        "name": "kara",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Young Adult",
+        "accent": "German",
+        "characteristics": [
+          "Caring",
+          "Empathetic",
+          "Expressive",
+          "Professional",
+          "Warm"
+        ],
+        "use_cases": [
+          "Healthcare",
+          "Customer service",
+          "Sales",
+          "Financial services"
+        ]
+      },
+      {
+        "model": "aura-2-lara-de",
+        "name": "lara",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Young Adult",
+        "accent": "German",
+        "characteristics": [
+          "Caring",
+          "Cheerful",
+          "Empathetic",
+          "Expressive",
+          "Warm"
+        ],
+        "use_cases": [
+          "Healthcare",
+          "Customer service",
+          "Sales",
+          "Financial services"
+        ]
+      },
+      {
+        "model": "aura-2-viktoria-de",
+        "name": "viktoria",
+        "featured": true,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "German",
+        "characteristics": [
+          "Charismatic",
+          "Cheerful",
+          "Enthusiastic",
+          "Friendly",
+          "Warm"
+        ],
+        "use_cases": [
+          "Healthcare",
+          "Customer service",
+          "Sales",
+          "Financial services"
+        ]
+      }
+    ],
+    "fr": [
+      {
+        "model": "aura-2-agathe-fr",
+        "name": "agathe",
+        "featured": true,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "French",
+        "characteristics": [
+          "Charismatic",
+          "Cheerful",
+          "Enthusiastic",
+          "Friendly",
+          "Natural"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-hector-fr",
+        "name": "hector",
+        "featured": true,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "French",
+        "characteristics": [
+          "Confident",
+          "Empathetic",
+          "Expressive",
+          "Friendly",
+          "Patient"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      }
+    ],
+    "nl": [
+      {
+        "model": "aura-2-beatrix-nl",
+        "name": "beatrix",
+        "featured": true,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Dutch",
+        "characteristics": [
+          "Cheerful",
+          "Enthusiastic",
+          "Friendly",
+          "Trustworthy",
+          "Warm"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-cornelia-nl",
+        "name": "cornelia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Dutch",
+        "characteristics": [
+          "Approachable",
+          "Friendly",
+          "Polite",
+          "Positive",
+          "Warm"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-daphne-nl",
+        "name": "daphne",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Dutch",
+        "characteristics": [
+          "Calm",
+          "Clear",
+          "Confident",
+          "Professional",
+          "Smooth"
+        ],
+        "use_cases": [
+          "Healthcare",
+          "Interview",
+          "Casual chat",
+          "Audiobook"
+        ]
+      },
+      {
+        "model": "aura-2-hestia-nl",
+        "name": "hestia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Dutch",
+        "characteristics": [
+          "Approachable",
+          "Caring",
+          "Expressive",
+          "Friendly",
+          "Knowledgeable"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-lars-nl",
+        "name": "lars",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Dutch",
+        "characteristics": [
+          "Breathy",
+          "Casual",
+          "Comfortable",
+          "Sincere",
+          "Trustworthy"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-leda-nl",
+        "name": "leda",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Dutch",
+        "characteristics": [
+          "Caring",
+          "Comfortable",
+          "Empathetic",
+          "Friendly",
+          "Sincere"
+        ],
+        "use_cases": [
+          "Sales"
+        ]
+      },
+      {
+        "model": "aura-2-rhea-nl",
+        "name": "rhea",
+        "featured": true,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Dutch",
+        "characteristics": [
+          "Caring",
+          "Knowledgeable",
+          "Positive",
+          "Smooth",
+          "Warm"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-roman-nl",
+        "name": "roman",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Dutch",
+        "characteristics": [
+          "Calm",
+          "Casual",
+          "Deep",
+          "Natural",
+          "Patient"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-sander-nl",
+        "name": "sander",
+        "featured": true,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Dutch",
+        "characteristics": [
+          "Calm",
+          "Clear",
+          "Deep",
+          "Professional",
+          "Smooth"
+        ],
+        "use_cases": [
+          "Customer service"
+        ]
+      }
+    ],
+    "it": [
+      {
+        "model": "aura-2-cesare-it",
+        "name": "cesare",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Italian",
+        "characteristics": [
+          "Clear",
+          "Empathetic",
+          "Knowledgeable",
+          "Natural",
+          "Smooth"
+        ],
+        "use_cases": [
+          "Casual chat",
+          "Customer service",
+          "Interview",
+          "IVR"
+        ]
+      },
+      {
+        "model": "aura-2-cinzia-it",
+        "name": "cinzia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Mature",
+        "accent": "Italian",
+        "characteristics": [
+          "Approachable",
+          "Friendly",
+          "Smooth",
+          "Trustworthy",
+          "Warm"
+        ],
+        "use_cases": [
+          "Customer service",
+          "Interview",
+          "Narration"
+        ]
+      },
+      {
+        "model": "aura-2-demetra-it",
+        "name": "demetra",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Italian",
+        "characteristics": [
+          "Calm",
+          "Comfortable",
+          "Patient"
+        ],
+        "use_cases": [
+          "Casual chat",
+          "Interview",
+          "Narration"
+        ]
+      },
+      {
+        "model": "aura-2-dionisio-it",
+        "name": "dionisio",
+        "featured": true,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Italian",
+        "characteristics": [
+          "Confident",
+          "Engaging",
+          "Friendly",
+          "Melodic",
+          "Positive"
+        ],
+        "use_cases": [
+          "Interview",
+          "Casual chat",
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-elio-it",
+        "name": "elio",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Italian",
+        "characteristics": [
+          "Breathy",
+          "Calm",
+          "Professional",
+          "Smooth",
+          "Trustworthy"
+        ],
+        "use_cases": [
+          "Interview",
+          "Casual chat",
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-flavio-it",
+        "name": "flavio",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Italian",
+        "characteristics": [
+          "Confident",
+          "Deep",
+          "Empathetic",
+          "Professional",
+          "Trustworthy"
+        ],
+        "use_cases": [
+          "Casual chat",
+          "Interview",
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-livia-it",
+        "name": "livia",
+        "featured": true,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Italian",
+        "characteristics": [
+          "Approachable",
+          "Cheerful",
+          "Clear",
+          "Engaging",
+          "Expressive"
+        ],
+        "use_cases": [
+          "Customer service",
+          "Interview",
+          "Audiobook"
+        ]
+      },
+      {
+        "model": "aura-2-maia-it",
+        "name": "maia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Young Adult",
+        "accent": "Italian",
+        "characteristics": [
+          "Caring",
+          "Energetic",
+          "Expressive",
+          "Professional",
+          "Warm"
+        ],
+        "use_cases": [
+          "Interview",
+          "Casual chat",
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-melia-it",
+        "name": "melia",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Italian",
+        "characteristics": [
+          "Clear",
+          "Comfortable",
+          "Engaging",
+          "Friendly",
+          "Natural"
+        ],
+        "use_cases": [
+          "Casual chat",
+          "Customer service",
+          "Interview"
+        ]
+      }
+    ],
+    "ja": [
+      {
+        "model": "aura-2-ama-ja",
+        "name": "ama",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Japanese",
+        "characteristics": [
+          "Casual",
+          "Comfortable",
+          "Confident",
+          "Knowledgeable",
+          "Natural"
+        ],
+        "use_cases": [
+          "Interview",
+          "IVR"
+        ]
+      },
+      {
+        "model": "aura-2-ebisu-ja",
+        "name": "ebisu",
+        "featured": false,
+        "gender": "masculine",
+        "age": "Young Adult",
+        "accent": "Japanese",
+        "characteristics": [
+          "Calm",
+          "Deep",
+          "Natural",
+          "Patient",
+          "Sincere"
+        ],
+        "use_cases": [
+          "Casual chat",
+          "Customer service"
+        ]
+      },
+      {
+        "model": "aura-2-fujin-ja",
+        "name": "fujin",
+        "featured": true,
+        "gender": "masculine",
+        "age": "Adult",
+        "accent": "Japanese",
+        "characteristics": [
+          "Calm",
+          "Confident",
+          "Knowledgeable",
+          "Professional",
+          "Smooth"
+        ],
+        "use_cases": [
+          "Interview",
+          "Casual chat",
+          "IVR"
+        ]
+      },
+      {
+        "model": "aura-2-izanami-ja",
+        "name": "izanami",
+        "featured": true,
+        "gender": "feminine",
+        "age": "Adult",
+        "accent": "Japanese",
+        "characteristics": [
+          "Approachable",
+          "Clear",
+          "Knowledgeable",
+          "Polite",
+          "Professional"
+        ],
+        "use_cases": [
+          "Casual chat",
+          "Customer service",
+          "Interview",
+          "IVR"
+        ]
+      },
+      {
+        "model": "aura-2-uzume-ja",
+        "name": "uzume",
+        "featured": false,
+        "gender": "feminine",
+        "age": "Young Adult",
+        "accent": "Japanese",
+        "characteristics": [
+          "Approachable",
+          "Clear",
+          "Polite",
+          "Professional",
+          "Trustworthy"
+        ],
+        "use_cases": [
+          "Customer service",
+          "Interview",
+          "IVR",
+          "Commercial"
+        ]
+      }
+    ]
+  }
+}

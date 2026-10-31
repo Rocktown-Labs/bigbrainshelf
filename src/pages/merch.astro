@@ -1,0 +1,114 @@
+---
+import "../styles/global.css";
+import SiteFooter from "../components/SiteFooter.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import CartSheet from "../components/CartSheet.astro";
+import SectionHero from "../components/SectionHero.astro";
+import SectionNav from "../components/SectionNav.astro";
+import Tracking from "../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../components/TransitionHooks.astro";
+import SeoHead from "../components/SeoHead.astro";
+import { MERCH_PRODUCTS } from "../data/merch";
+import { coverDerivative, MEDIA_PUBLIC } from "../lib/derivatives";
+import { env } from "cloudflare:workers";
+export const prerender = false;
+const e = env as any;
+
+// Product cards are illustrated with the cover of the book each
+// product stars. The products are placeholders (src/data/merch.ts):
+// prices show, but the button is a disabled "Coming soon" and nothing
+// on this page touches the cart.
+let coverBySlug = new Map<string, string>();
+try {
+  const slugs = [...new Set(MERCH_PRODUCTS.map((p) => p.bookSlug))];
+  const { results } = await e.DB.prepare(
+    `SELECT slug, cover_key FROM books WHERE slug IN (${slugs.map(() => "?").join(",")})`
+  )
+    .bind(...slugs)
+    .all();
+  for (const b of (results || []) as any[]) {
+    coverBySlug.set(
+      String(b.slug),
+      coverDerivative(String(b.slug), "card", b.cover_key) || (b.cover_key ? MEDIA_PUBLIC + b.cover_key : "")
+    );
+  }
+} catch { /* cards render without art rather than failing the page */ }
+
+// Merch cards deliberately carry NO view-transition-name. The cards
+// navigate nowhere (Coming soon), so a book-cover name here only
+// misfires: entering /merch from a shelf pairs the shelf covers with
+// these cards, and leaving /merch strands one exit group per cover
+// fading on the 400ms group clock over the incoming page, long after
+// the 210ms root fade. With no names, tab switches to and from
+// /merch are the plain nav-lateral root fade, like Plans.
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Merch — Big Brain Shelf</title>
+  <SeoHead title="Merch — Big Brain Shelf" socialDescription="Shirts, prints, and gifts starring the cast from the books." image="https://bigbrainshelf.com/og-image-merch.jpg" imageAlt="Big Brain Shelf merch, including the Mira plush and shirts starring the cast" imageWidth={1200} imageHeight={630} />
+  <meta name="description" content="Shirts, prints, and gifts starring the cast from the Big Brain Shelf books. Coming soon." />
+    <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased">
+  <SiteHeader search cartMode="sheet" />
+
+  <SectionHero subline="Shirts, prints, and gifts starring the cast from the books." />
+  <SectionNav active="merch" />
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-7">
+    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8 md:gap-x-5 md:gap-y-10">
+      {MERCH_PRODUCTS.map((p) => {
+        const cover = coverBySlug.get(p.bookSlug) || "";
+        return (
+          <div class="block relative">
+            <div class="relative w-full aspect-[3/4] bg-stone-100 rounded" role="img" aria-label={`${p.name} artwork`}>
+              <span aria-hidden="true" class="absolute inset-0 z-10 pointer-events-none" style="box-shadow: inset 12px 0 18px -11px rgba(0,0,0,.5), inset -1px 0 2px rgba(0,0,0,.12), inset 0 0 0 1px rgba(0,0,0,.07)"></span>
+              {cover && (
+                <>
+                  <img src={cover} alt="" aria-hidden="true" loading="lazy" class="absolute inset-0 w-full h-full object-cover" />
+                  <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 z-20 w-full h-full opacity-0" />
+                </>
+              )}
+            </div>
+            <h3 class="mt-3 text-[15px] font-semibold leading-snug">{p.name}</h3>
+            <p class="text-sm mt-0.5"><span class="font-semibold">{p.price}</span> <span class="text-stone-500">{p.note}</span></p>
+            <button type="button" disabled aria-disabled="true" class="mt-2.5 inline-flex items-center justify-center min-h-[40px] px-5 rounded-full bg-stone-100 text-stone-500 text-sm font-semibold cursor-not-allowed">Coming soon</button>
+          </div>
+        );
+      })}
+    </div>
+    <p class="text-sm text-stone-500 mt-10">Merch is on its way. The books are ready now: <a href="/" class="font-semibold text-orange-700 hover:text-orange-800">browse the shelf</a>.</p>
+  </main>
+
+  <SiteFooter />
+
+  <script is:inline>
+    // Keep the header account link in sync with the session (same
+    // pattern as the other public pages).
+    function bbsAccountLink() {
+      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+        var link = document.getElementById("account-link");
+        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
+      }).catch(function () {});
+    }
+    bbsAccountLink();
+    document.addEventListener("astro:page-load", bbsAccountLink);
+  </script>
+<!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
+<CartSheet />
+
+</body>
+</html>

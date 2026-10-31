@@ -1,0 +1,12 @@
+---
+import { env } from "cloudflare:workers";
+import { resolveBookForPublicRoute, publicSlugFor } from "../../../../lib/public-slugs";
+export const prerender = false;
+// Legacy subroute: bounce to the book's QC page, at its canonical
+// admin URL (the PUBLIC slug, owner 2026-10-29) when the param
+// resolves to a book; unresolvable params pass through unchanged.
+const param = String(Astro.params.slug || "");
+const resolvedBook = await resolveBookForPublicRoute(env.DB as any, param).catch(() => null);
+const target = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
+return Astro.redirect(`/admin/books/${target}`, 302);
+---

@@ -1,0 +1,56 @@
+---
+export const prerender = false;
+import { env } from "cloudflare:workers";
+import { getAuth } from "../../lib/auth";
+import { createSession } from "../../middleware";
+
+// Post-sign-in landing: check the signed-in user's role and send them
+// to the right spot. Admins land in /admin (with the admin session
+// cookie the middleware requires); customers land in their library,
+// or at a safe `next` they were heading for.
+import { isAdminEmail } from "../../lib/admins";
+const e = env as any;
+
+const session = await getAuth()
+  .api.getSession({ headers: Astro.request.headers })
+  .catch(() => null);
+
+if (!session?.user) {
+  return Astro.redirect("/login", 302);
+}
+
+const next = Astro.url.searchParams.get("next") || "";
+const email = (session.user.email || "").toLowerCase();
+let role = (session.user as any).role as string | undefined;
+
+// Self-heal: the owner address always carries the admin role, even if
+// the account predates the role hook.
+if (isAdminEmail(email) && role !== "admin") {
+  try {
+    await e.DB.prepare('UPDATE "user" SET role=? WHERE lower(email)=?')
+      .bind("admin", email)
+      .run();
+    role = "admin";
+  } catch {}
+}
+
+const isAdmin = role === "admin" || isAdminEmail(email);
+const safePath = (p: string) =>
+  p.startsWith("/") && !p.startsWith("//") && !p.startsWith("/login");
+
+if (isAdmin) {
+  const dest = next && safePath(next) ? next : "/admin";
+  const cookie = await createSession(email, e.BETTER_AUTH_SECRET);
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: dest,
+      "Set-Cookie": `admin_session=${cookie}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${7 * 24 * 3600}`,
+    },
+  });
+}
+
+const dest =
+  next && safePath(next) && !next.startsWith("/admin") ? next : "/account";
+return Astro.redirect(dest, 302);
+---

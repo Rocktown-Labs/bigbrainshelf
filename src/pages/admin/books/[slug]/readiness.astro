@@ -1,0 +1,234 @@
+---
+import "../../../../styles/global.css";
+import { env } from "cloudflare:workers";
+import AdminShell from "../../../../components/AdminShell.astro";
+import { resolveBookForPublicRoute, publicSlugFor } from "../../../../lib/public-slugs";
+import { getDeliveryReadiness } from "../../../../lib/delivery-readiness";
+import { getPublishReadiness } from "../../../../lib/publish-readiness";
+import { deliverableList, formatBytes } from "../../../../lib/deliverables";
+import { countBookPages, countApprovedPages } from "../../../../lib/book-plans";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+// The book's readiness home (CG, 2026-10-31): the delivery
+// checklist, the finalize steps in their order (QC, then color,
+// then casting and audio, then publish, then marketing), the
+// deliverables directory, and the full bundle download. One
+// page per book, so a book can be finalized start to finish
+// without hunting through admin.
+const param = String(Astro.params.slug || "");
+const resolvedBook = await resolveBookForPublicRoute(env.DB as any, param).catch(() => null);
+const book = resolvedBook ? (resolvedBook.book as any) : null;
+const slug = book ? String(book.slug) : param;
+const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
+const title = book ? String(book.title || slug) : param;
+
+const delivery = book ? await getDeliveryReadiness(env.DB as any, (env as any).BOOKS, slug).catch(() => null) : null;
+const publish = book ? await getPublishReadiness(env.DB as any, (env as any).BOOKS, slug).catch(() => null) : null;
+
+// QC state: approvals live in page_approvals (written here via
+// the bulk approve, cleared per page whenever a page is redone).
+const totalPages = book ? await countBookPages((env as any).BOOKS, slug).catch(() => 0) : 0;
+const approvedCount = book ? await countApprovedPages(env.DB as any, (env as any).BOOKS, slug).catch(() => 0) : 0;
+const qcComplete = totalPages > 0 && approvedCount >= totalPages;
+
+// Colorize state: colored twins on file vs line pages.
+let colorTwins: number | null = null;
+let lineImgs: number | null = null;
+if (book) {
+  try {
+    const count = async (prefix: string) => {
+      const r = await (env as any).BOOKS.list({ prefix, limit: 1000 });
+      return (r.objects || []).filter((o: any) => String(o.key).endsWith(".jpg")).length;
+    };
+    lineImgs = await count(`books/${slug}/images/`);
+    colorTwins = await count(`books/${slug}/images-color/`);
+  } catch { /* counts stay unknown */ }
+}
+
+interface DeliverableRow { name: string; key: string; what: string; size: number | null }
+const deliverables: DeliverableRow[] = [];
+if (book) {
+  for (const d of deliverableList(book, slug)) {
+    const head = await (env as any).BOOKS.head(d.key).catch(() => null);
+    deliverables.push({ ...d, size: head ? Number(head.size) : null });
+  }
+}
+
+let manifestMissing: string[] | null = null;
+if (book) {
+  try {
+    const obj = await (env as any).BOOKS.get(`books/${slug}/marketing/manifest.json`);
+    if (obj) {
+      const m = JSON.parse(await obj.text());
+      if (Array.isArray(m.missing)) manifestMissing = m.missing.map(String);
+    }
+  } catch { /* no kit yet */ }
+}
+
+const verdictColor = delivery
+  ? delivery.verdict === "ready" ? "#15803d" : delivery.verdict === "product-ready" ? "#2563eb" : delivery.verdict === "not-ready" ? "#b45309" : "#78716c"
+  : "#78716c";
+const checkIcon = (s: string) => (s === "pass" ? "✓" : s === "fail" ? "✗" : "?");
+const checkColor = (s: string) => (s === "pass" ? "#15803d" : s === "fail" ? "#b91c1c" : "#a8a29e");
+const colorCheck = delivery?.checks.find((c) => c.id === "color-edition");
+const castCheck = delivery?.checks.find((c) => c.id === "full-cast");
+const audioCheck = delivery?.checks.find((c) => c.id === "audio-production");
+const marketingCheck = delivery?.checks.find((c) => c.id === "marketing-assets");
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Readiness · {title} · Big Brain Shelf admin</title>
+</head>
+<body class="bg-stone-50 text-stone-900 antialiased">
+  <AdminShell current="/admin/books" />
+  <main class="mx-auto max-w-4xl px-4 py-8">
+    <p class="text-sm"><a href="/admin/books" class="text-orange-700">&larr; Books</a></p>
+    <h1 class="text-2xl font-bold tracking-tight mt-2">{title}</h1>
+    {delivery ? (
+      <p class="mt-2 text-base font-semibold" style={`color:${verdictColor}`}>{delivery.statusLabel}</p>
+    ) : (
+      <p class="mt-2 text-base text-stone-500">Readiness could not be computed for this book.</p>
+    )}
+
+    <section class="mt-8">
+      <h2 class="text-lg font-bold">Finalize in order</h2>
+      <ol class="mt-3 space-y-3">
+        <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
+          <span class="font-bold text-stone-400">1</span>
+          <div class="flex-1 min-w-[220px]">
+            <p class="font-semibold">QC the pages</p>
+            <p class="text-sm text-stone-500">{totalPages ? `${approvedCount} of ${totalPages} pages approved. ` : ""}Review the pages in QC, then mark the book approved here. Redoing any page clears its approval again. Coloring waits for QC, always.</p>
+          </div>
+          <a class="rounded-lg bg-orange-600 text-white text-sm font-semibold px-4 py-2" href={`/admin/books/${adminSlug}`}>Open QC</a>
+          <button id="approve-all-btn" data-slug={slug} class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 py-2 hover:border-stone-500">Approve all pages</button>
+          {approvedCount > 0 && <button id="approve-clear-btn" data-slug={slug} class="rounded-lg bg-white border border-stone-200 text-sm text-stone-500 px-3 py-2 hover:border-stone-400">Clear</button>}
+        </li>
+        <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
+          <span class="font-bold text-stone-400">2</span>
+          <div class="flex-1 min-w-[220px]">
+            <p class="font-semibold">Colorize</p>
+            <p class="text-sm text-stone-500">{colorCheck ? colorCheck.detail : "Color edition state unknown."}{colorTwins !== null && lineImgs ? ` ${colorTwins} of ${lineImgs} pages colored.` : ""}{!qcComplete ? " Colorize unlocks when every page is green in QC." : ""}</p>
+          </div>
+          <button id="colorize-btn" data-slug={slug} disabled={!qcComplete} class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 py-2 hover:border-stone-500 disabled:opacity-40 disabled:hover:border-stone-300">Colorize</button>
+        </li>
+        <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
+          <span class="font-bold text-stone-400">3</span>
+          <div class="flex-1 min-w-[220px]">
+            <p class="font-semibold">Casting and audio</p>
+            <p class="text-sm text-stone-500">{castCheck ? castCheck.detail + " " : ""}{audioCheck ? audioCheck.detail : ""} No audio is generated without casting first; the generator refuses an uncast book.</p>
+          </div>
+          <a class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 py-2 hover:border-stone-500" href="/admin/cast-gemini">Casting</a>
+        </li>
+        <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
+          <span class="font-bold text-stone-400">4</span>
+          <div class="flex-1 min-w-[220px]">
+            <p class="font-semibold">Publish</p>
+            <p class="text-sm text-stone-500">{publish ? publish.statusLabel : "Publish state unknown."}</p>
+          </div>
+          <button id="publish-btn" data-slug={slug} class="rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 py-2">Publish</button>
+        </li>
+        <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
+          <span class="font-bold text-stone-400">5</span>
+          <div class="flex-1 min-w-[220px]">
+            <p class="font-semibold">Marketing</p>
+            <p class="text-sm text-stone-500">{marketingCheck ? marketingCheck.detail : ""} {manifestMissing === null ? "No marketing kit yet." : manifestMissing.length ? `Kit is missing: ${manifestMissing.join("; ")}.` : "Kit is complete; marketing can pull it and run."}</p>
+          </div>
+          <span class="text-xs text-stone-400">books/{slug}/marketing/manifest.json</span>
+        </li>
+      </ol>
+      <p id="step-status" class="mt-3 text-sm font-medium text-stone-700"></p>
+    </section>
+
+    {delivery && (
+      <section class="mt-10">
+        <h2 class="text-lg font-bold">Readiness checklist</h2>
+        <ul class="mt-3 rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
+          {delivery.checks.map((c) => (
+            <li class="flex gap-3 px-4 py-2.5 text-sm">
+              <span class="font-bold" style={`color:${checkColor(c.state)}`}>{checkIcon(c.state)}</span>
+              <span class="font-medium whitespace-nowrap">{c.label}</span>
+              <span class="text-stone-500">{c.detail}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    <section class="mt-10">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 class="text-lg font-bold">Deliverables</h2>
+        <a class="ml-auto rounded-lg bg-orange-600 text-white text-sm font-semibold px-4 py-2" href={`/api/admin/books/${adminSlug}/bundle`}>Download full bundle (.zip)</a>
+      </div>
+      <div class="mt-3 rounded-xl bg-white border border-stone-200 overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-stone-500 border-b border-stone-200">
+              <th class="px-4 py-2 font-medium">File</th>
+              <th class="px-4 py-2 font-medium">What it is</th>
+              <th class="px-4 py-2 font-medium">Stored as</th>
+              <th class="px-4 py-2 font-medium text-right">Size</th>
+            </tr>
+          </thead>
+          <tbody>
+            {deliverables.map((d) => (
+              <tr class="border-b border-stone-100 last:border-0">
+                <td class="px-4 py-2 font-medium whitespace-nowrap">{d.name}</td>
+                <td class="px-4 py-2 text-stone-500">{d.what}</td>
+                <td class="px-4 py-2 text-stone-400 text-xs">{d.key}</td>
+                <td class="px-4 py-2 text-right whitespace-nowrap">{d.size === null ? <span class="text-red-700 font-medium">missing</span> : formatBytes(d.size)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script is:inline>
+    (function () {
+      var status = document.getElementById("step-status");
+      function say(t) { if (status) status.textContent = t; }
+      var cz = document.getElementById("colorize-btn");
+      if (cz) cz.addEventListener("click", function () {
+        if (!window.confirm("Colorize this book now? Run it after QC: it colors the book's approved pages into the separate full color edition. The base book does not change.")) return;
+        cz.disabled = true; say("Starting colorize...");
+        fetch("/api/books/colorize", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug: cz.getAttribute("data-slug") }) })
+          .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || ("HTTP " + r.status)); return j; }); })
+          .then(function () { say("Colorize started. Refresh in a bit to watch the color check change."); })
+          .catch(function (e) { say("Colorize could not start: " + (e.message || e)); cz.disabled = false; });
+      });
+      function bulkApprove(id, approved, label) {
+        var btn = document.getElementById(id);
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          if (!window.confirm(label)) return;
+          btn.disabled = true; say("Saving approvals...");
+          fetch("/api/editor/approvals-bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ book_slug: btn.getAttribute("data-slug"), approved: approved }) })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || ("HTTP " + r.status)); return j; }); })
+            .then(function () { say("Saved. Reloading..."); setTimeout(function () { window.location.reload(); }, 600); })
+            .catch(function (e) { say("Could not save: " + (e.message || e)); btn.disabled = false; });
+        });
+      }
+      bulkApprove("approve-all-btn", true, "Approve every page of this book? Do this after your QC review pass. Redoing a page later clears its approval.");
+      bulkApprove("approve-clear-btn", false, "Clear every page approval on this book?");
+      var pb = document.getElementById("publish-btn");
+      if (pb) pb.addEventListener("click", function () {
+        if (!window.confirm("Publish this book now? The gates still apply: every page approved and the audio gate, unless an override is on record in the editor.")) return;
+        pb.disabled = true; say("Publishing...");
+        fetch("/api/editor/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ book_slug: pb.getAttribute("data-slug") }) })
+          .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || (j.reasons ? j.reasons.join(" ") : "HTTP " + r.status)); return j; }); })
+          .then(function () { say("Published. Reloading..."); setTimeout(function () { window.location.reload(); }, 800); })
+          .catch(function (e) { say("Publish refused: " + (e.message || e)); pb.disabled = false; });
+      });
+    })();
+  </script>
+</body>
+</html>
