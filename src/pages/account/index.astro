@@ -1,7 +1,7 @@
 ---
 import "../../styles/global.css";
 import { env } from "cloudflare:workers";
-import { getAuth } from "../../lib/auth";
+import { getAuth, getEffectiveSession } from "../../lib/auth";
 import Tracking from "../../components/Tracking.astro";
 import { ClientRouter } from "astro:transitions";
 import TransitionHooks from "../../components/TransitionHooks.astro";
@@ -39,8 +39,7 @@ import {
 } from "../../lib/family";
 
 const e = env as any;
-const auth = getAuth();
-const session = await auth.api.getSession({ headers: Astro.request.headers });
+const session = await getEffectiveSession(Astro.request, Astro.locals, e.DB);
 if (!session) {
   return Astro.redirect("/login?next=/account");
 }
@@ -59,7 +58,32 @@ const libraryBooks = await getLibraryBooks(e.DB, {
   id: session.user.id,
   email: String(session.user.email || ""),
 });
-const books: any[] = libraryBooks as any[];
+let books: any[] = libraryBooks as any[];
+// Admin review access: when an owner/admin visits /account or /accounts,
+// include published books on the shelf so they can test the QC Viewer,
+// Read-Along auto-flip, and Audiobook Player without placing a test order.
+if (session.user.isAdmin && books.length === 0) {
+  try {
+    const allComplete = await e.DB.prepare(
+      `SELECT slug, public_slug, title, topic, cover_key, picture_book_key, coloring_book_key, epub_key, color_book_key, audiobook_key, price, price_print
+       FROM books WHERE status = 'complete' ORDER BY title ASC`
+    )
+      .bind()
+      .all();
+    const completeRows = (allComplete?.results || allComplete?.rows || []) as any[];
+    books = completeRows.map((b) => ({
+      ...b,
+      sources: ["order"],
+      digital: true,
+      audio: Boolean(b.audiobook_key),
+      audioOnly: false,
+      owned: true,
+      clubPlan: null,
+    }));
+  } catch {
+    // Keep empty if query fails
+  }
+}
 const audioBooksCount = books.filter((b) => Boolean(b.audiobook_key)).length;
 
 // Family onboarding, kid profiles, and synced reading/listening progress.
@@ -283,6 +307,9 @@ if (showSuccess) {
   <CustomerShell
     currentSection="shelf"
     userEmail={String(session.user.email || "")}
+    username={session.user.displayUsername || session.user.username}
+    displayName={parentOnboarding?.parent_name || session.user.name}
+    isAdmin={session.user.isAdmin}
     kidProfiles={kidProfiles}
     hasParentPin={Boolean(parentOnboarding?.parent_pin)}
     bookCount={books.length}
@@ -297,10 +324,27 @@ if (showSuccess) {
     )}
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight">Your library</h1>
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 class="text-2xl font-bold tracking-tight">Your library</h1>
+          {(session.user.displayUsername || session.user.username) && (
+            <span class="rounded-full bg-orange-100 text-orange-800 px-2.5 py-0.5 text-xs font-extrabold">
+              @{session.user.displayUsername || session.user.username}
+            </span>
+          )}
+          {session.user.isAdmin && (
+            <span class="rounded-full bg-[#1a3454] text-white px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+              Admin Preview
+            </span>
+          )}
+        </div>
         <p class="text-sm text-stone-500 mt-1">{session.user.email}</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
+        {session.user.isAdmin && (
+          <a href="/admin" class="rounded-full border border-[#1a3454] bg-white text-[#1a3454] px-4 py-2 text-xs font-extrabold hover:bg-stone-50">
+            Admin Dashboard →
+          </a>
+        )}
         <a href="#qc-viewer" class="rounded-full bg-[#1a3454] text-white px-4 py-2 text-xs font-bold hover:bg-[#132741]">
           Open Book Viewer (QC)
         </a>
@@ -360,6 +404,68 @@ if (showSuccess) {
                   class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium"
                 />
               </label>
+
+              {/* Username (@handle) or Email Sign-in Choice + Live Availability Checker */}
+              <div class="mt-3 rounded-lg border border-stone-200 bg-stone-50/80 p-2.5">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-xs font-extrabold text-stone-800">Username or Email</span>
+                  <span id="onboarding-username-status" class="text-[11px] font-bold text-stone-500" role="status">
+                    {session.user.displayUsername || session.user.username
+                      ? `✓ @${session.user.displayUsername || session.user.username}`
+                      : "Optional"}
+                  </span>
+                </div>
+                <div class="mt-1.5 flex items-center gap-3 text-[11px] font-semibold text-stone-700">
+                  <label class="inline-flex items-center gap-1 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="login_identity_mode"
+                      value="username"
+                      checked={Boolean(session.user.username)}
+                      id="identity-mode-username"
+                      class="accent-orange-600"
+                    />
+                    <span>Set a @username</span>
+                  </label>
+                  <label class="inline-flex items-center gap-1 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="login_identity_mode"
+                      value="email"
+                      checked={!session.user.username}
+                      id="identity-mode-email"
+                      class="accent-orange-600"
+                    />
+                    <span>Use my email</span>
+                  </label>
+                </div>
+                <div id="onboarding-username-box" class="mt-2 flex items-center gap-1.5">
+                  <div class="relative flex-1 flex items-center">
+                    <span class="absolute left-2.5 text-xs font-bold text-stone-400 select-none">@</span>
+                    <input
+                      type="text"
+                      id="onboarding-username-input"
+                      name="username"
+                      minlength="3"
+                      maxlength="30"
+                      pattern="[a-zA-Z0-9_.]*"
+                      value={session.user.displayUsername || session.user.username || ""}
+                      placeholder="alex_family"
+                      class="w-full rounded-lg border border-stone-300 bg-white pl-6 pr-2.5 py-1.5 text-xs font-semibold"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    id="onboarding-username-check-btn"
+                    class="shrink-0 rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-extrabold text-stone-700 hover:border-stone-500"
+                  >
+                    Check
+                  </button>
+                </div>
+                <p class="text-[10px] text-stone-500 mt-1">
+                  Sign in with your @username or {session.user.email}.
+                </p>
+              </div>
               <label class="block text-xs font-bold text-stone-700 mt-3">
                 Optional 4-Digit Parent PIN
                 <input
@@ -1275,7 +1381,90 @@ if (showSuccess) {
         });
       });
 
-      // Family Onboarding Form
+      // Family Onboarding Form + Live Username Availability Checker
+      var obUsernameInput = document.getElementById("onboarding-username-input");
+      var obUsernameCheckBtn = document.getElementById("onboarding-username-check-btn");
+      var obUsernameStatus = document.getElementById("onboarding-username-status");
+      var modeUsernameRadio = document.getElementById("identity-mode-username");
+      var modeEmailRadio = document.getElementById("identity-mode-email");
+      var obUsernameTimer = null;
+
+      async function runOnboardingUsernameCheck(rawVal) {
+        if (!obUsernameStatus) return true;
+        var clean = String(rawVal || "").trim().replace(/^@+/, "");
+        if (!clean) {
+          obUsernameStatus.textContent = "Using email";
+          obUsernameStatus.className = "text-[11px] font-bold text-stone-500";
+          return true;
+        }
+        if (clean.length < 3 || clean.length > 30 || !/^[a-zA-Z0-9_.]+$/.test(clean)) {
+          obUsernameStatus.textContent = "3–30 letters, numbers, _ or .";
+          obUsernameStatus.className = "text-[11px] font-bold text-amber-700";
+          return false;
+        }
+        obUsernameStatus.textContent = "Checking...";
+        obUsernameStatus.className = "text-[11px] font-bold text-stone-500";
+        try {
+          var r = await fetch("/api/auth/is-username-available", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: clean }),
+          });
+          var d = await r.json().catch(function () { return null; });
+          if (!r.ok || !d || typeof d.available !== "boolean") {
+            var rFallback = await fetch("/api/account/me", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "check_username", username: clean }),
+            });
+            d = await rFallback.json().catch(function () { return {}; });
+          }
+          if (d && d.available) {
+            obUsernameStatus.textContent = "✓ @" + clean.toLowerCase() + " available";
+            obUsernameStatus.className = "text-[11px] font-bold text-green-700";
+            return true;
+          } else {
+            obUsernameStatus.textContent = "✗ Already taken";
+            obUsernameStatus.className = "text-[11px] font-bold text-red-600";
+            return false;
+          }
+        } catch {
+          obUsernameStatus.textContent = "Could not check";
+          return false;
+        }
+      }
+
+      if (obUsernameInput && !obUsernameInput.__bound) {
+        obUsernameInput.__bound = true;
+        obUsernameInput.addEventListener("input", function () {
+          if (modeUsernameRadio && obUsernameInput.value.trim()) {
+            modeUsernameRadio.checked = true;
+          }
+          if (obUsernameTimer) clearTimeout(obUsernameTimer);
+          obUsernameTimer = setTimeout(function () {
+            runOnboardingUsernameCheck(obUsernameInput.value);
+          }, 250);
+        });
+      }
+      if (obUsernameCheckBtn && obUsernameInput && !obUsernameCheckBtn.__bound) {
+        obUsernameCheckBtn.__bound = true;
+        obUsernameCheckBtn.addEventListener("click", function () {
+          runOnboardingUsernameCheck(obUsernameInput.value);
+        });
+      }
+      if (modeEmailRadio && obUsernameInput && !modeEmailRadio.__bound) {
+        modeEmailRadio.__bound = true;
+        modeEmailRadio.addEventListener("change", function () {
+          if (modeEmailRadio.checked) {
+            obUsernameInput.value = "";
+            if (obUsernameStatus) {
+              obUsernameStatus.textContent = "Using email";
+              obUsernameStatus.className = "text-[11px] font-bold text-stone-500";
+            }
+          }
+        });
+      }
+
       var obForm = document.getElementById("family-onboarding-form");
       if (obForm && !obForm.__bound) {
         obForm.__bound = true;
@@ -1291,6 +1480,24 @@ if (showSuccess) {
           var birthDate = String(fd.get("kid_birth_date") || "").trim();
           var tosAccepted = fd.get("tos_accepted") === "1";
           var marketingOptIn = fd.get("marketing_opt_in") === "1";
+          var identityMode = String(fd.get("login_identity_mode") || "email");
+          var rawUsername = identityMode === "email"
+            ? ""
+            : String(fd.get("username") || "").trim().replace(/^@+/, "");
+
+          if (rawUsername) {
+            try {
+              await fetch("/api/auth/update-user", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  username: rawUsername.toLowerCase(),
+                  displayUsername: rawUsername,
+                }),
+              });
+            } catch {}
+          }
+
           try {
             var r = await fetch("/api/account/family", {
               method: "POST",
@@ -1298,6 +1505,7 @@ if (showSuccess) {
               body: JSON.stringify({
                 action: "save_onboarding",
                 parent_name: fd.get("parent_name"),
+                username: rawUsername || undefined,
                 parent_pin: fd.get("parent_pin"),
                 reading_goal: fd.get("reading_goal") || "bedtime",
                 discovery_source: fd.get("discovery_source") || "",
@@ -1319,6 +1527,7 @@ if (showSuccess) {
                 },
               }),
             });
+            var respData = await r.json().catch(function () { return {}; });
             if (r.ok) {
               try {
                 if (typeof window.bbsTraks === "function") {
@@ -1327,6 +1536,7 @@ if (showSuccess) {
                     topics_count: favTopics.length,
                     future_topics_count: futTopics.length,
                     has_birth_date: Boolean(birthDate),
+                    has_username: Boolean(rawUsername),
                     marketing_opt_in: marketingOptIn,
                   });
                 }
@@ -1334,7 +1544,7 @@ if (showSuccess) {
               if (msg) msg.textContent = "Family shelf ready! Reloading...";
               window.location.reload();
             } else {
-              if (msg) msg.textContent = "Could not save setup. Please try again.";
+              if (msg) msg.textContent = respData.error || "Could not save setup. Please try again.";
             }
           } catch (e) {
             if (msg) msg.textContent = "Network error saving setup.";

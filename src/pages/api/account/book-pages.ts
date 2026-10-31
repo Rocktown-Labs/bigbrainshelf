@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
-import { getAuth } from "../../../lib/auth";
+import { getEffectiveSession } from "../../../lib/auth";
 import { isAdminEmail } from "../../../lib/admins";
 import { inspectAudiobook } from "../../../lib/audiobooks";
 import { getDigitalEntitlements, loadReaderBook } from "../../../lib/library";
@@ -14,13 +14,12 @@ const json = (data: unknown, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
-export const GET: APIRoute = async ({ request, url }) => {
-  const session = await getAuth().api.getSession({ headers: request.headers });
+export const GET: APIRoute = async ({ request, url, locals }) => {
+  const e = env as any;
+  const session = await getEffectiveSession(request, locals, e.DB);
   if (!session?.user?.id) {
     return json({ error: "Sign in required" }, 401);
   }
-
-  const e = env as any;
   const rawSlug = String(url.searchParams.get("slug") || "").trim();
   if (!rawSlug) {
     return json({ error: "slug is required" }, 400);

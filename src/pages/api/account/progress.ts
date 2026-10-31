@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
-import { getAuth } from "../../../lib/auth";
+import { getEffectiveSession } from "../../../lib/auth";
 import {
   getReadingProgress,
   listReadingProgress,
@@ -15,12 +15,12 @@ const json = (data: unknown, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
-export const GET: APIRoute = async ({ request, url }) => {
-  const session = await getAuth().api.getSession({ headers: request.headers });
+export const GET: APIRoute = async ({ request, url, locals }) => {
+  const db = (env as any).DB;
+  const session = await getEffectiveSession(request, locals, db);
   if (!session?.user?.id) {
     return json({ error: "Sign in required" }, 401);
   }
-  const db = (env as any).DB;
   const userId = String(session.user.id);
   const profileId = url.searchParams.get("profile_id") || undefined;
   const bookSlug = url.searchParams.get("book_slug") || undefined;
@@ -34,12 +34,12 @@ export const GET: APIRoute = async ({ request, url }) => {
   return json({ ok: true, progress: progressList });
 };
 
-export const POST: APIRoute = async ({ request }) => {
-  const session = await getAuth().api.getSession({ headers: request.headers });
+export const POST: APIRoute = async ({ request, locals }) => {
+  const db = (env as any).DB;
+  const session = await getEffectiveSession(request, locals, db);
   if (!session?.user?.id) {
     return json({ error: "Sign in required" }, 401);
   }
-  const db = (env as any).DB;
   const userId = String(session.user.id);
 
   let body: any = {};

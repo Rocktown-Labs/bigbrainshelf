@@ -23,6 +23,7 @@ import { ADMIN_NAV, isEditorRoute } from "../lib/admin-nav";
 
 const { current = "" } = Astro.props;
 const editor = isEditorRoute(Astro.url.pathname);
+const adminUserEmail = (Astro.locals as any)?.user?.email || "Owner";
 
 const ICONS: Record<string, string> = {
   dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
@@ -106,7 +107,16 @@ const icon = (name: string) =>
   .bbs-item svg { flex: none; }
   .bbs-item:hover { background: #f5f5f4; color: #1c1917; }
   .bbs-item.bbs-active { background: #f5f5f4; color: #1c1917; font-weight: 650; box-shadow: inset 2.5px 0 0 #ea580c; }
-  .bbs-side-foot { border-top: 1px solid #f0efed; padding: 0.6rem; }
+  .bbs-side-foot { border-top: 1px solid #f0efed; padding: 0.6rem; position: relative; }
+  .bbs-user-menu-popover {
+    position: absolute; bottom: calc(100% + 6px); left: 0.6rem; right: 0.6rem;
+    background: #fff; border: 1px solid #e7e5e4; border-radius: 0.75rem;
+    padding: 0.4rem; box-shadow: 0 16px 36px -8px rgba(28,25,23,0.22); z-index: 80;
+  }
+  .bbs-user-menu-popover[hidden] { display: none; }
+  html[data-sidebar="collapsed"] .bbs-user-menu-popover {
+    left: calc(100% + 8px); bottom: 0.6rem; width: 14.5rem; right: auto;
+  }
   .bbs-mobilebar { display: none; }
   .bbs-backdrop { display: none; }
 
@@ -196,7 +206,48 @@ const icon = (name: string) =>
       </div>
     ))}
   </nav>
-  <div class="bbs-side-foot">
+  <div class="bbs-side-foot" id="bbs-admin-user-foot">
+    <div class="bbs-user-menu-popover" id="bbs-admin-user-popover" role="menu" hidden>
+      <div style="padding:0.4rem 0.55rem 0.45rem;border-bottom:1px solid #f5f5f4;margin-bottom:0.25rem">
+        <div style="font-size:0.75rem;font-weight:800;color:#1c1917;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="bbs-admin-user-label">{adminUserEmail}</div>
+        <div style="font-size:0.65rem;font-weight:700;color:#ea580c;text-transform:uppercase;letter-spacing:0.08em">Owner &amp; Admin</div>
+      </div>
+      <a class="bbs-item" href="/accounts" role="menuitem" data-label="Customer Hub (/accounts)">
+        <Fragment set:html={icon("characters")} />
+        <span class="bbs-item-label">Customer Hub (/accounts)</span>
+      </a>
+      <a class="bbs-item" href="/account#qc-viewer" role="menuitem" data-label="Book Viewer & Audio">
+        <Fragment set:html={icon("book")} />
+        <span class="bbs-item-label">Book Viewer &amp; Audio</span>
+      </a>
+      <a class="bbs-item" href="/admin" role="menuitem" data-label="Admin Dashboard">
+        <Fragment set:html={icon("dashboard")} />
+        <span class="bbs-item-label">Admin Dashboard</span>
+      </a>
+      <a class="bbs-item" href="/" role="menuitem" data-label="View Storefront">
+        <Fragment set:html={icon("store")} />
+        <span class="bbs-item-label">View Storefront</span>
+      </a>
+    </div>
+
+    <button
+      type="button"
+      id="bbs-admin-user-btn"
+      class="bbs-item"
+      style="width:100%;border:1px solid #e7e5e4;background:#fafaf9;cursor:pointer;text-align:left;margin-bottom:0.25rem"
+      aria-haspopup="menu"
+      aria-expanded="false"
+      data-label="Account Menu (/accounts & /admin)"
+    >
+      <span style="width:1.45rem;height:1.45rem;border-radius:999px;background:#1a3454;color:#fff;font-size:0.7rem;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none">
+        {String(adminUserEmail)[0]?.toUpperCase() || "A"}
+      </span>
+      <span class="bbs-item-label" style="flex:1;overflow:hidden;text-overflow:ellipsis" id="bbs-admin-user-btn-text">
+        {String(adminUserEmail).split("@")[0]}
+      </span>
+      <span class="bbs-item-label" style="font-size:0.7rem;color:#78716c">▾</span>
+    </button>
+
     <a class="bbs-item js-signout" id="bbs-signout" href="#" data-label="Sign out" aria-label="Sign out">
       <Fragment set:html={icon("signout")} />
       <span class="bbs-item-label">Sign out</span>
@@ -247,6 +298,24 @@ const icon = (name: string) =>
           fillBadge("[data-reviews-badge]", j.reviews);
         })
         .catch(function () {});
+    }
+    var userBtn = document.getElementById("bbs-admin-user-btn");
+    var userPop = document.getElementById("bbs-admin-user-popover");
+    var userFoot = document.getElementById("bbs-admin-user-foot");
+    if (userBtn && userPop && !userBtn.dataset.bound) {
+      userBtn.dataset.bound = "1";
+      userBtn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var nextHidden = !userPop.hidden;
+        userPop.hidden = nextHidden;
+        userBtn.setAttribute("aria-expanded", nextHidden ? "false" : "true");
+      });
+      document.addEventListener("pointerdown", function (ev) {
+        if (userFoot && !userFoot.contains(ev.target)) {
+          userPop.hidden = true;
+          userBtn.setAttribute("aria-expanded", "false");
+        }
+      });
     }
     var signout = document.getElementById("bbs-signout");
     if (signout && !signout.dataset.shellBound) {

@@ -1,6 +1,10 @@
 import type { APIRoute } from "astro";
 import { env } from "cloudflare:workers";
-import { getAuth } from "../../../lib/auth";
+import {
+  getEffectiveSession,
+  checkUsernameAvailabilityInDb,
+  updateUserUsernameInDb,
+} from "../../../lib/auth";
 import {
   KID_AVATARS,
   SLEEP_TIMER_PRESETS,
@@ -28,12 +32,12 @@ const json = (data: unknown, status = 200) =>
     headers: { "Content-Type": "application/json" },
   });
 
-export const GET: APIRoute = async ({ request }) => {
-  const session = await getAuth().api.getSession({ headers: request.headers });
+export const GET: APIRoute = async ({ request, locals }) => {
+  const db = (env as any).DB;
+  const session = await getEffectiveSession(request, locals, db);
   if (!session?.user?.id) {
     return json({ error: "Sign in required" }, 401);
   }
-  const db = (env as any).DB;
   const userId = String(session.user.id);
   const [onboarding, kidProfiles, progress] = await Promise.all([
     getParentOnboarding(db, userId),
@@ -60,12 +64,12 @@ export const GET: APIRoute = async ({ request }) => {
   });
 };
 
-export const POST: APIRoute = async ({ request, url }) => {
-  const session = await getAuth().api.getSession({ headers: request.headers });
+export const POST: APIRoute = async ({ request, url, locals }) => {
+  const db = (env as any).DB;
+  const session = await getEffectiveSession(request, locals, db);
   if (!session?.user?.id) {
     return json({ error: "Sign in required" }, 401);
   }
-  const db = (env as any).DB;
   const userId = String(session.user.id);
   const userEmail = session.user.email ? String(session.user.email) : null;
 
@@ -78,6 +82,21 @@ export const POST: APIRoute = async ({ request, url }) => {
 
   const action = String(body.action || "save_onboarding");
 
+  if (action === "check_username") {
+    const check = await checkUsernameAvailabilityInDb(
+      db,
+      String(body.username || ""),
+      userId
+    );
+    return json({
+      ok: true,
+      available: check.available,
+      normalized: check.normalized,
+      displayUsername: check.displayUsername,
+      error: check.error || null,
+    });
+  }
+
   if (action === "verify_pin") {
     const valid = await verifyParentPin(db, userId, String(body.pin || ""));
     return json({ ok: valid, valid }, valid ? 200 : 403);
@@ -87,17 +106,41 @@ export const POST: APIRoute = async ({ request, url }) => {
     if (!userEmail) {
       return json({ error: "Account email required" }, 400);
     }
-    const kids = await listKidProfiles(db, userId);
+    const [kids, existingOb] = await Promise.all([
+      listKidProfiles(db, userId),
+      getParentOnboarding(db, userId),
+    ]);
+    const requestedId = body.profile_id || body.kid_id;
     const targetKid =
-      (body.profile_id && kids.find((k) => k.id === String(body.profile_id))) || kids[0] || null;
+      (requestedId && kids.find((k) => k.id === String(requestedId))) || kids[0] || null;
     if (!targetKid) {
       return json({ error: "Add a child profile first to send a birthday gift" }, 400);
     }
-    await enqueueBirthdayGiftEmail(db, userId, userEmail, targetKid, url.origin);
+    await enqueueBirthdayGiftEmail(
+      db,
+      userId,
+      userEmail,
+      existingOb?.parent_name || session.user.name || null,
+      targetKid,
+      url.origin
+    );
     return json({ ok: true, sentTo: userEmail, kidName: targetKid.name });
   }
 
   if (action === "save_onboarding") {
+    if (body.username !== undefined && String(body.username || "").trim()) {
+      const uRes = await updateUserUsernameInDb(
+        db,
+        userId,
+        String(body.username),
+        body.parent_name ? String(body.parent_name) : undefined
+      );
+      if (!uRes.ok) {
+        return json({ error: uRes.error || "Username is not available." }, 400);
+      }
+    } else if (body.parent_name && String(body.parent_name).trim()) {
+      await updateUserUsernameInDb(db, userId, null, String(body.parent_name));
+    }
     // If customer also included a first kid profile in the onboarding wizard,
     // upsert it first so the welcome email and birthday gift can personalize with the child's name.
     let savedKid = null;
@@ -208,12 +251,12 @@ export const POST: APIRoute = async ({ request, url }) => {
   return json({ error: "Unknown action" }, 400);
 };
 
-export const DELETE: APIRoute = async ({ request, url }) => {
-  const session = await getAuth().api.getSession({ headers: request.headers });
+export const DELETE: APIRoute = async ({ request, url, locals }) => {
+  const db = (env as any).DB;
+  const session = await getEffectiveSession(request, locals, db);
   if (!session?.user?.id) {
     return json({ error: "Sign in required" }, 401);
   }
-  const db = (env as any).DB;
   const userId = String(session.user.id);
   const id = url.searchParams.get("id") || "";
   if (!id) {

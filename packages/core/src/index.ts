@@ -7,4 +7,5 @@ export * from "../../../src/lib/public-slugs";
 export * from "../../../src/lib/library";
 export * from "../../../src/lib/schema-cache";
 export * from "../../../src/lib/family";
+export * from "../../../src/lib/auth-client";
 export * as schema from "../../../db/schema";

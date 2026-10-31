@@ -464,3 +464,80 @@ export const readingProgress = sqliteTable(
     index("reading_progress_user_updated_idx").on(table.userId, table.updatedAt),
   ]
 );
+
+// ---------------------------------------------------------------------------
+// Better Auth Core + Username & Admin Plugin Tables
+// ---------------------------------------------------------------------------
+
+export const authUsers = sqliteTable(
+  "user",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    emailVerified: integer("emailVerified").notNull().default(0),
+    image: text("image"),
+    username: text("username").unique(),
+    displayUsername: text("displayUsername"),
+    role: text("role").default("user"),
+    banned: integer("banned").default(0),
+    banReason: text("banReason"),
+    banExpires: integer("banExpires"),
+    createdAt: text("createdAt").notNull(),
+    updatedAt: text("updatedAt").notNull(),
+  },
+  (table) => [uniqueIndex("user_username_idx").on(table.username)]
+);
+
+export const authSessions = sqliteTable(
+  "session",
+  {
+    id: text("id").primaryKey(),
+    expiresAt: text("expiresAt").notNull(),
+    token: text("token").notNull().unique(),
+    createdAt: text("createdAt").notNull(),
+    updatedAt: text("updatedAt").notNull(),
+    ipAddress: text("ipAddress"),
+    userAgent: text("userAgent"),
+    userId: text("userId")
+      .notNull()
+      .references(() => authUsers.id),
+  },
+  (table) => [index("session_userId_idx").on(table.userId)]
+);
+
+export const authAccounts = sqliteTable(
+  "account",
+  {
+    id: text("id").primaryKey(),
+    accountId: text("accountId").notNull(),
+    providerId: text("providerId").notNull(),
+    userId: text("userId")
+      .notNull()
+      .references(() => authUsers.id),
+    accessToken: text("accessToken"),
+    refreshToken: text("refreshToken"),
+    idToken: text("idToken"),
+    accessTokenExpiresAt: text("accessTokenExpiresAt"),
+    refreshTokenExpiresAt: text("refreshTokenExpiresAt"),
+    scope: text("scope"),
+    password: text("password"),
+    createdAt: text("createdAt").notNull(),
+    updatedAt: text("updatedAt").notNull(),
+  },
+  (table) => [index("account_userId_idx").on(table.userId)]
+);
+
+export const authVerifications = sqliteTable(
+  "verification",
+  {
+    id: text("id").primaryKey(),
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: text("expiresAt").notNull(),
+    createdAt: text("createdAt").notNull(),
+    updatedAt: text("updatedAt").notNull(),
+  },
+  (table) => [index("verification_identifier_idx").on(table.identifier)]
+);
+

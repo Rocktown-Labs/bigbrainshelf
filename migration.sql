@@ -519,3 +519,13 @@ CREATE TABLE IF NOT EXISTS reading_progress (
   PRIMARY KEY (user_id, profile_id, book_slug)
 );
 CREATE INDEX IF NOT EXISTS reading_progress_user_updated_idx ON reading_progress(user_id, updated_at);
+
+-- Better Auth username & admin plugin columns on "user"
+ALTER TABLE "user" ADD COLUMN username TEXT;
+ALTER TABLE "user" ADD COLUMN displayUsername TEXT;
+ALTER TABLE "user" ADD COLUMN role TEXT DEFAULT 'user';
+ALTER TABLE "user" ADD COLUMN banned INTEGER DEFAULT 0;
+ALTER TABLE "user" ADD COLUMN banReason TEXT;
+ALTER TABLE "user" ADD COLUMN banExpires INTEGER;
+CREATE UNIQUE INDEX IF NOT EXISTS user_username_idx ON "user"(username) WHERE username IS NOT NULL;
+

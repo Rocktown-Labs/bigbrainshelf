@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
-import { getAuth } from "../../../../../lib/auth";
+import { getAuth, getEffectiveSession } from "../../../../../lib/auth";
+import { isAdminEmail } from "../../../../../lib/admins";
 import {
   parseTrackParam,
   serveAudiobookTrack,
@@ -27,10 +28,12 @@ import { ownsAudioBook } from "../../../../../lib/library";
 // (range reads, 206/416) is serveAudiobookTrack in lib/audiobooks.ts,
 // shared with the admin route.
 
-async function handle({ params, request }: any) {
+async function handle({ params, request, locals }: any) {
   const e = env as any;
   const auth = getAuth();
-  const session = await auth.api.getSession({ headers: request.headers });
+  const session =
+    (await auth.api.getSession({ headers: request.headers })) ||
+    (await getEffectiveSession(request, locals, e.DB));
   if (!session) {
     return Response.json({ error: "Sign in to listen." }, { status: 401 });
   }
@@ -48,11 +51,14 @@ async function handle({ params, request }: any) {
     return Response.json({ error: "That book has no audiobook yet." }, { status: 404 });
   }
 
-  const owned = await ownsAudioBook(
-    e.DB,
-    { id: session.user.id, email: String(session.user.email || "") },
-    slug
-  );
+  const email = String(session.user.email || "");
+  const owned =
+    isAdminEmail(email) ||
+    (await ownsAudioBook(
+      e.DB,
+      { id: session.user.id, email },
+      slug
+    ));
   if (!owned) {
     return Response.json({ error: "You don't own this book yet." }, { status: 403 });
   }

@@ -30,6 +30,7 @@ export const CUSTOMER_SELF_AUTH_API_ROUTES: ReadonlySet<string> = new Set([
   "/api/account/family",
   "/api/account/progress",
   "/api/account/book-pages",
+  "/api/account/me",
 ]);
 
 export const CUSTOMER_SELF_AUTH_PREFIXES: readonly string[] = [

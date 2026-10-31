@@ -30,6 +30,17 @@ import {
   FUTURE_TOPIC_OPTIONS,
 } from "../src/lib/family";
 import { renderOutboxEmailHtml } from "../src/lib/email-render";
+import {
+  validateUsernameFormat,
+  normalizeUsername,
+  authClient,
+} from "../src/lib/auth-client";
+import {
+  ensureAuthUserSchema,
+  checkUsernameAvailabilityInDb,
+  updateUserUsernameInDb,
+  getEffectiveSession,
+} from "../src/lib/auth";
 import * as corePkg from "../packages/core/src/index";
 import * as schema from "../db/schema";
 
@@ -396,5 +407,95 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     expect(accountSrc).toContain('name="tos_accepted"');
     expect(accountSrc).toContain('name="marketing_opt_in"');
     expect(accountSrc).toContain('name="kid_birth_date"');
+  });
+
+  test("Better Auth username plugin, availability checker, user account menu, and admin /accounts access", async () => {
+    const db = makeD1FromSqlite();
+    await ensureAuthUserSchema(db);
+
+    expect(typeof authClient).toBe("object");
+    expect(normalizeUsername("@Alex_Family")).toBe("alex_family");
+    expect(validateUsernameFormat("ab").valid).toBe(false);
+    expect(validateUsernameFormat("bad handle!").valid).toBe(false);
+    expect(validateUsernameFormat("Alex_Family.1").valid).toBe(true);
+
+    // Seed a user row and test username availability + update
+    const nowIso = new Date().toISOString();
+    await db
+      .prepare(
+        `INSERT INTO "user" ("id", "name", "email", "emailVerified", "role", "createdAt", "updatedAt")
+         VALUES (?, ?, ?, 1, 'user', ?, ?)`
+      )
+      .bind("u_1", "Alex", "alex@example.com", nowIso, nowIso)
+      .run();
+    await db
+      .prepare(
+        `INSERT INTO "user" ("id", "name", "email", "emailVerified", "role", "createdAt", "updatedAt")
+         VALUES (?, ?, ?, 1, 'user', ?, ?)`
+      )
+      .bind("u_2", "Sam", "sam@example.com", nowIso, nowIso)
+      .run();
+
+    const avail1 = await checkUsernameAvailabilityInDb(db, "Alex_Family");
+    expect(avail1.available).toBe(true);
+
+    const up1 = await updateUserUsernameInDb(db, "u_1", "Alex_Family", "Alex");
+    expect(up1.ok).toBe(true);
+    expect(up1.username).toBe("alex_family");
+    expect(up1.displayUsername).toBe("Alex_Family");
+
+    // Same user checking their own username stays available
+    const availSelf = await checkUsernameAvailabilityInDb(db, "alex_family", "u_1");
+    expect(availSelf.available).toBe(true);
+
+    // Another user checking the taken username gets available: false
+    const availOther = await checkUsernameAvailabilityInDb(db, "ALEX_FAMILY", "u_2");
+    expect(availOther.available).toBe(false);
+    const up2 = await updateUserUsernameInDb(db, "u_2", "alex_family");
+    expect(up2.ok).toBe(false);
+
+    // Admin session bridge: an owner signed in via locals.user (admin_session)
+    // gets a valid session on /account & /accounts without redirecting to /login.
+    const adminReq = new Request("https://bigbrainshelf.com/account");
+    const adminSession = await getEffectiveSession(
+      adminReq,
+      { user: { email: "cg@rocktownlabs.com" } },
+      db
+    );
+    expect(adminSession).not.toBeNull();
+    expect(adminSession?.user.email).toBe("cg@rocktownlabs.com");
+    expect(adminSession?.user.isAdmin).toBe(true);
+
+    // Verify source wiring across auth.ts, login, signup, account, SiteHeader, AdminShell, and CustomerShell
+    const authSrc = readFileSync(resolve(root, "src/lib/auth.ts"), "utf8");
+    expect(authSrc).toContain("username(");
+    expect(authSrc).toContain('"/sign-in/username"');
+    expect(authSrc).toContain("changeEmail");
+
+    const loginSrc = readFileSync(resolve(root, "src/pages/login.astro"), "utf8");
+    expect(loginSrc).toContain("/api/auth/sign-in/username");
+    expect(loginSrc).toContain("Email or username");
+
+    const signupSrc = readFileSync(resolve(root, "src/pages/signup.astro"), "utf8");
+    expect(signupSrc).toContain("/api/auth/is-username-available");
+    expect(signupSrc).toContain('id="username"');
+
+    const accountSrc = readFileSync(resolve(root, "src/pages/account/index.astro"), "utf8");
+    expect(accountSrc).toContain("onboarding-username-input");
+    expect(accountSrc).toContain("/api/auth/is-username-available");
+    expect(accountSrc).toContain("/api/auth/update-user");
+
+    const siteHeaderSrc = readFileSync(resolve(root, "src/components/SiteHeader.astro"), "utf8");
+    expect(siteHeaderSrc).toContain("user-account-menu-wrap");
+    expect(siteHeaderSrc).toContain('href="/accounts"');
+    expect(siteHeaderSrc).toContain('href="/admin"');
+
+    const adminShellSrc = readFileSync(resolve(root, "src/components/AdminShell.astro"), "utf8");
+    expect(adminShellSrc).toContain("bbs-admin-user-popover");
+    expect(adminShellSrc).toContain('href="/accounts"');
+
+    const custShellSrc = readFileSync(resolve(root, "src/components/CustomerShell.astro"), "utf8");
+    expect(custShellSrc).toContain("bbs-cust-user-popover");
+    expect(custShellSrc).toContain('href="/admin"');
   });
 });
