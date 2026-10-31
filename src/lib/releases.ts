@@ -30,6 +30,7 @@ import { buildCast, bookCast, TOPIC_LABELS } from "./cast-public";
 import { mediaUrl } from "./media";
 import { bookHref, ensurePublicSlugColumn } from "./public-slugs";
 import { formatPublishedDate } from "./offers";
+import { ensureOnce } from "./schema-cache";
 
 export const RELEASE_CLUB_KIND = "release_club";
 export const RELEASE_PUBLIC_KIND = "release_public";
@@ -48,14 +49,16 @@ const norm = (email: string) => email.trim().toLowerCase();
 // the pragma, ALTER only when missing. migration.sql carries the same
 // statement as the schema record.
 export async function ensurePublishedAtColumn(db: DBLike): Promise<void> {
-  const { results } = await db
-    .prepare("SELECT name FROM pragma_table_info('books')")
-    .bind()
-    .all();
-  const have = new Set((results || []).map((r: any) => String(r.name)));
-  if (!have.has("published_at")) {
-    await db.prepare("ALTER TABLE books ADD COLUMN published_at INTEGER").bind().run();
-  }
+  await ensureOnce(db, "books.published_at", async () => {
+    const { results } = await db
+      .prepare("SELECT name FROM pragma_table_info('books')")
+      .bind()
+      .all();
+    const have = new Set((results || []).map((r: any) => String(r.name)));
+    if (!have.has("published_at")) {
+      await db.prepare("ALTER TABLE books ADD COLUMN published_at INTEGER").bind().run();
+    }
+  });
 }
 
 // Stamp the publication moment the first time a book is published.

@@ -38,6 +38,7 @@ import PhysicalUpdateEmail from "../../emails/PhysicalUpdateEmail";
 import ClubFollowupEmail from "../../emails/ClubFollowupEmail";
 import ClubCycleEmail from "../../emails/ClubCycleEmail";
 import ReleaseEmail from "../../emails/ReleaseEmail";
+import WelcomeOnboardingEmail from "../../emails/WelcomeOnboardingEmail";
 
 export async function renderOutboxEmailHtml(
   db: DBLike,
@@ -111,6 +112,23 @@ export async function renderOutboxEmailHtml(
     const token = await getOrCreateUnsubscribeToken(db, String(row.to_email || ""));
     const model = buildClubFollowupModel(site, token);
     return await render(createElement(ClubFollowupEmail, { model }));
+  }
+  if (row.kind === "family_onboarding") {
+    const paragraphs = String(row.body_text || "")
+      .split(/\n\s*\n/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    return await render(
+      createElement(WelcomeOnboardingEmail, {
+        model: {
+          preview: String(row.subject || "Your family shelf is ready on Big Brain Shelf"),
+          heading: String(row.subject || "Your family shelf is ready"),
+          paragraphs,
+          accountUrl: `${site.replace(/\/$/, "")}/account`,
+          footnote: "Reply anytime if you have a question for us.",
+        },
+      }),
+    );
   }
   if (row.kind === "club_welcome" || row.kind === "owner_new_subscription") {
     // Club mail carries no order; it renders from its stored text

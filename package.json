@@ -1,7 +1,12 @@
 {
-  "name": "tmp-astro",
+  "name": "bigbrainshelf",
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "engines": {
     "node": ">=22.22.0"
   },
@@ -11,7 +16,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "generate-types": "wrangler types",
-    "deploy": "cf deploy"
+    "deploy": "cf deploy",
+    "deploy:api": "python3 deploy.py"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.4.0",

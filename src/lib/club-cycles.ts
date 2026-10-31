@@ -19,6 +19,7 @@
 // box) locks 2 days after creation instead.
 
 import { ensureOutboxColumns, type DBLike } from "./orders";
+import { ensureOnce } from "./schema-cache";
 import { chicagoDateString } from "./offers";
 import { ensureClubTable, clubPlanOf } from "./club";
 import {
@@ -71,58 +72,60 @@ const nowSeconds = () => Math.floor(Date.now() / 1000);
 
 export async function ensureClubCycleTables(db: DBLike): Promise<void> {
   await ensureClubTable(db);
-  await db
-    .prepare(
-      `CREATE TABLE IF NOT EXISTS club_cycle_boxes (
-         id TEXT PRIMARY KEY,
-         signup_id TEXT NOT NULL,
-         ship_date TEXT NOT NULL,
-         selected_book_slug TEXT,
-         resolved_book_slug TEXT,
-         second_selected_book_slug TEXT,
-         second_resolved_book_slug TEXT,
-         selection_source TEXT NOT NULL DEFAULT 'surprise',
-         allow_repeat INTEGER NOT NULL DEFAULT 0,
-         status TEXT NOT NULL DEFAULT 'awaiting_selection',
-         carrier TEXT,
-         tracking_number TEXT,
-         label_url TEXT,
-         locked_at INTEGER,
-         shipped_at INTEGER,
-         delivered_at INTEGER,
-         created_at INTEGER NOT NULL,
-         updated_at INTEGER NOT NULL,
-         UNIQUE (signup_id, ship_date)
-       )`
-    )
-    .bind()
-    .run();
-  // Option A boxes (2026-10-29) carry a SECOND book slot: the club
-  // book ships as a gift set, and a second printed storybook from the
-  // back catalog rides in the same box. Additive columns, added the
-  // same PRAGMA-guarded way club_signups grows its columns.
-  const { results: boxCols } = await db.prepare("PRAGMA table_info(club_cycle_boxes)").bind().all();
-  const haveBoxCols = new Set(((boxCols || []) as any[]).map((r) => String(r.name)));
-  for (const col of ["second_selected_book_slug", "second_resolved_book_slug"]) {
-    if (!haveBoxCols.has(col)) {
-      await db.prepare(`ALTER TABLE club_cycle_boxes ADD COLUMN ${col} TEXT`).bind().run();
+  return ensureOnce(db, "club_cycle_boxes", async () => {
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS club_cycle_boxes (
+           id TEXT PRIMARY KEY,
+           signup_id TEXT NOT NULL,
+           ship_date TEXT NOT NULL,
+           selected_book_slug TEXT,
+           resolved_book_slug TEXT,
+           second_selected_book_slug TEXT,
+           second_resolved_book_slug TEXT,
+           selection_source TEXT NOT NULL DEFAULT 'surprise',
+           allow_repeat INTEGER NOT NULL DEFAULT 0,
+           status TEXT NOT NULL DEFAULT 'awaiting_selection',
+           carrier TEXT,
+           tracking_number TEXT,
+           label_url TEXT,
+           locked_at INTEGER,
+           shipped_at INTEGER,
+           delivered_at INTEGER,
+           created_at INTEGER NOT NULL,
+           updated_at INTEGER NOT NULL,
+           UNIQUE (signup_id, ship_date)
+         )`
+      )
+      .bind()
+      .run();
+    // Option A boxes (2026-10-29) carry a SECOND book slot: the club
+    // book ships as a gift set, and a second printed storybook from the
+    // back catalog rides in the same box. Additive columns, added the
+    // same PRAGMA-guarded way club_signups grows its columns.
+    const { results: boxCols } = await db.prepare("PRAGMA table_info(club_cycle_boxes)").bind().all();
+    const haveBoxCols = new Set(((boxCols || []) as any[]).map((r) => String(r.name)));
+    for (const col of ["second_selected_book_slug", "second_resolved_book_slug"]) {
+      if (!haveBoxCols.has(col)) {
+        await db.prepare(`ALTER TABLE club_cycle_boxes ADD COLUMN ${col} TEXT`).bind().run();
+      }
     }
-  }
-  const indexes: [string, string][] = [
-    ["club_cycle_boxes_signup_ship_idx", "CREATE INDEX IF NOT EXISTS club_cycle_boxes_signup_ship_idx ON club_cycle_boxes(signup_id, ship_date)"],
-    ["club_cycle_boxes_ship_status_idx", "CREATE INDEX IF NOT EXISTS club_cycle_boxes_ship_status_idx ON club_cycle_boxes(ship_date, status)"],
-    ["club_cycle_boxes_status_ship_idx", "CREATE INDEX IF NOT EXISTS club_cycle_boxes_status_ship_idx ON club_cycle_boxes(status, ship_date)"],
-    ["club_signups_status_idx", "CREATE INDEX IF NOT EXISTS club_signups_status_idx ON club_signups(status, created_at)"],
-    ["orders_user_status_idx", "CREATE INDEX IF NOT EXISTS orders_user_status_idx ON orders(user_id, status)"],
-    ["orders_email_status_idx", "CREATE INDEX IF NOT EXISTS orders_email_status_idx ON orders(email, status)"],
-  ];
-  for (const [, sql] of indexes) {
-    try {
-      await db.prepare(sql).bind().run();
-    } catch {
-      // An index is a performance guard, never a reason to fail a page.
+    const indexes: [string, string][] = [
+      ["club_cycle_boxes_signup_ship_idx", "CREATE INDEX IF NOT EXISTS club_cycle_boxes_signup_ship_idx ON club_cycle_boxes(signup_id, ship_date)"],
+      ["club_cycle_boxes_ship_status_idx", "CREATE INDEX IF NOT EXISTS club_cycle_boxes_ship_status_idx ON club_cycle_boxes(ship_date, status)"],
+      ["club_cycle_boxes_status_ship_idx", "CREATE INDEX IF NOT EXISTS club_cycle_boxes_status_ship_idx ON club_cycle_boxes(status, ship_date)"],
+      ["club_signups_status_idx", "CREATE INDEX IF NOT EXISTS club_signups_status_idx ON club_signups(status, created_at)"],
+      ["orders_user_status_idx", "CREATE INDEX IF NOT EXISTS orders_user_status_idx ON orders(user_id, status)"],
+      ["orders_email_status_idx", "CREATE INDEX IF NOT EXISTS orders_email_status_idx ON orders(email, status)"],
+    ];
+    for (const [, sql] of indexes) {
+      try {
+        await db.prepare(sql).bind().run();
+      } catch {
+        // An index is a performance guard, never a reason to fail a page.
+      }
     }
-  }
+  });
 }
 
 export function clubMemberCycleEligible(member: any): boolean {

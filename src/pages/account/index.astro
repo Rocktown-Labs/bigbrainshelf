@@ -20,6 +20,19 @@ import {
   getClubSelectionOptions,
 } from "../../lib/club-cycles";
 import { boxCreatedDateString, clubCycleTiming, formatClubDate } from "../../lib/club-cycle-dates";
+import CustomerShell from "../../components/CustomerShell.astro";
+import CustomerBookViewer from "../../components/CustomerBookViewer.astro";
+import CustomerAudioDock from "../../components/CustomerAudioDock.astro";
+import {
+  KID_AVATARS,
+  SLEEP_TIMER_PRESETS,
+  DAILY_LIMIT_PRESETS,
+  READING_GOAL_OPTIONS,
+  computeOnboardingChecklist,
+  getParentOnboarding,
+  listKidProfiles,
+  listReadingProgress,
+} from "../../lib/family";
 
 const e = env as any;
 const auth = getAuth();
@@ -43,6 +56,21 @@ const libraryBooks = await getLibraryBooks(e.DB, {
   email: String(session.user.email || ""),
 });
 const books: any[] = libraryBooks as any[];
+const audioBooksCount = books.filter((b) => Boolean(b.audiobook_key)).length;
+
+// Family onboarding, kid profiles, and synced reading/listening progress.
+const [parentOnboarding, kidProfiles, readingProgressList] = await Promise.all([
+  getParentOnboarding(e.DB, session.user.id).catch(() => null),
+  listKidProfiles(e.DB, session.user.id).catch(() => []),
+  listReadingProgress(e.DB, session.user.id).catch(() => []),
+]);
+const onboardingChecklist = computeOnboardingChecklist(
+  parentOnboarding,
+  kidProfiles,
+  readingProgressList
+);
+const defaultKidProfile = kidProfiles.find((k) => k.is_default) || kidProfiles[0] || null;
+const defaultSleepMinutes = defaultKidProfile ? defaultKidProfile.default_sleep_timer_minutes : 60;
 const bookBySlug: Record<string, any> = {};
 for (const b of books) bookBySlug[b.slug] = b;
 const priceFor = (slug: string, format: string): number => {
@@ -243,24 +271,183 @@ if (showSuccess) {
   <TransitionHooks />
   <Tracking pageEvent={purchaseEvent} traksEvent={purchaseTraksEvent} />
 </head>
-<body class="bg-white text-stone-900 antialiased">
-  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-stone-200">
-    <div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-      <a href="/" aria-label="Big Brain Shelf home" class="inline-flex items-center rounded-full bg-[#1a3454] px-4 py-1.5 text-lg font-extrabold leading-none tracking-tight text-white">big<span class="text-orange-400">brain</span>shelf</a>
-      <button id="signout" class="text-sm text-stone-500 hover:text-stone-900">Sign out</button>
-    </div>
-  </header>
+<body class="bg-white text-stone-900 antialiased pb-28">
+  <CustomerShell
+    currentSection="shelf"
+    userEmail={String(session.user.email || "")}
+    kidProfiles={kidProfiles}
+    hasParentPin={Boolean(parentOnboarding?.parent_pin)}
+    bookCount={books.length}
+    audioCount={audioBooksCount}
+  />
 
-  <main class="max-w-6xl mx-auto px-4 py-10">
+  <main class="max-w-6xl mx-auto px-4 py-8 sm:py-10">
     {showSuccess && (
       <div class="mb-8 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
         Payment complete. Your books are below, ready to download.
       </div>
     )}
-    <h1 class="text-2xl font-bold tracking-tight">Your library</h1>
-    <p class="text-sm text-stone-500 mt-1">{session.user.email}</p>
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">Your library</h1>
+        <p class="text-sm text-stone-500 mt-1">{session.user.email}</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <a href="#qc-viewer" class="rounded-full bg-[#1a3454] text-white px-4 py-2 text-xs font-bold hover:bg-[#132741]">
+          Open Book Viewer (QC)
+        </a>
+        <a href="#audio-slot" class="rounded-full bg-orange-600 text-white px-4 py-2 text-xs font-bold hover:bg-orange-700">
+          Audiobook Player · 60m Sleep Timer
+        </a>
+        <a href="#kids-family" data-parent-only="true" class="rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-bold text-stone-700 hover:border-stone-500">
+          Kids &amp; Limits ({kidProfiles.length})
+        </a>
+      </div>
+    </div>
 
-    <h2 class="text-xl font-bold tracking-tight mt-10">My Shelf</h2>
+    {/* Parent & Kid Onboarding Card (Endowed Progress starts at 25%) */}
+    {!onboardingChecklist.isComplete && (
+      <section
+        id="onboarding-card"
+        data-parent-only="true"
+        class="mt-6 rounded-2xl border-2 border-orange-200 bg-orange-50/50 p-5 sm:p-6"
+        aria-labelledby="onboarding-heading"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <span class="rounded-full bg-orange-600 text-white px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+              Quick Family Setup · {onboardingChecklist.percent}% Complete
+            </span>
+            <h2 id="onboarding-heading" class="text-lg font-extrabold tracking-tight text-stone-900 mt-1">
+              Set up your child's reader profile &amp; bedtime timer
+            </h2>
+            <p class="text-xs text-stone-600 mt-0.5">
+              Built for kids ages 4–8 (and growing up to 18): create a reader profile, choose a sleep timer limit, and sync your digital books with the audiobook player.
+            </p>
+          </div>
+          <div class="w-full sm:w-48">
+            <div class="h-2.5 rounded-full bg-orange-200/70 overflow-hidden">
+              <div
+                id="onboarding-progress-bar"
+                class="h-full bg-orange-600 rounded-full transition-all"
+                style={`width: ${onboardingChecklist.percent}%`}
+              ></div>
+            </div>
+            <p class="text-[11px] font-bold text-orange-800 mt-1 text-right">
+              {onboardingChecklist.steps.filter((s) => s.done).length} of {onboardingChecklist.steps.length} steps ready
+            </p>
+          </div>
+        </div>
+
+        <form id="family-onboarding-form" class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 bg-white rounded-xl border border-orange-200/80 p-4">
+          <div>
+            <label class="block text-xs font-bold text-stone-700">
+              Parent / Guardian Name
+              <input
+                type="text"
+                name="parent_name"
+                value={parentOnboarding?.parent_name || ""}
+                placeholder="e.g., Alex"
+                class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium"
+              />
+            </label>
+            <label class="block text-xs font-bold text-stone-700 mt-3">
+              Optional 4-Digit Parent PIN
+              <input
+                type="password"
+                name="parent_pin"
+                inputmode="numeric"
+                maxlength="6"
+                placeholder="e.g., 1234"
+                class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium"
+              />
+            </label>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-stone-700">
+              First Child's Name
+              <input
+                type="text"
+                name="kid_name"
+                value={defaultKidProfile?.name || ""}
+                placeholder="e.g., Maya"
+                required
+                class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium"
+              />
+            </label>
+            <div class="grid grid-cols-2 gap-2 mt-3">
+              <label class="block text-xs font-bold text-stone-700">
+                Age Group
+                <select
+                  name="kid_age_group"
+                  class="mt-1 w-full rounded-lg border border-stone-300 px-2.5 py-2 text-sm font-semibold bg-white"
+                >
+                  <option value="4-8" selected={!defaultKidProfile || defaultKidProfile.age_group === "4-8"}>Ages 4–8</option>
+                  <option value="9-12" selected={defaultKidProfile?.age_group === "9-12"}>Ages 9–12</option>
+                  <option value="13-18" selected={defaultKidProfile?.age_group === "13-18"}>Ages 13–18</option>
+                </select>
+              </label>
+              <label class="block text-xs font-bold text-stone-700">
+                Character Buddy
+                <select
+                  name="kid_avatar"
+                  class="mt-1 w-full rounded-lg border border-stone-300 px-2.5 py-2 text-sm font-semibold bg-white"
+                >
+                  {KID_AVATARS.map((av) => (
+                    <option value={av.id} selected={defaultKidProfile?.avatar_key === av.id}>
+                      {av.emoji} {av.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="flex flex-col justify-between">
+            <div class="grid grid-cols-2 gap-2">
+              <label class="block text-xs font-bold text-stone-700">
+                Sleep Timer Stop
+                <select
+                  name="kid_sleep_timer"
+                  class="mt-1 w-full rounded-lg border border-stone-300 px-2.5 py-2 text-sm font-semibold bg-white"
+                >
+                  {SLEEP_TIMER_PRESETS.map((p) => (
+                    <option value={p.minutes} selected={p.minutes === 60}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label class="block text-xs font-bold text-stone-700">
+                Daily Time Limit
+                <select
+                  name="kid_daily_limit"
+                  class="mt-1 w-full rounded-lg border border-stone-300 px-2.5 py-2 text-sm font-semibold bg-white"
+                >
+                  {DAILY_LIMIT_PRESETS.map((p) => (
+                    <option value={p.minutes} selected={p.minutes === 60}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div class="mt-4 flex items-center justify-between gap-2">
+              <p id="onboarding-save-msg" class="text-xs font-semibold text-stone-600" role="status"></p>
+              <button
+                type="submit"
+                class="rounded-full bg-orange-600 text-white px-5 py-2.5 text-xs font-extrabold hover:bg-orange-700 active:scale-[0.97] transition"
+              >
+                Save Family Setup →
+              </button>
+            </div>
+          </div>
+        </form>
+      </section>
+    )}
+
+    <h2 id="shelf" class="text-xl font-bold tracking-tight mt-10 scroll-mt-20">My Shelf</h2>
     <p class="text-sm text-stone-500 mt-1">Read and listen right here. The books you own are yours to download and keep.</p>
     {books.length === 0 ? (
       <div class="mt-6 text-center text-stone-500 py-16 rounded-xl border border-dashed border-stone-200">
@@ -317,6 +504,13 @@ if (showSuccess) {
                   {b.audiobook_key ? (
                     <a href={"/read/" + publicSlugFor(b) + "?listen=1"} class="text-xs font-semibold rounded-md bg-orange-600 text-white px-3 py-1.5 hover:bg-orange-700">Listen</a>
                   ) : null}
+                  <button
+                    type="button"
+                    data-open-qc-book={b.slug}
+                    class="text-xs font-semibold rounded-md border border-[#1a3454] text-[#1a3454] px-2.5 py-1.5 hover:bg-stone-100"
+                  >
+                    QC Viewer
+                  </button>
                 </div>
                 {b.owned ? (
                   <div class="mt-2 flex flex-wrap gap-2">
@@ -341,7 +535,175 @@ if (showSuccess) {
       </div>
     )}
 
-    <section class="mt-14">
+    {/* Customer QC Book Viewer & Synced Audiobook Player Slot */}
+    <CustomerBookViewer books={books} />
+    <CustomerAudioDock books={books} defaultSleepMinutes={defaultSleepMinutes} />
+
+    {/* Kids & Family Profiles + Daily Limits & Sleep Timer Settings */}
+    <section
+      id="kids-family"
+      data-parent-only="true"
+      class="mt-14 rounded-2xl border border-stone-200 bg-stone-50/70 p-5 sm:p-7 scroll-mt-20"
+      aria-labelledby="kids-family-heading"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 id="kids-family-heading" class="text-xl font-bold tracking-tight">
+            Kids &amp; Family Profiles
+          </h2>
+          <p class="text-sm text-stone-500 mt-1">
+            Create profiles for each child (ages 4–8 now, and up to 18 as they grow) with their own reading progress, daily time limits, and bedtime sleep timer.
+          </p>
+        </div>
+        <button
+          type="button"
+          id="toggle-add-kid-btn"
+          class="rounded-full bg-[#1a3454] text-white px-4 py-2 text-xs font-bold hover:bg-[#132741]"
+        >
+          + Add Child Profile
+        </button>
+      </div>
+
+      {kidProfiles.length === 0 ? (
+        <p class="text-sm text-stone-500 mt-4">
+          No child profiles yet. Add a profile so your child gets a simplified Kid View with automatic sleep timers.
+        </p>
+      ) : (
+        <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {kidProfiles.map((kp) => {
+            const av = KID_AVATARS.find((a) => a.id === kp.avatar_key) || KID_AVATARS[0];
+            return (
+              <article class="rounded-xl border border-stone-200 bg-white p-4 flex flex-col justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <span
+                    class="w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0 border border-stone-200"
+                    style={`background:${av.bg};color:${av.color}`}
+                  >
+                    {av.emoji}
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                      <h3 class="font-bold text-stone-900 truncate">{kp.name}</h3>
+                      <span class="rounded-full bg-stone-100 text-stone-700 px-2 py-0.5 text-[11px] font-bold">
+                        Ages {kp.age_group}
+                      </span>
+                    </div>
+                    <p class="text-xs text-stone-500 mt-0.5">
+                      {av.name} · {av.label}
+                    </p>
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs bg-stone-50 rounded-lg p-2.5 border border-stone-100">
+                  <div>
+                    <span class="text-stone-400 block text-[10px] font-bold uppercase">Sleep Timer</span>
+                    <span class="font-bold text-stone-800">
+                      {kp.default_sleep_timer_minutes === -1
+                        ? "End of chapter"
+                        : kp.default_sleep_timer_minutes > 0
+                          ? `${kp.default_sleep_timer_minutes} mins`
+                          : "Off"}
+                    </span>
+                  </div>
+                  <div>
+                    <span class="text-stone-400 block text-[10px] font-bold uppercase">Daily Limit</span>
+                    <span class="font-bold text-stone-800">
+                      {kp.daily_limit_minutes > 0
+                        ? `${kp.daily_minutes_used} / ${kp.daily_limit_minutes}m today`
+                        : "Unlimited"}
+                    </span>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between gap-2 pt-1">
+                  <button
+                    type="button"
+                    data-activate-kid-profile={kp.id}
+                    class="rounded-full bg-orange-600 text-white px-3.5 py-1.5 text-xs font-bold hover:bg-orange-700"
+                  >
+                    Switch to {kp.name}'s View
+                  </button>
+                  <button
+                    type="button"
+                    data-delete-kid-profile={kp.id}
+                    class="text-xs text-stone-400 hover:text-red-600 font-semibold"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add / Edit Child Profile Form */}
+      <form
+        id="add-kid-profile-form"
+        class="hidden mt-5 rounded-xl border border-stone-200 bg-white p-4 sm:p-5"
+      >
+        <h3 class="text-sm font-extrabold text-stone-900">New Child Reader Profile</h3>
+        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <label class="block text-xs font-bold text-stone-700">
+            Child's Name
+            <input
+              type="text"
+              name="name"
+              required
+              placeholder="e.g., Leo"
+              class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <label class="block text-xs font-bold text-stone-700">
+            Age Band
+            <select name="age_group" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm bg-white">
+              <option value="4-8">Ages 4–8 (Early Reader)</option>
+              <option value="9-12">Ages 9–12 (Growing Reader)</option>
+              <option value="13-18">Ages 13–18 (Teen / Deep Dives)</option>
+            </select>
+          </label>
+          <label class="block text-xs font-bold text-stone-700">
+            Character Buddy
+            <select name="avatar_key" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm bg-white">
+              {KID_AVATARS.map((av) => (
+                <option value={av.id}>
+                  {av.emoji} {av.name} ({av.label})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label class="block text-xs font-bold text-stone-700">
+            Default Sleep Timer
+            <select name="default_sleep_timer_minutes" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm bg-white">
+              {SLEEP_TIMER_PRESETS.map((p) => (
+                <option value={p.minutes} selected={p.minutes === 60}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label class="block text-xs font-bold text-stone-700">
+            Daily Reading/Listening Limit
+            <select name="daily_limit_minutes" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm bg-white">
+              {DAILY_LIMIT_PRESETS.map((p) => (
+                <option value={p.minutes} selected={p.minutes === 60}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div class="mt-4 flex items-center justify-end gap-2">
+          <span id="add-kid-msg" class="text-xs text-stone-500"></span>
+          <button
+            type="submit"
+            class="rounded-full bg-orange-600 text-white px-5 py-2 text-xs font-extrabold hover:bg-orange-700"
+          >
+            Save Child Profile
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section id="orders" data-parent-only="true" class="mt-14 scroll-mt-20">
       <h2 class="text-xl font-bold tracking-tight">Your orders</h2>
       {orderViews.length === 0 ? (
         <p class="text-sm text-stone-500 mt-3">No orders yet. When you buy a book, the order and its receipt will live here.</p>
@@ -426,7 +788,7 @@ if (showSuccess) {
       )}
     </section>
 
-    <section class="mt-14">
+    <section id="reviews" data-parent-only="true" class="mt-14 scroll-mt-20">
       <h2 class="text-xl font-bold tracking-tight">My reviews</h2>
       {myReviews.length === 0 ? (
         <p class="text-sm text-stone-500 mt-3">You have not reviewed any books yet. Reviews help other parents find the right book, and every one is checked by a person before it goes live.</p>
@@ -446,7 +808,7 @@ if (showSuccess) {
       )}
     </section>
 
-    <section class="mt-14 mb-6 rounded-2xl bg-[#1a3454] text-white p-6 sm:p-8">
+    <section id="book-club" data-parent-only="true" class="mt-14 mb-6 rounded-2xl bg-[#1a3454] text-white p-6 sm:p-8 scroll-mt-20">
       <h2 class="text-xl font-extrabold tracking-tight">Book Club</h2>
       {clubSignup?.status === "paid" && clubPlan === "audio" ? (
         <>
@@ -683,6 +1045,240 @@ if (showSuccess) {
     }
     initClubPick();
     document.addEventListener("astro:page-load", initClubPick);
+  </script>
+  <script is:inline>
+    function initFamilyAndProfiles() {
+      // Quick "QC Viewer" buttons on shelf cards
+      document.querySelectorAll("[data-open-qc-book]").forEach(function (btn) {
+        if (btn.__qcBound) return;
+        btn.__qcBound = true;
+        btn.addEventListener("click", function () {
+          var slug = btn.getAttribute("data-open-qc-book");
+          if (window.bbsCustomerHub && slug) {
+            window.bbsCustomerHub.openBookInViewer(slug, "story");
+          }
+        });
+      });
+
+      // Family Onboarding Form
+      var obForm = document.getElementById("family-onboarding-form");
+      if (obForm && !obForm.__bound) {
+        obForm.__bound = true;
+        obForm.addEventListener("submit", async function (ev) {
+          ev.preventDefault();
+          var msg = document.getElementById("onboarding-save-msg");
+          if (msg) msg.textContent = "Saving family setup...";
+          var fd = new FormData(obForm);
+          var ageGroup = String(fd.get("kid_age_group") || "4-8");
+          var ageNum = ageGroup === "4-8" ? 6 : ageGroup === "9-12" ? 10 : 14;
+          try {
+            var r = await fetch("/api/account/family", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "save_onboarding",
+                parent_name: fd.get("parent_name"),
+                parent_pin: fd.get("parent_pin"),
+                mark_complete: true,
+                kid_profile: {
+                  name: fd.get("kid_name"),
+                  age: ageNum,
+                  age_group: ageGroup,
+                  avatar_key: fd.get("kid_avatar") || "mira",
+                  default_sleep_timer_minutes: Number(fd.get("kid_sleep_timer") ?? 60),
+                  daily_limit_minutes: Number(fd.get("kid_daily_limit") ?? 60),
+                },
+              }),
+            });
+            if (r.ok) {
+              if (msg) msg.textContent = "Family shelf ready! Reloading...";
+              window.location.reload();
+            } else {
+              if (msg) msg.textContent = "Could not save setup. Please try again.";
+            }
+          } catch (e) {
+            if (msg) msg.textContent = "Network error saving setup.";
+          }
+        });
+      }
+
+      // Add Child Profile Toggle & Form
+      var toggleAddBtn = document.getElementById("toggle-add-kid-btn");
+      var addKidForm = document.getElementById("add-kid-profile-form");
+      if (toggleAddBtn && addKidForm && !toggleAddBtn.__bound) {
+        toggleAddBtn.__bound = true;
+        toggleAddBtn.addEventListener("click", function () {
+          addKidForm.classList.toggle("hidden");
+        });
+      }
+      if (addKidForm && !addKidForm.__bound) {
+        addKidForm.__bound = true;
+        addKidForm.addEventListener("submit", async function (ev) {
+          ev.preventDefault();
+          var msg = document.getElementById("add-kid-msg");
+          if (msg) msg.textContent = "Saving...";
+          var fd = new FormData(addKidForm);
+          var ageGroup = String(fd.get("age_group") || "4-8");
+          var ageNum = ageGroup === "4-8" ? 6 : ageGroup === "9-12" ? 10 : 14;
+          var r = await fetch("/api/account/family", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "upsert_kid",
+              profile: {
+                name: fd.get("name"),
+                age: ageNum,
+                age_group: ageGroup,
+                avatar_key: fd.get("avatar_key") || "mira",
+                default_sleep_timer_minutes: Number(fd.get("default_sleep_timer_minutes") ?? 60),
+                daily_limit_minutes: Number(fd.get("daily_limit_minutes") ?? 60),
+              },
+            }),
+          });
+          if (r.ok) {
+            window.location.reload();
+          } else {
+            if (msg) msg.textContent = "Could not save profile.";
+          }
+        });
+      }
+
+      // Remove Kid Profile buttons
+      document.querySelectorAll("[data-delete-kid-profile]").forEach(function (btn) {
+        if (btn.__bound) return;
+        btn.__bound = true;
+        btn.addEventListener("click", async function () {
+          var id = btn.getAttribute("data-delete-kid-profile");
+          if (!id) return;
+          var r = await fetch("/api/account/family?id=" + encodeURIComponent(id), { method: "DELETE" });
+          if (r.ok) window.location.reload();
+        });
+      });
+
+      // Switch between Parent View and Kid View (with Parent PIN gate when exiting Kid View)
+      var profileSelect = document.getElementById("active-profile-select");
+      var switcherBox = document.getElementById("sidebar-profile-switcher");
+      var avatarBadge = document.getElementById("active-profile-avatar");
+      var limitPill = document.getElementById("active-kid-limit-pill");
+      var limitText = document.getElementById("active-kid-limit-text");
+      var mobileBadge = document.getElementById("mobile-active-mode-badge");
+      var pinModal = document.getElementById("parent-pin-modal");
+      var pinForm = document.getElementById("parent-pin-form");
+      var pinInput = document.getElementById("parent-pin-input");
+      var pinError = document.getElementById("parent-pin-error");
+      var pinCancel = document.getElementById("parent-pin-cancel");
+      var exitKidBtn = document.getElementById("exit-kid-mode-btn");
+      var limitUnlockBtn = document.getElementById("audio-limit-unlock-btn");
+
+      var currentActiveProfile = "parent";
+
+      function applyProfileSelection(val) {
+        currentActiveProfile = val;
+        if (profileSelect && profileSelect.value !== val) {
+          profileSelect.value = val;
+        }
+        if (val === "parent") {
+          document.documentElement.removeAttribute("data-kid-mode");
+          if (avatarBadge) avatarBadge.textContent = "👨‍👩‍👧";
+          if (limitPill) limitPill.classList.add("hidden");
+          if (mobileBadge) mobileBadge.textContent = "Family Hub";
+          if (window.bbsCustomerHub) window.bbsCustomerHub.setProfile("default", 60);
+        } else if (profileSelect) {
+          var opt = profileSelect.querySelector('option[value="' + val + '"]');
+          var emoji = (opt && opt.getAttribute("data-emoji")) || "🦊";
+          var name = (opt && opt.getAttribute("data-name")) || "Kid";
+          var sleep = Number((opt && opt.getAttribute("data-sleep")) || 60);
+          var limit = Number((opt && opt.getAttribute("data-limit")) || 60);
+          var used = Number((opt && opt.getAttribute("data-used")) || 0);
+          document.documentElement.setAttribute("data-kid-mode", "active");
+          if (avatarBadge) avatarBadge.textContent = emoji;
+          if (limitPill) limitPill.classList.remove("hidden");
+          if (limitText) {
+            limitText.textContent =
+              limit > 0 ? ("Limit: " + Math.max(0, limit - used) + "m left") : "Unlimited time";
+          }
+          if (mobileBadge) mobileBadge.textContent = emoji + " " + name;
+          if (window.bbsCustomerHub) window.bbsCustomerHub.setProfile(val, sleep);
+        }
+      }
+
+      function promptParentPin() {
+        var hasPin = switcherBox && switcherBox.getAttribute("data-has-pin") === "1";
+        if (!hasPin) {
+          applyProfileSelection("parent");
+          return;
+        }
+        if (pinModal) {
+          pinModal.classList.remove("hidden");
+          if (pinError) pinError.classList.add("hidden");
+          if (pinInput) {
+            pinInput.value = "";
+            pinInput.focus();
+          }
+        }
+      }
+
+      if (profileSelect && !profileSelect.__bound) {
+        profileSelect.__bound = true;
+        profileSelect.addEventListener("change", function () {
+          var nextVal = profileSelect.value;
+          if (currentActiveProfile !== "parent" && nextVal === "parent") {
+            profileSelect.value = currentActiveProfile;
+            promptParentPin();
+          } else {
+            applyProfileSelection(nextVal);
+          }
+        });
+      }
+
+      document.querySelectorAll("[data-activate-kid-profile]").forEach(function (btn) {
+        if (btn.__bound) return;
+        btn.__bound = true;
+        btn.addEventListener("click", function () {
+          var id = btn.getAttribute("data-activate-kid-profile");
+          if (id) {
+            applyProfileSelection(id);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        });
+      });
+
+      if (exitKidBtn && !exitKidBtn.__bound) {
+        exitKidBtn.__bound = true;
+        exitKidBtn.addEventListener("click", promptParentPin);
+      }
+      if (limitUnlockBtn && !limitUnlockBtn.__bound) {
+        limitUnlockBtn.__bound = true;
+        limitUnlockBtn.addEventListener("click", promptParentPin);
+      }
+      if (pinCancel && !pinCancel.__bound) {
+        pinCancel.__bound = true;
+        pinCancel.addEventListener("click", function () {
+          if (pinModal) pinModal.classList.add("hidden");
+        });
+      }
+      if (pinForm && !pinForm.__bound) {
+        pinForm.__bound = true;
+        pinForm.addEventListener("submit", async function (ev) {
+          ev.preventDefault();
+          var pin = pinInput ? pinInput.value : "";
+          var r = await fetch("/api/account/family", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "verify_pin", pin: pin }),
+          });
+          if (r.ok) {
+            if (pinModal) pinModal.classList.add("hidden");
+            applyProfileSelection("parent");
+          } else if (pinError) {
+            pinError.textContent = "Incorrect Parent PIN. Please try again.";
+            pinError.classList.remove("hidden");
+          }
+        });
+      }
+    }
+    initFamilyAndProfiles();
+    document.addEventListener("astro:page-load", initFamilyAndProfiles);
   </script>
 </body>
 </html>

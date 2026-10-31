@@ -1,1 +1,29 @@
-{"ai":{"binding":"AI"},"compatibility_date":"2026-10-16","compatibility_flags":["nodejs_als"],"d1_databases":[{"binding":"DB","database_id":"e1da6223-d7ab-496f-97e8-4c97111e8b8d","database_name":"kidsbook-hub"}],"name":"kidsbook-hub","send_email":[{"name":"EMAIL"}],"triggers":{"crons":["*/15 * * * *"]}}
+{
+  "name": "bigbrainshelf",
+  "compatibility_date": "2026-10-16",
+  "compatibility_flags": ["nodejs_als"],
+  "ai": {
+    "binding": "AI"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_id": "e1da6223-d7ab-496f-97e8-4c97111e8b8d",
+      "database_name": "kidsbook-hub"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BOOKS",
+      "bucket_name": "kidsbook-factory"
+    }
+  ],
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
+  ],
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  }
+}

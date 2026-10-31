@@ -451,3 +451,57 @@ CREATE TABLE IF NOT EXISTS download_counts (
   PRIMARY KEY (grant_key, slug, file_kind)
 );
 CREATE INDEX IF NOT EXISTS download_counts_order_idx ON download_counts(order_id);
+
+
+-- Family Onboarding, Kid Profiles & Synced Reading/Listening Progress (2026-10-31):
+-- Parent onboarding preferences & PIN gate, switchable Kid Profiles (ages 4-8,
+-- 9-12, 13-18) with daily time budgets and default sleep timers, and synced
+-- book viewer + audiobook playback state.
+CREATE TABLE IF NOT EXISTS parent_onboarding (
+  user_id TEXT PRIMARY KEY,
+  parent_name TEXT NOT NULL DEFAULT '',
+  family_goal TEXT NOT NULL DEFAULT '',
+  referral_source TEXT NOT NULL DEFAULT '',
+  preferred_topics TEXT NOT NULL DEFAULT '["tech","money","courage"]',
+  parent_pin TEXT,
+  welcome_email_sent INTEGER NOT NULL DEFAULT 0,
+  completed_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS kid_profiles (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  age INTEGER NOT NULL DEFAULT 6,
+  age_group TEXT NOT NULL DEFAULT '4-8',
+  avatar TEXT NOT NULL DEFAULT 'mira',
+  favorite_topics TEXT NOT NULL DEFAULT '["tech","money","courage"]',
+  daily_limit_minutes INTEGER NOT NULL DEFAULT 60,
+  default_sleep_minutes INTEGER NOT NULL DEFAULT 60,
+  allow_audio INTEGER NOT NULL DEFAULT 1,
+  allow_reading INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS kid_profiles_user_idx ON kid_profiles(user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS reading_progress (
+  user_id TEXT NOT NULL,
+  profile_id TEXT NOT NULL DEFAULT 'parent',
+  book_slug TEXT NOT NULL,
+  chapter_num INTEGER NOT NULL DEFAULT 1,
+  page_index INTEGER NOT NULL DEFAULT 0,
+  view_edition TEXT NOT NULL DEFAULT 'story',
+  view_mode TEXT NOT NULL DEFAULT 'flip',
+  audio_track_id TEXT NOT NULL DEFAULT 'ch1',
+  audio_position_sec INTEGER NOT NULL DEFAULT 0,
+  audio_duration_sec INTEGER NOT NULL DEFAULT 0,
+  sync_enabled INTEGER NOT NULL DEFAULT 1,
+  daily_minutes_used INTEGER NOT NULL DEFAULT 0,
+  usage_date TEXT NOT NULL DEFAULT '',
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, profile_id, book_slug)
+);
+CREATE INDEX IF NOT EXISTS reading_progress_user_updated_idx ON reading_progress(user_id, updated_at);

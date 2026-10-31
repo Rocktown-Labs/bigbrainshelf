@@ -170,6 +170,18 @@ if (entitlement.owned) {
                 <option value="2">2x</option>
               </select>
             </label>
+            <label class="inline-flex items-center gap-1.5 text-sm text-stone-600 shrink-0">
+              <span>🌙 Sleep</span>
+              <select id="sleep-timer" aria-label="Sleep timer turn off" class="rounded-lg border border-stone-300 px-1.5 py-1 text-sm">
+                <option value="0">Off</option>
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="45">45 min</option>
+                <option value="60" selected>60 min</option>
+                <option value="-1">End of chapter</option>
+              </select>
+            </label>
+            <span id="sleep-countdown" class="text-xs font-semibold text-orange-700 tabular-nums shrink-0">⏱ 60:00</span>
             {playerData.full && (
               <span class="hidden sm:inline-flex rounded-full border border-stone-300 overflow-hidden shrink-0" role="group" aria-label="Listening mode">
                 <button id="mode-chapters" class="bg-[#1a3454] text-white px-3 py-1.5 text-xs font-semibold">Chapters</button>
@@ -570,6 +582,11 @@ if (entitlement.owned) {
       });
       audio.addEventListener("ended", function () {
         setPlayingUi(false);
+        if (sleepMode === -1) {
+          statusEl.textContent = "Paused at end of chapter by Sleep Timer.";
+          saveReaderProgress();
+          return;
+        }
         if (pmode === "chapters" && index < playlist().length - 1) {
           loadTrack(index + 1, true);
           scrollForTrack(playlist()[index]);
@@ -583,8 +600,103 @@ if (entitlement.owned) {
         seeking = false;
         if (isFinite(audio.duration) && audio.duration > 0) {
           audio.currentTime = (Number(seek.value) / 1000) * audio.duration;
+          saveReaderProgress();
         }
       });
+
+      // Sleep timer ("timed turn off" — defaults to 60 mins) + synced progress save/resume
+      var sleepSel = document.getElementById("sleep-timer");
+      var sleepCountdown = document.getElementById("sleep-countdown");
+      var sleepMode = 60;
+      var sleepRemainingSec = 60 * 60;
+
+      function updateSleepUi() {
+        if (!sleepCountdown) return;
+        if (sleepMode === 0) sleepCountdown.textContent = "Off";
+        else if (sleepMode === -1) sleepCountdown.textContent = "End of ch";
+        else sleepCountdown.textContent = "⏱ " + fmt(sleepRemainingSec);
+      }
+
+      if (sleepSel) {
+        sleepSel.addEventListener("change", function () {
+          sleepMode = Number(sleepSel.value);
+          sleepRemainingSec = sleepMode > 0 ? sleepMode * 60 : 0;
+          audio.volume = 1;
+          updateSleepUi();
+        });
+      }
+
+      window.setInterval(function () {
+        if (audio.paused) return;
+        if (sleepMode > 0) {
+          sleepRemainingSec = Math.max(0, sleepRemainingSec - 1);
+          if (sleepRemainingSec > 0 && sleepRemainingSec <= 10) {
+            audio.volume = Math.max(0.1, sleepRemainingSec / 10);
+          }
+          updateSleepUi();
+          if (sleepRemainingSec <= 0) {
+            audio.pause();
+            audio.volume = 1;
+            statusEl.textContent = "Paused by Sleep Timer.";
+            saveReaderProgress();
+          }
+        }
+      }, 1000);
+
+      function saveReaderProgress() {
+        if (!playerData || !playerData.slug) return;
+        var currentTrack = playlist()[index] || null;
+        var payload = {
+          profile_id: "default",
+          book_slug: playerData.slug,
+          chapter_num: currentTrack && currentTrack.chapter ? currentTrack.chapter : 1,
+          page_index: flipIndex,
+          view_edition: artMode === "color" ? "fullcolor" : "story",
+          view_mode: viewMode,
+          audio_track_id: currentTrack ? currentTrack.id : null,
+          audio_position_sec: isFinite(audio.currentTime) ? Math.round(audio.currentTime * 10) / 10 : 0,
+          audio_duration_sec: isFinite(audio.duration) ? Math.round(audio.duration * 10) / 10 : 0,
+          sync_enabled: true,
+        };
+        try {
+          window.localStorage.setItem("bbs-progress:default:" + playerData.slug, JSON.stringify(payload));
+        } catch (e) {}
+        fetch("/api/account/progress", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }).catch(function () {});
+      }
+
+      audio.addEventListener("pause", saveReaderProgress);
+
+      // Restore saved progress on load
+      (function restoreReaderProgress() {
+        if (!playerData || !playerData.slug) return;
+        try {
+          var raw = window.localStorage.getItem("bbs-progress:default:" + playerData.slug);
+          if (!raw) return;
+          var saved = JSON.parse(raw);
+          if (saved && saved.audio_track_id) {
+            var tracks = playlist();
+            for (var i = 0; i < tracks.length; i++) {
+              if (tracks[i].id === saved.audio_track_id) {
+                loadTrack(i, false);
+                if (saved.audio_position_sec > 2) {
+                  audio.addEventListener("loadedmetadata", function onMeta() {
+                    audio.removeEventListener("loadedmetadata", onMeta);
+                    if (isFinite(audio.duration) && saved.audio_position_sec < audio.duration) {
+                      audio.currentTime = saved.audio_position_sec;
+                      elapsedEl.textContent = fmt(saved.audio_position_sec);
+                    }
+                  });
+                }
+                break;
+              }
+            }
+          }
+        } catch (e) {}
+      })();
 
       if (listenMode) {
         var card = document.getElementById("player-card");

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deploy the kidsbook-hub Astro worker to Cloudflare via API.
+"""Deploy the bigbrainshelf Astro worker to Cloudflare via API.
 
 Uploads dist/server modules AND dist/client static assets (Workers Assets
 direct-upload flow) so the worker's ASSETS binding exists; without it the
@@ -7,12 +7,17 @@ Astro entry throws on every asset/404 request (favicon, /_astro/*.css, ...).
 """
 import base64, glob, hashlib, json, mimetypes, os, subprocess, sys, urllib.request
 
-sys.path.insert(0, "/opt/muse/skills/custom-connector-setup/bin")
-from dynamic_credentials import add_surrogate_to_request
+CONNECTOR_BIN = "/opt/muse/skills/custom-connector-setup/bin"
+if os.path.isdir(CONNECTOR_BIN):
+    sys.path.insert(0, CONNECTOR_BIN)
+try:
+    from dynamic_credentials import add_surrogate_to_request
+except ImportError:
+    add_surrogate_to_request = None
 
-ACCT = "5af47adc047fa74dcfa59048858b486c"
-WORKER = "bigbrainshelf"
-BASE = "/home/hatch/workspace/kidsbook-hub"
+ACCT = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "5af47adc047fa74dcfa59048858b486c")
+WORKER = os.environ.get("CLOUDFLARE_WORKER_NAME", "bigbrainshelf")
+BASE = os.environ.get("BBS_BASE_DIR") or os.path.dirname(os.path.abspath(__file__))
 # Files the Astro adapter lists in dist/client/.assetsignore; never assets.
 ASSET_IGNORE = {".assetsignore", "_worker.js", "_routes.json", "wrangler.json", ".dev.vars"}
 
@@ -26,8 +31,11 @@ def api(method, path, body=None, headers=None, surrogate=True):
     if data and "Content-Type" not in (headers or {}):
         req.add_header("Content-Type", "application/json")
     if surrogate:
-        add_surrogate_to_request(req, "custom.cloudflare", entry_name="access_token",
-                                 allowed_hosts=["api.cloudflare.com"])
+        if add_surrogate_to_request is not None:
+            add_surrogate_to_request(req, "custom.cloudflare", entry_name="access_token",
+                                     allowed_hosts=["api.cloudflare.com"])
+        elif os.environ.get("CLOUDFLARE_API_TOKEN"):
+            req.add_header("Authorization", f"Bearer {os.environ['CLOUDFLARE_API_TOKEN']}")
     with urllib.request.urlopen(req, timeout=120) as r:
         return json.loads(r.read())
 

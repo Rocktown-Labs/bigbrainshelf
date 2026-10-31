@@ -1,0 +1,10 @@
+{
+  "name": "@bigbrainshelf/web",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --cwd ../.. run dev",
+    "build": "bun --cwd ../.. run build"
+  }
+}

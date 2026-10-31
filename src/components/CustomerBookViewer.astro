@@ -1,0 +1,249 @@
+---
+import { publicSlugFor } from "../lib/public-slugs";
+
+interface Props {
+  books: any[];
+}
+
+const { books = [] } = Astro.props;
+const readableBooks = books.filter((b) => !b.audioOnly);
+---
+
+<section
+  id="qc-viewer"
+  class="mt-12 rounded-2xl border border-stone-200 bg-stone-50/70 p-4 sm:p-6 scroll-mt-20"
+  aria-labelledby="qc-viewer-heading"
+>
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 pb-4">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="rounded-full bg-[#1a3454] text-white px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+          Digital Bundle Viewer
+        </span>
+        <span class="text-xs font-semibold text-stone-500" id="qc-sync-indicator">
+          Synced with Audiobook Player
+        </span>
+      </div>
+      <h2 id="qc-viewer-heading" class="text-xl font-extrabold tracking-tight text-stone-900 mt-1">
+        Book Viewer &amp; Edition Inspector
+      </h2>
+      <p class="text-xs text-stone-500 mt-0.5">
+        Inspect every page of your digital bundle (Storybook, Coloring Book, Full Color, and Cover/TOC) while listening along.
+      </p>
+    </div>
+
+    {readableBooks.length > 0 && (
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="text-xs font-bold text-stone-600 flex items-center gap-2">
+          <span>Book:</span>
+          <select
+            id="qc-book-select"
+            aria-label="Select book to open in viewer"
+            class="rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-bold text-stone-900 focus:border-orange-600 focus:outline-none"
+          >
+            {readableBooks.map((b, idx) => (
+              <option
+                value={b.slug}
+                data-public-slug={publicSlugFor(b)}
+                data-title={b.title}
+                selected={idx === 0}
+              >
+                {b.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <a
+          id="qc-fullscreen-link"
+          href={readableBooks[0] ? `/read/${publicSlugFor(readableBooks[0])}` : "#"}
+          class="inline-flex items-center gap-1 rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-bold text-stone-700 hover:border-stone-500"
+        >
+          Full-screen Reader ↗
+        </a>
+      </div>
+    )}
+  </div>
+
+  {readableBooks.length === 0 ? (
+    <div class="py-12 text-center text-stone-500">
+      <p class="font-semibold text-stone-800">No digital storybook editions in your shelf yet.</p>
+      <p class="text-xs mt-1">
+        When you purchase a digital bundle, gift set, or Book Club box, every page loads right here.
+      </p>
+    </div>
+  ) : (
+    <div class="mt-4">
+      {/* Edition + Mode + Sync Controls Bar */}
+      <div class="flex flex-wrap items-center gap-2.5 bg-white rounded-xl border border-stone-200 p-2.5">
+        <div
+          class="inline-flex rounded-xl bg-stone-100 p-1"
+          role="tablist"
+          aria-label="Book edition view"
+        >
+          <button
+            type="button"
+            role="tab"
+            data-qc-edition="story"
+            aria-selected="true"
+            class="qc-edition-btn rounded-lg bg-[#1a3454] text-white px-3 py-1.5 text-xs font-bold transition"
+          >
+            Story Book
+          </button>
+          <button
+            type="button"
+            role="tab"
+            data-qc-edition="coloring"
+            aria-selected="false"
+            class="qc-edition-btn rounded-lg text-stone-700 px-3 py-1.5 text-xs font-bold transition"
+          >
+            Coloring Book
+          </button>
+          <button
+            type="button"
+            role="tab"
+            data-qc-edition="fullcolor"
+            aria-selected="false"
+            class="qc-edition-btn rounded-lg text-stone-700 px-3 py-1.5 text-xs font-bold transition"
+          >
+            Full Color
+          </button>
+          <button
+            type="button"
+            role="tab"
+            data-qc-edition="cover"
+            aria-selected="false"
+            class="qc-edition-btn rounded-lg text-stone-700 px-3 py-1.5 text-xs font-bold transition"
+          >
+            Cover &amp; TOC
+          </button>
+        </div>
+
+        <div
+          class="inline-flex rounded-xl bg-stone-100 p-1"
+          role="group"
+          aria-label="Page layout mode"
+        >
+          <button
+            type="button"
+            data-qc-mode="flip"
+            class="qc-mode-btn rounded-lg bg-orange-600 text-white px-3 py-1.5 text-xs font-bold transition"
+          >
+            Flip Pages
+          </button>
+          <button
+            type="button"
+            data-qc-mode="scroll"
+            class="qc-mode-btn rounded-lg text-stone-700 px-3 py-1.5 text-xs font-bold transition"
+          >
+            Scroll All
+          </button>
+        </div>
+
+        <div class="inline-flex items-center gap-1 rounded-xl border border-stone-200 px-2 py-1 text-xs font-bold text-stone-600">
+          <span>Text</span>
+          <button
+            type="button"
+            id="qc-font-smaller"
+            class="w-7 h-7 rounded-lg hover:bg-stone-100 font-extrabold"
+            aria-label="Smaller story text"
+          >
+            A-
+          </button>
+          <button
+            type="button"
+            id="qc-font-larger"
+            class="w-7 h-7 rounded-lg hover:bg-stone-100 font-extrabold"
+            aria-label="Larger story text"
+          >
+            A+
+          </button>
+        </div>
+
+        <div class="ml-auto flex flex-wrap items-center gap-2">
+          <label class="inline-flex items-center gap-1.5 text-xs font-bold text-stone-700 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              id="qc-audio-sync-check"
+              checked
+              class="rounded border-stone-300 text-orange-600 focus:ring-orange-500 w-4 h-4"
+            />
+            <span>Sync with Audio</span>
+          </label>
+          <button
+            type="button"
+            id="qc-listen-chapter-btn"
+            class="inline-flex items-center gap-1.5 rounded-full bg-orange-600 text-white px-3.5 py-1.5 text-xs font-bold hover:bg-orange-700 active:scale-[0.97] transition"
+          >
+            <span>▶ Listen to this chapter</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main QC Viewer Split: Left Page/Chapter Rail + Right Page Canvas */}
+      <div class="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+        {/* Left Thumbnail / Chapter Rail */}
+        <aside
+          class="lg:col-span-3 rounded-xl border border-stone-200 bg-white p-3 max-h-[560px] overflow-y-auto"
+          aria-label="Chapters and page thumbnails"
+        >
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] font-extrabold uppercase tracking-wider text-stone-400">
+              Pages &amp; Chapters
+            </span>
+            <span id="qc-total-pages-badge" class="text-[11px] font-bold text-stone-500">
+              Loading...
+            </span>
+          </div>
+          <div id="qc-thumb-rail" class="flex lg:flex-col gap-1.5 overflow-x-auto lg:overflow-x-visible pb-1">
+            <p class="text-xs text-stone-400 py-4 text-center">Loading book pages...</p>
+          </div>
+        </aside>
+
+        {/* Right Page Stage */}
+        <div class="lg:col-span-9 rounded-2xl border border-stone-200 bg-white p-4 sm:p-6 min-h-[460px] flex flex-col justify-between">
+          {/* Top Page Status & Kid-Friendly Flip Bar */}
+          <div
+            id="qc-flip-controls"
+            class="flex items-center justify-between gap-2 pb-3 mb-4 border-b border-stone-100"
+          >
+            <button
+              type="button"
+              id="qc-prev-page"
+              class="min-h-[44px] px-4 rounded-full border border-stone-300 bg-white text-xs sm:text-sm font-bold text-stone-800 hover:border-stone-500 disabled:opacity-40 active:scale-[0.97] transition"
+            >
+              ← Prev Page
+            </button>
+            <div class="text-center min-w-0">
+              <p id="qc-page-chapter-label" class="text-xs font-extrabold uppercase tracking-wider text-orange-700 truncate">
+                Chapter 1
+              </p>
+              <p id="qc-page-counter-label" class="text-xs text-stone-500 font-semibold mt-0.5">
+                Page 1
+              </p>
+            </div>
+            <button
+              type="button"
+              id="qc-next-page"
+              class="min-h-[44px] px-4 rounded-full bg-[#1a3454] text-white text-xs sm:text-sm font-bold hover:bg-[#132741] disabled:opacity-40 active:scale-[0.97] transition"
+            >
+              Next Page →
+            </button>
+          </div>
+
+          {/* Dynamic Stage Content */}
+          <div id="qc-stage-body" class="my-auto">
+            <div class="py-16 text-center text-stone-400 text-sm">
+              Loading your digital book...
+            </div>
+          </div>
+
+          {/* Bottom Quick Download & Resume Footnote */}
+          <div class="mt-6 pt-3 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2 text-xs text-stone-500">
+            <span id="qc-saved-progress-note">Progress saves automatically for the active reader profile.</span>
+            <div id="qc-bundle-downloads" class="flex flex-wrap items-center gap-1.5"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )}
+</section>
