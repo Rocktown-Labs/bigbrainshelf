@@ -1,6 +1,8 @@
 // Admin password hashing (PBKDF2 via WebCrypto). The hash lives in the D1
 // settings table under 'admin_password_hash' once CG sets/resets it; the
-// ADMIN_PASSWORD worker secret is only a bootstrap fallback.
+// historical ADMIN_PASSWORD worker secret was removed as a sign-in
+// credential (F5, 2026-10-31): it was a permanent plaintext second
+// password that bypassed this hash after every reset.
 
 const ITERATIONS = 100000;
 
