@@ -52,8 +52,11 @@ problem, its execution was. /account uses the same mechanics as
 ## The Library (/account/library)
 
 - It looks like a shelf: rows of book covers resting on shelf boards,
-  the way the promo videos show it. Four covers per board, two boards
-  (8 books) before a "View more" takes you to the full shelf page.
+  the way the promo videos show it. Four covers per board, every book
+  on the page. (The dashboard preview shows one board and a View all
+  that lands here.)
+- Covers stand in their composed 3:4 portrait shape, never cropped
+  into squares: a cropped cover clips its own title.
 - As the screen narrows the boards reflow to 2 by 2. It always reads as
   a shelf, never as a data grid.
 - A cover shows at most one quiet marker: a slim progress bar or percent
