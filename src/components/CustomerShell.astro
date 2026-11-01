@@ -62,14 +62,12 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "dashboard", href: "/account", label: "Dashboard", icon: "dashboard" },
       { id: "library", href: "/account/library", label: "My Library", icon: "shelf", badge: bookCount > 0 ? String(bookCount) : undefined },
-      { id: "listen", href: "/account/listen", label: "Listening Shelf", icon: "headphones", badge: audioCount > 0 ? String(audioCount) : undefined },
     ],
   },
   {
     label: "Family",
     items: [
-      { id: "kids", href: "/account/kids", label: "Kids & Sleep Limits", icon: "kids", badge: kidProfiles.length > 0 ? String(kidProfiles.length) : undefined, parentOnly: true },
-      { id: "onboarding", href: "/onboarding", label: "Family Setup", icon: "sparkles", badge: onboardingComplete ? undefined : "1 min", parentOnly: true },
+      { id: "kids", href: "/account/kids", label: "Family", icon: "kids", badge: kidProfiles.length > 0 ? String(kidProfiles.length) : undefined, parentOnly: true },
       { id: "referrals", href: "/account/referrals", label: "Give $10, Get $10", icon: "gift", badge: "$10", parentOnly: true },
     ],
   },
@@ -79,7 +77,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "club", href: "/account/club", label: "Book & Audio Club", icon: "club", parentOnly: true },
       { id: "orders", href: "/account/orders", label: "Orders & Receipts", icon: "orders", parentOnly: true },
       { id: "reviews", href: "/account/reviews", label: "My Reviews", icon: "star", parentOnly: true },
-      { id: "settings", href: "/account/settings", label: "Sign-in & Security", icon: "shield", parentOnly: true },
+      { id: "settings", href: "/account/settings", label: "Settings", icon: "shield", parentOnly: true },
     ],
   },
   {
@@ -399,6 +397,63 @@ const ICONS: Record<string, string> = {
       display: block;
     }
   }
+  /* Collapsible sidebar (CG, 2026-11-01): desktop rail collapses to
+     icons only; the choice persists per browser. */
+  .cust-collapse-btn {
+    display: none;
+  }
+  @media (min-width: 1024px) {
+    .cust-collapse-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      align-self: flex-end;
+      margin: 0.6rem 0.75rem 0;
+      width: 1.9rem;
+      height: 1.9rem;
+      border-radius: 0.55rem;
+      border: 1px solid #e7e0d3;
+      background: #fff;
+      color: #78716c;
+      font-size: 1rem;
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .cust-collapse-btn:hover {
+      border-color: #d6cdbd;
+      color: #1c1917;
+    }
+    html.cust-collapsed {
+      --cust-sb-w: 4.75rem;
+    }
+    html.cust-collapsed .cust-collapse-btn {
+      align-self: center;
+    }
+    html.cust-collapsed .cust-profile-box {
+      display: none;
+    }
+    html.cust-collapsed .cust-group-lbl {
+      display: none;
+    }
+    html.cust-collapsed .cust-group {
+      margin-top: 0.4rem;
+    }
+    html.cust-collapsed .cust-link {
+      justify-content: center;
+      padding: 0.55rem 0.25rem;
+    }
+    html.cust-collapsed .cust-link > span {
+      display: none;
+    }
+    html.cust-collapsed #cust-acct-menu-btn {
+      justify-content: center;
+    }
+    html.cust-collapsed #cust-acct-menu-btn > div,
+    html.cust-collapsed #cust-acct-menu-btn > svg {
+      display: none;
+    }
+  }
 </style>
 
 <SiteHeader search cartMode="sheet" />
@@ -425,6 +480,8 @@ const ICONS: Record<string, string> = {
   aria-label="Family account navigation"
   data-has-pin={hasParentPin ? "true" : "false"}
 >
+  <button type="button" id="cust-collapse-btn" class="cust-collapse-btn cust-pressable" aria-label="Collapse or expand the sidebar">«</button>
+
   <!-- Active Reader / Kid Profile Switcher -->
   <div class="cust-profile-box">
     <div class="cust-profile-lbl">
@@ -469,6 +526,7 @@ const ICONS: Record<string, string> = {
         {group.items.map((item) => (
           <a
             href={item.href}
+            title={item.label}
             data-nav-id={item.id}
             data-parent-only={item.parentOnly ? "true" : undefined}
             aria-current={currentSection === item.id ? "page" : undefined}
@@ -665,6 +723,24 @@ const ICONS: Record<string, string> = {
 <script is:inline>
   (function () {
     function initCustomerShell() {
+      // Sidebar collapse (desktop rail): persisted per browser.
+      var collapseBtn = document.getElementById("cust-collapse-btn");
+      function paintCollapse() {
+        var on = false;
+        try { on = window.localStorage.getItem("bbs-sb-collapsed") === "1"; } catch (err) {}
+        document.documentElement.classList.toggle("cust-collapsed", on);
+        if (collapseBtn) collapseBtn.textContent = on ? "»" : "«";
+      }
+      if (collapseBtn && !collapseBtn.__collapseBound) {
+        collapseBtn.__collapseBound = true;
+        collapseBtn.addEventListener("click", function () {
+          var on = !document.documentElement.classList.contains("cust-collapsed");
+          try { window.localStorage.setItem("bbs-sb-collapsed", on ? "1" : "0"); } catch (err) {}
+          paintCollapse();
+        });
+      }
+      paintCollapse();
+
       var sb = document.getElementById("cust-sidebar");
       var backdrop = document.getElementById("cust-backdrop");
       var openBtn = document.getElementById("cust-open-drawer");

@@ -28,10 +28,31 @@ const {
 } = hub;
 
 const R2 = "https://media.bigbrainshelf.com/";
-const orders = await e.DB.prepare(
-  "SELECT * FROM orders WHERE user_id = ? AND status = 'complete' ORDER BY created_at DESC"
+// Sorting + pagination (CG, 2026-11-01: the page must scale past a
+// handful of test orders). 10 orders per page, sorted server-side.
+const sortParam = String(Astro.url.searchParams.get("sort") || "newest");
+const SORTS: Record<string, string> = {
+  newest: "created_at DESC",
+  oldest: "created_at ASC",
+  "total-desc": "amount DESC, created_at DESC",
+  "total-asc": "amount ASC, created_at DESC",
+};
+const sortKey = SORTS[sortParam] ? sortParam : "newest";
+const PER_PAGE = 10;
+const countRow = await e.DB.prepare(
+  "SELECT COUNT(*) AS n FROM orders WHERE user_id = ? AND status = 'complete'"
 )
   .bind(session.user.id)
+  .first();
+const totalOrders = Number((countRow as any)?.n || 0);
+const totalPages = Math.max(1, Math.ceil(totalOrders / PER_PAGE));
+const pageParam = Math.floor(Number(Astro.url.searchParams.get("page") || 1));
+const page = Math.min(totalPages, Math.max(1, Number.isFinite(pageParam) ? pageParam : 1));
+const pageHref = (p: number) => `/account/orders?sort=${sortKey}&page=${p}`;
+const orders = await e.DB.prepare(
+  `SELECT * FROM orders WHERE user_id = ? AND status = 'complete' ORDER BY ${SORTS[sortKey]} LIMIT ? OFFSET ?`
+)
+  .bind(session.user.id, PER_PAGE, (page - 1) * PER_PAGE)
   .all();
 const orderRows = (orders.rows || orders.results || []) as any[];
 
@@ -115,6 +136,9 @@ const orderViews = orderRows.map((o) => {
     physicalLabel: o.physical_status
       ? PHYSICAL_LABELS[o.physical_status] || o.physical_status
       : null,
+    // Digital orders fulfill instantly; they still get a status pill
+    // so the row never reads as stateless next to printed orders.
+    digitalLabel: !o.physical_status ? "In your library" : null,
     trackingLine: o.tracking_number
       ? [o.carrier ? o.carrier + " · " : "", "Tracking ", o.tracking_number].join("")
       : null,
@@ -158,7 +182,7 @@ const orderViews = orderRows.map((o) => {
           Orders &amp; Receipts
         </h1>
         <p class="text-sm text-stone-600 mt-1">
-          View receipts, download files, and check shipping status for printed editions and Gift Sets.
+          Receipts, downloads, and shipping status for everything you have bought.
         </p>
       </div>
       <a
@@ -183,7 +207,20 @@ const orderViews = orderRows.map((o) => {
         </a>
       </div>
     ) : (
-      <div class="mt-6 space-y-6">
+      <>
+      {totalOrders > 1 && (
+        <form method="get" class="mt-6 flex items-center gap-2" id="orders-sort-form">
+          <label for="orders-sort" class="text-xs font-bold text-stone-500">Sort</label>
+          <select id="orders-sort" name="sort" class="rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-bold text-stone-700">
+            <option value="newest" selected={sortKey === "newest"}>Newest first</option>
+            <option value="oldest" selected={sortKey === "oldest"}>Oldest first</option>
+            <option value="total-desc" selected={sortKey === "total-desc"}>Total: high to low</option>
+            <option value="total-asc" selected={sortKey === "total-asc"}>Total: low to high</option>
+          </select>
+          <span class="text-xs text-stone-400">{totalOrders} orders</span>
+        </form>
+      )}
+      <div class="mt-4 space-y-6">
         {orderViews.map((v) => (
           <section class="rounded-2xl border border-stone-200 overflow-hidden bg-white">
             <div class="bg-[#faf6ef] border-b border-stone-200 px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4 text-sm">
@@ -211,6 +248,11 @@ const orderViews = orderRows.map((o) => {
                       <span class="ml-2 text-stone-600 font-mono">{v.trackingLine}</span>
                     )}
                   </div>
+                )}
+                {v.digitalLabel && (
+                  <span class="rounded-full bg-green-700 text-white px-3 py-1 text-xs font-bold">
+                    {v.digitalLabel}
+                  </span>
                 )}
                 <a href={`/account/receipt?order=${v.order.id}`} class="inline-flex items-center justify-center min-h-[44px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition duration-100 active:scale-[0.97]">View receipt</a>
               </div>
@@ -243,7 +285,7 @@ const orderViews = orderRows.map((o) => {
                       {it.price ? money(it.price * it.count) : "—"}
                     </span>
                     <a
-                      href={"/books/" + it.publicSlug}
+                      href={"/account/book/" + it.publicSlug}
                       class="font-bold text-orange-600 hover:text-orange-700 text-xs"
                     >
                       View book →
@@ -255,7 +297,35 @@ const orderViews = orderRows.map((o) => {
           </section>
         ))}
       </div>
+      {totalPages > 1 && (
+        <nav class="mt-6 flex items-center justify-between" aria-label="Orders pages">
+          {page > 1 ? (
+            <a href={pageHref(page - 1)} class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500">← Newer</a>
+          ) : <span></span>}
+          <span class="text-xs font-bold text-stone-500">Page {page} of {totalPages}</span>
+          {page < totalPages ? (
+            <a href={pageHref(page + 1)} class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500">Older →</a>
+          ) : <span></span>}
+        </nav>
+      )}
+      </>
     )}
   </main>
+
+  <script is:inline>
+    (function () {
+      function initOrdersSort() {
+        var sel = document.getElementById("orders-sort");
+        if (!sel || sel.__bound) return;
+        sel.__bound = true;
+        sel.addEventListener("change", function () {
+          var form = document.getElementById("orders-sort-form");
+          if (form) form.submit();
+        });
+      }
+      initOrdersSort();
+      document.addEventListener("astro:page-load", initOrdersSort);
+    })();
+  </script>
 </body>
 </html>
