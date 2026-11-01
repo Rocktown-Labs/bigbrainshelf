@@ -90,7 +90,22 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
       var form = document.getElementById("form");
       if (!form || form.__signupBound) return;
       form.__signupBound = true;
-      var next = new URLSearchParams(window.location.search).get("next") || "";
+
+    // F10 (open redirect): same-origin `next` only — rejects
+    // "next=//evil.com" and "next=/\\evil.com" (browsers normalize the
+    // backslash form to a foreign origin). Mirrors lib/redirects.ts.
+    function safeNext(raw, fallback, blocked) {
+      var p = String(raw || "");
+      if (!p || p.charAt(0) !== "/" || p.charAt(1) === "/" || p.charAt(1) === "\\") return fallback;
+      if (/[\\\r\n\t]/.test(p) || p.length > 512) return fallback;
+      for (var i = 0; i < (blocked || []).length; i++) {
+        var b = blocked[i];
+        if (p === b || p.slice(0, b.length + 1) === b + "/" || p.slice(0, b.length + 1) === b + "?") return fallback;
+      }
+      return p;
+    }
+
+    var next = new URLSearchParams(window.location.search).get("next") || "";
     if (next) document.getElementById("login-link").href = "/login?next=" + encodeURIComponent(next);
     document.getElementById("google-btn").addEventListener("click", async function () {
       var btn = document.getElementById("google-btn");
@@ -99,8 +114,9 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
       err.classList.add("hidden");
       try {
         var land = "/auth/land";
-        if (next && next.startsWith("/") && !next.startsWith("//")) {
-          land += "?next=" + encodeURIComponent(next);
+        var safeLandNext = safeNext(next, "", ["/login", "/signup"]);
+        if (safeLandNext) {
+          land += "?next=" + encodeURIComponent(safeLandNext);
         }
         var r = await fetch("/api/auth/sign-in/social", {
           method: "POST",
@@ -196,6 +212,9 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
           name: document.getElementById("name").value.trim(),
           email: document.getElementById("email").value.trim(),
           password: document.getElementById("password").value,
+          // F1 soft gate: the verification link sent on sign-up
+          // lands back on My Shelf with a confirmation notice.
+          callbackURL: "/account?verified=1",
         };
         if (chosenUsername) {
           signupPayload.username = chosenUsername.toLowerCase();
@@ -214,7 +233,10 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
           throw new Error(data.message || "Could not create the account.");
         }
         if (window.bbsTraks) window.bbsTraks("account_signup", { method: "email" });
-        window.location.href = next && next.startsWith("/") && !next.startsWith("/admin") ? next : "/auth/land";
+        // F10: same-origin `next` only; customers never round-trip
+        // into /admin, and new accounts route through /auth/land so
+        // the isOnboarded gate can send them on.
+        window.location.href = safeNext(next, "/auth/land", ["/admin", "/login"]);
       } catch (ex) {
         err.textContent = ex.message;
         err.classList.remove("hidden");

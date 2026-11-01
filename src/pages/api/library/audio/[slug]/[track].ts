@@ -52,11 +52,14 @@ async function handle({ params, request, locals }: any) {
   }
 
   const email = String(session.user.email || "");
+  // SECURITY (F1): the email fallback only applies to verified
+  // sessions; an unverified session matches its own user_id only.
+  const emailVerified = (session.user as any).emailVerified === true;
   const owned =
-    isAdminEmail(email) ||
+    (isAdminEmail(email) && emailVerified) ||
     (await ownsAudioBook(
       e.DB,
-      { id: session.user.id, email },
+      { id: session.user.id, email, emailVerified },
       slug
     ));
   if (!owned) {

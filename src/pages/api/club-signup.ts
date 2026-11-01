@@ -29,6 +29,23 @@ export const POST: APIRoute = async ({ request }) => {
       { status: 401 }
     );
   }
+  // SECURITY (F1): the club ledger is keyed by email, and the
+  // reservation upsert would otherwise write this session's user_id
+  // onto an existing row for the same address. That email-keyed claim
+  // requires a verified inbox (magic-link and Google sessions already
+  // are; password accounts verify via the sign-up email), so
+  // registering someone else's address can never take over their
+  // waitlist row.
+  if ((session.user as any).emailVerified !== true) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Verify your email first (check your inbox for the verification link) to join the waitlist.",
+        needsVerification: true,
+      },
+      { status: 403 }
+    );
+  }
   await ensureClubTable(db);
 
   let body: any = {};

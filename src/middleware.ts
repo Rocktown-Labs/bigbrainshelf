@@ -4,6 +4,7 @@ import { isAdminEmail } from "./lib/admins";
 import { getAuth } from "./lib/auth";
 import { classifyApiRoute, isLocalDevHostname } from "./lib/route-policy";
 import { reportErrorToSentry } from "./lib/sentry";
+import { timingSafeEqualStr } from "./lib/timing";
 import {
   isEdgeCacheablePath,
   hasSessionCookie,
@@ -29,7 +30,9 @@ async function verifySession(cookie: string | null, secret: string): Promise<str
     const [payloadB64, sigB64] = cookie.split(".");
     if (!payloadB64 || !sigB64) return null;
     const expected = await sign(payloadB64, secret);
-    if (expected !== sigB64) return null;
+    // F13: constant-time compare — a !== on the HMAC leaks a
+    // length/prefix signal to a timing attacker.
+    if (!(await timingSafeEqualStr(expected, sigB64))) return null;
     const payload = JSON.parse(atob(payloadB64));
     if (payload.exp < Date.now() / 1000) return null;
     if (!isAdminEmail(payload.email)) return null;
@@ -79,11 +82,15 @@ const gate = async (context: any, next: any) => {
   let email = await verifySession(sessionCookie, secret);
 
   // Unified auth bridge: if no legacy admin_session cookie is present on an
-  // admin route, also accept a valid better-auth session for an admin email.
+  // admin route, also accept a valid better-auth session for an admin email —
+  // but only a VERIFIED one (F2): better-auth verifies magic-link and Google
+  // sessions, so the owners keep their sign-ins, while a password account
+  // that merely registered an owner address (and never clicked the
+  // verification email) stays a customer.
   if (!email && (pathname.startsWith("/admin") || pathname.startsWith("/api/")) && hasSessionCookie(context.request.headers.get("Cookie"))) {
     try {
       const s = await getAuth().api.getSession({ headers: context.request.headers });
-      if (s?.user?.email && isAdminEmail(s.user.email)) {
+      if (s?.user?.email && isAdminEmail(s.user.email) && (s.user as any).emailVerified === true) {
         email = s.user.email;
       }
     } catch {
@@ -204,6 +211,14 @@ async function withEdgeCache(context: any, runGate: () => Promise<Response>): Pr
   const cacheable =
     req.method === "GET" &&
     isEdgeCacheablePath(pathname) &&
+    // F11 (2026-10-31): never cache a URL with a query string. The
+    // cache key was pathname-only, so /clubs?joined=1 or a book page
+    // with ?format=audio could store one variant and serve it for
+    // every future visitor of the bare path (and vice versa). Skipped
+    // wholesale rather than keyed: the allowlist pages have no
+    // semantics worth caching per-variant, and the miss rate stays
+    // the same for the canonical URLs.
+    !context.url.search &&
     !hasSessionCookie(req.headers.get("Cookie"));
   const cache =
     cacheable && typeof caches !== "undefined" ? (caches as any).default : null;
@@ -245,9 +260,30 @@ async function withEdgeCache(context: any, runGate: () => Promise<Response>): Pr
 // middleware is reported to Sentry (only when SENTRY_DSN is set on
 // the worker) and then rethrown so Astro's own error handling, and
 // the response the visitor gets, stay exactly as they were.
+// Security headers for every response (F12, 2026-10-31): a strict
+// Referrer-Policy keeps URL-borne credentials (like the /order
+// delivery token) and full paths off third-party Referer headers;
+// nosniff stops content-type sniffing attacks on served files; the
+// Permissions-Policy disables capabilities this site never uses.
+// CSP is deliberately not attempted yet: nearly every page ships
+// inline + is:inline scripts, so a usable CSP needs a nonce/allowlist
+// pass over the templates first.
+function withSecurityHeaders(res: Response): Response {
+  try {
+    const headers = new Headers(res.headers);
+    headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    headers.set("X-Content-Type-Options", "nosniff");
+    headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+  } catch {
+    return res;
+  }
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
   try {
-    return await withEdgeCache(context, () => gate(context, next));
+    const res = await withEdgeCache(context, () => gate(context, next));
+    return withSecurityHeaders(res);
   } catch (err) {
     const dsn = (env as any)?.SENTRY_DSN;
     if (dsn) {

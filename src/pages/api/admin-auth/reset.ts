@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 import { hashPassword } from "../../../lib/adminpass";
+import { timingSafeEqualStr } from "../../../lib/timing";
 
 // One-time admin password reset. The token lives in the settings table as
 // 'admin_reset_token' with value '<token>:<expiryEpochMs>'. A successful
@@ -23,7 +24,10 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({ error: "Reset link is invalid or already used." }, { status: 400 });
   }
   const [savedToken, expiryStr] = String(row.value).split(":");
-  if (token !== savedToken || Date.now() > Number(expiryStr || 0)) {
+  // F13: constant-time compare — the reset token is a bearer
+  // credential and the old !== leaked a timing signal.
+  const tokenOk = await timingSafeEqualStr(String(token), savedToken || "");
+  if (!tokenOk || Date.now() > Number(expiryStr || 0)) {
     return Response.json({ error: "Reset link is invalid or expired." }, { status: 400 });
   }
 

@@ -414,12 +414,55 @@ export async function indexCatalogVectors(env?: BraintrustEnv): Promise<{
  * Matches natural-language parent prompts ("my 6-year-old gets frustrated when losing games",
  * "compound interest or patience for a 7-year-old") to exact books and curriculum concepts.
  */
+// N1 (2026-10-31): "Ask the Shelf" ran O(catalog) CPU on every public
+// /api/search request — the full document set was rebuilt from D1 and
+// every document re-embedded per query, unrate-limited. The document
+// set and their embeddings are now cached in the isolate with the
+// same staleness budget as the edge cache (a publish or copy fix
+// shows within five minutes). The query embedding still runs per
+// request; it is the only unbounded input and is length-capped above.
+const VECTOR_CACHE_TTL_MS = 5 * 60 * 1000;
+let vectorCache: {
+  at: number;
+  docs: CatalogVectorDocument[];
+  vectors: Map<string, number[]>;
+} | null = null;
+
+async function cachedCatalogVectors(env?: BraintrustEnv): Promise<{
+  docs: CatalogVectorDocument[];
+  vectors: Map<string, number[]>;
+}> {
+  const now = Date.now();
+  if (vectorCache && now - vectorCache.at < VECTOR_CACHE_TTL_MS) {
+    return { docs: vectorCache.docs, vectors: vectorCache.vectors };
+  }
+  const docs = (await buildCatalogVectorDocuments(env?.DB)).filter(
+    (d) => d.indexName === "bbs-curriculum-discovery"
+  );
+  const vectors = new Map<string, number[]>();
+  for (const doc of docs) {
+    vectors.set(doc.id, computeLocalConceptEmbedding(doc.contentText));
+  }
+  vectorCache = { at: now, docs, vectors };
+  return { docs, vectors };
+}
+
+/** The embedding for one cached document (N1: never re-computed per
+ * request). Falls back to a live compute for a doc missing from the
+ * cache (TTL race). */
+function docVectorFor(doc: CatalogVectorDocument): number[] {
+  return vectorCache?.vectors.get(doc.id) || computeLocalConceptEmbedding(doc.contentText);
+}
+
 export async function semanticAskTheShelf(
   query: string,
   env?: BraintrustEnv,
   options?: { limit?: number; ageBand?: string }
 ): Promise<SemanticShelfMatch[]> {
-  const trimmed = (query || "").trim();
+  // N1 (2026-10-31): the query is capped — the embedding pass costs
+  // O(input), so a megabyte "query" was a per-request CPU amplifier
+  // from a public route.
+  const trimmed = (query || "").trim().slice(0, 300);
   if (!trimmed) return [];
 
   const limit = Math.min(Math.max(options?.limit ?? 6, 1), 15);
@@ -429,16 +472,14 @@ export async function semanticAskTheShelf(
     .split(/[^a-z0-9]+/)
     .filter((w) => w.length >= 3);
 
-  const docs = (await buildCatalogVectorDocuments(env?.DB)).filter(
-    (d) => d.indexName === "bbs-curriculum-discovery"
-  );
+  const { docs } = await cachedCatalogVectors(env);
 
   const scored: SemanticShelfMatch[] = [];
   for (const doc of docs) {
     if (options?.ageBand && doc.ageBand && !doc.ageBand.includes(options.ageBand)) {
       continue;
     }
-    const docVec = computeLocalConceptEmbedding(doc.contentText);
+    const docVec = docVectorFor(doc);
     let score = cosineSimilarity(queryVec, docVec);
 
     const hay = `${doc.title} ${doc.contentText}`.toLowerCase();

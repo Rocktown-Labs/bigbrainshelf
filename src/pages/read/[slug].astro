@@ -42,7 +42,13 @@ const book = resolved ? (resolved.book as any) : ((await e.DB.prepare(
 if (!book) {
   return Astro.redirect("/");
 }
-const user = { id: session.user.id, email: String(session.user.email || "") };
+// SECURITY (F1): the email fallback in entitlement matching is only
+// honored for verified sessions; read/[slug] keys on user_id otherwise.
+const user = {
+  id: session.user.id,
+  email: String(session.user.email || ""),
+  emailVerified: (session.user as any).emailVerified === true,
+};
 // Sidebar frame (same mechanics as /admin, CG 2026-11-01): the reader
 // sits inside the account shell. Light context only: switcher + nav.
 const shellParent = await getParentOnboarding(e.DB, user.id).catch(() => null);

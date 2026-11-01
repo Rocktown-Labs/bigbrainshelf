@@ -54,6 +54,15 @@
 // Orders are matched by account user id, falling back to the account
 // email for rows written before accounts were tied (the same pattern
 // as club-cycles.getOwnedBookSlugs).
+//
+// SECURITY (2026-10-31, SECURITY-FINDINGS F1): the email fallback is
+// only honored for a session whose email is VERIFIED. Without the
+// gate, anyone could register a guest buyer's address and inherit
+// that buyer's library, club membership, and box selection, because
+// email+password sign-up creates a session without ever proving
+// inbox ownership. Magic-link and Google sessions are verified by
+// Better Auth; password accounts verify by clicking the email sent on
+// sign-up (emailVerification.sendOnSignUp in lib/auth).
 
 import { parseItems, type DBLike } from "./orders";
 import { ensurePublicSlugColumn } from "./public-slugs";
@@ -93,6 +102,14 @@ export interface Entitlement {
 export interface LibraryUser {
   id: string;
   email: string;
+  /**
+   * True when the session's email is verified (Better Auth:
+   * magic-link + Google sessions set this; password accounts verify
+   * by clicking the sign-up email). When false, the email fallback in
+   * entitlement matching is disabled and only rows carrying this
+   * account's user_id match — see the header (SECURITY-FINDINGS F1).
+   */
+  emailVerified?: boolean;
 }
 
 /** Does a purchased line item carry the digital edition? See header. */
@@ -154,7 +171,13 @@ export async function getDigitalEntitlements(
   };
 
   const userId = String(user?.id || "");
-  const email = String(user?.email || "").trim().toLowerCase();
+  // The email fallback (guest orders, pre-account rows) is only
+  // honored for verified sessions; an unverified session matches by
+  // user_id alone. A blank email matches no rows.
+  const email =
+    user?.emailVerified === true
+      ? String(user?.email || "").trim().toLowerCase()
+      : "";
 
   // 1. Completed orders (real purchases and the $0 club join grants).
   const { results } = await db
@@ -221,7 +244,7 @@ export async function getDigitalEntitlements(
     // wider (CG, 2026-10-29): every audio-published book (a cover and
     // an audiobook on file, any book status) is listenable by members
     // of either plan, audio-only, never reading.
-    const membership = await getClubMembership(db, { id: userId, email });
+    const membership = await getClubMembership(db, { id: userId, email, emailVerified: user?.emailVerified === true });
     if (clubMembershipActive(membership)) {
       const plan = clubPlanOf(membership);
       if (plan === "physical") {

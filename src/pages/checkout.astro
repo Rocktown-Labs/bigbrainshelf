@@ -48,6 +48,8 @@ try {
     const ents = await getDigitalEntitlements(env.DB as any, {
       id: s.user.id,
       email: String(s.user.email || ""),
+      // SECURITY (F1): email fallback only for verified sessions.
+      emailVerified: (s.user as any).emailVerified === true,
     });
     const owned = [...ents.entries()]
       .filter(([, e]) => e.owned && !e.digital && e.audio)

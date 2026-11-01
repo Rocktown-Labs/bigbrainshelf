@@ -6,13 +6,15 @@ import { ClientRouter } from "astro:transitions";
 import TransitionHooks from "../components/TransitionHooks.astro";
 import SeoHead from "../components/SeoHead.astro";
 import { env } from "cloudflare:workers";
+import { safeNextPath } from "../lib/redirects";
 export const prerender = false;
 // Same Turnstile widget + site key as the newsletter form; the
 // better-auth captcha plugin verifies the token server-side.
 const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
 const next = Astro.url.searchParams.get("next") || "";
 if (Astro.locals.user) {
-  return Astro.redirect(next && next.startsWith("/") && !next.startsWith("/login") ? next : "/admin", 302);
+  // F10: `next` must be a same-origin path — no //host, no /\host.
+  return Astro.redirect(safeNextPath(next, "/admin", ["/login"]), 302);
 }
 ---
 
@@ -91,6 +93,22 @@ if (Astro.locals.user) {
     if (!form || form.__loginBound) return;
     form.__loginBound = true;
 
+    // F10 (open redirect): every `next` hop goes through this one
+    // guard — same-origin paths only. Rejects "next=//evil.com" and
+    // "next=/\\evil.com" (browsers normalize the backslash form to a
+    // foreign origin), plus control characters and the auth pages.
+    // Mirrors lib/redirects.ts safeNextPath for this inline script.
+    function safeNext(raw, fallback, blocked) {
+      var p = String(raw || "");
+      if (!p || p.charAt(0) !== "/" || p.charAt(1) === "/" || p.charAt(1) === "\\") return fallback;
+      if (/[\\\r\n\t]/.test(p) || p.length > 512) return fallback;
+      for (var i = 0; i < (blocked || []).length; i++) {
+        var b = blocked[i];
+        if (p === b || p.slice(0, b.length + 1) === b + "/" || p.slice(0, b.length + 1) === b + "?") return fallback;
+      }
+      return p;
+    }
+
     var next = new URLSearchParams(window.location.search).get("next") || "";
     var signupLink = document.getElementById("signup-link");
     if (next) signupLink.href = "/signup?next=" + encodeURIComponent(next);
@@ -103,8 +121,9 @@ if (Astro.locals.user) {
       btn.disabled = true;
       try {
         var land = "/auth/land";
-        if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login")) {
-          land += "?next=" + encodeURIComponent(next);
+        var safeLandNext = safeNext(next, "", ["/login"]);
+        if (safeLandNext) {
+          land += "?next=" + encodeURIComponent(safeLandNext);
         }
         var r = await fetch("/api/auth/sign-in/social", {
           method: "POST",
@@ -141,8 +160,9 @@ if (Astro.locals.user) {
       document.getElementById("magic-label").textContent = "Sending...";
       try {
         var land = "/auth/land";
-        if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login")) {
-          land += "?next=" + encodeURIComponent(next);
+        var safeMagicNext = safeNext(next, "", ["/login"]);
+        if (safeMagicNext) {
+          land += "?next=" + encodeURIComponent(safeMagicNext);
         }
         // The magic-link endpoint is Turnstile-gated too (it sends
         // real email): share the credential form's widget token.
@@ -231,7 +251,8 @@ if (Astro.locals.user) {
           body: JSON.stringify({ email: email, password: password }),
         });
         if (r1.ok) {
-          window.location.href = next && next.startsWith("/") && !next.startsWith("/login") ? next : "/admin";
+          // F10: same-origin `next` only — no //host, no /\host.
+          window.location.href = safeNext(next, "/admin", ["/login"]);
           return;
         }
       } catch (ex) { /* fall through to customer sign-in */ }
@@ -257,7 +278,9 @@ if (Astro.locals.user) {
           }
           throw new Error(data.message || "That email/username and password did not match an account.");
         }
-        var dest = next && next.startsWith("/") && !next.startsWith("/login") ? next : "/auth/land";
+        // F10: same-origin `next` only; new accounts route through
+        // /auth/land so the isOnboarded gate can send them on.
+        var dest = safeNext(next, "/auth/land", ["/login"]);
         window.location.href = dest;
       } catch (ex) {
         err.textContent = ex.message;
@@ -293,7 +316,16 @@ if (Astro.locals.user) {
   function landUrl() {
     var next = new URLSearchParams(window.location.search).get("next") || "";
     var land = "/auth/land";
-    if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login")) {
+    // F10: same-origin `next` only — rejects //host and /\host
+    // (mirrors lib/redirects.ts; safeNext lives in the other script).
+    var ok =
+      next &&
+      next.charAt(0) === "/" &&
+      next.charAt(1) !== "/" &&
+      next.charAt(1) !== "\\" &&
+      !/[\\\r\n\t]/.test(next) &&
+      next.slice(0, 6) !== "/login";
+    if (ok) {
       land += "?next=" + encodeURIComponent(next);
     }
     return land;

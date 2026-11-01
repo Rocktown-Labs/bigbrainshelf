@@ -155,15 +155,30 @@ await resetDownloadsForOrder(db, ORDER_ID);
 assert((await downloadCountsForOrder(db, ORDER_ID)).length === 0, "reset clears the order's counts");
 assert((await consumeDownload(db, grant!, "alpha", "picture")).ok, "downloads flow again after a reset");
 
-// Box grant: the shipped box is the purchase.
+// Box grant: the shipped box is the purchase. The member session is
+// VERIFIED (magic-link account claiming an email-keyed legacy row);
+// the F1 block below proves an unverified claimer resolves nothing.
 raw.query("INSERT INTO club_signups (id, name, email, shelf, status, created_at) VALUES ('signup-1', 'Member', 'member@example.com', 'tech', 'paid', 1700000003)").run();
 const { ensureClubCycleTables } = await import("../src/lib/club-cycles");
 await ensureClubCycleTables(db);
 raw.query("INSERT INTO club_cycle_boxes (id, signup_id, ship_date, resolved_book_slug, status, created_at, updated_at) VALUES ('box-9', 'signup-1', '2026-10-29', 'gamma', 'shipped', 1700000003, 1700000003)").run();
-const boxGrant = await resolveBoxGrant(db, { id: "user-member", email: "member@example.com" }, "gamma");
+const boxMember = { id: "user-member", email: "member@example.com", emailVerified: true };
+const boxGrant = await resolveBoxGrant(db, boxMember, "gamma");
 assert(boxGrant?.grantKey === "club-box:box-9" && boxGrant?.orderId === null, "box grant keys on the shipped box");
 assert(boxGrant?.shortId === null && boxGrant?.buyerEmail === "member@example.com", "box grant stamps the buyer without an order");
-assert((await resolveBoxGrant(db, { id: "user-member", email: "member@example.com" }, "alpha")) === null, "no box grant for a book no box carried");
+assert((await resolveBoxGrant(db, boxMember, "alpha")) === null, "no box grant for a book no box carried");
+
+// ---- SECURITY F1: download grants are verified-only for email matches ----
+// An unverified session that registered someone else's email must
+// resolve no order grant and no box grant — so /api/download's
+// no-grant fallback ("Entitlement said owned but no grant resolved")
+// can never stamp or count against the victim's purchase budget.
+const unverifiedJane = { id: "user-att", email: "jane@example.com", emailVerified: false };
+assert((await resolveOrderGrant(db, unverifiedJane, "alpha", "picture")) === null, "F1: unverified session resolves no email-matched order grant");
+const unverifiedBoxClaim = { id: "user-att", email: "member@example.com", emailVerified: false };
+assert((await resolveBoxGrant(db, unverifiedBoxClaim, "gamma")) === null, "F1: unverified session resolves no email-matched box grant");
+// With no flag at all (a caller not yet threaded), same safe default.
+assert((await resolveOrderGrant(db, { id: "user-att", email: "jane@example.com" }, "alpha", "picture")) === null, "F1: no emailVerified flag means no email fallback (safe default)");
 
 // ---- Route and surface pins ------------------------------------------------------
 const downloadSrc = await read("../src/pages/api/download.ts");

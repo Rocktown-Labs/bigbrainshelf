@@ -10,7 +10,6 @@ import {
   detectBraintrustBackend,
 } from "../../lib/braintrust";
 import { getEffectiveSession } from "../../lib/auth";
-import { isAdminEmail } from "../../lib/admins";
 
 export const prerender = false;
 
@@ -20,7 +19,10 @@ async function requireAdmin(request: Request, locals: any): Promise<Response | n
   if (!session?.user?.id) {
     return Response.json({ error: "Sign in required" }, { status: 401 });
   }
-  if (!isAdminEmail(session.user.email)) {
+  // SECURITY (F2): admin recognition requires a verified session
+  // (getEffectiveSession only flags isAdmin for verified emails now,
+  // so the cookie bridge and role rows both carry the same proof).
+  if (!session.user.isAdmin || session.user.emailVerified !== true) {
     return Response.json({ error: "Admin access required" }, { status: 403 });
   }
   return null;

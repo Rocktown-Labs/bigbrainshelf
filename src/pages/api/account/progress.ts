@@ -105,7 +105,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const pctByAudio = audioDur > 0 ? Math.round((audioPos / audioDur) * 100) : 0;
     const percentComplete = Math.max(pctByPage, pctByAudio);
 
-    if (percentComplete >= 80 && session.user.email) {
+    if (percentComplete >= 80 && session.user.email && session.user.emailVerified === true) {
+      // F1 (2026-11-01): the completion upsell keys its review check on
+      // the session email and mails that address; an unverified session
+      // (a password account that never clicked the verification link)
+      // must not read by, or send to, an address it has not proven it
+      // owns. Progress still saves; only the email hook waits for
+      // verification.
       await checkAndEnqueueCompletionUpsell({
         db,
         userId,

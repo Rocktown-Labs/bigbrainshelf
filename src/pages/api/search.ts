@@ -11,6 +11,7 @@ import {
 } from "../../lib/search";
 import { ensurePublicSlugColumn } from "../../lib/public-slugs";
 import { semanticAskTheShelf, detectBraintrustBackend } from "../../lib/braintrust";
+import { checkRateLimit, clientIp } from "../../lib/rate-limit";
 
 // GET /api/search?q=
 //
@@ -144,10 +145,18 @@ export const GET: APIRoute = async ({ url }) => {
   const sections = searchCatalog({ books: bookCands, cast: castCands, audio: audioCands }, q);
   // "Ask the Shelf" semantic fallback when natural-language parent queries ("frustrated when losing",
   // "compound interest for a 7-year-old") don't hit exact keyword tokens in D1:
-  const semanticMatches =
-    sections.length === 0 || q.split(/\s+/).length >= 3
-      ? await semanticAskTheShelf(q, e, { limit: 4 })
-      : [];
+  // N1 (2026-10-31): the semantic path is the expensive one (an embedding
+  // pass per request even with the cached document vectors), so it is
+  // per-IP rate-limited — an over-limit client still gets its keyword
+  // sections, just no semantic matches.
+  let semanticMatches: Awaited<ReturnType<typeof semanticAskTheShelf>> = [];
+  const wantsSemantic = sections.length === 0 || q.split(/\s+/).length >= 3;
+  if (wantsSemantic) {
+    const limitCheck = await checkRateLimit(e.DB, `search_semantic:${clientIp(request)}`, 30, 60).catch(() => null);
+    if (!limitCheck || limitCheck.ok) {
+      semanticMatches = await semanticAskTheShelf(q, e, { limit: 4 });
+    }
+  }
   return Response.json(
     {
       query: q,

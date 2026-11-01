@@ -145,34 +145,44 @@ export const POST: APIRoute = async ({ request, url, locals }) => {
     // upsert it first so the welcome email and birthday gift can personalize with the child's name.
     let savedKid = null;
     if (body.kid_profile && body.kid_profile.name) {
-      savedKid = await upsertKidProfile(db, userId, {
-        id: body.kid_profile.id,
-        name: String(body.kid_profile.name),
-        handle: body.kid_profile.handle ? String(body.kid_profile.handle) : null,
-        birth_date: body.kid_profile.birth_date || null,
-        age: Number(body.kid_profile.age || 6),
-        age_group: body.kid_profile.age_group,
-        avatar_key: body.kid_profile.avatar_key || "mira",
-        favorite_themes: Array.isArray(body.kid_profile.favorite_themes)
-          ? body.kid_profile.favorite_themes
-          : Array.isArray(body.favorite_topics)
-            ? body.favorite_topics
-            : [],
-        daily_limit_minutes:
-          body.kid_profile.daily_limit_minutes !== undefined
-            ? Number(body.kid_profile.daily_limit_minutes)
-            : 60,
-        default_sleep_timer_minutes:
-          body.kid_profile.default_sleep_timer_minutes !== undefined
-            ? Number(body.kid_profile.default_sleep_timer_minutes)
-            : 60,
-        bedtime_cutoff: body.kid_profile.bedtime_cutoff || null,
-        allow_audio_autoplay:
-          body.kid_profile.allow_audio_autoplay !== undefined
-            ? Boolean(body.kid_profile.allow_audio_autoplay)
-            : true,
-        is_default: true,
-      });
+      try {
+        savedKid = await upsertKidProfile(db, userId, {
+          id: body.kid_profile.id,
+          name: String(body.kid_profile.name),
+          handle: body.kid_profile.handle ? String(body.kid_profile.handle) : null,
+          birth_date: body.kid_profile.birth_date || null,
+          age: Number(body.kid_profile.age || 6),
+          age_group: body.kid_profile.age_group,
+          avatar_key: body.kid_profile.avatar_key || "mira",
+          favorite_themes: Array.isArray(body.kid_profile.favorite_themes)
+            ? body.kid_profile.favorite_themes
+            : Array.isArray(body.favorite_topics)
+              ? body.favorite_topics
+              : [],
+          daily_limit_minutes:
+            body.kid_profile.daily_limit_minutes !== undefined
+              ? Number(body.kid_profile.daily_limit_minutes)
+              : 60,
+          default_sleep_timer_minutes:
+            body.kid_profile.default_sleep_timer_minutes !== undefined
+              ? Number(body.kid_profile.default_sleep_timer_minutes)
+              : 60,
+          bedtime_cutoff: body.kid_profile.bedtime_cutoff || null,
+          allow_audio_autoplay:
+            body.kid_profile.allow_audio_autoplay !== undefined
+              ? Boolean(body.kid_profile.allow_audio_autoplay)
+              : true,
+          is_default: true,
+        });
+      } catch (err) {
+        // SECURITY (F4): a client-supplied profile id that belongs to
+        // another family is rejected by the lib; surface it as a 404
+        // and change nothing.
+        if (String((err as any)?.message || "").startsWith("not_found:")) {
+          return json({ error: "That child profile was not found for this account." }, 404);
+        }
+        throw err;
+      }
     }
 
     const onboarding = await saveParentOnboarding(
@@ -213,17 +223,46 @@ export const POST: APIRoute = async ({ request, url, locals }) => {
 
   if (action === "upsert_kid") {
     const existingOnboarding = await getParentOnboarding(db, userId);
-    if (existingOnboarding?.parent_pin && body.require_pin) {
+    const profileInput = body.profile || body;
+    // F9: the PIN requirement is derived SERVER-SIDE. A kid using the
+    // parent's session used to skip it by omitting require_pin; now any
+    // change to the protected fields (limits, sleep timer, bedtime,
+    // allowed books) demands the PIN whenever one is set — the client
+    // flag only ADDS the requirement (the parent's own PIN modal),
+    // never removes it.
+    const PROTECTED_KID_FIELDS = [
+      "daily_limit_minutes",
+      "default_sleep_timer_minutes",
+      "bedtime_cutoff",
+      "allowed_book_slugs",
+    ];
+    const touchesProtected = Boolean(
+      profileInput &&
+        PROTECTED_KID_FIELDS.some(
+          (f) => profileInput[f] !== undefined && profileInput[f] !== null
+        )
+    );
+    if (existingOnboarding?.parent_pin && (body.require_pin || touchesProtected)) {
       const pinOk = await verifyParentPin(db, userId, String(body.pin || ""));
       if (!pinOk) {
         return json({ error: "Parent PIN required to change profile limits" }, 403);
       }
     }
-    const profileInput = body.profile || body;
     if (!profileInput?.name) {
       return json({ error: "Child name is required" }, 400);
     }
-    const profile = await upsertKidProfile(db, userId, profileInput);
+    let profile;
+    try {
+      profile = await upsertKidProfile(db, userId, profileInput);
+    } catch (err) {
+      // SECURITY (F4): a client-supplied profile id that belongs to
+      // another family is rejected by the lib; surface it as a 404
+      // and change nothing.
+      if (String((err as any)?.message || "").startsWith("not_found:")) {
+        return json({ error: "That child profile was not found for this account." }, 404);
+      }
+      throw err;
+    }
     const kidProfiles = await listKidProfiles(db, userId);
     return json({ ok: true, profile, kidProfiles });
   }
@@ -265,7 +304,14 @@ export const DELETE: APIRoute = async ({ request, url, locals }) => {
   }
   const pin = url.searchParams.get("pin") || "";
   const existing = await getParentOnboarding(db, userId);
-  if (existing?.parent_pin && pin) {
+  // F9: deleting a profile is a PIN-protected action. The old check
+  // only ran when a pin param was PRESENT, so omitting it skipped
+  // verification entirely — a kid on the parent's session could remove
+  // a sibling's profile without the PIN.
+  if (existing?.parent_pin) {
+    if (!pin) {
+      return json({ error: "Parent PIN required" }, 403);
+    }
     const ok = await verifyParentPin(db, userId, pin);
     if (!ok) return json({ error: "Invalid Parent PIN" }, 403);
   }

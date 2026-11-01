@@ -15,7 +15,7 @@ import { GIFT_SET_PRICE_CENTS, giftSetEligible, isChristmasSeason, CHRISTMAS_ORD
 import { getDigitalEntitlements } from "../../lib/library";
 import { getAuth } from "../../lib/auth";
 import { ensureReviewsTable, reviewMediaKeys } from "../../lib/reviews";
-import { resolveBookForPublicRoute, publicSlugFor } from "../../lib/public-slugs";
+import { resolveBookForPublicRoute, publicSlugFor, isBookPubliclyListed } from "../../lib/public-slugs";
 import {
   loadLocalizedBook,
   bookTextFor,
@@ -41,6 +41,10 @@ const db = env.DB;
 const resolved = await resolveBookForPublicRoute(db, param);
 if (!resolved) return Astro.redirect("/", 404);
 const book: any = resolved.book;
+// F8: only listed books (published, or audio-published) have a public
+// page. Draft/QA/repair titles that are neither stay invisible even
+// when their slug or public slug is guessed.
+if (!isBookPubliclyListed(book)) return Astro.redirect("/", 404);
 const publicSlug = publicSlugFor(book);
 if (resolved.via === "internal") {
   return Astro.redirect(`/books/${publicSlug}${Astro.url.search}`, 301);
@@ -164,7 +168,12 @@ if (customer) {
   // listen through a club: the same map the library uses, and the
   // same gate the review API enforces (CG, 2026-10-31).
   const { getDigitalEntitlements } = await import("../../lib/library");
-  ownsBook = (await getDigitalEntitlements(db as any, { id: customer.id, email: customer.email } as any)).has(String(slug));
+  // SECURITY (F1): email fallback only for verified sessions.
+  ownsBook = (await getDigitalEntitlements(db as any, {
+    id: customer.id,
+    email: customer.email,
+    emailVerified: customer.emailVerified === true,
+  } as any)).has(String(slug));
 }
 const starRow = (n: number) => [1, 2, 3, 4, 5].map((i) => (i <= Math.round(n) ? "★" : "☆")).join("");
 // Audiobook only: offered beside the bundle whenever the book has an
@@ -183,6 +192,7 @@ if (customer) {
     const ents = await getDigitalEntitlements(db as any, {
       id: customer.id,
       email: String(customer.email || ""),
+      emailVerified: customer.emailVerified === true,
     });
     const ent = ents.get(String(slug));
     audioOnlyOwner = !!ent && ent.owned && !ent.digital && ent.audio;

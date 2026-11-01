@@ -1,0 +1,112 @@
+name: OpenCodeReview
+
+# AI code review on pull requests, backed by Cloudflare Workers AI.
+# Posts inline review comments on changed lines plus one sticky summary comment.
+#
+# Required repository secret:
+#   CLOUDFLARE_WORKERS_AI_TOKEN  Cloudflare API token with "Workers AI: Read"
+#
+# Optional repository variables (defaults are inlined below):
+#   CLOUDFLARE_ACCOUNT_ID        Cloudflare account that owns Workers AI
+#   OCR_LLM_MODEL                Workers AI model id
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# A new push cancels the stale review for the same PR. Comments that will be
+# skipped land in a unique group so they cannot cancel a running review.
+concurrency:
+  group: >-
+    ${{
+      (
+        github.event_name == 'pull_request'
+        || (
+          github.event_name == 'issue_comment'
+          && github.event.issue.pull_request
+          && github.event.comment.user.type != 'Bot'
+          && contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)
+          && startsWith(github.event.comment.body, '/ocr-review')
+        )
+      )
+      && format('ocr-{0}', github.event.pull_request.number || github.event.issue.number)
+      || format('noop-{0}', github.run_id)
+    }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Fork PRs under `pull_request` never receive repository secrets, so skip
+    # them instead of failing at authentication. Switch the trigger to
+    # `pull_request_target` if fork PRs must be reviewed (see the action docs
+    # for the trust boundary that implies).
+    if: |
+      (github.event_name == 'pull_request'
+        && github.event.pull_request.head.repo.full_name == github.repository)
+      || (
+        github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && github.event.comment.user.type != 'Bot'
+        && contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)
+        && startsWith(github.event.comment.body, '/ocr-review')
+      )
+    steps:
+      # issue_comment payloads carry no PR refs; pull_request payloads do, so
+      # these outputs stay empty and the action resolves them itself.
+      - name: Resolve PR refs
+        id: pr
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            })
+            core.setOutput('base_ref', pr.base.ref)
+            core.setOutput('head_sha', pr.head.sha)
+            core.setOutput('title', pr.title)
+
+      - name: Review
+        uses: alibaba/open-code-review@375f64cd6f67a48a135da83cfcf59c52669a09cb # v1.13.3
+        with:
+          llm_url: https://api.cloudflare.com/client/v4/accounts/${{ vars.CLOUDFLARE_ACCOUNT_ID || '5af47adc047fa74dcfa59048858b486c' }}/ai/v1
+          llm_auth_token: ${{ secrets.CLOUDFLARE_WORKERS_AI_TOKEN }}
+          llm_model: ${{ vars.OCR_LLM_MODEL || '@cf/moonshotai/kimi-k2.7-code' }}
+          llm_use_anthropic: 'false'
+          llm_protocol: openai
+          ocr_version: '1.13.3'
+
+          # Review behaviour. Effort drives how many rounds a file gets;
+          # max_tokens_budget is a hard cap on input+output tokens per run.
+          effort: medium
+          max_tokens_budget: '2000000'
+          background: ${{ steps.pr.outputs.title || github.event.pull_request.title }}
+
+          # Comment posting: one summary comment updated in place, inline
+          # comments only for findings not already reported, and only the
+          # delta reviewed after the first run.
+          sticky_summary: 'true'
+          incremental: 'true'
+          checkpoint_range: 'true'
+          route_severity_below: low
+
+          # Timeouts: per-request LLM timeout in seconds, per-file review
+          # timeout in minutes. Keep both under the job timeout above.
+          llm_timeout: '300'
+          review_task_timeout: '20'
+
+          stream_progress: 'true'
+          upload_artifacts: 'true'
+          base_ref: ${{ steps.pr.outputs.base_ref }}
+          head_sha: ${{ steps.pr.outputs.head_sha }}

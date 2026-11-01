@@ -152,6 +152,10 @@ describe("Phase 3: Declarative Route Policy & Unified Auth", () => {
     expect(CUSTOMER_SELF_AUTH_API_ROUTES.has("/api/account/family")).toBe(true);
     expect(CUSTOMER_SELF_AUTH_API_ROUTES.has("/api/account/progress")).toBe(true);
     expect(CUSTOMER_SELF_AUTH_API_ROUTES.has("/api/account/book-pages")).toBe(true);
+    // F18: the club billing portal is a customer self-auth route (the
+    // account club page's Manage-billing button posts to it).
+    expect(CUSTOMER_SELF_AUTH_API_ROUTES.has("/api/club/portal")).toBe(true);
+    expect(classifyApiRoute("/api/club/portal", "POST", emptyParams)).toBe("customer_self_auth");
     expect(classifyApiRoute("/api/account/family", "POST", emptyParams)).toBe("customer_self_auth");
     expect(classifyApiRoute("/api/library/page/foo/1", "GET", emptyParams)).toBe(
       "customer_self_auth"
@@ -207,7 +211,10 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
       "https://bigbrainshelf.com"
     );
     expect(ob.parent_name).toBe("Alex");
-    expect(ob.parent_pin).toBe("4321");
+    // F9 (2026-10-31): PINs hash at rest. The stored value is never
+    // the plaintext, and the verifier still accepts the real PIN.
+    expect(ob.parent_pin).not.toBe("4321");
+    expect(ob.parent_pin?.startsWith("pbkdf2$")).toBe(true);
     expect(ob.completed_at).toBeGreaterThan(0);
 
     // Verify PIN gate

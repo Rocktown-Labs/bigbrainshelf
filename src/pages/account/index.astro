@@ -12,7 +12,7 @@ import TransitionHooks from "../../components/TransitionHooks.astro";
 import { parseItems } from "../../lib/orders";
 import { publicSlugFor } from "../../lib/public-slugs";
 import { coverDerivative } from "../../lib/derivatives";
-import { ensureClubTable, clubPlanOf } from "../../lib/club";
+import { ensureClubTable, clubPlanOf, getClubSignupForUser } from "../../lib/club";
 import { getNextClubBox } from "../../lib/club-cycles";
 import { formatClubDate } from "../../lib/club-cycle-dates";
 import CustomerShell from "../../components/CustomerShell.astro";
@@ -58,15 +58,14 @@ let clubSignup: any = null;
 let nextBox: any = null;
 try {
   await ensureClubTable(e.DB);
-  const rows = await e.DB.prepare(
-    `SELECT * FROM club_signups
-     WHERE (user_id = ? OR LOWER(email) = ?)
-     ORDER BY CASE status WHEN 'paid' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END, created_at DESC
-     LIMIT 1`
-  )
-    .bind(session.user.id, String(session.user.email || "").toLowerCase())
-    .all();
-  clubSignup = ((rows.rows || rows.results || []) as any[])[0] || null;
+  // SECURITY (F1): member match by user_id first, by email only for a
+  // verified session, so registering someone else's address never
+  // shows their membership, plan, or next box on the dashboard.
+  clubSignup = await getClubSignupForUser(e.DB, {
+    id: String(session.user.id),
+    email: String(session.user.email || ""),
+    emailVerified: session.user.emailVerified === true,
+  });
   if (clubSignup && clubSignup.status === "paid" && clubPlanOf(clubSignup) === "physical") {
     nextBox = await getNextClubBox(e.DB, clubSignup.id);
   }
@@ -171,6 +170,30 @@ if (showSuccess) {
     {showSuccess && (
       <div class="mb-6 rounded-2xl bg-green-50 border border-green-200 px-4 py-3 text-sm font-semibold text-green-800">
         Payment complete. Your books are in your library, and the newest one is on your shelf below.
+      </div>
+    )}
+
+    {/* F1 soft gate: unverified password accounts see what they are
+        missing (guest orders + email-keyed club rows) and get a
+        one-click resend. Magic-link and Google users never see this. */}
+    {session.user.emailVerified === false && (
+      <div class="mb-6 rounded-2xl bg-orange-50 border border-orange-200 px-4 py-3 text-sm text-orange-900" data-verify-banner="true">
+        <strong>Verify your email.</strong> Books bought as a guest with {session.user.email}, and any
+        club membership tied to that address, join this library once the address is verified.
+        <button
+          id="resend-verification"
+          type="button"
+          data-email={String(session.user.email || "")}
+          class="mt-3 rounded-full bg-orange-600 text-white px-4 py-1.5 text-xs font-extrabold hover:bg-orange-700 disabled:opacity-60"
+        >
+          Resend verification email
+        </button>
+        <span id="resend-verification-msg" class="block mt-2 text-xs font-semibold"></span>
+      </div>
+    )}
+    {Astro.url.searchParams.get("verified") === "1" && (
+      <div class="mb-6 rounded-2xl bg-green-50 border border-green-200 px-4 py-3 text-sm font-semibold text-green-800">
+        Your email is verified. Any guest purchases made with this address are on your shelf.
       </div>
     )}
 
@@ -359,5 +382,43 @@ if (showSuccess) {
       box-shadow: 0 10px 14px -8px rgba(90, 62, 27, 0.55), inset 0 1px 0 rgba(255, 235, 200, 0.5);
     }
   </style>
+  <script is:inline>
+    (function () {
+      function initDashboard() {
+        // F1 soft gate: resend the email-verification link for the
+        // signed-in address (better-auth send-verification-email is
+        // session-gated and verifies the body email against it).
+        var resendBtn = document.getElementById("resend-verification");
+        if (resendBtn && !resendBtn.dataset.bound) {
+          resendBtn.dataset.bound = "1";
+          resendBtn.addEventListener("click", async function () {
+            var msg = document.getElementById("resend-verification-msg");
+            var email = resendBtn.getAttribute("data-email") || "";
+            resendBtn.disabled = true;
+            msg.textContent = "Sending…";
+            msg.className = "block mt-2 text-xs font-semibold text-stone-600";
+            try {
+              var r = await fetch("/api/auth/send-verification-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email, callbackURL: "/account?verified=1" }),
+              });
+              var d = await r.json().catch(function () { return {}; });
+              if (!r.ok) throw new Error(d.message || "Could not send the email right now.");
+              msg.textContent = "Verification email sent. Check your inbox.";
+              msg.className = "block mt-2 text-xs font-semibold text-green-700";
+            } catch (ex) {
+              msg.textContent = (ex && ex.message) || "Could not send the email right now.";
+              msg.className = "block mt-2 text-xs font-semibold text-red-600";
+              resendBtn.disabled = false;
+            }
+          });
+        }
+      }
+
+      initDashboard();
+      document.addEventListener("astro:page-load", initDashboard);
+    })();
+  </script>
 </body>
 </html>

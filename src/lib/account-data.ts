@@ -43,6 +43,7 @@ export async function loadCustomerHubContext(
     getLibraryBooks(db, {
       id: session.user.id,
       email: String(session.user.email || ""),
+      emailVerified: session.user.emailVerified === true,
     }).catch(() => []),
     getParentOnboarding(db, session.user.id).catch(() => null),
     listKidProfiles(db, session.user.id).catch(() => []),

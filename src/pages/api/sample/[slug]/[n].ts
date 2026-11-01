@@ -26,9 +26,14 @@ export const GET: APIRoute = async ({ params }) => {
   }
   const slug = await resolveInternalSlug(e.DB, rawSlug).catch(() => null);
   if (!slug) return new Response("Not found", { status: 404 });
-  // Catalog books only: a book with no finished picture book (for
-  // example a partial build) has no verified pages to sample.
-  const book = await e.DB.prepare("SELECT slug FROM books WHERE slug = ? AND picture_book_key IS NOT NULL").bind(slug).first();
+  // Catalog books only, and LISTED books only (F8): a book with no
+  // finished picture book has no verified pages to sample, and a
+  // draft/QA title's sample pages are not public marketing. Only a
+  // published book (status 'complete') is sampleable — audio-published
+  // books expose their free listen through /api/audio-sample instead.
+  const book = await e.DB.prepare(
+    "SELECT slug FROM books WHERE slug = ? AND picture_book_key IS NOT NULL AND status = 'complete'"
+  ).bind(slug).first();
   if (!book) return new Response("Not found", { status: 404 });
 
   const pages = await getSamplePages(e, slug);

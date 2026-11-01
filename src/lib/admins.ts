@@ -1,6 +1,9 @@
-// The store owner's addresses. Both carry full admin rights: the
-// hand-rolled admin session, the Google owner flow, and the
-// better-auth role hook all key on this one list.
+// The store owner's addresses. All three key the hand-rolled admin
+// session, the Google owner flow, and admin recognition for
+// better-auth sessions — but only for a VERIFIED email (F2,
+// 2026-10-31): a password account that merely registers an owner
+// address never gets admin. The sign-up role hook is gone; the role
+// lives in D1 and self-heals on the next verified owner sign-in.
 export const ADMIN_EMAILS = [
   "rocktownlabs@gmail.com",
   "cg@rocktownlabs.com",

@@ -78,6 +78,22 @@ export interface ResolvedBook {
 }
 
 /**
+ * F8 (2026-10-31): is this book LISTED in the public storefront? Two
+ * shapes qualify: a published book (status 'complete') and an
+ * audio-published book (a cover and an audiobook on file, any status —
+ * the audio-edition rule, CG 2026-10-29). Draft/QA/repair rows that
+ * are neither stay invisible on the public book pages; owned-reader
+ * routes (/read, entitlement-gated) are NOT filtered, because an
+ * audio-only buyer of an audio-published book must still reach their
+ * listening room.
+ */
+export function isBookPubliclyListed(book: any): boolean {
+  if (!book) return false;
+  if (String(book.status || "") === "complete") return true;
+  return Boolean(book.cover_key && book.audiobook_key);
+}
+
+/**
  * Resolve a public route param to a book. Public slug wins; an
  * internal slug resolves too, flagged via="internal" so the caller
  * can 301 to the canonical public URL. A book whose public_slug is

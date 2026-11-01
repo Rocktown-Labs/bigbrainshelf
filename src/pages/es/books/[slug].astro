@@ -1,7 +1,7 @@
 ---
 import { env } from "cloudflare:workers";
 import BookDetailPage from "../../books/[slug].astro";
-import { resolveBookForPublicRoute, publicSlugFor } from "../../../lib/public-slugs";
+import { resolveBookForPublicRoute, publicSlugFor, isBookPubliclyListed } from "../../../lib/public-slugs";
 import { loadLocalizedBook } from "../../../lib/i18n";
 export const prerender = false;
 
@@ -24,6 +24,9 @@ export const prerender = false;
 const param = String(Astro.params.slug || "");
 const resolved = await resolveBookForPublicRoute(env.DB, param);
 if (!resolved) return new Response("Not found", { status: 404 });
+// F8: only listed books (published, or audio-published) have a
+// public page in any locale.
+if (!isBookPubliclyListed(resolved.book)) return new Response("Not found", { status: 404 });
 const publicSlug = publicSlugFor(resolved.book);
 if (resolved.via === "internal") {
   return Astro.redirect(`/es/books/${publicSlug}${Astro.url.search}`, 301);

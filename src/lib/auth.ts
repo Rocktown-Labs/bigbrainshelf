@@ -5,17 +5,17 @@ import { passkey } from "@better-auth/passkey";
 import { kyselyAdapter } from "@better-auth/kysely-adapter";
 import { Kysely } from "kysely";
 import { D1Dialect } from "kysely-d1";
-import { turnstileEnforced } from "./turnstile";
+import { turnstileEnforced, turnstileSiteKey } from "./turnstile";
 import {
   USERNAME_MIN_LENGTH,
   USERNAME_MAX_LENGTH,
   USERNAME_REGEX,
 } from "./auth-client";
 
-// Admin addresses live in lib/admins. A better-auth user created
-// with an admin address gets the admin role automatically, and
-// /auth/land routes admins into /admin after any sign-in.
-import { isAdminEmail } from "./admins";
+// Admin addresses live in lib/admins. Admin identity requires a
+// VERIFIED session on an allowlisted address (F2, 2026-10-31); the
+// sign-up role hook is gone, and /auth/land + the middleware bridge
+// are the places a verified owner session becomes admin access.
 import {
   ensureAuthUserSchema,
   checkUsernameAvailabilityInDb,
@@ -32,6 +32,10 @@ export type { EffectiveUser } from "./auth-users";
 // Customer auth for the bigbrainshelf storefront (email + username + password).
 // Separate from the hand-rolled admin_session cookie used by /admin,
 // though getEffectiveSession bridges both so admins can access /account & /accounts.
+
+// F16: warns once per isolate when exactly one Turnstile key is set.
+let warnedPartialTurnstile = false;
+
 export function getAuth() {
   const e = env as any;
   const db = new Kysely({ dialect: new D1Dialect({ database: e.DB }) });
@@ -107,16 +111,41 @@ export function getAuth() {
         ],
       })
     );
+  } else if (turnstileSiteKey(e) || String(e?.TURNSTILE_SECRET_KEY || "").trim()) {
+    // F16 (2026-10-31): exactly one of the two keys being set silently
+    // disabled the bot check on every credential endpoint — the
+    // enforce helper is all-or-nothing by design. A partial config is
+    // a deployment error, so it logs loudly (once per isolate) instead
+    // of passing quietly.
+    if (!warnedPartialTurnstile) {
+      warnedPartialTurnstile = true;
+      console.error(
+        "[security] Turnstile is PARTIALLY configured: the credential endpoints " +
+          "(sign-in, sign-up, password reset, magic link) are running WITHOUT a bot check. " +
+          "Set both TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY on the worker, or remove both."
+      );
+    }
   }
   return betterAuth({
     database: kyselyAdapter(db, { type: "sqlite" }),
-    baseURL: e.BETTER_AUTH_URL || "https://bookstore.rocktownlabs.app",
+    // F17 (2026-10-31): the fallback used to be the legacy
+    // bookstore.rocktownlabs.app host, so a missing BETTER_AUTH_URL
+    // minted magic-link, reset, and verification URLs against the
+    // wrong domain (and OAuth/CSRF origin checks keyed on it). The
+    // canonical site is bigbrainshelf.com (the passkey rpID and every
+    // SITE constant agree); set BETTER_AUTH_URL to override only for
+    // non-production environments.
+    baseURL: e.BETTER_AUTH_URL || "https://bigbrainshelf.com",
+    // Same-origin trust for the auth endpoints: the canonical apex,
+    // its www twin, and the configured base URL (which covers a
+    // staging host explicitly). Unknown cross-origin callers stay
+    // rejected by better-auth's origin checks.
+    trustedOrigins: [
+      "https://bigbrainshelf.com",
+      "https://www.bigbrainshelf.com",
+      ...(e.BETTER_AUTH_URL ? [String(e.BETTER_AUTH_URL)] : []),
+    ],
     secret: e.BETTER_AUTH_SECRET,
-    user: {
-      changeEmail: {
-        enabled: true,
-      },
-    },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
@@ -140,6 +169,40 @@ export function getAuth() {
         await flushOutbox(db, env as any, 5).catch(() => {});
       },
     },
+    // SECURITY (SECURITY-FINDINGS F1, 2026-10-31): sign-up sends a
+    // verification email, but sign-in is NOT blocked while unverified
+    // (the soft gate). What an unverified session loses is the email
+    // fallback in entitlement matching (lib/library, lib/club,
+    // lib/download-guard): guest purchases and legacy rows tied to the
+    // address only join the library once the inbox owner clicks this
+    // link, so registering someone else's email inherits nothing.
+    // Magic-link and Google sessions are verified by Better Auth and
+    // never see this email. This better-auth version takes the
+    // post-verification landing page as callbackURL on each request
+    // (the sign-up and send-verification-email calls pass
+    // /account?verified=1); the verify-email route signs the clicker
+    // in when it redirects. Resend lives at POST
+    // /api/auth/send-verification-email (session-gated); the account
+    // hub offers it under "Verify your email".
+    emailVerification: {
+      sendOnSignUp: true,
+      sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
+        const { enqueueEmail } = await import("./orders");
+        const { flushOutbox } = await import("./email");
+        const db = (env as any).DB;
+        await enqueueEmail(db, {
+          orderId: null,
+          kind: "verify_email",
+          to: user.email,
+          subject: "Verify your email for Big Brain Shelf",
+          text:
+            `Tap below to verify your email for Big Brain Shelf. Verifying links any guest purchases made with this address to your library, and unlocks club membership tied to it.\n\n${url}\n\n` +
+            `If you did not create this account, you can ignore this email.\n`,
+          dedupeKey: null,
+        });
+        await flushOutbox(db, env as any, 5).catch(() => {});
+      },
+    },
     socialProviders: {
       google: {
         clientId: e.GOOGLE_CLIENT_ID || "",
@@ -154,7 +217,14 @@ export function getAuth() {
     // The Stripe customer id lives on the user row (written by the
     // sign-up hook in orders/auth flows); declaring it lets the
     // adapter + admin plugin return it (e.g. list-users in /admin).
+    // changeEmail shares this block: a duplicate `user` key above used
+    // to be silently dropped by the object literal (the compiler
+    // warned about it on the 2026-10-31 security pass), so email
+    // changes had effectively lost their intended config.
     user: {
+      changeEmail: {
+        enabled: true,
+      },
       additionalFields: {
         stripe_customer_id: { type: "string", required: false, input: false },
       },
@@ -186,12 +256,16 @@ export function getAuth() {
     databaseHooks: {
       user: {
         create: {
-          before: async (user) => {
-            if (isAdminEmail(user.email)) {
-              return { data: { ...user, role: "admin" } };
-            }
-            return { data: user };
-          },
+          // SECURITY (F2, 2026-10-31): the admin role is NEVER
+          // assigned at sign-up. A row created with an allowlisted
+          // address used to become role=admin here, from an email
+          // nobody had proven ownership of — so registering an owner
+          // address minted a full admin (list/ban/impersonate via the
+          // admin plugin). Admin recognition now requires a VERIFIED
+          // session everywhere it is granted (middleware bridge,
+          // /auth/land, lib/auth-users), and the role itself comes
+          // from the existing verified user row in D1.
+          before: async (user) => ({ data: user }),
           // Every new account gets its Stripe customer up front
           // (CG, 2026-10-31), so checkout, clubs, and the admin
           // never mint one ad hoc. Best effort by design: a Stripe

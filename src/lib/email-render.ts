@@ -77,6 +77,25 @@ export async function renderOutboxEmailHtml(
     };
     return await render(createElement(SimpleEmail, { model }));
   }
+  if (row.kind === "verify_email") {
+    // Email verification (the F1 soft gate): URL out of the stored
+    // text, real button in the branded shell, same shape as the
+    // sign-in and reset links.
+    const text = String(row.body_text || "");
+    const url = (text.match(/https?:\/\/\S+/) || [])[0] || "";
+    const paragraphs = text
+      .split(/\n\n+/)
+      .map((s) => s.replace(url, "").trim())
+      .filter(Boolean);
+    const model: SimpleEmailModel = {
+      preview: "Verify your email for Big Brain Shelf",
+      heading: "Verify your email",
+      paragraphs,
+      button: url ? { label: "Verify my email", href: url } : null,
+      footnote: url ? `Or paste this link into your browser: ${url}` : null,
+    };
+    return await render(createElement(SimpleEmail, { model }));
+  }
   if (row.kind === "contact_form") {
     // The forward to the owner, in the branded shell: the stored
     // plain text becomes the paragraphs.

@@ -63,6 +63,14 @@ const STAGE_LABELS: Record<string, string> = {
   shipped: "Shipped",
   delivered: "Delivered",
 };
+
+// F3 (2026-10-31): the delivery_token in the URL is the receipt's
+// credential, so the page must never leak it onward — not to Meta or
+// Traks, not to Referer, not to browser history, and never into any
+// shared cache or index.
+Astro.response.headers.set("Cache-Control", "private, no-store");
+Astro.response.headers.set("X-Robots-Tag", "noindex");
+
 interface OrderProductRow {
   title: string;
   cover: string | null;
@@ -171,6 +179,19 @@ if (complete && order) {
   {pending && <meta http-equiv="refresh" content="6" />}
   <title>Your order · Big Brain Shelf</title>
   <SeoHead title="Your order · Big Brain Shelf" />
+  {complete && token && (
+    <script is:inline>
+      // F3: the delivery_token is this receipt's credential. Strip it
+      // from the address bar and history BEFORE any analytics runs
+      // (Tracking sits below this script, so the Meta pixel's PageView
+      // and Traks' pageview never see the token, and Referer stays
+      // clean). The pending state keeps the token: its meta-refresh
+      // reloads this exact URL until the webhook lands.
+      try {
+        history.replaceState(null, "", location.pathname);
+      } catch (err) {}
+    </script>
+  )}
   <ClientRouter />
   <TransitionHooks />
   <Tracking traksEvent={purchaseTraksEvent} />

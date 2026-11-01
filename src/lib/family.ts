@@ -1,5 +1,13 @@
 import { ensureOnce } from "./schema-cache";
 import { enqueueEmail, type DBLike } from "./orders";
+import { hashPassword, verifyPassword } from "./adminpass";
+import { timingSafeEqualStr } from "./timing";
+import { checkRateLimit } from "./rate-limit";
+
+// PIN format marker for hashed values (F9). Anything else in
+// parent_pin is a legacy plaintext PIN from before the hashing pass
+// and is upgraded transparently on its first successful verify.
+const PIN_HASH_PREFIX = "pbkdf2$";
 
 export function chicagoDateString(date: Date = new Date()): string {
   try {
@@ -736,10 +744,19 @@ export async function saveParentOnboarding(
     input.referred_by_code !== undefined
       ? (input.referred_by_code ? String(input.referred_by_code).trim().toUpperCase().slice(0, 32) : null)
       : (existing?.referred_by_code ?? null);
-  const parentPin =
+  const parentPinRaw =
     input.parent_pin !== undefined
       ? normalizePin(input.parent_pin)
       : (existing?.parent_pin ?? null);
+  // F9 (2026-10-31): PINs are stored as PBKDF2 hashes, never
+  // plaintext. An already-stored value passes through untouched
+  // (verifyParentPin upgrades legacy plaintext rows on first use).
+  const parentPin =
+    parentPinRaw === null
+      ? null
+      : parentPinRaw.startsWith(PIN_HASH_PREFIX)
+        ? parentPinRaw
+        : await hashPassword(parentPinRaw);
   const step =
     input.onboarding_step !== undefined
       ? Math.max(1, Math.min(4, Number(input.onboarding_step)))
@@ -857,12 +874,36 @@ export async function verifyParentPin(
   userId: string,
   candidatePin: string
 ): Promise<boolean> {
+  // F9: throttle guesses. A 4-6 digit PIN has tiny keyspace; without
+  // a limiter a kid (or anyone on the parent's session) could brute
+  // force it in seconds. 10 attempts per 5 minutes per account.
+  const limit = await checkRateLimit(db, `family_pin:${userId}`, 10, 5 * 60);
+  if (!limit.ok) return false;
+
   const onboarding = await getParentOnboarding(db, userId);
   if (!onboarding || !onboarding.parent_pin) {
     // If no PIN has been configured yet, allow access so the parent isn't locked out.
     return true;
   }
-  return onboarding.parent_pin === String(candidatePin || "").trim();
+  const stored = String(onboarding.parent_pin);
+  const candidate = String(candidatePin || "").trim();
+
+  if (stored.startsWith(PIN_HASH_PREFIX)) {
+    return verifyPassword(candidate, stored);
+  }
+
+  // Legacy plaintext row (pre-hashing). Constant-time compare, then
+  // upgrade to a hash on success so plaintext disappears over time.
+  const ok = await timingSafeEqualStr(stored, candidate);
+  if (ok) {
+    const hashed = await hashPassword(stored);
+    await db
+      .prepare("UPDATE parent_onboarding SET parent_pin = ? WHERE user_id = ?")
+      .bind(hashed, userId)
+      .run()
+      .catch(() => {});
+  }
+  return ok;
 }
 
 export async function listKidProfiles(
@@ -906,8 +947,20 @@ export async function upsertKidProfile(
   const today = chicagoDateString();
   const existingProfiles = await listKidProfiles(db, userId);
 
-  const id = input.id && String(input.id).trim() ? String(input.id).trim() : crypto.randomUUID();
-  const current = existingProfiles.find((p) => p.id === id) || null;
+  const suppliedId = input.id && String(input.id).trim() ? String(input.id).trim() : "";
+  const current = suppliedId ? existingProfiles.find((p) => p.id === suppliedId) || null : null;
+  // SECURITY (F4, 2026-10-31): the upsert conflicts on the profile's
+  // primary key, so a client-supplied id for ANOTHER family's profile
+  // would rewrite that family's child row (name, birth date, limits,
+  // bedtime, allowed books) while the row keeps the victim's user_id.
+  // Only ids already owned by this caller may update; any other
+  // supplied id is rejected — it must create nothing and change
+  // nothing. The DO UPDATE clause below also carries a user_id guard
+  // as defense in depth.
+  if (suppliedId && !current) {
+    throw new Error(`not_found: kid profile ${suppliedId} does not belong to this account`);
+  }
+  const id = suppliedId || crypto.randomUUID();
 
   const cleanName = String(input.name || current?.name || "Reader").trim().slice(0, 40) || "Reader";
   // Optional public handle for the child (CG's onboarding model:
@@ -1004,7 +1057,8 @@ export async function upsertKidProfile(
          allow_audio_autoplay = excluded.allow_audio_autoplay,
          allowed_book_slugs = excluded.allowed_book_slugs,
          is_default = excluded.is_default,
-         updated_at = excluded.updated_at`
+         updated_at = excluded.updated_at
+       WHERE kid_profiles.user_id = excluded.user_id`
     )
     .bind(
       id,
