@@ -15,7 +15,7 @@ import { GIFT_SET_PRICE_CENTS, giftSetEligible, isChristmasSeason, CHRISTMAS_ORD
 import { getDigitalEntitlements } from "../../lib/library";
 import { getAuth } from "../../lib/auth";
 import { ensureReviewsTable, reviewMediaKeys } from "../../lib/reviews";
-import { resolveBookForPublicRoute, publicSlugFor } from "../../lib/public-slugs";
+import { resolveBookForPublicRoute, publicSlugFor, isBookPubliclyListed } from "../../lib/public-slugs";
 import {
   loadLocalizedBook,
   bookTextFor,
@@ -41,6 +41,10 @@ const db = env.DB;
 const resolved = await resolveBookForPublicRoute(db, param);
 if (!resolved) return Astro.redirect("/", 404);
 const book: any = resolved.book;
+// F8: only listed books (published, or audio-published) have a public
+// page. Draft/QA/repair titles that are neither stay invisible even
+// when their slug or public slug is guessed.
+if (!isBookPubliclyListed(book)) return Astro.redirect("/", 404);
 const publicSlug = publicSlugFor(book);
 if (resolved.via === "internal") {
   return Astro.redirect(`/books/${publicSlug}${Astro.url.search}`, 301);

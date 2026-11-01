@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
 import Stripe from "stripe";
 import { getAuth } from "../../../lib/auth";
-import { ensureClubTable, getClubSignup } from "../../../lib/club";
+import { ensureClubTable, getClubSignupForUser } from "../../../lib/club";
 
 // POST /api/club/portal
 // The club page's "Manage billing" button: opens the member's Stripe
@@ -10,8 +10,12 @@ import { ensureClubTable, getClubSignup } from "../../../lib/club";
 // redirects the browser there. Built for the Customer Hub fix pass:
 // the button shipped pointing at this route before the route
 // existed, so paused members had no working way to fix a card.
-// Session-gated and keyed to the signed-in member's own signup row;
-// the Stripe customer id comes from that row, never from the body.
+// Session-gated (a VERIFIED session — the billing portal is the
+// highest-stakes email match in the club surface) and keyed to the
+// signed-in member's own signup row, first by user_id, then by the
+// verified email; the Stripe customer id comes from that row, never
+// from the body. Tier: customer_self_auth (route-policy), so the
+// middleware passes it and this route authenticates itself.
 export const POST: APIRoute = async ({ request }) => {
   const e = env as any;
   const SITE = e.BETTER_AUTH_URL || "https://bigbrainshelf.com";
@@ -42,8 +46,14 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   await ensureClubTable(e.DB);
-  const email = String(session.user.email || "").trim().toLowerCase();
-  const signup = await getClubSignup(e.DB, email).catch(() => null);
+  // F1/F18: user_id first; the email fallback is only available to a
+  // VERIFIED session (gated above), so registering someone else's
+  // address can never open their billing portal.
+  const signup = await getClubSignupForUser(e.DB, {
+    id: String(session.user.id || ""),
+    email: String(session.user.email || ""),
+    emailVerified: (session.user as any).emailVerified === true,
+  }).catch(() => null);
   const customerId = signup?.stripe_customer_id ? String(signup.stripe_customer_id) : "";
   if (!customerId) {
     return new Response(null, { status: 302, headers: { Location: back } });
