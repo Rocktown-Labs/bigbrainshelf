@@ -6,6 +6,7 @@ import {
   ensureClubTable,
   upsertClubReservation,
   getClubSignup,
+  clubPlanOf,
   isShelf,
   type ClubPlanId,
 } from "../../../lib/club";
@@ -93,16 +94,27 @@ export const POST: APIRoute = async ({ request }) => {
     String((session.user as any).name || "").trim() ||
     email.split("@")[0];
 
-  if (existing?.status === "paid") {
+  // A paid member of the SAME plan is done. A paid Book Club member
+  // asking for audio is also done: the Book Club already includes
+  // every audiobook. The one live path through this guard is the
+  // upgrade CG ruled on 2026-10-31: a paid AUDIO member joining the
+  // Book Club. Their row keeps saying "audio" until the upgrade's
+  // webhook activation flips it (the reservation below passes no
+  // clubPlan, so an abandoned upgrade checkout changes nothing), and
+  // activation cancels the old Audio subscription in Stripe.
+  const existingPlan: ClubPlanId | null =
+    existing?.status === "paid" ? clubPlanOf(existing) : null;
+  if (existingPlan === clubPlan || (existingPlan === "physical" && clubPlan === "audio")) {
     return Response.json({ ok: true, alreadyMember: true });
   }
+  const isUpgrade = existingPlan === "audio" && clubPlan === "physical";
   const signup = await upsertClubReservation(e.DB, {
     name,
     email,
     shelf,
     status: existing?.status || clubSignupStatus(),
     userId: session.user.id,
-    clubPlan,
+    clubPlan: isUpgrade ? null : clubPlan,
   });
 
   let priceCents: number;
@@ -163,6 +175,14 @@ export const POST: APIRoute = async ({ request }) => {
     cancel_url: `${SITE}/clubs?join=cancelled`,
   };
   if (taxEnabled) sessionParams.automatic_tax = { enabled: true };
+  // The Book Club ships boxes from day one, so its checkout collects
+  // the shipping address (CG's club fix, 2026-10-31: members who had
+  // never bought a printed book had a first box due with no address
+  // anywhere). Activation stores it on the signup row from
+  // session.shipping_details. Audio collects nothing: nothing ships.
+  if (clubPlan === "physical") {
+    sessionParams.shipping_address_collection = { allowed_countries: ["US"] };
+  }
 
   const stripe = new Stripe(e.STRIPE_SECRET_KEY);
   const hour = Math.floor(Date.now() / 3600000);

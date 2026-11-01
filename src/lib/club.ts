@@ -132,6 +132,12 @@ const CLUB_COLUMNS: Record<string, string> = {
   // Club plans (2026-10-28): 'physical' | 'audio'. Existing rows get
   // NULL and are physical by clubPlanOf; new writes always set it.
   club_plan: "TEXT",
+  // Ships-to captured at club checkout (Stripe collects the shipping
+  // address on the physical plan, 2026-10-31): the member's own
+  // address for their boxes, stored in the orders' JSON shape,
+  // instead of the admin view borrowing one from a store order.
+  ship_name: "TEXT",
+  ship_address: "TEXT",
 };
 
 export async function ensureClubTable(db: DBLike): Promise<void> {
@@ -281,7 +287,11 @@ export async function grantClubFirstBoxDigital(db: DBLike, member: any): Promise
 // signup id carried in session metadata, falling back to the email, and
 // upgrades it in place: the account email and user id win, and the
 // checkout's shelf pick replaces the reserved one when it differs.
-export async function activateClubFromSession(db: DBLike, session: any): Promise<any | null> {
+export async function activateClubFromSession(
+  db: DBLike,
+  session: any,
+  stripe?: any
+): Promise<any | null> {
   await ensureClubTable(db);
   const meta = session?.metadata || {};
   const signupId = String(meta.club_signup_id || "");
@@ -327,6 +337,30 @@ export async function activateClubFromSession(db: DBLike, session: any): Promise
         ? String(row.first_ship_date)
         : chicagoDateString()
       : null;
+  // The subscription this activation replaces (an Audio Club sub on
+  // an upgrade, most importantly): it gets cancelled below once the
+  // new one is live, so the member is never billed for both clubs.
+  const prevSubscriptionId = row.stripe_subscription_id
+    ? String(row.stripe_subscription_id)
+    : null;
+  // Ships-to from the checkout session (the physical plan collects a
+  // shipping address in Stripe Checkout): stored in the same JSON
+  // shape as orders.ship_address. Absent (audio plan, older
+  // sessions) keeps whatever is already on the row.
+  const shipDetails = session?.shipping_details || null;
+  const shipName = shipDetails?.name ? String(shipDetails.name) : null;
+  let shipAddress: string | null = null;
+  if (shipDetails?.address) {
+    const a = shipDetails.address;
+    shipAddress = JSON.stringify({
+      line1: a.line1 || "",
+      line2: a.line2 || "",
+      city: a.city || "",
+      state: a.state || "",
+      postal_code: a.postal_code || "",
+      country: a.country || "",
+    });
+  }
   await db
     .prepare(
       `UPDATE club_signups SET
@@ -341,7 +375,9 @@ export async function activateClubFromSession(db: DBLike, session: any): Promise
          paid_at = COALESCE(paid_at, ?),
          canceled_at = NULL,
          subscription_status = 'active',
-         payment_failed_at = NULL
+         payment_failed_at = NULL,
+         ship_name = COALESCE(?, ship_name),
+         ship_address = COALESCE(?, ship_address)
        WHERE id = ?`
     )
     .bind(
@@ -353,10 +389,29 @@ export async function activateClubFromSession(db: DBLike, session: any): Promise
       session?.subscription ? String(session.subscription) : null,
       firstShipDate,
       now(),
+      shipName,
+      shipAddress,
       row.id
     )
     .run();
   const member = await db.prepare("SELECT * FROM club_signups WHERE id = ?").bind(row.id).first();
+  // Plan switch (the Audio to Book Club upgrade): the old
+  // subscription must stop billing now that the new one is active.
+  // A replay of the same session has prev === new and skips this.
+  // Best effort: a failure is logged, never fatal to the activation
+  // (the member's new club is live either way, and a stuck old sub
+  // is visible in Stripe for a human to kill).
+  const newSubscriptionId = session?.subscription ? String(session.subscription) : null;
+  if (stripe && prevSubscriptionId && newSubscriptionId && prevSubscriptionId !== newSubscriptionId) {
+    try {
+      await stripe.subscriptions.cancel(prevSubscriptionId);
+    } catch (err) {
+      console.error(
+        "club plan switch: cancelling the previous subscription failed",
+        (err as any)?.message || err
+      );
+    }
+  }
   // Day-one digital for the first box's book is a PHYSICAL club grant
   // (idempotent; see the grant's comment). Audio Club members get no
   // grant order: their access is the live membership layer in

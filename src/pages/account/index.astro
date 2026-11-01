@@ -1082,6 +1082,17 @@ if (showSuccess) {
             Your latest Audio Club payment did not go through, so your listening access is paused until the payment is fixed. Once it is, every audiobook comes right back.
           </p>
         )}
+        <div class="mt-6 border-t border-white/15 pt-5">
+          <h3 class="font-bold">Want the printed books too?</h3>
+          <p class="text-white/80 text-sm leading-relaxed mt-1">
+            Upgrade to The Book Club: a printed gift set plus a second printed book every 3 months, the whole shelf in your library, and the club book yours to keep digitally. Your Audio Club subscription is cancelled the moment the upgrade lands, so you are never billed for both.
+          </p>
+          <div class="flex flex-wrap gap-3 mt-4">
+            <button type="button" data-club-upgrade="quarterly" class="rounded-full bg-orange-600 text-white text-sm font-semibold px-6 py-2.5 hover:bg-orange-700 transition">Upgrade · {clubPriceLabel()} every 3 months</button>
+            <button type="button" data-club-upgrade="annual" class="rounded-full bg-white text-[#1a3454] text-sm font-semibold px-6 py-2.5 hover:bg-orange-50 transition">Upgrade · {clubPriceLabel(CLUB_ANNUAL_PRICE_CENTS)} a year</button>
+          </div>
+          <p id="club-upgrade-msg" class="text-sm mt-3 hidden" role="status"></p>
+        </div>
         </>
       ) : clubSignup?.status === "paid" ? (
         <>
@@ -1516,6 +1527,37 @@ if (showSuccess) {
     }
     initSecurity();
     document.addEventListener("astro:page-load", initSecurity);
+  </script>
+  <script is:inline>
+    // Audio Club member upgrading to The Book Club: post the
+    // physical join and ride the Stripe redirect, same as /clubs.
+    function initClubUpgrade() {
+      document.querySelectorAll("[data-club-upgrade]").forEach(function (btn) {
+        if (btn.__upgradeBound) return;
+        btn.__upgradeBound = true;
+        btn.addEventListener("click", async function () {
+          var msg = document.getElementById("club-upgrade-msg");
+          btn.disabled = true;
+          try {
+            var r = await fetch("/api/club/checkout", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ club_plan: "physical", plan: btn.getAttribute("data-club-upgrade") }),
+            });
+            var data = await r.json().catch(function () { return {}; });
+            if (r.ok && data.url) { window.location.href = data.url; return; }
+            if (data.alreadyMember) { window.location.reload(); return; }
+            btn.disabled = false;
+            if (msg) { msg.textContent = data.error || "Could not start the upgrade. Please try again."; msg.classList.remove("hidden"); }
+          } catch (err) {
+            btn.disabled = false;
+            if (msg) { msg.textContent = "Could not start the upgrade. Please try again."; msg.classList.remove("hidden"); }
+          }
+        });
+      });
+    }
+    initClubUpgrade();
+    document.addEventListener("astro:page-load", initClubUpgrade);
   </script>
   <script is:inline>
     // Book Club book choice. Bind-once like the sign-out wiring, so the

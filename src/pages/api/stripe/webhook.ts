@@ -51,7 +51,7 @@ export const POST: APIRoute = async ({ request }) => {
         // Book Club membership: activate (or upgrade the founding
         // reservation) instead of completing a store order.
         if (s.payment_status === "paid") {
-          await activateClubFromSession(e.DB, s);
+          await activateClubFromSession(e.DB, s, stripe);
           await markWebhookEventProcessed(e.DB, event.id, "club membership activated");
         } else {
           await markWebhookEventProcessed(e.DB, event.id, `club ignored: payment_status=${s.payment_status}`);

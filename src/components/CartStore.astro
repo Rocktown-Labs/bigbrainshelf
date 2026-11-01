@@ -46,6 +46,12 @@
         if (!isFinite(n) || n < 1) return 1;
         return Math.min(99, n);
       }
+      // Single-copy formats (digital, audio): owned once, no gifting
+      // flow, so quantity is always 1. Mirrors lineQty in
+      // src/lib/orders.ts; checkout enforces the same rule server-side.
+      function clampFor(format, q) {
+        return format === "digital" || format === "audio" ? 1 : clampQty(q);
+      }
       function normalize(c) {
         // One entry per slug + format, quantities merged: the
         // badge, the sheet, and the checkout all count the same
@@ -57,9 +63,9 @@
           if (!it || !it.slug) return;
           var k = it.slug + ":" + (it.format || "digital");
           if (byKey[k]) {
-            byKey[k].qty = clampQty(byKey[k].qty + clampQty(it.qty));
+            byKey[k].qty = clampFor(byKey[k].format, byKey[k].qty + clampQty(it.qty));
           } else {
-            var entry = { slug: it.slug, format: it.format || "digital", qty: clampQty(it.qty) };
+            var entry = { slug: it.slug, format: it.format || "digital", qty: clampFor(it.format || "digital", it.qty) };
             byKey[k] = entry;
             order.push(entry);
           }
@@ -155,8 +161,9 @@
           var existing = cart.find(function (x) { return x.slug === slug && x.format === format; });
           if (existing) {
             // Adding what is already in the cart means one more
-            // copy (the natural cart behavior), capped at 99.
-            existing.qty = clampQty((existing.qty || 1) + 1);
+            // copy (the natural cart behavior), capped at 99, except
+            // single-copy formats, which stay at 1 by rule.
+            existing.qty = clampFor(format, (existing.qty || 1) + 1);
             setCart(cart);
             return true;
           }
@@ -169,7 +176,7 @@
           var cart = getCart();
           var entry = cart.find(function (x) { return x.slug === slug && x.format === format; });
           if (!entry) return;
-          entry.qty = clampQty(qty);
+          entry.qty = clampFor(format, qty);
           setCart(cart);
         },
         remove: function (slug, format) {

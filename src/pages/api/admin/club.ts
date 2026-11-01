@@ -71,9 +71,17 @@ export const GET: APIRoute = async ({ locals, url }) => {
     const totalSpent = (orders as any[])
       .filter((o) => o.status === "complete")
       .reduce((sum, o) => sum + (Number(o.amount) || 0), 0);
-    // Ships-to snapshot: the most recent physical order's address,
-    // lifted out so the drawer shows it once instead of per order.
+    // Ships-to snapshot: the member's own club address first (it is
+    // collected at club checkout and stored on the signup row), then
+    // the most recent physical order's address for members from
+    // before that collection existed. Lifted out so the drawer shows
+    // it once instead of per order.
     let shipping: any = null;
+    if ((member as any).ship_name || (member as any).ship_address) {
+      let addr: any = (member as any).ship_address;
+      if (typeof addr === "string") { try { addr = JSON.parse(addr); } catch { addr = { raw: addr }; } }
+      shipping = { name: (member as any).ship_name || "", address: addr, source: "club" };
+    }
     for (const ord of orders as any[]) {
       if (!shipping && (ord.ship_name || ord.ship_address)) {
         let addr: any = ord.ship_address;

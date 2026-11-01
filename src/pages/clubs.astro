@@ -191,6 +191,17 @@ const clubTraksEvent = joined
           {member.plan === "annual" ? `Annual plan · ${audioAnnualLabel} a year` : `Monthly plan · ${audioMonthlyLabel} a month`} · Every Big Brain Shelf audiobook is in your library while your membership is active. Listening only: no boxes ship on this plan.
         </p>
         <a href="/account" class="inline-block mt-5 rounded-full bg-orange-600 text-white text-sm font-semibold px-6 py-2.5 hover:bg-orange-700 transition">Listen in your library</a>
+        <div class="mt-6 border-t border-white/15 pt-5">
+          <p class="font-semibold">Want the printed books too?</p>
+          <p class="text-white/70 text-sm leading-relaxed mt-1">
+            Upgrade to The Book Club: a printed gift set plus a second printed book every 3 months, the whole shelf in your library, and the club book yours to keep digitally. Your Audio Club subscription is cancelled the moment the upgrade lands, so you are never billed for both.
+          </p>
+          <div class="flex flex-wrap gap-3 mt-4">
+            <button type="button" data-upgrade-plan="quarterly" class="rounded-full bg-orange-600 text-white text-sm font-semibold px-6 py-2.5 hover:bg-orange-700 transition">Upgrade · {quarterlyLabel} every 3 months</button>
+            <button type="button" data-upgrade-plan="annual" class="rounded-full bg-white text-[#1a3454] text-sm font-semibold px-6 py-2.5 hover:bg-orange-50 transition">Upgrade · {annualLabel} a year</button>
+          </div>
+          <p id="upgrade-msg" class="text-sm mt-3 hidden" role="status"></p>
+        </div>
       </div>
     ) : isMember ? (
       <div class="rounded-2xl bg-[#1a3454] text-white p-6 sm:p-8 mt-8">
@@ -406,6 +417,38 @@ const clubTraksEvent = joined
     }
     bindPlanSwitch();
     document.addEventListener("astro:page-load", bindPlanSwitch);
+
+    // Audio member upgrading to The Book Club (the panel above only
+    // renders for audio members): post the physical join and ride
+    // the shared checkout redirect. The server treats a paid audio
+    // member's physical checkout as an upgrade, collects the box
+    // shipping address in Stripe, and cancels the audio subscription
+    // when the upgrade activates.
+    function bindUpgrade() {
+      document.querySelectorAll("[data-upgrade-plan]").forEach(function (btn) {
+        if (btn.__bound) return;
+        btn.__bound = true;
+        btn.addEventListener("click", function () {
+          var msg = document.getElementById("upgrade-msg");
+          btn.disabled = true;
+          postJson("/api/club/checkout", { club_plan: "physical", plan: btn.getAttribute("data-upgrade-plan") }).then(function (res) {
+            if (res.ok && res.d && res.d.url) { window.location.href = res.d.url; return; }
+            if (res.d && res.d.alreadyMember) { window.location.reload(); return; }
+            btn.disabled = false;
+            if (msg) {
+              msg.textContent = (res.d && res.d.error) || "Something went wrong starting the upgrade. Please try again.";
+              msg.classList.remove("hidden");
+              msg.classList.add("text-red-300");
+            }
+          }).catch(function () {
+            btn.disabled = false;
+            if (msg) { msg.textContent = "Something went wrong starting the upgrade. Please try again."; msg.classList.remove("hidden"); msg.classList.add("text-red-300"); }
+          });
+        });
+      });
+    }
+    bindUpgrade();
+    document.addEventListener("astro:page-load", bindUpgrade);
 
     function showMsg(form, text, ok) {
       var msg = msgFor(form);

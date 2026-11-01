@@ -70,6 +70,21 @@ export function itemQty(x: { qty?: unknown } | null | undefined): number {
   return Math.min(99, n);
 }
 
+// Single-copy formats: a digital bundle or an audiobook can only be
+// owned once, and there is no gifting flow, so a second copy is a
+// pure double-charge (CG's probe, 2026-10-31: a 2x digital line
+// charged $17.98 for one deliverable). Quantities are real only for
+// physical formats. The cart and checkout clamp through lineQty;
+// parseItems deliberately does NOT, so a historical order keeps
+// reading exactly what it charged.
+export function isSingleCopyFormat(format: string): boolean {
+  return format === "digital" || format === "audio";
+}
+
+export function lineQty(x: { format?: unknown; qty?: unknown } | null | undefined): number {
+  return isSingleCopyFormat(normalizeFormat((x as any)?.format)) ? 1 : itemQty(x as any);
+}
+
 // ---------------------------------------------------------------------------
 // Checkout pricing: the single place a (book, format, ownership) triple
 // becomes a charge. /api/checkout calls this for every line; the client

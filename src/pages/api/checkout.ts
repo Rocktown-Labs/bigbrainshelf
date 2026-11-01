@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
 import Stripe from "stripe";
 import { getAuth } from "../../lib/auth";
-import { getOrCreatePendingOrder, attachStripeSession, normalizeFormat, isPhysicalFormat, checkoutItemPrice, enqueueConfirmation, itemQty, type CartItem } from "../../lib/orders";
+import { getOrCreatePendingOrder, attachStripeSession, normalizeFormat, isPhysicalFormat, checkoutItemPrice, enqueueConfirmation, itemQty, lineQty, type CartItem } from "../../lib/orders";
 import { getDigitalEntitlements } from "../../lib/library";
 import {
   normalizeShipDestination,
@@ -90,7 +90,13 @@ export const POST: APIRoute = async ({ request }) => {
   let wanted: { slug: string; format: string; qty: number }[] = [];
   if (Array.isArray(body.items)) {
     wanted = body.items
-      .map((x: any) => ({ slug: String(x?.slug || ""), format: normalizeFormat(x?.format), qty: itemQty(x) }))
+      .map((x: any) => {
+        const format = normalizeFormat(x?.format);
+        // Single-copy formats (digital, audio) clamp to qty 1 here,
+        // whatever the client sent: no gifting flow exists, so a
+        // second copy could only ever be a double-charge.
+        return { slug: String(x?.slug || ""), format, qty: lineQty({ format, qty: x?.qty }) };
+      })
       .filter((x: any) => x.slug);
   } else if (Array.isArray(body.slugs)) {
     wanted = body.slugs.map((s: any) => ({ slug: String(s), format: "digital", qty: 1 }));
@@ -209,7 +215,7 @@ export const POST: APIRoute = async ({ request }) => {
             metadata: { slug: b.slug, format: w.format },
           },
         },
-        quantity: itemQty(w),
+        quantity: lineQty(w),
       });
     }
     bought.push(priced.upgrade ? { ...w, upgrade: priced.upgrade } : w);
