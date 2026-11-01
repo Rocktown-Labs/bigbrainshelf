@@ -500,5 +500,11 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     expect(custShellSrc).toContain('href="/account/orders"');
     expect(custShellSrc).toContain('href="/account/library"');
     expect(custShellSrc).toContain("cust-sb");
+    // Every identifier the nav badges reference must be destructured
+    // from Astro.props: a bare reference throws at render time and
+    // blanks every account page, and astro build does not render
+    // auth-gated pages to catch it (this exact bug shipped 2026-11-01).
+    expect(custShellSrc).toContain("audioCount = 0");
+    expect(custShellSrc).toContain("bookCount = 0");
   });
 });
