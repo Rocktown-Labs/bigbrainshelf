@@ -507,4 +507,28 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     expect(custShellSrc).toContain("audioCount = 0");
     expect(custShellSrc).toContain("bookCount = 0");
   });
+
+  test("Book overview price identifiers all resolve to real lib/offers exports", () => {
+    // The overview's buy-cards section renders only for books the
+    // family does not own, so a phantom price constant there blanks
+    // the page for club members while owned books keep working
+    // (shipped 2026-11-01: STANDARD_STANDARD_* imports + an
+    // un-imported STANDARD_PRINT_PRICE_CENTS use).
+    const overviewSrc = readFileSync(
+      resolve(root, "src/pages/account/book/[slug].astro"),
+      "utf8"
+    );
+    const offersSrc = readFileSync(resolve(root, "src/lib/offers.ts"), "utf8");
+    const exported = new Set(
+      [...offersSrc.matchAll(/export const ([A-Z][A-Z0-9_]*)/g)].map((m) => m[1])
+    );
+    const used = new Set(
+      [...overviewSrc.matchAll(/\b([A-Z][A-Z0-9_]*_CENTS)\b/g)].map((m) => m[1])
+    );
+    expect(used.size).toBeGreaterThan(0);
+    for (const id of used) {
+      expect(exported.has(id)).toBe(true);
+    }
+    expect(overviewSrc).not.toContain("STANDARD_STANDARD");
+  });
 });
