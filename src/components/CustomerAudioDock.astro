@@ -1015,6 +1015,11 @@ const audioBooks = books.filter((b) => Boolean(b.audiobook_key));
       document.querySelectorAll(".qc-edition-btn").forEach(function (btn) {
         btn.addEventListener("click", function () {
           state.edition = btn.getAttribute("data-qc-edition") || "story";
+          if (state.edition === "readalong" && typeof window.bbsTraks === "function") {
+            try {
+              window.bbsTraks("read_along_started", { edition: "readalong", auto_flip: Boolean(state.autoFlipEnabled) });
+            } catch (e) {}
+          }
           syncEditionButtons();
           renderStage();
           saveProgressDebounced(0);

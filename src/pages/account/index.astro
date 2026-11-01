@@ -1206,6 +1206,51 @@ if (showSuccess) {
           <a href="/clubs" class="ml-1 font-semibold text-orange-300 hover:text-orange-200">Join the Book Club</a>
         </p>
       )}
+
+      {/* Flexible Plan & Retention Controls (grounded in offers.ts: $60/qtr or $199/yr Book Club, $5.99/mo or $49/yr Audio Club) */}
+      <div class="mt-6 pt-5 border-t border-white/15">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="text-xs font-extrabold uppercase tracking-wider text-orange-300">
+              Flexible Family Membership Controls
+            </h3>
+            <p class="text-xs text-white/75 mt-0.5">
+              Need a breather on physical deliveries or want to lock in annual savings? Adjust your plan in one tap:
+            </p>
+          </div>
+        </div>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            data-retention-action="skip_next_box"
+            class="rounded-full bg-white/10 hover:bg-white/20 border border-white/20 px-3.5 py-1.5 text-xs font-bold text-white transition cursor-pointer"
+          >
+            Pause / Skip Next Quarterly Box
+          </button>
+          <button
+            type="button"
+            data-retention-action="switch_to_audio_club_monthly"
+            class="rounded-full bg-white/10 hover:bg-white/20 border border-white/20 px-3.5 py-1.5 text-xs font-bold text-white transition cursor-pointer"
+          >
+            Switch to Audio Club ($5.99/mo)
+          </button>
+          <button
+            type="button"
+            data-retention-action="upgrade_audio_club_annual"
+            class="rounded-full bg-white/10 hover:bg-white/20 border border-white/20 px-3.5 py-1.5 text-xs font-bold text-white transition cursor-pointer"
+          >
+            Audio Club Annual ($49/yr · Save $22.88)
+          </button>
+          <button
+            type="button"
+            data-retention-action="upgrade_book_club_annual"
+            class="rounded-full bg-orange-400 hover:bg-orange-300 text-[#1a3454] px-3.5 py-1.5 text-xs font-extrabold transition cursor-pointer"
+          >
+            Book Club Annual ($199/yr · Save $41)
+          </button>
+        </div>
+        <p id="club-retention-status" class="text-xs font-semibold text-amber-200 mt-2.5 hidden" role="status"></p>
+      </div>
     </section>
 
     {/* Family Referral Program ("Give $10, Get $10" double-sided reward) */}
@@ -1264,6 +1309,77 @@ if (showSuccess) {
           </div>
           <p id="referral-copy-msg" class="text-xs font-semibold text-green-700 mt-1.5 hidden" role="status"></p>
         </div>
+      </div>
+    </section>
+
+    {/* Guardrailed "Talk to the Cast" Story Companion & Phygital Claim Unlock */}
+    <section
+      id="cast-companion"
+       class="mt-14 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50/80 via-white to-amber-50/50 p-6 sm:p-8 scroll-mt-20"
+      aria-labelledby="cast-companion-heading"
+    >
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="max-w-xl">
+          <span class="inline-block rounded-full bg-emerald-900 text-amber-100 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+            Whispering Woods Story Companion · Guardrailed Canon
+          </span>
+          <h2 id="cast-companion-heading" class="text-xl font-extrabold tracking-tight text-stone-900 mt-2">
+            Ask Fern, Pip, or Bramble About the Story
+          </h2>
+          <p class="text-xs sm:text-sm text-stone-600 mt-1 leading-relaxed">
+            Finished a chapter? Pick a character from the Whispering Woods to reflect on the story's big idea and earn a Pattern Spotter badge.
+          </p>
+        </div>
+        <a
+          href="/claim/FERN-GIFTSET"
+          class="rounded-full border border-emerald-800/30 bg-white px-3.5 py-1.5 text-xs font-extrabold text-emerald-900 hover:bg-emerald-50"
+        >
+          Have a Gift Set or Plush QR Code? Redeem →
+        </a>
+      </div>
+
+      <form id="cast-companion-form" class="mt-5 grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+        <label class="sm:col-span-3 block text-xs font-bold text-stone-700">
+          Character Buddy
+          <select
+            name="characterName"
+            class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-bold text-stone-800"
+          >
+            <option value="Fern">🌿 Fern (Garden Dreamer)</option>
+            <option value="Mira">🦊 Mira (Curious Explorer)</option>
+            <option value="Penny">🦉 Penny (Story Detective)</option>
+            <option value="Wally">🐻 Wally (Gentle Giant)</option>
+            <option value="Basil">🌙 Basil (Night Sky Listener)</option>
+          </select>
+        </label>
+        <label class="sm:col-span-7 block text-xs font-bold text-stone-700">
+          Story Question or Reflection
+          <input
+            type="text"
+            name="questionText"
+            required
+            maxlength="240"
+            placeholder="e.g., Why do pinecones and sunflowers use the same number pattern?"
+            class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs text-stone-900"
+          />
+        </label>
+        <div class="sm:col-span-2">
+          <button
+            type="submit"
+            class="w-full rounded-xl bg-emerald-900 hover:bg-emerald-800 text-white font-extrabold py-2.5 px-3 text-xs transition cursor-pointer"
+          >
+            Ask Cast →
+          </button>
+        </div>
+      </form>
+
+      <div id="cast-companion-reply-box" class="hidden mt-4 rounded-xl border border-emerald-200 bg-white p-4">
+        <div class="flex items-center justify-between gap-2">
+          <span id="cast-companion-speaker" class="text-xs font-extrabold text-emerald-900"></span>
+          <span id="cast-companion-badge" class="rounded-full bg-amber-100 text-amber-900 px-2.5 py-0.5 text-[11px] font-extrabold"></span>
+        </div>
+        <p id="cast-companion-text" class="text-sm text-stone-800 mt-2 leading-relaxed font-serif"></p>
+        <p id="cast-companion-followup" class="text-xs text-stone-500 mt-2 italic"></p>
       </div>
     </section>
 
@@ -1975,6 +2091,80 @@ if (showSuccess) {
             pinError.textContent = "Incorrect Parent PIN. Please try again.";
             pinError.classList.remove("hidden");
           }
+        });
+      }
+
+      // Club Retention & Plan-Switch actions ($60/qtr Book Club <-> $5.99/mo Audio Club / Annual upgrades)
+      document.querySelectorAll("[data-retention-action]").forEach(function (btn) {
+        if (btn.__bound) return;
+        btn.__bound = true;
+        btn.addEventListener("click", function () {
+          var action = btn.getAttribute("data-retention-action");
+          var statusEl = document.getElementById("club-retention-status");
+          if (!action) return;
+          if (statusEl) {
+            statusEl.classList.remove("hidden");
+            statusEl.textContent = "Updating your membership preference...";
+          }
+          fetch("/api/club/retention", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: action }),
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (statusEl) {
+                statusEl.textContent = (data && data.message) || "Membership updated.";
+              }
+              try {
+                if (typeof window.bbsTraks === "function") {
+                  window.bbsTraks("club_retention_saved", { action: action });
+                }
+              } catch (e) {}
+            })
+            .catch(function () {
+              if (statusEl) statusEl.textContent = "Could not update preference right now.";
+            });
+        });
+      });
+
+      // Guardrailed "Talk to the Cast" Story Companion
+      var castForm = document.getElementById("cast-companion-form");
+      if (castForm && !castForm.__bound) {
+        castForm.__bound = true;
+        castForm.addEventListener("submit", function (ev) {
+          ev.preventDefault();
+          var fd = new FormData(castForm);
+          var characterName = String(fd.get("characterName") || "Fern");
+          var questionText = String(fd.get("questionText") || "");
+          var box = document.getElementById("cast-companion-reply-box");
+          var speaker = document.getElementById("cast-companion-speaker");
+          var badge = document.getElementById("cast-companion-badge");
+          var textEl = document.getElementById("cast-companion-text");
+          var followEl = document.getElementById("cast-companion-followup");
+          if (box) box.classList.remove("hidden");
+          if (textEl) textEl.textContent = characterName + " is thinking...";
+          fetch("/api/account/cast-chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              characterName: characterName,
+              questionText: questionText,
+              bookSlug: "fern-counts-the-forest",
+            }),
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (data && data.ok && data.reply) {
+                if (speaker) speaker.textContent = data.reply.characterName + " · " + data.reply.characterRole;
+                if (badge) badge.textContent = "🏅 " + data.reply.comprehensionBadge;
+                if (textEl) textEl.textContent = data.reply.responseText;
+                if (followEl) followEl.textContent = "Try asking next: “" + data.reply.followUpPrompt + "”";
+              }
+            })
+            .catch(function () {
+              if (textEl) textEl.textContent = "Fern is out counting pinecones right now—try again in a moment!";
+            });
         });
       }
     }

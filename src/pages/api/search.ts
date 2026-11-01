@@ -10,6 +10,7 @@ import {
   type SearchCandidate,
 } from "../../lib/search";
 import { ensurePublicSlugColumn } from "../../lib/public-slugs";
+import { semanticAskTheShelf, detectBraintrustBackend } from "../../lib/braintrust";
 
 // GET /api/search?q=
 //
@@ -141,8 +142,19 @@ export const GET: APIRoute = async ({ url }) => {
   } catch { /* books unavailable: whatever sections loaded still answer */ }
 
   const sections = searchCatalog({ books: bookCands, cast: castCands, audio: audioCands }, q);
+  // "Ask the Shelf" semantic fallback when natural-language parent queries ("frustrated when losing",
+  // "compound interest for a 7-year-old") don't hit exact keyword tokens in D1:
+  const semanticMatches =
+    sections.length === 0 || q.split(/\s+/).length >= 3
+      ? await semanticAskTheShelf(q, e, { limit: 4 })
+      : [];
   return Response.json(
-    { query: q, sections },
+    {
+      query: q,
+      sections,
+      semanticMatches,
+      semanticBackend: detectBraintrustBackend(e),
+    },
     { headers: { "Cache-Control": "public, max-age=30, s-maxage=60" } }
   );
 };

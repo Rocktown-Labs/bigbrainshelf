@@ -15,6 +15,8 @@ import {
 } from "../../../lib/club";
 import { enqueueClubFollowup } from "../../../lib/marketing";
 import { flushOutbox } from "../../../lib/email";
+import { routePhysicalOrderFulfillment } from "../../../lib/fulfillment-router";
+import { streamToBasinPipeline } from "../../../lib/telemetry";
 
 // POST /api/stripe/webhook — Stripe calls this after checkout.
 // Signature-verified; reachable without a session (see middleware).
@@ -68,6 +70,37 @@ export const POST: APIRoute = async ({ request }) => {
             await enqueueClubFollowup(e.DB, SITE, order);
           } catch (err: any) {
             console.error("club followup enqueue failed", err?.message || err);
+          }
+          try {
+            const fmt = String((order as any).format || (s.metadata as any)?.format || "digital");
+            if (fmt === "print" || fmt === "gift_set" || fmt === "printed") {
+              const shippingCountry =
+                (s as any).shipping_details?.address?.country ||
+                s.customer_details?.address?.country ||
+                "US";
+              const routeDecision = await routePhysicalOrderFulfillment(e.DB, {
+                orderId: Number((order as any).id) || null,
+                stripeSessionId: s.id,
+                bookSlug: String((order as any).book_slug || "fern-counts-the-forest"),
+                productType: fmt === "gift_set" ? "gift_set" : "printed",
+                destinationCountry: shippingCountry,
+                quantity: 1,
+              });
+              await streamToBasinPipeline(e, {
+                streamName: "bbs_commerce_events",
+                eventName: "physical_order_routed",
+                bookSlug: routeDecision.bookSlug,
+                revenueCents: Number((order as any).amount_cents || routeDecision.retailPriceCents),
+                cogsCents: routeDecision.unitCogsCents + routeDecision.shippingCogsCents,
+                payload: {
+                  fulfillmentMode: routeDecision.fulfillmentMode,
+                  providerName: routeDecision.providerName,
+                  destinationCountry: routeDecision.destinationCountry,
+                },
+              });
+            }
+          } catch (err: any) {
+            console.error("fulfillment router / basin telemetry failed", err?.message || err);
           }
         }
         // Best effort: email delivery must never fail the webhook. If the
