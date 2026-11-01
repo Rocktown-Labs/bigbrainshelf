@@ -136,8 +136,8 @@ assert(dress && "cover" in dress && "href" in dress && "unitCents" in dress, "pi
 const guestOrderPage = read("../src/pages/order.astro");
 assert(guestOrderPage.includes("orderband") && guestOrderPage.includes("orderblock") && guestOrderPage.includes("View Product"), "the guest order page renders the same order block");
 assert(guestOrderPage.includes("Go to my library") && guestOrderPage.includes("signedIn"), "the guest order band action is the library link for signed-in buyers only");
-const accountPage = read("../src/pages/account/index.astro");
-assert(accountPage.includes("orderblock") && accountPage.includes("orderband") && accountPage.includes("Date placed") && accountPage.includes("View receipt"), "the account order history renders each order as the same block with its receipt action");
+const accountPage = read("../src/pages/account/orders.astro");
+assert(accountPage.includes("orderViews.map") && accountPage.includes("bg-[#faf6ef]") && accountPage.includes("Date placed") && accountPage.includes("View receipt"), "the account order history renders each order as the same block with its receipt action");
 assert(adminOrderDetail.includes("Order details") && adminOrderDetail.indexOf("Order details") > adminOrderDetail.indexOf("Emails for this order"), "the Order details reference block sits at the very bottom, below the emails card");
 assert(!adminOrderDetail.includes('esc(o.id) + " · "'), "the detail header no longer renders the raw UUID under the title");
 assert(adminOrderDetail.includes("Checkout never completed"), "a pending order says so plainly near the top");
@@ -147,11 +147,16 @@ assert(adminOrderDetail.includes("nothing to pack or ship"), "a digital/audio or
 assert(downloadBaseName({ public_slug: "penny-the-squirrel-and-the-acorn-orchard", title: "Penny the Squirrel and the Acorn Orchard" }) === "penny-the-squirrel-and-the-acorn-orchard", "download base name is the public slug");
 assert(downloadBaseName({ public_slug: null, title: "Penny the Squirrel and the Acorn Orchard" }) === "penny-the-squirrel-and-the-acorn-orchard", "download base name falls back to the slugified title");
 assert(downloadBaseName({}) === "big-brain-shelf-book", "download base name has a neutral last resort, never a slug parameter");
-for (const rel of ["../src/pages/api/download.ts", "../src/pages/api/order-download.ts", "../src/pages/api/admin-download.ts"]) {
+for (const rel of ["../src/pages/api/download.ts", "../src/pages/api/admin-download.ts"]) {
   const src = read(rel);
   assert(src.includes("downloadBaseName"), `${rel} builds its filename from downloadBaseName`);
   assert(!src.includes("${slug}-") && !src.includes("${slug}."), `${rel} never interpolates the internal slug into a filename`);
 }
+// The legacy token route serves no files at all since the
+// auth-backed download change (2026-10-31): it redirects into the
+// library, so it builds no filename and names no slug.
+const legacyDl = read("../src/pages/api/order-download.ts");
+assert(legacyDl.includes('Location: "/account"') && !legacyDl.includes("downloadBaseName"), "legacy order-download redirects to the library and builds no filename");
 // The M4B download (admin audiobook route) wears the public name too.
 const FILES = new Map<string, Uint8Array>([["books/richdadpoordad/audiobook.m4b", new Uint8Array(4000)]]);
 const fakeBooks = {

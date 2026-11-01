@@ -1,264 +1,59 @@
 ---
 import "../../styles/global.css";
 import { env } from "cloudflare:workers";
-import { getAuth, getEffectiveSession } from "../../lib/auth";
 import Tracking from "../../components/Tracking.astro";
 import { ClientRouter } from "astro:transitions";
 import TransitionHooks from "../../components/TransitionHooks.astro";
-import { parseItems, itemQty, shortOrderId } from "../../lib/orders";
-import FormatChip from "../../components/FormatChip.astro";
-import { getLibraryBooks } from "../../lib/library";
-import { publicSlugFor, ensurePublicSlugColumn } from "../../lib/public-slugs";
+import { parseItems } from "../../lib/orders";
+import { publicSlugFor } from "../../lib/public-slugs";
 import { coverDerivative } from "../../lib/derivatives";
-import { GIFT_SET_PRICE_CENTS, AUDIO_PRICE_CENTS, formatLabel, clubPriceLabel, CLUB_ANNUAL_PRICE_CENTS, AUDIO_CLUB_PRICE_CENTS, AUDIO_CLUB_ANNUAL_PRICE_CENTS } from "../../lib/offers";
-import { ensureReviewsTable, REVIEW_STATUS_LABELS } from "../../lib/reviews";
-import { ensureClubTable, shelfLabel, clubPlanOf } from "../../lib/club";
-import {
-  ensureClubCycleTables,
-  generateUpcomingCyclesForMember,
-  getNextClubBox,
-  getClubSelectionOptions,
-} from "../../lib/club-cycles";
-import { boxCreatedDateString, clubCycleTiming, formatClubDate } from "../../lib/club-cycle-dates";
+import { AUDIO_PRICE_CENTS } from "../../lib/offers";
 import CustomerShell from "../../components/CustomerShell.astro";
 import CustomerBookViewer from "../../components/CustomerBookViewer.astro";
 import CustomerAudioDock from "../../components/CustomerAudioDock.astro";
-import {
-  KID_AVATARS,
-  SLEEP_TIMER_PRESETS,
-  DAILY_LIMIT_PRESETS,
-  READING_GOAL_OPTIONS,
-  CURRENT_TOPIC_OPTIONS,
-  FUTURE_TOPIC_OPTIONS,
-  DISCOVERY_SOURCE_OPTIONS,
-  generateReferralCode,
-  computeOnboardingChecklist,
-  getParentOnboarding,
-  listKidProfiles,
-  listReadingProgress,
-} from "../../lib/family";
+import { loadCustomerHubContext } from "../../lib/account-data";
 
 const e = env as any;
-const session = await getEffectiveSession(Astro.request, Astro.locals, e.DB);
-if (!session) {
+const hub = await loadCustomerHubContext(Astro.request, Astro.locals, e.DB, Astro.url.origin);
+if (!hub) {
   return Astro.redirect("/login?next=/account");
 }
 
-const R2 = "https://media.bigbrainshelf.com/";
-const orders = await e.DB.prepare(
-  "SELECT * FROM orders WHERE user_id = ? AND status = 'complete' ORDER BY created_at DESC"
-).bind(session.user.id).all();
-const orderRows = (orders.rows || orders.results || []) as any[];
-
-// My Shelf: the account's digital library. Entitlements come from the
-// library layer (completed orders in any format, the $0 Book Club join
-// grants those orders include, plus shipped Book Club cycle boxes),
-// not from orders alone.
-const libraryBooks = await getLibraryBooks(e.DB, {
-  id: session.user.id,
-  email: String(session.user.email || ""),
-});
-let books: any[] = libraryBooks as any[];
-// Admin review access: when an owner/admin visits /account or /accounts,
-// include published books on the shelf so they can test the QC Viewer,
-// Read-Along auto-flip, and Audiobook Player without placing a test order.
-if (session.user.isAdmin && books.length === 0) {
-  try {
-    const allComplete = await e.DB.prepare(
-      `SELECT slug, public_slug, title, topic, cover_key, picture_book_key, coloring_book_key, epub_key, color_book_key, audiobook_key, price, price_print
-       FROM books WHERE status = 'complete' ORDER BY title ASC`
-    )
-      .bind()
-      .all();
-    const completeRows = (allComplete?.results || allComplete?.rows || []) as any[];
-    books = completeRows.map((b) => ({
-      ...b,
-      sources: ["order"],
-      digital: true,
-      audio: Boolean(b.audiobook_key),
-      audioOnly: false,
-      owned: true,
-      clubPlan: null,
-    }));
-  } catch {
-    // Keep empty if query fails
-  }
-}
-const audioBooksCount = books.filter((b) => Boolean(b.audiobook_key)).length;
-
-// Family onboarding, kid profiles, and synced reading/listening progress.
-const [parentOnboarding, kidProfiles, readingProgressList] = await Promise.all([
-  getParentOnboarding(e.DB, session.user.id).catch(() => null),
-  listKidProfiles(e.DB, session.user.id).catch(() => []),
-  listReadingProgress(e.DB, session.user.id).catch(() => []),
-]);
-const onboardingChecklist = computeOnboardingChecklist(
+const {
+  session,
+  books,
+  audioBooksCount,
   parentOnboarding,
   kidProfiles,
-  readingProgressList
-);
-const defaultKidProfile = kidProfiles.find((k) => k.is_default) || kidProfiles[0] || null;
-const defaultSleepMinutes = defaultKidProfile ? defaultKidProfile.default_sleep_timer_minutes : 60;
-const familyReferralCode =
-  parentOnboarding?.referral_code ||
-  generateReferralCode(parentOnboarding?.parent_name || String(session.user.email || "FAMILY"), session.user.id);
-const referralShareUrl = `${Astro.url.origin}/?ref=${encodeURIComponent(familyReferralCode)}`;
-const bookBySlug: Record<string, any> = {};
-for (const b of books) bookBySlug[b.slug] = b;
-const priceFor = (slug: string, format: string): number => {
-  const b = bookBySlug[slug];
-  if (!b) return 0;
-  if (format === "printed") return Math.round(Number(b.price_print || 0));
-  if (format === "giftset") return GIFT_SET_PRICE_CENTS;
-  if (format === "audio") return AUDIO_PRICE_CENTS;
-  return Math.round(Number(b.price || 0));
-};
-// The audio upgrade: an audiobook-only owner unlocks the digital
-// edition for the digital price minus the audio price they paid.
-// Displayed here, computed and enforced again at checkout.
+  readingProgressList,
+  onboardingChecklist,
+  defaultSleepMinutes,
+} = hub;
+
+const R2 = "https://media.bigbrainshelf.com/";
 const unlockPriceFor = (b: any): number =>
   Math.max(0, Math.round(Number(b?.price || 0)) - AUDIO_PRICE_CENTS);
 const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
-const PHYSICAL_LABELS: Record<string, string> = {
-  preorder_received: "Printed order received",
-  in_print: "Being printed",
-  packed: "Packed",
-  shipped: "Shipped",
-  delivered: "Delivered",
-};
-// Cover + public-slug dressing for the order history blocks,
-// covering every ordered slug (the library map above only holds
-// entitled books; an order's books are normally among them, but the
-// order view must not depend on that).
-const orderBookRows = new Map<string, any>();
-{
-  const slugs = [...new Set(orderRows.flatMap((o) => parseItems(o).map((i) => i.slug)))];
-  if (slugs.length) {
-    const ph = slugs.map(() => "?").join(",");
-    const rows = await e.DB.prepare(
-      `SELECT slug, title, cover_key, public_slug FROM books WHERE slug IN (${ph})`
-    ).bind(...slugs).all();
-    for (const r of (rows.results || rows.rows || []) as any[]) orderBookRows.set(String(r.slug), r);
-  }
-}
-// Each order renders as the store's order block (the "Order
-// history" pattern): a summary band plus a products table. Items
-// group by book + format with counts, like the other order views.
-const orderViews = orderRows.map((o) => {
-  const grouped = new Map<string, any>();
-  for (const it of parseItems(o)) {
-    const key = it.slug + "|" + it.format;
-    const existing = grouped.get(key);
-    if (existing) { existing.count += itemQty(it); continue; }
-    const ob = orderBookRows.get(it.slug);
-    grouped.set(key, {
-      slug: it.slug,
-      // Links wear the public (title-based) slug; the item itself
-      // keeps keying on the internal slug everywhere else.
-      publicSlug: bookBySlug[it.slug] ? publicSlugFor(bookBySlug[it.slug]) : ob ? publicSlugFor(ob) : it.slug,
-      // A missing book row must never fall back to the internal slug
-      // as the displayed name.
-      title: bookBySlug[it.slug]?.title || ob?.title || "Big Brain Shelf book",
-      format: it.format,
-      count: itemQty(it),
-      cover: ob ? coverDerivative(it.slug, "card", ob.cover_key) || (ob.cover_key ? R2 + ob.cover_key : null) : null,
-      price: it.upgrade === "audio-upgrade" ? unlockPriceFor(bookBySlug[it.slug]) : priceFor(it.slug, it.format),
-      creditNote: it.upgrade === "audio-upgrade",
-      hasAudio: !!bookBySlug[it.slug]?.audiobook_key,
-    });
-  }
-  return {
-    order: o,
-    items: [...grouped.values()],
-    dateLong: new Date(Number(o.created_at) * 1000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
-    shortId: shortOrderId(o.id),
-    physicalLabel: o.physical_status ? PHYSICAL_LABELS[o.physical_status] || o.physical_status : null,
-    trackingLine: o.tracking_number
-      ? [o.carrier ? o.carrier + " · " : "", "Tracking ", o.tracking_number].join("")
-      : null,
-  };
-});
 
-// My Reviews (Phase 3): every review this account has written, with its
-// moderation status.
-await ensureReviewsTable(e.DB);
-await ensurePublicSlugColumn(e.DB).catch(() => {});
-const myReviews = ((await e.DB.prepare(
-  "SELECT r.*, b.title AS book_title, b.public_slug AS book_public_slug FROM reviews r LEFT JOIN books b ON b.slug = r.book_slug WHERE r.user_id = ? ORDER BY r.created_at DESC"
-).bind(session.user.id).all()).results || []) as any[];
-
-// Book Club (Phase 2): this account's club status, if they have joined.
-await ensureClubTable(e.DB);
-const clubSignup = await e.DB.prepare(
-  "SELECT * FROM club_signups WHERE email = ?"
-).bind(String(session.user.email || "").toLowerCase()).first() as any;
-// Which club plan this membership is (club.ts clubPlanOf; rows from
-// before the Audio Club existed are physical).
-const clubPlan = clubSignup ? clubPlanOf(clubSignup) : null;
 const showSuccess = Astro.url.searchParams.get("checkout") === "success";
 
-// Book Club V2: the member's next cycle box and book-choice state.
-// Cycle rows are generated idempotently on render as a backup; the
-// worker's scheduled pass is the mechanism that creates them for
-// everyone, reminds, and locks.
-let clubBox: any = null;
-let clubTiming: any = null;
-let clubPickOptions: any[] = [];
-let clubPickOptions2: any[] = [];
-let clubCurrentTitle: string | null = null;
-let clubSecondTitle: string | null = null;
-let clubBillingPaused = false;
-if (clubSignup?.status === "paid") {
-  clubBillingPaused = ["past_due", "paused"].includes(String(clubSignup.subscription_status || ""));
-  try {
-    await ensureClubCycleTables(e.DB);
-    await generateUpcomingCyclesForMember(e.DB, clubSignup);
-    clubBox = await getNextClubBox(e.DB, clubSignup.id);
-    if (clubBox) {
-      clubTiming = clubCycleTiming(String(clubBox.ship_date), boxCreatedDateString(clubBox.created_at));
-      const opts = await getClubSelectionOptions(e.DB, clubSignup, clubBox);
-      // Two pick lists for the box's two slots: each also blocks the
-      // other slot's book, so a box never carries the same title twice.
-      const slot1Slug = clubBox.resolved_book_slug || clubBox.selected_book_slug;
-      const slot2Slug = clubBox.second_resolved_book_slug || clubBox.second_selected_book_slug;
-      const toOptions = (otherSlug: any) =>
-        opts.books.map((b: any) => ({
-          slug: b.slug,
-          title: b.title,
-          blocked: opts.owned.has(b.slug) || opts.committed.has(b.slug) || b.slug === otherSlug,
-          reason:
-            b.slug === otherSlug
-              ? "Already in this box"
-              : opts.owned.has(b.slug)
-                ? "Already in your library"
-                : "Already coming in a club box",
-        }));
-      clubPickOptions = toOptions(slot2Slug);
-      clubPickOptions2 = toOptions(slot1Slug);
-      const current = clubPickOptions.find((o: any) => o.slug === slot1Slug);
-      clubCurrentTitle = current?.title || null;
-      clubSecondTitle = clubPickOptions2.find((o: any) => o.slug === slot2Slug)?.title || null;
-    }
-  } catch (err) {
-    console.error("account club cycle load failed", err);
-    clubBox = null;
-  }
-}
-
 // Purchase event for the tracking component: Stripe sends buyers back
-// to /account?checkout=success after a completed payment, so that
-// landing is the success point. Value and contents come from the
-// newest completed order on the account; if the Stripe webhook has
-// not marked an order complete yet at that instant, no event fires
-// rather than firing with the wrong order's numbers.
+// to /account?checkout=success after a completed payment.
 let purchaseEvent: { name: string; data: Record<string, unknown> } | null = null;
 let purchaseTraksEvent: { name: string; props: Record<string, string>; value: number; onceKey: string } | null = null;
 if (showSuccess) {
+  const orders = await e.DB.prepare(
+    "SELECT * FROM orders WHERE user_id = ? AND status = 'complete' ORDER BY created_at DESC LIMIT 1"
+  )
+    .bind(session.user.id)
+    .all();
   const rows = (orders.rows || orders.results || []) as any[];
   const latest = rows[0];
   if (latest) {
     let ids: string[] = [];
-    try { ids = JSON.parse(latest.book_slugs || "[]").map(String); } catch {}
+    try {
+      ids = JSON.parse(latest.book_slugs || "[]").map(String);
+    } catch {}
     purchaseEvent = {
       name: "Purchase",
       data: {
@@ -269,10 +64,6 @@ if (showSuccess) {
         currency: "USD",
       },
     };
-    // The Traks purchase carries the order's format mix, never its
-    // contents: formats are a small closed set, joined sorted so the
-    // same mix always spells the same token. onceKey guards refreshes
-    // of the success landing; it never leaves the browser.
     const formats = [...new Set(parseItems(latest).map((i: any) => String(i.format || "digital")))].sort();
     purchaseTraksEvent = {
       name: "purchase",
@@ -298,8 +89,8 @@ if (showSuccess) {
   <meta name="theme-color" content="#1a3454" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Your library · Big Brain Shelf</title>
-    <ClientRouter />
+  <title>My Shelf · Big Brain Shelf</title>
+  <ClientRouter />
   <TransitionHooks />
   <Tracking pageEvent={purchaseEvent} traksEvent={purchaseTraksEvent} />
 </head>
@@ -314,1714 +105,317 @@ if (showSuccess) {
     hasParentPin={Boolean(parentOnboarding?.parent_pin)}
     bookCount={books.length}
     audioCount={audioBooksCount}
+    onboardingComplete={onboardingChecklist.isComplete}
   />
 
-  <main class="max-w-6xl mx-auto px-4 py-8 sm:py-10">
+  <main class="max-w-6xl mx-auto px-4 py-7 sm:py-9">
     {showSuccess && (
-      <div class="mb-8 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
-        Payment complete. Your books are below, ready to download.
+      <div class="mb-6 rounded-2xl bg-green-50 border border-green-200 px-4 py-3 text-sm font-semibold text-green-800">
+        Payment complete. Your books are on your shelf below. Tap any book to read along, listen, or print coloring pages.
       </div>
     )}
+
+    <!-- Clean Family Header (No Admin Preview or QC Jargon) -->
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <div class="flex flex-wrap items-center gap-2">
-          <h1 class="text-2xl font-bold tracking-tight">Your library</h1>
+        <div class="flex flex-wrap items-center gap-2.5">
+          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900">
+            My Shelf
+          </h1>
           {(session.user.displayUsername || session.user.username) && (
             <span class="rounded-full bg-orange-100 text-orange-800 px-2.5 py-0.5 text-xs font-extrabold">
               @{session.user.displayUsername || session.user.username}
             </span>
           )}
-          {session.user.isAdmin && (
-            <span class="rounded-full bg-[#1a3454] text-white px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
-              Admin Preview
-            </span>
-          )}
         </div>
-        <p class="text-sm text-stone-500 mt-1">{session.user.email}</p>
+        <p class="text-sm text-stone-600 mt-1">
+          Pick a book below to read along with the narrator, listen at bedtime, or print coloring pages.
+          The books you own are yours to download and keep.
+        </p>
       </div>
-      <div class="flex flex-wrap items-center gap-2">
-        {session.user.isAdmin && (
-          <a href="/admin" class="rounded-full border border-[#1a3454] bg-white text-[#1a3454] px-4 py-2 text-xs font-extrabold hover:bg-stone-50">
-            Admin Dashboard →
-          </a>
-        )}
-        <a href="#qc-viewer" class="rounded-full bg-[#1a3454] text-white px-4 py-2 text-xs font-bold hover:bg-[#132741]">
-          Open Book Viewer (QC)
+
+      <div class="flex flex-wrap items-center gap-2" data-parent-only="true">
+        <a
+          href="/account/kids"
+          class="cust-pressable rounded-full border border-stone-300 bg-white px-3.5 py-1.5 text-xs font-extrabold text-stone-700 hover:border-stone-500"
+        >
+          👧 Kids &amp; Timers ({kidProfiles.length})
         </a>
-        <a href="#audio-slot" class="rounded-full bg-orange-600 text-white px-4 py-2 text-xs font-bold hover:bg-orange-700">
-          Audiobook Player · 60m Sleep Timer
-        </a>
-        <a href="#kids-family" data-parent-only="true" class="rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-bold text-stone-700 hover:border-stone-500">
-          Kids &amp; Limits ({kidProfiles.length})
+        <a
+          href="/books"
+          class="cust-pressable rounded-full bg-[#1a3454] px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-[#132741]"
+        >
+          Browse New Books →
         </a>
       </div>
     </div>
 
-    {/* Parent & Kid Onboarding Card (Endowed Progress starts at 25%) */}
+    <!-- Compact, Dismissible Family Onboarding Prompt (Never blocks the shelf) -->
     {!onboardingChecklist.isComplete && (
-      <section
-        id="onboarding-card"
+      <div
+        id="shelf-onboarding-nudge"
         data-parent-only="true"
-        class="mt-6 rounded-2xl border-2 border-orange-200 bg-orange-50/50 p-5 sm:p-6"
-        aria-labelledby="onboarding-heading"
+        class="mt-5 rounded-2xl border border-orange-200 bg-orange-50/70 px-4 py-3.5 flex flex-wrap items-center justify-between gap-3"
       >
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <span class="rounded-full bg-orange-600 text-white px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
-              Quick Family Setup · {onboardingChecklist.percent}% Complete
+        <div class="flex items-center gap-3 min-w-0">
+          <span class="w-9 h-9 rounded-xl bg-orange-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0">
+            🦊
+          </span>
+          <div class="min-w-0">
+            <p class="text-xs sm:text-sm font-extrabold text-stone-900">
+              Personalize your family shelf ({onboardingChecklist.percent}% ready)
+            </p>
+            <p class="text-xs text-stone-600 truncate">
+              Add your child's reader profile, bedtime sleep timer, and birthday for their annual $10 gift email.
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a
+            href="/account/onboarding"
+            class="cust-pressable rounded-full bg-orange-600 px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-orange-700"
+          >
+            Set Up Family Profile →
+          </a>
+          <button
+            type="button"
+            id="dismiss-onboarding-nudge"
+            class="cust-pressable rounded-full border border-stone-300 bg-white px-2.5 py-1 text-xs font-bold text-stone-500 hover:text-stone-800 cursor-pointer"
+            aria-label="Dismiss setup reminder for now"
+          >
+            Later ✕
+          </button>
+        </div>
+      </div>
+    )}
+
+    <!-- SHELF GRID OR ZERO-ORDER FIRST-RUN EXPERIENCE -->
+    <section id="shelf" class="mt-6" aria-label="Books on your shelf">
+      {books.length === 0 ? (
+        <div class="rounded-3xl border border-stone-200 bg-[#fcfaf6] p-6 sm:p-8">
+          <div class="max-w-2xl">
+            <span class="rounded-full bg-orange-100 text-orange-800 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+              Welcome to Big Brain Shelf
             </span>
-            <h2 id="onboarding-heading" class="text-lg font-extrabold tracking-tight text-stone-900 mt-1">
-              Set up your child's reader profile &amp; bedtime timer
+            <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight text-stone-900 mt-2">
+              Your family shelf is ready for its first story
             </h2>
-            <p class="text-xs text-stone-600 mt-0.5">
-              Built for kids ages 4–8 (and growing up to 18): create a reader profile, choose a sleep timer limit, and sync your digital books with the audiobook player.
+            <p class="text-sm text-stone-600 mt-1.5 leading-relaxed">
+              Every Big Brain Shelf title turns big ideas (courage, money, technology, science) into warm illustrated stories for ages 4–8. When you add a book, it appears right here with both <strong>playable</strong> and <strong>printable</strong> editions:
             </p>
           </div>
-          <div class="w-full sm:w-48">
-            <div class="h-2.5 rounded-full bg-orange-200/70 overflow-hidden">
-              <div
-                id="onboarding-progress-bar"
-                class="h-full bg-orange-600 rounded-full transition-all"
-                style={`width: ${onboardingChecklist.percent}%`}
-              ></div>
+
+          <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="rounded-2xl border border-stone-200 bg-white p-4">
+              <span class="text-xl" aria-hidden="true">✨</span>
+              <h3 class="text-sm font-extrabold text-stone-900 mt-1.5">Playable Read-Along</h3>
+              <p class="text-xs text-stone-600 mt-1">
+                Full-color story pages on top with a synced narrator below that turns the pages automatically for young readers.
+              </p>
             </div>
-            <p class="text-[11px] font-bold text-orange-800 mt-1 text-right">
-              {onboardingChecklist.steps.filter((s) => s.done).length} of {onboardingChecklist.steps.length} steps ready
-            </p>
-          </div>
-        </div>
-
-        <form id="family-onboarding-form" class="mt-4 bg-white rounded-xl border border-orange-200/80 p-4 sm:p-5 space-y-5">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label class="block text-xs font-bold text-stone-700">
-                Parent / Guardian Name
-                <input
-                  type="text"
-                  name="parent_name"
-                  value={parentOnboarding?.parent_name || ""}
-                  placeholder="e.g., Alex"
-                  class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium"
-                />
-              </label>
-
-              {/* Username (@handle) or Email Sign-in Choice + Live Availability Checker */}
-              <div class="mt-3 rounded-lg border border-stone-200 bg-stone-50/80 p-2.5">
-                <div class="flex items-center justify-between gap-2">
-                  <span class="text-xs font-extrabold text-stone-800">Username or Email</span>
-                  <span id="onboarding-username-status" class="text-[11px] font-bold text-stone-500" role="status">
-                    {session.user.displayUsername || session.user.username
-                      ? `✓ @${session.user.displayUsername || session.user.username}`
-                      : "Optional"}
-                  </span>
-                </div>
-                <div class="mt-1.5 flex items-center gap-3 text-[11px] font-semibold text-stone-700">
-                  <label class="inline-flex items-center gap-1 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="login_identity_mode"
-                      value="username"
-                      checked={Boolean(session.user.username)}
-                      id="identity-mode-username"
-                      class="accent-orange-600"
-                    />
-                    <span>Set a @username</span>
-                  </label>
-                  <label class="inline-flex items-center gap-1 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="login_identity_mode"
-                      value="email"
-                      checked={!session.user.username}
-                      id="identity-mode-email"
-                      class="accent-orange-600"
-                    />
-                    <span>Use my email</span>
-                  </label>
-                </div>
-                <div id="onboarding-username-box" class="mt-2 flex items-center gap-1.5">
-                  <div class="relative flex-1 flex items-center">
-                    <span class="absolute left-2.5 text-xs font-bold text-stone-400 select-none">@</span>
-                    <input
-                      type="text"
-                      id="onboarding-username-input"
-                      name="username"
-                      minlength="3"
-                      maxlength="30"
-                      pattern="[a-zA-Z0-9_.]*"
-                      value={session.user.displayUsername || session.user.username || ""}
-                      placeholder="alex_family"
-                      class="w-full rounded-lg border border-stone-300 bg-white pl-6 pr-2.5 py-1.5 text-xs font-semibold"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    id="onboarding-username-check-btn"
-                    class="shrink-0 rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-[11px] font-extrabold text-stone-700 hover:border-stone-500"
-                  >
-                    Check
-                  </button>
-                </div>
-                <p class="text-[10px] text-stone-500 mt-1">
-                  Sign in with your @username or {session.user.email}.
-                </p>
-              </div>
-              <label class="block text-xs font-bold text-stone-700 mt-3">
-                Optional 4-Digit Parent PIN
-                <input
-                  type="password"
-                  name="parent_pin"
-                  inputmode="numeric"
-                  maxlength="6"
-                  placeholder="e.g., 1234"
-                  class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium"
-                />
-              </label>
-              <label class="block text-xs font-bold text-stone-700 mt-3">
-                How did you find Big Brain Shelf?
-                <select
-                  name="discovery_source"
-                  class="mt-1 w-full rounded-lg border border-stone-300 px-2.5 py-2 text-sm font-semibold bg-white"
-                >
-                  <option value="">Choose one (optional)</option>
-                  {DISCOVERY_SOURCE_OPTIONS.map((opt) => (
-                    <option value={opt.id} selected={parentOnboarding?.discovery_source === opt.id}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <div class="rounded-2xl border border-stone-200 bg-white p-4">
+              <span class="text-xl" aria-hidden="true">🖍️</span>
+              <h3 class="text-sm font-extrabold text-stone-900 mt-1.5">Printable Coloring Book</h3>
+              <p class="text-xs text-stone-600 mt-1">
+                Print black-and-white line-art scenes at home so kids can color with crayons while listening to the story.
+              </p>
             </div>
-
-            <div>
-              <label class="block text-xs font-bold text-stone-700">
-                First Child's Name
-                <input
-                  type="text"
-                  name="kid_name"
-                  value={defaultKidProfile?.name || ""}
-                  placeholder="e.g., Maya"
-                  required
-                  class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium"
-                />
-              </label>
-              <label class="block text-xs font-bold text-stone-700 mt-3">
-                Child's Birthday (for their annual Birthday Gift email 🎂)
-                <input
-                  type="date"
-                  name="kid_birth_date"
-                  value={defaultKidProfile?.birth_date || ""}
-                  class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium"
-                />
-              </label>
-              <div class="grid grid-cols-2 gap-2 mt-3">
-                <label class="block text-xs font-bold text-stone-700">
-                  Age Group
-                  <select
-                    name="kid_age_group"
-                    class="mt-1 w-full rounded-lg border border-stone-300 px-2.5 py-2 text-sm font-semibold bg-white"
-                  >
-                    <option value="4-8" selected={!defaultKidProfile || defaultKidProfile.age_group === "4-8"}>Ages 4–8</option>
-                    <option value="9-12" selected={defaultKidProfile?.age_group === "9-12"}>Ages 9–12</option>
-                    <option value="13-18" selected={defaultKidProfile?.age_group === "13-18"}>Ages 13–18</option>
-                  </select>
-                </label>
-                <label class="block text-xs font-bold text-stone-700">
-                  Character Buddy
-                  <select
-                    name="kid_avatar"
-                    class="mt-1 w-full rounded-lg border border-stone-300 px-2.5 py-2 text-sm font-semibold bg-white"
-                  >
-                    {KID_AVATARS.map((av) => (
-                      <option value={av.id} selected={defaultKidProfile?.avatar_key === av.id}>
-                        {av.emoji} {av.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
-
-            <div class="flex flex-col justify-between">
-              <div class="grid grid-cols-2 gap-2">
-                <label class="block text-xs font-bold text-stone-700">
-                  Sleep Timer Stop
-                  <select
-                    name="kid_sleep_timer"
-                    class="mt-1 w-full rounded-lg border border-stone-300 px-2.5 py-2 text-sm font-semibold bg-white"
-                  >
-                    {SLEEP_TIMER_PRESETS.map((p) => (
-                      <option value={p.minutes} selected={p.minutes === 60}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label class="block text-xs font-bold text-stone-700">
-                  Daily Time Limit
-                  <select
-                    name="kid_daily_limit"
-                    class="mt-1 w-full rounded-lg border border-stone-300 px-2.5 py-2 text-sm font-semibold bg-white"
-                  >
-                    {DAILY_LIMIT_PRESETS.map((p) => (
-                      <option value={p.minutes} selected={p.minutes === 60}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <label class="block text-xs font-bold text-stone-700 mt-3">
-                Reading Goal
-                <select
-                  name="reading_goal"
-                  class="mt-1 w-full rounded-lg border border-stone-300 px-2.5 py-2 text-sm font-semibold bg-white"
-                >
-                  {READING_GOAL_OPTIONS.map((rg) => (
-                    <option value={rg.id} selected={parentOnboarding?.reading_goal === rg.id}>
-                      {rg.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <div class="rounded-2xl border border-stone-200 bg-white p-4">
+              <span class="text-xl" aria-hidden="true">🌙</span>
+              <h3 class="text-sm font-extrabold text-stone-900 mt-1.5">Bedtime Audiobook &amp; Timer</h3>
+              <p class="text-xs text-stone-600 mt-1">
+                Multi-chapter narration with a gentle bedtime sleep timer and downloadable M4B/EPUB files you keep forever.
+              </p>
             </div>
           </div>
 
-          {/* Current & Future Topics Survey (Helps shape our curriculum) */}
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t border-stone-200">
-            <fieldset>
-              <legend class="text-xs font-extrabold text-stone-800">
-                Which current topics does your child enjoy most?
-              </legend>
-              <p class="text-[11px] text-stone-500 mt-0.5">Select all that apply on today's shelf.</p>
-              <div class="mt-2 flex flex-wrap gap-2">
-                {CURRENT_TOPIC_OPTIONS.map((tp) => {
-                  const checked = (parentOnboarding?.favorite_topics || []).includes(tp.id);
-                  return (
-                    <label class="inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-stone-50 px-3 py-1.5 text-xs font-bold text-stone-800 cursor-pointer hover:border-orange-500">
-                      <input
-                        type="checkbox"
-                        name="favorite_topics"
-                        value={tp.id}
-                        checked={checked}
-                        class="accent-orange-600"
-                      />
-                      <span>{tp.emoji} {tp.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-
-            <fieldset>
-              <legend class="text-xs font-extrabold text-stone-800">
-                What future topics would your family love to learn next?
-              </legend>
-              <p class="text-[11px] text-stone-500 mt-0.5">History, science, math, space, and more—help us pick our next books.</p>
-              <div class="mt-2 flex flex-wrap gap-1.5">
-                {FUTURE_TOPIC_OPTIONS.map((ft) => {
-                  const checked = (parentOnboarding?.future_topics || []).includes(ft.id);
-                  return (
-                    <label class="inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-stone-50 px-2.5 py-1 text-xs font-semibold text-stone-800 cursor-pointer hover:border-orange-500">
-                      <input
-                        type="checkbox"
-                        name="future_topics"
-                        value={ft.id}
-                        checked={checked}
-                        class="accent-orange-600"
-                      />
-                      <span>{ft.emoji} {ft.label}</span>
-                    </label>
-                  );
-                })}
-              </div>
-              <input
-                type="text"
-                name="custom_topic_request"
-                value={parentOnboarding?.custom_topic_request || ""}
-                placeholder="Any specific topic idea? (e.g., Ancient Rome, Dinosaurs, Coding)"
-                class="mt-2 w-full rounded-lg border border-stone-300 px-3 py-1.5 text-xs"
-              />
-            </fieldset>
-          </div>
-
-          {/* Terms of Service, Privacy, and Marketing / Birthday Gift Email Opt-In */}
-          <div class="pt-3 border-t border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div class="space-y-1.5">
-              <label class="flex items-start gap-2 text-xs font-semibold text-stone-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="tos_accepted"
-                  value="1"
-                  required
-                  checked={parentOnboarding?.tos_accepted !== false}
-                  class="mt-0.5 accent-orange-600"
-                />
-                <span>
-                  I am a parent or guardian and agree to the{" "}
-                  <a href="/terms" class="underline font-bold text-stone-900 hover:text-orange-700">Terms of Service</a>{" "}
-                  and{" "}
-                  <a href="/privacy" class="underline font-bold text-stone-900 hover:text-orange-700">Privacy Policy</a>.
-                </span>
-              </label>
-              <label class="flex items-start gap-2 text-xs text-stone-600 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="marketing_opt_in"
-                  value="1"
-                  checked={parentOnboarding?.marketing_opt_in !== false}
-                  class="mt-0.5 accent-orange-600"
-                />
-                <span>
-                  Send me new book releases, reading tips, and my child's annual <strong>Birthday Gift email</strong>.
-                </span>
-              </label>
-            </div>
-            <div class="flex items-center gap-3 shrink-0">
-              <p id="onboarding-save-msg" class="text-xs font-semibold text-stone-600" role="status"></p>
-              <button
-                type="submit"
-                class="rounded-full bg-orange-600 text-white px-5 py-2.5 text-xs font-extrabold hover:bg-orange-700 active:scale-[0.97] transition"
+          <div class="mt-6 flex flex-wrap items-center gap-3">
+            <a
+              href="/books"
+              class="cust-pressable rounded-full bg-orange-600 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-700"
+            >
+              Explore Digital Bundles ($8.99) →
+            </a>
+            <a
+              href="/clubs"
+              class="cust-pressable rounded-full border border-stone-300 bg-white px-5 py-2.5 text-xs font-extrabold text-stone-800 hover:border-stone-500"
+            >
+              Join Audio Club ($5.99/mo) or Book Club →
+            </a>
+            {!onboardingChecklist.isComplete && (
+              <a
+                href="/account/onboarding"
+                class="cust-pressable rounded-full px-4 py-2 text-xs font-bold text-[#1a3454] hover:underline"
               >
-                Save Family Setup →
-              </button>
-            </div>
-          </div>
-        </form>
-      </section>
-    )}
-
-    <h2 id="shelf" class="text-xl font-bold tracking-tight mt-10 scroll-mt-20">My Shelf</h2>
-    <p class="text-sm text-stone-500 mt-1">Read and listen right here. The books you own are yours to download and keep.</p>
-    {books.length === 0 ? (
-      <div class="mt-6 text-center text-stone-500 py-16 rounded-xl border border-dashed border-stone-200">
-        <p class="text-stone-900 font-semibold text-lg">No books yet.</p>
-        <p class="text-sm mt-1">Books you buy, and books that arrive through the Book Club, will appear here ready to read, listen to, and download.</p>
-        <a href="/" class="inline-block mt-6 rounded-lg bg-orange-600 text-white text-sm font-semibold px-5 py-2.5 hover:bg-orange-700">Browse the shelf</a>
-        <a href="/clubs" class="inline-block mt-6 ml-2 rounded-lg border border-stone-300 text-sm font-semibold px-5 py-2.5 hover:border-stone-500 text-stone-700">See the Book Club</a>
-      </div>
-    ) : (
-      <div class="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-5 gap-y-8">
-        {books.map((b) => (
-          <div class="block">
-            {b.cover_key ? (
-              <img src={coverDerivative(b.slug, "card", b.cover_key) || (R2 + b.cover_key)} alt={b.title + " cover"} class="w-full aspect-[3/4] object-cover rounded-lg bg-stone-100" />
-            ) : (
-              <div class="w-full aspect-[3/4] rounded-lg bg-stone-100"></div>
-            )}
-            <h3 class="mt-3 text-sm font-semibold leading-snug">{b.title}</h3>
-            <p class="text-xs text-stone-500 capitalize">{b.topic || "tech"}</p>
-            {b.clubPlan === "audio" ? (
-              <p class="mt-1"><span class="rounded-full bg-orange-600 text-white px-2 py-0.5 text-[11px] font-semibold">Audio Club</span></p>
-            ) : (b.clubPlan === "physical" || ((b.sources || []).includes("club") && !(b.sources || []).includes("order"))) ? (
-              <p class="mt-1"><span class="rounded-full bg-[#1a3454] text-white px-2 py-0.5 text-[11px] font-semibold">Book Club</span></p>
-            ) : null}
-            {b.audioOnly ? (
-              <>
-                {b.clubPlan !== "audio" ? (
-                  <p class="mt-1"><span class="rounded-full bg-orange-100 text-orange-800 px-2 py-0.5 text-[11px] font-semibold">Audiobook only</span></p>
-                ) : null}
-                <div class="mt-2 flex flex-wrap gap-2">
-                  {b.audiobook_key ? (
-                    <a href={"/read/" + publicSlugFor(b) + "?listen=1"} class="text-xs font-semibold rounded-md bg-orange-600 text-white px-3 py-1.5 hover:bg-orange-700">Listen</a>
-                  ) : null}
-                  {b.owned && b.audiobook_key ? (
-                    <a data-astro-reload href={"/api/download?slug=" + b.slug + "&format=audiobook"} class="text-xs font-semibold rounded-md border border-stone-300 px-3 py-1.5 hover:border-stone-500">Audiobook</a>
-                  ) : null}
-                </div>
-                {b.owned && b.audiobook_key ? (
-                  <p class="text-[11px] text-stone-400 mt-1.5">For your family's personal use.</p>
-                ) : null}
-                {b.owned ? (
-                  <>
-                    <button type="button" class="unlock-digital mt-3 w-full text-xs font-semibold rounded-md bg-stone-900 text-white px-3 py-2 hover:bg-stone-700" data-slug={b.slug}>
-                      Unlock the digital book · {money(unlockPriceFor(b))}
-                    </button>
-                    <p class="unlock-msg text-xs text-stone-500 mt-1.5 hidden" role="status"></p>
-                  </>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <div class="mt-2 flex flex-wrap gap-2">
-                  <a href={"/read/" + publicSlugFor(b)} class="text-xs font-semibold rounded-md bg-stone-900 text-white px-3 py-1.5 hover:bg-stone-700">Read</a>
-                  {b.audiobook_key ? (
-                    <a href={"/read/" + publicSlugFor(b) + "?listen=1"} class="text-xs font-semibold rounded-md bg-orange-600 text-white px-3 py-1.5 hover:bg-orange-700">Listen</a>
-                  ) : null}
-                  <button
-                    type="button"
-                    data-open-qc-book={b.slug}
-                    class="text-xs font-semibold rounded-md border border-[#1a3454] text-[#1a3454] px-2.5 py-1.5 hover:bg-stone-100"
-                  >
-                    QC Viewer
-                  </button>
-                </div>
-                {b.owned ? (
-                  <div class="mt-2 flex flex-wrap gap-2">
-                    <a data-astro-reload href={"/api/download?slug=" + b.slug + "&format=picture"} class="text-xs font-semibold rounded-md border border-stone-300 px-3 py-1.5 hover:border-stone-500">Picture book</a>
-                    <a data-astro-reload href={"/api/download?slug=" + b.slug + "&format=coloring"} class="text-xs font-semibold rounded-md border border-stone-300 px-3 py-1.5 hover:border-stone-500">Coloring book</a>
-                    {b.epub_key ? (
-                      <a data-astro-reload href={"/api/download?slug=" + b.slug + "&format=epub"} class="text-xs font-semibold rounded-md border border-stone-300 px-3 py-1.5 hover:border-stone-500">EPUB</a>
-                    ) : null}
-                    {b.color_book_key ? (
-                      <a data-astro-reload href={"/api/download?slug=" + b.slug + "&format=color"} class="text-xs font-semibold rounded-md border border-stone-300 px-3 py-1.5 hover:border-stone-500">Color edition</a>
-                    ) : null}
-                    {b.audiobook_key ? (
-                      <a data-astro-reload href={"/api/download?slug=" + b.slug + "&format=audiobook"} class="text-xs font-semibold rounded-md border border-stone-300 px-3 py-1.5 hover:border-stone-500">Audiobook</a>
-                    ) : null}
-                  </div>
-                  <p class="text-[11px] text-stone-400 mt-1.5">For your family's personal use.</p>
-                ) : null}
-              </>
+                Finish 1-Minute Family Setup →
+              </a>
             )}
           </div>
-        ))}
-      </div>
-    )}
-
-    {/* Customer QC Book Viewer & Synced Audiobook Player Slot */}
-    <CustomerBookViewer books={books} />
-    <CustomerAudioDock books={books} defaultSleepMinutes={defaultSleepMinutes} />
-
-    {/* Kids & Family Profiles + Daily Limits & Sleep Timer Settings */}
-    <section
-      id="kids-family"
-      data-parent-only="true"
-      class="mt-14 rounded-2xl border border-stone-200 bg-stone-50/70 p-5 sm:p-7 scroll-mt-20"
-      aria-labelledby="kids-family-heading"
-    >
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 id="kids-family-heading" class="text-xl font-bold tracking-tight">
-            Kids &amp; Family Profiles
-          </h2>
-          <p class="text-sm text-stone-500 mt-1">
-            Create profiles for each child (ages 4–8 now, and up to 18 as they grow) with their own reading progress, daily time limits, and bedtime sleep timer.
-          </p>
         </div>
-        <button
-          type="button"
-          id="toggle-add-kid-btn"
-          class="rounded-full bg-[#1a3454] text-white px-4 py-2 text-xs font-bold hover:bg-[#132741]"
-        >
-          + Add Child Profile
-        </button>
-      </div>
-
-      {kidProfiles.length === 0 ? (
-        <p class="text-sm text-stone-500 mt-4">
-          No child profiles yet. Add a profile so your child gets a simplified Kid View with automatic sleep timers.
-        </p>
       ) : (
-        <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {kidProfiles.map((kp) => {
-            const av = KID_AVATARS.find((a) => a.id === kp.avatar_key) || KID_AVATARS[0];
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {books.map((b: any, idx: number) => {
+            const cover =
+              coverDerivative(b.slug, "card", b.cover_key) || (b.cover_key ? R2 + b.cover_key : null);
+            const hasAudio = Boolean(b.audiobook_key);
+            const audioOnly = Boolean(b.audioOnly);
+            const unlockCents = unlockPriceFor(b);
+            const prog = readingProgressList.find((p) => p.book_slug === b.slug);
+            const progPct =
+              prog && prog.total_pages > 0
+                ? Math.min(100, Math.round((prog.current_page / prog.total_pages) * 100))
+                : 0;
             return (
-              <article class="rounded-xl border border-stone-200 bg-white p-4 flex flex-col justify-between gap-3">
-                <div class="flex items-center gap-3">
-                  <span
-                    class="w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0 border border-stone-200"
-                    style={`background:${av.bg};color:${av.color}`}
-                  >
-                    {av.emoji}
-                  </span>
-                  <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-2">
-                      <h3 class="font-bold text-stone-900 truncate">{kp.name}</h3>
-                      <span class="rounded-full bg-stone-100 text-stone-700 px-2 py-0.5 text-[11px] font-bold">
-                        Ages {kp.age_group}
-                      </span>
-                    </div>
-                    <p class="text-xs text-stone-500 mt-0.5">
-                      {av.name} · {av.label}
-                    </p>
-                  </div>
-                </div>
-                <div class="grid grid-cols-2 gap-2 text-xs bg-stone-50 rounded-lg p-2.5 border border-stone-100">
-                  <div>
-                    <span class="text-stone-400 block text-[10px] font-bold uppercase">Sleep Timer</span>
-                    <span class="font-bold text-stone-800">
-                      {kp.default_sleep_timer_minutes === -1
-                        ? "End of chapter"
-                        : kp.default_sleep_timer_minutes > 0
-                          ? `${kp.default_sleep_timer_minutes} mins`
-                          : "Off"}
-                    </span>
-                  </div>
-                  <div>
-                    <span class="text-stone-400 block text-[10px] font-bold uppercase">Daily Limit</span>
-                    <span class="font-bold text-stone-800">
-                      {kp.daily_limit_minutes > 0
-                        ? `${kp.daily_minutes_used} / ${kp.daily_limit_minutes}m today`
-                        : "Unlimited"}
-                    </span>
-                  </div>
-                </div>
-                <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
-                  <div class="flex flex-wrap items-center gap-1.5">
-                    <button
-                      type="button"
-                      data-activate-kid-profile={kp.id}
-                      class="rounded-full bg-orange-600 text-white px-3.5 py-1.5 text-xs font-bold hover:bg-orange-700"
-                    >
-                      Switch to {kp.name}'s View
-                    </button>
-                    <button
-                      type="button"
-                      data-send-birthday-gift={kp.id}
-                      class="rounded-full border border-orange-200 bg-orange-50 text-orange-800 px-2.5 py-1 text-[11px] font-bold hover:bg-orange-100"
-                      title="Email a printable Birthday Activity & Coloring Pack for this child"
-                    >
-                      🎂 Birthday Gift
-                    </button>
-                  </div>
+              <article
+                class:list={[
+                  "shelf-book-card group rounded-2xl border p-3 transition flex flex-col justify-between bg-white",
+                  idx === 0 ? "border-orange-400 ring-2 ring-orange-200/70" : "border-stone-200 hover:border-stone-300",
+                ]}
+                data-book-card-slug={b.slug}
+              >
+                <div>
                   <button
                     type="button"
-                    data-delete-kid-profile={kp.id}
-                    class="text-xs text-stone-400 hover:text-red-600 font-semibold"
+                    data-shelf-open-slug={b.slug}
+                    data-shelf-open-tab={audioOnly ? "listen" : "readalong"}
+                    class="w-full text-left cursor-pointer focus:outline-none"
                   >
-                    Remove
+                    <div
+                      class="aspect-square rounded-xl bg-stone-100 overflow-hidden mb-2.5 border border-stone-200 relative"
+                      transition:name={`book-cover-${b.slug}`}
+                    >
+                      {cover && (
+                        <img
+                          src={cover}
+                          alt={b.title}
+                          width="300"
+                          height="300"
+                          loading="lazy"
+                          decoding="async"
+                          class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200"
+                        />
+                      )}
+                      {progPct > 0 && (
+                        <div class="absolute bottom-0 inset-x-0 bg-stone-900/75 text-white px-2 py-0.5 text-[10px] font-bold flex items-center justify-between">
+                          <span>Page {prog?.current_page}</span>
+                          <span>{progPct}%</span>
+                        </div>
+                      )}
+                    </div>
+                    <h3 class="font-extrabold text-xs sm:text-sm leading-snug text-stone-900 line-clamp-2">
+                      {b.title}
+                    </h3>
+                    <p class="text-[11px] text-stone-500 mt-0.5">{b.topic}</p>
                   </button>
                 </div>
+
+                <!-- Compact 2-Button Action Row (Selects Book into Stage Below) -->
+                <div class="mt-3 pt-2 border-t border-stone-100 flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    data-shelf-open-slug={b.slug}
+                    data-shelf-open-tab={audioOnly ? "listen" : "readalong"}
+                    class="cust-pressable flex-1 rounded-lg bg-orange-600 px-2.5 py-1.5 text-[11px] font-extrabold text-white hover:bg-orange-700 text-center cursor-pointer"
+                  >
+                    {audioOnly ? "🎧 Listen" : "✨ Read & Listen"}
+                  </button>
+                  {!audioOnly && (
+                    <button
+                      type="button"
+                      data-shelf-open-slug={b.slug}
+                      data-shelf-open-tab="printables"
+                      data-parent-only="true"
+                      class="cust-pressable rounded-lg border border-stone-200 bg-stone-50 px-2 py-1.5 text-[11px] font-bold text-stone-700 hover:border-stone-400 cursor-pointer"
+                      title="Printable coloring pages & PDF downloads"
+                    >
+                      🖨️ PDFs
+                    </button>
+                  )}
+                </div>
+
+                {audioOnly && (
+                  <p class="mt-2 text-[11px] text-stone-600" data-parent-only="true">
+                    <a
+                      href={`/books/${publicSlugFor(b)}?upgrade=digital`}
+                      class="font-bold text-orange-700 hover:underline"
+                    >
+                      + Add Storybook &amp; Coloring PDFs ({money(unlockCents)})
+                    </a>
+                  </p>
+                )}
               </article>
             );
           })}
         </div>
       )}
-
-      {/* Add / Edit Child Profile Form */}
-      <form
-        id="add-kid-profile-form"
-        class="hidden mt-5 rounded-xl border border-stone-200 bg-white p-4 sm:p-5"
-      >
-        <h3 class="text-sm font-extrabold text-stone-900">New Child Reader Profile</h3>
-        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <label class="block text-xs font-bold text-stone-700">
-            Child's Name
-            <input
-              type="text"
-              name="name"
-              required
-              placeholder="e.g., Leo"
-              class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label class="block text-xs font-bold text-stone-700">
-            Birthday (optional, for Birthday Gift 🎂)
-            <input
-              type="date"
-              name="birth_date"
-              class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label class="block text-xs font-bold text-stone-700">
-            Age Band
-            <select name="age_group" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm bg-white">
-              <option value="4-8">Ages 4–8 (Early Reader)</option>
-              <option value="9-12">Ages 9–12 (Growing Reader)</option>
-              <option value="13-18">Ages 13–18 (Teen / Deep Dives)</option>
-            </select>
-          </label>
-          <label class="block text-xs font-bold text-stone-700">
-            Character Buddy
-            <select name="avatar_key" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm bg-white">
-              {KID_AVATARS.map((av) => (
-                <option value={av.id}>
-                  {av.emoji} {av.name} ({av.label})
-                </option>
-              ))}
-            </select>
-          </label>
-          <label class="block text-xs font-bold text-stone-700">
-            Default Sleep Timer
-            <select name="default_sleep_timer_minutes" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm bg-white">
-              {SLEEP_TIMER_PRESETS.map((p) => (
-                <option value={p.minutes} selected={p.minutes === 60}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label class="block text-xs font-bold text-stone-700">
-            Daily Reading/Listening Limit
-            <select name="daily_limit_minutes" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm bg-white">
-              {DAILY_LIMIT_PRESETS.map((p) => (
-                <option value={p.minutes} selected={p.minutes === 60}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div class="mt-4 flex items-center justify-end gap-2">
-          <span id="add-kid-msg" class="text-xs text-stone-500"></span>
-          <button
-            type="submit"
-            class="rounded-full bg-orange-600 text-white px-5 py-2 text-xs font-extrabold hover:bg-orange-700"
-          >
-            Save Child Profile
-          </button>
-        </div>
-      </form>
     </section>
 
-    <section id="orders" data-parent-only="true" class="mt-14 scroll-mt-20">
-      <h2 class="text-xl font-bold tracking-tight">Your orders</h2>
-      {orderViews.length === 0 ? (
-        <p class="text-sm text-stone-500 mt-3">No orders yet. When you buy a book, the order and its receipt will live here.</p>
-      ) : (
-        <div class="mt-4 flex flex-col gap-5">
-          {orderViews.map((v) => (
-            <article class="orderblock p-4 sm:p-5">
-              <h3 class="font-bold tracking-tight">Order {v.shortId}</h3>
-              <div class="orderband mt-3 flex flex-wrap items-center gap-x-8 gap-y-3">
-                <dl class="grid grid-cols-3 gap-x-8 gap-y-2 flex-1 min-w-[240px]">
-                  <div><dt>Date placed</dt><dd>{v.dateLong}</dd></div>
-                  <div><dt>Order number</dt><dd>{v.shortId}</dd></div>
-                  <div><dt>Total amount</dt><dd>{money(v.order.amount)}</dd></div>
-                </dl>
-                <a href={`/account/receipt?order=${v.order.id}`} class="inline-flex items-center justify-center min-h-[44px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition duration-100 active:scale-[0.97]">View receipt</a>
-              </div>
-              <table class="ptable mt-2">
-                <thead class="hidden sm:table-header-group">
-                  <tr>
-                    <th scope="col">Product</th>
-                    <th scope="col">Price</th>
-                    <th scope="col">Status</th>
-                    <th scope="col"><span class="sr-only">Info</span></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {v.items.map((it) => (
-                    <tr>
-                      <td>
-                        <div class="flex items-center gap-3 min-w-0">
-                          {it.cover
-                            ? <img src={it.cover} alt="" width="64" height="64" class="w-16 h-16 rounded-lg object-cover border border-stone-200 flex-none" loading="lazy" />
-                            : <span class="w-16 h-16 rounded-lg bg-stone-100 border border-stone-200 flex-none"></span>}
-                          <div class="min-w-0">
-                            <p class="font-semibold text-sm leading-snug">{it.title}</p>
-                            <p class="mt-1.5 flex items-center gap-2">
-                              <FormatChip format={it.format} />
-                              <span class="text-[13px] text-stone-500 tabular-nums sm:hidden">{money(it.price)}{it.count > 1 && <span> × {it.count}</span>}</span>
-                            </p>
-                            {it.creditNote && <p class="text-xs text-stone-400 mt-1">Audiobook credit applied</p>}
-                          </div>
-                        </div>
-                      </td>
-                      <td class="hidden sm:table-cell whitespace-nowrap font-semibold text-sm tabular-nums">
-                        {money(it.price)}
-                        {it.count > 1 && <span class="text-stone-400 font-normal"> × {it.count}</span>}
-                      </td>
-                      <td class="hidden sm:table-cell text-sm text-stone-600">
-                        {(it.format === "printed" || it.format === "giftset") && v.physicalLabel ? v.physicalLabel : "In your library"}
-                        {(it.format === "printed" || it.format === "giftset") && v.order.physical_status === "shipped" && v.trackingLine && (
-                          <span class="block text-xs text-stone-400 mt-0.5">{v.trackingLine}</span>
-                        )}
-                      </td>
-                      <td class="hidden sm:table-cell whitespace-nowrap text-sm">
-                        <span class="flex flex-col items-start gap-1">
-                          <a href={it.format === "audio" ? `/audiobooks/${it.publicSlug}` : `/books/${it.publicSlug}`} class="font-semibold text-orange-700 hover:text-orange-800">View Product</a>
-                          {it.format !== "audio" && (
-                            <a href={`/read/${it.publicSlug}`} class="text-xs font-semibold text-stone-500 hover:text-stone-800">Read</a>
-                          )}
-                          {it.hasAudio && (
-                            <a href={`/read/${it.publicSlug}?listen=1`} class="text-xs font-semibold text-stone-500 hover:text-stone-800">Listen</a>
-                          )}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                {Number(v.order.shipping_cents || 0) > 0 && (
-                  <tfoot>
-                    <tr>
-                      <td colspan="4" class="text-sm text-stone-500">
-                        Shipping
-                        <span class="float-right font-semibold text-stone-900 tabular-nums">{money(v.order.shipping_cents)}</span>
-                      </td>
-                    </tr>
-                  </tfoot>
-                )}
-              </table>
-            </article>
-          ))}
-        </div>
-      )}
-    </section>
+    <!-- UNIFIED BOOK VIEWER, READ-ALONG, AUDIOBOOK PLAYER & PRINTABLES STAGE -->
+    {books.length > 0 && (
+      <CustomerBookViewer books={books} defaultSleepMinutes={defaultSleepMinutes} />
+    )}
+    {books.length > 0 && (
+      <p class="text-[11px] text-stone-400 mt-3">For your family's personal use.</p>
+    )}
 
-    <section id="reviews" data-parent-only="true" class="mt-14 scroll-mt-20">
-      <h2 class="text-xl font-bold tracking-tight">My reviews</h2>
-      {myReviews.length === 0 ? (
-        <p class="text-sm text-stone-500 mt-3">You have not reviewed any books yet. Reviews help other parents find the right book, and every one is checked by a person before it goes live.</p>
-      ) : (
-        <div class="mt-4 flex flex-col gap-3">
-          {myReviews.map((r: any) => (
-            <article class="rounded-xl border border-stone-200 p-4 flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span class="text-orange-500 tracking-tight">{[1, 2, 3, 4, 5].map((i) => (i <= Number(r.rating || 0) ? "★" : "☆")).join("")}</span>
-              <a href={`/books/${r.book_public_slug || r.book_slug}`} class="font-medium text-sm hover:underline">{r.book_title || r.book_slug}</a>
-              <span class="text-sm text-stone-500">“{r.title}”</span>
-              <span class={`ml-auto rounded-full px-3 py-1 text-xs font-semibold ${r.status === "approved" ? "bg-green-50 text-green-700" : r.status === "rejected" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}`}>
-                {REVIEW_STATUS_LABELS[r.status] || r.status}
-              </span>
-            </article>
-          ))}
-        </div>
-      )}
-    </section>
-
-    <section id="book-club" data-parent-only="true" class="mt-14 mb-6 rounded-2xl bg-[#1a3454] text-white p-6 sm:p-8 scroll-mt-20">
-      <h2 class="text-xl font-extrabold tracking-tight">Book Club</h2>
-      {clubSignup?.status === "paid" && clubPlan === "audio" ? (
-        <>
-        <p class="text-white/80 text-sm leading-relaxed mt-2">
-          You are an <strong class="text-white">Audio Club</strong> member on the <strong class="text-white">{clubSignup.plan === "annual" ? "annual" : "monthly"}</strong> plan ({clubSignup.plan === "annual" ? clubPriceLabel(AUDIO_CLUB_ANNUAL_PRICE_CENTS) + " a year" : clubPriceLabel(AUDIO_CLUB_PRICE_CENTS) + " a month"}). Every Big Brain Shelf audiobook is in your library above, ready to listen to, for as long as your membership is active. The Audio Club is listening only: no printed sets ship on this plan, and the books stay in your library only while the membership runs.
-        </p>
-        {clubBillingPaused && (
-          <p class="mt-3 rounded-lg bg-amber-400/20 border border-amber-300/40 text-amber-100 text-sm leading-relaxed px-4 py-3">
-            Your latest Audio Club payment did not go through, so your listening access is paused until the payment is fixed. Once it is, every audiobook comes right back.
-          </p>
-        )}
-        <div class="mt-6 border-t border-white/15 pt-5">
-          <h3 class="font-bold">Want the printed books too?</h3>
-          <p class="text-white/80 text-sm leading-relaxed mt-1">
-            Upgrade to The Book Club: a printed gift set plus a second printed book every 3 months, the whole shelf in your library, and the club book yours to keep digitally. Your Audio Club subscription is cancelled the moment the upgrade lands, so you are never billed for both.
-          </p>
-          <div class="flex flex-wrap gap-3 mt-4">
-            <button type="button" data-club-upgrade="quarterly" class="rounded-full bg-orange-600 text-white text-sm font-semibold px-6 py-2.5 hover:bg-orange-700 transition">Upgrade · {clubPriceLabel()} every 3 months</button>
-            <button type="button" data-club-upgrade="annual" class="rounded-full bg-white text-[#1a3454] text-sm font-semibold px-6 py-2.5 hover:bg-orange-50 transition">Upgrade · {clubPriceLabel(CLUB_ANNUAL_PRICE_CENTS)} a year</button>
-          </div>
-          <p id="club-upgrade-msg" class="text-sm mt-3 hidden" role="status"></p>
-        </div>
-        </>
-      ) : clubSignup?.status === "paid" ? (
-        <>
-        <p class="text-white/80 text-sm leading-relaxed mt-2">
-          You are a paid Book Club member on the <strong class="text-white">{clubSignup.plan === "annual" ? "annual" : "every 3 months"}</strong> plan ({clubSignup.plan === "annual" ? clubPriceLabel(CLUB_ANNUAL_PRICE_CENTS) + " a year" : clubPriceLabel() + " every 3 months"}, your price stays locked while your membership stays active). Your starting shelf is <strong class="text-white">{shelfLabel(clubSignup.shelf)}</strong>. Your printed boxes arrive on your own cycle: the first was due the day you joined, and a new box follows every 3 months from your join date. While your membership is active, every published book is in your library above too, digital and audiobook included; if the membership ends, those go back to the shelf and only the books you own stay.
-        </p>
-        {clubBillingPaused && (
-          <p class="mt-3 rounded-lg bg-amber-400/20 border border-amber-300/40 text-amber-100 text-sm leading-relaxed px-4 py-3">
-            Your latest Book Club payment did not go through, so your boxes are paused until the payment is fixed. Once it is, your boxes pick right back up here.
-          </p>
-        )}
-        {clubBox ? (
-          <div class="mt-5 rounded-xl bg-white/10 p-4 sm:p-5">
-            <h3 class="font-bold">Your next box ships {formatClubDate(clubBox.ship_date)}</h3>
-            {clubBox.status === "awaiting_selection" && (
-              <>
-                <p class="text-white/80 text-sm leading-relaxed mt-1">
-                  {clubBox.selected_book_slug
-                    ? <>Your club book pick: <strong class="text-white">{clubCurrentTitle || clubBox.selected_book_slug}</strong>. You can change it until selections lock on {clubTiming ? formatClubDate(clubTiming.lockDate) : ""}.</>
-                    : <>Your club book is set to <strong class="text-white">Surprise me</strong>. Leave it like that and we will choose a book you do not already have when selections lock on {clubTiming ? formatClubDate(clubTiming.lockDate) : ""}. Pick a specific book below any time before then.</>}
-                </p>
-                <p class="text-white/80 text-sm leading-relaxed mt-1">
-                  {clubBox.second_selected_book_slug
-                    ? <>Your second book pick: <strong class="text-white">{clubSecondTitle || clubBox.second_selected_book_slug}</strong>.</>
-                    : <>Your second book is set to <strong class="text-white">Surprise me</strong>: a back catalog book you do not have yet.</>}
-                </p>
-              </>
-            )}
-            {clubBox.status === "locked" && (
-              <p class="text-white/80 text-sm leading-relaxed mt-1">
-                Your box is locked in: <strong class="text-white">{clubCurrentTitle || clubBox.resolved_book_slug}</strong> as the full gift set{clubSecondTitle || clubBox.second_resolved_book_slug ? <>, plus <strong class="text-white">{clubSecondTitle || clubBox.second_resolved_book_slug}</strong> from the back catalog</> : null}, with a sticker sheet and a little extra from the cast in the same box.
-              </p>
-            )}
-            {clubBox.status === "preparing" && (
-              <p class="text-white/80 text-sm leading-relaxed mt-1">
-                Your box with <strong class="text-white">{clubCurrentTitle || clubBox.resolved_book_slug}</strong>{clubSecondTitle || clubBox.second_resolved_book_slug ? <> and <strong class="text-white">{clubSecondTitle || clubBox.second_resolved_book_slug}</strong></> : null} is being prepared now. We will email you the tracking number when it ships.
-              </p>
-            )}
-            {clubBox.status === "needs_attention" && (
-              <p class="mt-1 rounded-lg bg-amber-400/20 border border-amber-300/40 text-amber-100 text-sm leading-relaxed px-4 py-3">
-                We could not surprise you this time: every book we can send is already in your library or in one of your earlier club boxes. Pick a repeat or gift copy below and we will get this box ready. Until you do, the box waits rather than duplicating a book by accident.
-              </p>
-            )}
-            {(clubBox.status === "awaiting_selection" || clubBox.status === "needs_attention") && (
-              <form id="club-pick-form" data-ship-date={clubBox.ship_date} class="mt-4">
-                <fieldset>
-                  <legend class="text-sm font-semibold">Choose the club book for this box (it ships as the gift set)</legend>
-                  <div class="mt-2 grid gap-2">
-                    <label class="flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm cursor-pointer">
-                      <input type="radio" name="club-pick" value="surprise" checked={!clubBox.selected_book_slug} class="mt-1" />
-                      <span><strong>Surprise me</strong><br /><span class="text-white/70">We choose a book you do not already have.</span></span>
-                    </label>
-                    {clubPickOptions.map((o: any) => (
-                      <label class={`flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm ${o.blocked && clubBox.selected_book_slug !== o.slug ? "opacity-60" : "cursor-pointer"}`}>
-                        <input
-                          type="radio"
-                          name="club-pick"
-                          value={o.slug}
-                          data-blocked={o.blocked ? "1" : "0"}
-                          disabled={o.blocked && clubBox.selected_book_slug !== o.slug && !clubBox.allow_repeat}
-                          checked={clubBox.selected_book_slug === o.slug}
-                          class="mt-1"
-                        />
-                        <span>{o.title}{o.blocked ? <><br /><span class="text-white/70">{o.reason}</span></> : null}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-                <fieldset class="mt-4">
-                  <legend class="text-sm font-semibold">Choose the second book (from the back catalog)</legend>
-                  <div class="mt-2 grid gap-2">
-                    <label class="flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm cursor-pointer">
-                      <input type="radio" name="club-pick-2" value="surprise" checked={!clubBox.second_selected_book_slug} class="mt-1" />
-                      <span><strong>Surprise me</strong><br /><span class="text-white/70">We choose a back catalog book you do not already have.</span></span>
-                    </label>
-                    {clubPickOptions2.map((o: any) => (
-                      <label class={`flex items-start gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm ${o.blocked && clubBox.second_selected_book_slug !== o.slug ? "opacity-60" : "cursor-pointer"}`}>
-                        <input
-                          type="radio"
-                          name="club-pick-2"
-                          value={o.slug}
-                          data-blocked={o.blocked ? "1" : "0"}
-                          disabled={o.blocked && clubBox.second_selected_book_slug !== o.slug && !clubBox.allow_repeat}
-                          checked={clubBox.second_selected_book_slug === o.slug}
-                          class="mt-1"
-                        />
-                        <span>{o.title}{o.blocked ? <><br /><span class="text-white/70">{o.reason}</span></> : null}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-                <label class="mt-3 flex items-start gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" id="club-allow-repeat" checked={clubBox.allow_repeat === 1} class="mt-1" />
-                  <span>I am choosing a repeat on purpose (a second copy, or a gift).</span>
-                </label>
-                <div class="mt-3 flex items-center gap-3">
-                  <button type="submit" class="rounded-full bg-orange-400 px-5 py-2 text-sm font-bold text-[#1a3454] hover:bg-orange-300">Save my picks</button>
-                  <p id="club-pick-msg" class="text-sm text-white/80" role="status"></p>
-                </div>
-              </form>
-            )}
-          </div>
-        ) : (
-          !clubBillingPaused && (
-            <p class="text-white/80 text-sm leading-relaxed mt-3">Your next box will appear here with its book choices as its due date approaches.</p>
-          )
-        )}
-        </>
-      ) : clubSignup?.status === "canceled" ? (
-        <p class="text-white/80 text-sm leading-relaxed mt-2">
-          Your Book Club membership is canceled, so no further sets will ship. You are welcome back any time spots remain.
-          <a href="/clubs" class="ml-1 font-semibold text-orange-300 hover:text-orange-200">Rejoin the Book Club</a>
-        </p>
-      ) : clubSignup ? (
-        <p class="text-white/80 text-sm leading-relaxed mt-2">
-          You reserved a spot with the <strong class="text-white">{shelfLabel(clubSignup.shelf)}</strong> shelf. Membership is open to join, and joining activates this same reservation.
-          <a href="/clubs" class="ml-1 font-semibold text-orange-300 hover:text-orange-200">Join the Book Club</a>
-        </p>
-      ) : (
-        <p class="text-white/80 text-sm leading-relaxed mt-2">
-          A printed set every quarter, the digital editions in your library from day one, and first dibs on new releases.
-          <a href="/clubs" class="ml-1 font-semibold text-orange-300 hover:text-orange-200">Join the Book Club</a>
-        </p>
-      )}
-    </section>
-
-    {/* Family Referral Program ("Give $10, Get $10" double-sided reward) */}
-    <section
-      id="referrals"
-      data-parent-only="true"
-      class="mt-14 rounded-2xl border-2 border-orange-200 bg-gradient-to-br from-orange-50 via-amber-50/60 to-white p-6 sm:p-8 scroll-mt-20"
-      aria-labelledby="referrals-heading"
-    >
-      <div class="flex flex-wrap items-start justify-between gap-6">
-        <div class="max-w-xl">
-          <span class="inline-block rounded-full bg-orange-600 text-white px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
-            Family Referral Program · Give $10, Get $10
-          </span>
-          <h2 id="referrals-heading" class="text-xl sm:text-2xl font-extrabold tracking-tight text-stone-900 mt-2">
-            Give another family $10 toward their first book. Get $10 for your child's shelf.
-          </h2>
-          <p class="text-sm text-stone-600 mt-2 leading-relaxed">
-            Know a parent raising a curious 4-to-8-year-old? Share your family link below. They get $10 off their first Big Brain Shelf bundle or Book Club box, and we add a $10 credit to your account as soon as they order.
-          </p>
-        </div>
-
-        <div class="w-full md:w-auto flex-1 min-w-[280px] max-w-md bg-white rounded-xl border border-orange-200 p-4 shadow-sm">
-          <label for="family-referral-url" class="block text-xs font-extrabold uppercase tracking-wider text-stone-500">
-            Your Personal Family Link
-          </label>
-          <div class="mt-1.5 flex items-center gap-2">
-            <input
-              id="family-referral-url"
-              type="text"
-              readonly
-              value={referralShareUrl}
-              class="w-full rounded-lg border border-stone-300 bg-stone-50 px-3 py-2 text-xs font-mono text-stone-800 select-all"
-            />
-            <button
-              type="button"
-              id="copy-referral-btn"
-              data-referral-url={referralShareUrl}
-              data-referral-code={familyReferralCode}
-              class="shrink-0 rounded-lg bg-orange-600 text-white px-3.5 py-2 text-xs font-extrabold hover:bg-orange-700"
-            >
-              Copy Link
-            </button>
-          </div>
-          <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <span class="text-xs font-bold text-stone-500">
-              Code: <strong class="text-stone-900 font-mono">{familyReferralCode}</strong>
-            </span>
-            <a
-              id="email-referral-link"
-              href={`mailto:?subject=${encodeURIComponent("A kids book series our family loves ($10 off for you)")}&body=${encodeURIComponent(`Hey! We've been reading and listening to Big Brain Shelf with our kids and thought of your family. Here is a link for $10 toward your first book or audiobook bundle: ${referralShareUrl}`)}`}
-              class="text-xs font-extrabold text-orange-700 hover:text-orange-800 underline"
-            >
-              Share via Email →
-            </a>
-          </div>
-          <p id="referral-copy-msg" class="text-xs font-semibold text-green-700 mt-1.5 hidden" role="status"></p>
-        </div>
-      </div>
-    </section>
-
-    {/* Sign-in & security: passkeys + active sessions (better-auth) */}
-    <section id="security" data-parent-only="true" class="mt-14 mb-6 rounded-2xl border border-stone-200 bg-white p-6 sm:p-8 scroll-mt-20">
-      <h2 class="text-xl font-bold tracking-tight">Sign-in &amp; security</h2>
-      <p id="security-note" class="text-sm text-stone-500 mt-1">Passkeys let you sign in with Face ID, Touch ID, or a security key. Sessions show where your account is signed in.</p>
-
-      <h3 class="text-sm font-bold mt-6">Your passkeys</h3>
-      <div id="passkey-list" class="mt-2 space-y-2 text-sm text-stone-600">Loading...</div>
-      <div class="mt-3 flex flex-wrap items-center gap-2">
-        <input id="passkey-name" type="text" placeholder="Name this passkey (e.g. My iPhone)" class="rounded-lg border border-stone-300 px-3 py-2 text-sm w-64" />
-        <button id="add-passkey-btn" type="button" class="rounded-lg bg-orange-600 text-white px-4 py-2 text-sm font-semibold hover:bg-orange-700">Add a passkey</button>
-      </div>
-      <p id="passkey-msg" class="text-sm mt-2 hidden"></p>
-
-      <h3 class="text-sm font-bold mt-8">Active sessions</h3>
-      <div id="session-list" class="mt-2 space-y-2 text-sm text-stone-600">Loading...</div>
-    </section>
+    <!-- Hidden Audio Engine & Persistent Mini-Bar -->
+    {books.length > 0 && (
+      <CustomerAudioDock
+        books={books.map((b: any) => ({
+          slug: b.slug,
+          title: b.title,
+          coverUrl: coverDerivative(b.slug, "card", b.cover_key) || (b.cover_key ? R2 + b.cover_key : null),
+          audiobook_key: b.audiobook_key,
+        }))}
+        defaultSleepMinutes={defaultSleepMinutes}
+      />
+    )}
   </main>
 
   <script is:inline>
-    // Audiobook-only unlock: starts a checkout for just the digital
-    // format of that book. The server recomputes the price from the
-    // account's entitlements (digital price minus the audio credit);
-    // the amount printed on the button is only the display copy.
-    // Bind-once per button, like the other account scripts.
-    function initUnlock() {
-      document.querySelectorAll(".unlock-digital").forEach(function (btn) {
-        if (btn.__unlockBound) return;
-        btn.__unlockBound = true;
-        btn.addEventListener("click", async function () {
-          var card = btn.closest("div");
-          var msg = card ? card.querySelector(".unlock-msg") : null;
-          btn.disabled = true;
-          if (msg) { msg.classList.remove("hidden"); msg.textContent = "Taking you to checkout..."; }
-          try {
-            var r = await fetch("/api/checkout", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ items: [{ slug: btn.getAttribute("data-slug"), format: "digital" }] }),
-            });
-            var data = await r.json().catch(function () { return {}; });
-            if (!r.ok || !data.url) throw new Error(data.error || "Checkout failed.");
-            window.location.href = data.url;
-          } catch (err) {
-            if (msg) msg.textContent = err.message;
-            btn.disabled = false;
-          }
-        });
-      });
-    }
-    initUnlock();
-    document.addEventListener("astro:page-load", initUnlock);
-  </script>
-  <script is:inline>
-    // Sign-out wiring. Runs on first render and again on
-    // astro:page-load so the button works after view-transition
-    // navigations; the flag keeps it from binding twice.
-    function initSignout() {
-      var btn = document.getElementById("signout");
-      if (!btn || btn.__signoutBound) return;
-      btn.__signoutBound = true;
-      btn.addEventListener("click", async function () {
-        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-        await fetch("/api/admin-auth/logout", { method: "POST" }).catch(function () {});
-        window.location.href = "/";
-      });
-    }
-    initSignout();
-    document.addEventListener("astro:page-load", initSignout);
-  </script>
-  <script is:inline>
-    // Passkeys + sessions manager for the security section.
-    // is:inline like the rest of this page (module scripts with
-    // imports ship verbatim in this build), so it talks to the
-    // better-auth endpoints with plain fetch and hand-rolled
-    // WebAuthn. Degrades to a note without a better-auth session.
-    function secB64urlToBuf(s) {
-      s = String(s).replace(/-/g, "+").replace(/_/g, "/");
-      while (s.length % 4) s += "=";
-      var bin = atob(s);
-      var b = new Uint8Array(bin.length);
-      for (var i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
-      return b.buffer;
-    }
-    function secBufToB64url(buf) {
-      var b = new Uint8Array(buf);
-      var s = "";
-      for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
-      return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-    }
-
-    function initSecurity() {
-      var list = document.getElementById("passkey-list");
-      if (!list || list.__secBound) return;
-      list.__secBound = true;
-      var sessionsEl = document.getElementById("session-list");
-      var msg = document.getElementById("passkey-msg");
-
-      function showMsg(text, ok) {
-        if (!msg) return;
-        msg.textContent = text;
-        msg.className = "text-sm mt-2 " + (ok ? "text-green-700" : "text-red-600");
-      }
-      async function jget(url) {
-        var r = await fetch(url, { headers: { "Content-Type": "application/json" } });
-        var d = await r.json().catch(function () { return null; });
-        if (!r.ok) throw new Error((d && d.message) || "request failed");
-        return d;
-      }
-      async function jpost(url, body) {
-        var r = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body || {}),
-        });
-        var d = await r.json().catch(function () { return null; });
-        if (!r.ok) throw new Error((d && d.message) || "request failed");
-        return d;
-      }
-
-      async function renderPasskeys() {
-        try {
-          var keys = await jget("/api/auth/passkey/list-user-passkeys");
-          if (!Array.isArray(keys)) throw new Error("unauthorized");
-          if (!keys.length) {
-            list.textContent = "No passkeys yet. Add one below to sign in faster next time.";
-            return;
-          }
-          list.innerHTML = "";
-          keys.forEach(function (k) {
-            var row = document.createElement("div");
-            row.className = "flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-3 py-2";
-            var label = document.createElement("span");
-            var when = k.createdAt ? new Date(k.createdAt).toLocaleDateString() : "";
-            label.textContent = (k.name || "Passkey") + (when ? " · added " + when : "");
-            var del = document.createElement("button");
-            del.type = "button";
-            del.textContent = "Remove";
-            del.className = "text-xs font-semibold text-red-600 hover:underline";
-            del.addEventListener("click", async function () {
-              del.disabled = true;
-              try {
-                await jpost("/api/auth/passkey/delete-passkey", { id: k.id });
-                showMsg("Passkey removed.", true);
-                renderPasskeys();
-              } catch (ex) {
-                showMsg("That passkey could not be removed.", false);
-                del.disabled = false;
-              }
-            });
-            row.appendChild(label);
-            row.appendChild(del);
-            list.appendChild(row);
+    (function () {
+      function initShelfPage() {
+        // Dismissible onboarding nudge
+        var nudge = document.getElementById("shelf-onboarding-nudge");
+        var dismissBtn = document.getElementById("dismiss-onboarding-nudge");
+        var NUDGE_KEY = "bbs.dismissOnboardingNudge";
+        if (nudge && sessionStorage.getItem(NUDGE_KEY) === "1") {
+          nudge.classList.add("hidden");
+        }
+        if (dismissBtn && nudge && !dismissBtn.dataset.bound) {
+          dismissBtn.dataset.bound = "1";
+          dismissBtn.addEventListener("click", function () {
+            sessionStorage.setItem(NUDGE_KEY, "1");
+            nudge.classList.add("hidden");
           });
-        } catch (ex) {
-          list.textContent = "Sign in with email or Google to manage passkeys and sessions.";
-          if (sessionsEl) sessionsEl.textContent = "";
-          var addBtn = document.getElementById("add-passkey-btn");
-          if (addBtn) addBtn.disabled = true;
         }
-      }
 
-      async function renderSessions() {
-        if (!sessionsEl) return;
-        try {
-          var cur = await jget("/api/auth/get-session").catch(function () { return null; });
-          var curToken = cur && cur.session ? cur.session.token : null;
-          var sessions = await jget("/api/auth/list-sessions");
-          if (!Array.isArray(sessions)) throw new Error("unauthorized");
-          if (!sessions.length) { sessionsEl.textContent = "No active sessions found."; return; }
-          sessionsEl.innerHTML = "";
-          sessions.forEach(function (s) {
-            var row = document.createElement("div");
-            row.className = "flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-3 py-2";
-            var label = document.createElement("span");
-            var ua = s.userAgent ? String(s.userAgent).slice(0, 60) : "Unknown device";
-            var isCur = curToken && s.token === curToken;
-            label.textContent = ua + (s.ipAddress ? " · " + s.ipAddress : "") + (isCur ? " · this device" : "");
-            row.appendChild(label);
-            if (!isCur) {
-              var btn = document.createElement("button");
-              btn.type = "button";
-              btn.textContent = "Sign out";
-              btn.className = "text-xs font-semibold text-red-600 hover:underline";
-              btn.addEventListener("click", async function () {
-                btn.disabled = true;
-                await jpost("/api/auth/revoke-session", { token: s.token }).catch(function () {});
-                renderSessions();
-              });
-              row.appendChild(btn);
-            }
-            sessionsEl.appendChild(row);
-          });
-        } catch (ex) {
-          sessionsEl.textContent = "";
-        }
-      }
-
-      var addBtn = document.getElementById("add-passkey-btn");
-      if (addBtn) addBtn.addEventListener("click", async function () {
-        addBtn.disabled = true;
-        try {
-          var name = (document.getElementById("passkey-name").value || "").trim();
-          var opts = await jget("/api/auth/passkey/generate-register-options");
-          var pub = {
-            challenge: secB64urlToBuf(opts.challenge),
-            rp: opts.rp,
-            user: {
-              id: secB64urlToBuf(opts.user.id),
-              name: opts.user.name,
-              displayName: opts.user.displayName,
-            },
-            pubKeyCredParams: opts.pubKeyCredParams,
-            timeout: opts.timeout,
-            attestation: opts.attestation,
-            authenticatorSelection: opts.authenticatorSelection,
-            excludeCredentials: (opts.excludeCredentials || []).map(function (c) {
-              return { id: secB64urlToBuf(c.id), type: c.type, transports: c.transports };
-            }),
-          };
-          var cred = await navigator.credentials.create({ publicKey: pub });
-          if (!cred) throw new Error("Passkey setup was cancelled.");
-          var body = {
-            response: {
-              id: cred.id,
-              rawId: secBufToB64url(cred.rawId),
-              type: cred.type,
-              authenticatorAttachment: cred.authenticatorAttachment || undefined,
-              response: {
-                clientDataJSON: secBufToB64url(cred.response.clientDataJSON),
-                attestationObject: secBufToB64url(cred.response.attestationObject),
-                transports: cred.response.getTransports ? cred.response.getTransports() : [],
-              },
-            },
-            name: name || undefined,
-          };
-          await jpost("/api/auth/passkey/verify-registration", body);
-          showMsg("Passkey added. You can sign in with it on the sign-in page.", true);
-          renderPasskeys();
-        } catch (ex) {
-          showMsg((ex && ex.message) || "Passkey setup did not finish.", false);
-        }
-        addBtn.disabled = false;
-      });
-
-      renderPasskeys();
-      renderSessions();
-    }
-    initSecurity();
-    document.addEventListener("astro:page-load", initSecurity);
-  </script>
-  <script is:inline>
-    // Audio Club member upgrading to The Book Club: post the
-    // physical join and ride the Stripe redirect, same as /clubs.
-    function initClubUpgrade() {
-      document.querySelectorAll("[data-club-upgrade]").forEach(function (btn) {
-        if (btn.__upgradeBound) return;
-        btn.__upgradeBound = true;
-        btn.addEventListener("click", async function () {
-          var msg = document.getElementById("club-upgrade-msg");
-          btn.disabled = true;
-          try {
-            var r = await fetch("/api/club/checkout", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ club_plan: "physical", plan: btn.getAttribute("data-club-upgrade") }),
+        // Clicking a book card or compact button selects it into the Shelf Stage
+        document.querySelectorAll("[data-shelf-open-slug]").forEach(function (btn) {
+          if (btn.dataset.boundShelfOpen) return;
+          btn.dataset.boundShelfOpen = "1";
+          btn.addEventListener("click", function () {
+            var slug = btn.getAttribute("data-shelf-open-slug");
+            var tab = btn.getAttribute("data-shelf-open-tab") || "readalong";
+            document.querySelectorAll(".shelf-book-card").forEach(function (card) {
+              var active = card.getAttribute("data-book-card-slug") === slug;
+              card.classList.toggle("border-orange-400", active);
+              card.classList.toggle("ring-2", active);
+              card.classList.toggle("ring-orange-200/70", active);
+              card.classList.toggle("border-stone-200", !active);
             });
-            var data = await r.json().catch(function () { return {}; });
-            if (r.ok && data.url) { window.location.href = data.url; return; }
-            if (data.alreadyMember) { window.location.reload(); return; }
-            btn.disabled = false;
-            if (msg) { msg.textContent = data.error || "Could not start the upgrade. Please try again."; msg.classList.remove("hidden"); }
-          } catch (err) {
-            btn.disabled = false;
-            if (msg) { msg.textContent = "Could not start the upgrade. Please try again."; msg.classList.remove("hidden"); }
-          }
-        });
-      });
-    }
-    initClubUpgrade();
-    document.addEventListener("astro:page-load", initClubUpgrade);
-  </script>
-  <script is:inline>
-    // Book Club book choice. Bind-once like the sign-out wiring, so the
-    // form works after view-transition navigations too.
-    function initClubPick() {
-      var form = document.getElementById("club-pick-form");
-      if (!form || form.__clubPickBound) return;
-      form.__clubPickBound = true;
-      var repeat = document.getElementById("club-allow-repeat");
-      var msg = document.getElementById("club-pick-msg");
-      function syncBlocked() {
-        var on = !!(repeat && repeat.checked);
-        form.querySelectorAll("input[data-blocked='1']").forEach(function (r) {
-          if (!r.checked) r.disabled = !on;
-        });
-      }
-      if (repeat) repeat.addEventListener("change", syncBlocked);
-      syncBlocked();
-      form.addEventListener("submit", async function (ev) {
-        ev.preventDefault();
-        var sel = form.querySelector("input[name='club-pick']:checked");
-        var sel2 = form.querySelector("input[name='club-pick-2']:checked");
-        msg.textContent = "Saving...";
-        try {
-          var r = await fetch("/api/club/selection", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ship_date: form.getAttribute("data-ship-date"),
-              selection: sel ? sel.value : "surprise",
-              selection_2: sel2 ? sel2.value : "surprise",
-              allow_repeat: !!(repeat && repeat.checked),
-            }),
+            window.dispatchEvent(
+              new CustomEvent("bbs:open-book-in-qc", {
+                detail: { slug: slug, tab: tab },
+              })
+            );
           });
-          var data = await r.json().catch(function () { return {}; });
-          if (!r.ok) {
-            msg.textContent = data.error || "Could not save your pick.";
-            return;
-          }
-          msg.textContent = "Saved.";
-          window.location.reload();
-        } catch (err) {
-          msg.textContent = "Could not save your pick. Please try again.";
-        }
-      });
-    }
-    initClubPick();
-    document.addEventListener("astro:page-load", initClubPick);
-  </script>
-  <script is:inline>
-    function initFamilyAndProfiles() {
-      // Quick "QC Viewer" buttons on shelf cards
-      document.querySelectorAll("[data-open-qc-book]").forEach(function (btn) {
-        if (btn.__qcBound) return;
-        btn.__qcBound = true;
-        btn.addEventListener("click", function () {
-          var slug = btn.getAttribute("data-open-qc-book");
-          if (window.bbsCustomerHub && slug) {
-            window.bbsCustomerHub.openBookInViewer(slug, "story");
-          }
-        });
-      });
-
-      // Family Onboarding Form + Live Username Availability Checker
-      var obUsernameInput = document.getElementById("onboarding-username-input");
-      var obUsernameCheckBtn = document.getElementById("onboarding-username-check-btn");
-      var obUsernameStatus = document.getElementById("onboarding-username-status");
-      var modeUsernameRadio = document.getElementById("identity-mode-username");
-      var modeEmailRadio = document.getElementById("identity-mode-email");
-      var obUsernameTimer = null;
-
-      async function runOnboardingUsernameCheck(rawVal) {
-        if (!obUsernameStatus) return true;
-        var clean = String(rawVal || "").trim().replace(/^@+/, "");
-        if (!clean) {
-          obUsernameStatus.textContent = "Using email";
-          obUsernameStatus.className = "text-[11px] font-bold text-stone-500";
-          return true;
-        }
-        if (clean.length < 3 || clean.length > 30 || !/^[a-zA-Z0-9_.]+$/.test(clean)) {
-          obUsernameStatus.textContent = "3–30 letters, numbers, _ or .";
-          obUsernameStatus.className = "text-[11px] font-bold text-amber-700";
-          return false;
-        }
-        obUsernameStatus.textContent = "Checking...";
-        obUsernameStatus.className = "text-[11px] font-bold text-stone-500";
-        try {
-          var r = await fetch("/api/auth/is-username-available", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username: clean }),
-          });
-          var d = await r.json().catch(function () { return null; });
-          if (!r.ok || !d || typeof d.available !== "boolean") {
-            var rFallback = await fetch("/api/account/me", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "check_username", username: clean }),
-            });
-            d = await rFallback.json().catch(function () { return {}; });
-          }
-          if (d && d.available) {
-            obUsernameStatus.textContent = "✓ @" + clean.toLowerCase() + " available";
-            obUsernameStatus.className = "text-[11px] font-bold text-green-700";
-            return true;
-          } else {
-            obUsernameStatus.textContent = "✗ Already taken";
-            obUsernameStatus.className = "text-[11px] font-bold text-red-600";
-            return false;
-          }
-        } catch {
-          obUsernameStatus.textContent = "Could not check";
-          return false;
-        }
-      }
-
-      if (obUsernameInput && !obUsernameInput.__bound) {
-        obUsernameInput.__bound = true;
-        obUsernameInput.addEventListener("input", function () {
-          if (modeUsernameRadio && obUsernameInput.value.trim()) {
-            modeUsernameRadio.checked = true;
-          }
-          if (obUsernameTimer) clearTimeout(obUsernameTimer);
-          obUsernameTimer = setTimeout(function () {
-            runOnboardingUsernameCheck(obUsernameInput.value);
-          }, 250);
-        });
-      }
-      if (obUsernameCheckBtn && obUsernameInput && !obUsernameCheckBtn.__bound) {
-        obUsernameCheckBtn.__bound = true;
-        obUsernameCheckBtn.addEventListener("click", function () {
-          runOnboardingUsernameCheck(obUsernameInput.value);
-        });
-      }
-      if (modeEmailRadio && obUsernameInput && !modeEmailRadio.__bound) {
-        modeEmailRadio.__bound = true;
-        modeEmailRadio.addEventListener("change", function () {
-          if (modeEmailRadio.checked) {
-            obUsernameInput.value = "";
-            if (obUsernameStatus) {
-              obUsernameStatus.textContent = "Using email";
-              obUsernameStatus.className = "text-[11px] font-bold text-stone-500";
-            }
-          }
         });
       }
 
-      var obForm = document.getElementById("family-onboarding-form");
-      if (obForm && !obForm.__bound) {
-        obForm.__bound = true;
-        obForm.addEventListener("submit", async function (ev) {
-          ev.preventDefault();
-          var msg = document.getElementById("onboarding-save-msg");
-          if (msg) msg.textContent = "Saving family setup...";
-          var fd = new FormData(obForm);
-          var ageGroup = String(fd.get("kid_age_group") || "4-8");
-          var ageNum = ageGroup === "4-8" ? 6 : ageGroup === "9-12" ? 10 : 14;
-          var favTopics = fd.getAll("favorite_topics").map(String);
-          var futTopics = fd.getAll("future_topics").map(String);
-          var birthDate = String(fd.get("kid_birth_date") || "").trim();
-          var tosAccepted = fd.get("tos_accepted") === "1";
-          var marketingOptIn = fd.get("marketing_opt_in") === "1";
-          var identityMode = String(fd.get("login_identity_mode") || "email");
-          var rawUsername = identityMode === "email"
-            ? ""
-            : String(fd.get("username") || "").trim().replace(/^@+/, "");
-
-          if (rawUsername) {
-            try {
-              await fetch("/api/auth/update-user", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  username: rawUsername.toLowerCase(),
-                  displayUsername: rawUsername,
-                }),
-              });
-            } catch {}
-          }
-
-          try {
-            var r = await fetch("/api/account/family", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                action: "save_onboarding",
-                parent_name: fd.get("parent_name"),
-                username: rawUsername || undefined,
-                parent_pin: fd.get("parent_pin"),
-                reading_goal: fd.get("reading_goal") || "bedtime",
-                discovery_source: fd.get("discovery_source") || "",
-                favorite_topics: favTopics,
-                future_topics: futTopics,
-                custom_topic_request: fd.get("custom_topic_request") || "",
-                tos_accepted: tosAccepted,
-                marketing_opt_in: marketingOptIn,
-                mark_complete: true,
-                kid_profile: {
-                  name: fd.get("kid_name"),
-                  birth_date: birthDate || null,
-                  age: ageNum,
-                  age_group: ageGroup,
-                  avatar_key: fd.get("kid_avatar") || "mira",
-                  favorite_topics: favTopics,
-                  default_sleep_timer_minutes: Number(fd.get("kid_sleep_timer") ?? 60),
-                  daily_limit_minutes: Number(fd.get("kid_daily_limit") ?? 60),
-                },
-              }),
-            });
-            var respData = await r.json().catch(function () { return {}; });
-            if (r.ok) {
-              try {
-                if (typeof window.bbsTraks === "function") {
-                  window.bbsTraks("onboarding_step_completed", {
-                    age_group: ageGroup,
-                    topics_count: favTopics.length,
-                    future_topics_count: futTopics.length,
-                    has_birth_date: Boolean(birthDate),
-                    has_username: Boolean(rawUsername),
-                    marketing_opt_in: marketingOptIn,
-                  });
-                }
-              } catch {}
-              if (msg) msg.textContent = "Family shelf ready! Reloading...";
-              window.location.reload();
-            } else {
-              if (msg) msg.textContent = respData.error || "Could not save setup. Please try again.";
-            }
-          } catch (e) {
-            if (msg) msg.textContent = "Network error saving setup.";
-          }
-        });
-      }
-
-      // Add Child Profile Toggle & Form
-      var toggleAddBtn = document.getElementById("toggle-add-kid-btn");
-      var addKidForm = document.getElementById("add-kid-profile-form");
-      if (toggleAddBtn && addKidForm && !toggleAddBtn.__bound) {
-        toggleAddBtn.__bound = true;
-        toggleAddBtn.addEventListener("click", function () {
-          addKidForm.classList.toggle("hidden");
-        });
-      }
-      if (addKidForm && !addKidForm.__bound) {
-        addKidForm.__bound = true;
-        addKidForm.addEventListener("submit", async function (ev) {
-          ev.preventDefault();
-          var msg = document.getElementById("add-kid-msg");
-          if (msg) msg.textContent = "Saving...";
-          var fd = new FormData(addKidForm);
-          var ageGroup = String(fd.get("age_group") || "4-8");
-          var ageNum = ageGroup === "4-8" ? 6 : ageGroup === "9-12" ? 10 : 14;
-          var r = await fetch("/api/account/family", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "upsert_kid",
-              profile: {
-                name: fd.get("name"),
-                birth_date: String(fd.get("birth_date") || "").trim() || null,
-                age: ageNum,
-                age_group: ageGroup,
-                avatar_key: fd.get("avatar_key") || "mira",
-                default_sleep_timer_minutes: Number(fd.get("default_sleep_timer_minutes") ?? 60),
-                daily_limit_minutes: Number(fd.get("daily_limit_minutes") ?? 60),
-              },
-            }),
-          });
-          if (r.ok) {
-            window.location.reload();
-          } else {
-            if (msg) msg.textContent = "Could not save profile.";
-          }
-        });
-      }
-
-      // Send Birthday Gift Email buttons
-      document.querySelectorAll("[data-send-birthday-gift]").forEach(function (btn) {
-        if (btn.__bound) return;
-        btn.__bound = true;
-        btn.addEventListener("click", async function () {
-          var kidId = btn.getAttribute("data-send-birthday-gift");
-          if (!kidId) return;
-          var orig = btn.textContent;
-          btn.textContent = "Sending 🎂...";
-          try {
-            var r = await fetch("/api/account/family", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "send_birthday_gift", kid_id: kidId }),
-            });
-            if (r.ok) {
-              btn.textContent = "🎂 Gift Queued!";
-              try {
-                if (typeof window.bbsTraks === "function") {
-                  window.bbsTraks("birthday_gift_requested", { trigger: "account_dashboard" });
-                }
-              } catch {}
-            } else {
-              btn.textContent = orig;
-            }
-          } catch {
-            btn.textContent = orig;
-          }
-        });
-      });
-
-      // Copy Family Referral Link
-      var copyRefBtn = document.getElementById("copy-referral-btn");
-      var copyRefMsg = document.getElementById("referral-copy-msg");
-      if (copyRefBtn && !copyRefBtn.__bound) {
-        copyRefBtn.__bound = true;
-        copyRefBtn.addEventListener("click", async function () {
-          var url = copyRefBtn.getAttribute("data-referral-url") || "";
-          var code = copyRefBtn.getAttribute("data-referral-code") || "";
-          try {
-            await navigator.clipboard.writeText(url);
-            if (copyRefMsg) {
-              copyRefMsg.textContent = "Copied your family link! Share it with a friend for $10 / $10.";
-              copyRefMsg.classList.remove("hidden");
-            }
-            if (typeof window.bbsTraks === "function") {
-              window.bbsTraks("referral_link_shared", { channel: "clipboard" });
-            }
-          } catch {}
-        });
-      }
-
-      // Remove Kid Profile buttons
-      document.querySelectorAll("[data-delete-kid-profile]").forEach(function (btn) {
-        if (btn.__bound) return;
-        btn.__bound = true;
-        btn.addEventListener("click", async function () {
-          var id = btn.getAttribute("data-delete-kid-profile");
-          if (!id) return;
-          var r = await fetch("/api/account/family?id=" + encodeURIComponent(id), { method: "DELETE" });
-          if (r.ok) window.location.reload();
-        });
-      });
-
-      // Switch between Parent View and Kid View (with Parent PIN gate when exiting Kid View)
-      var profileSelect = document.getElementById("active-profile-select");
-      var switcherBox = document.getElementById("sidebar-profile-switcher");
-      var avatarBadge = document.getElementById("active-profile-avatar");
-      var limitPill = document.getElementById("active-kid-limit-pill");
-      var limitText = document.getElementById("active-kid-limit-text");
-      var mobileBadge = document.getElementById("mobile-active-mode-badge");
-      var pinModal = document.getElementById("parent-pin-modal");
-      var pinForm = document.getElementById("parent-pin-form");
-      var pinInput = document.getElementById("parent-pin-input");
-      var pinError = document.getElementById("parent-pin-error");
-      var pinCancel = document.getElementById("parent-pin-cancel");
-      var exitKidBtn = document.getElementById("exit-kid-mode-btn");
-      var limitUnlockBtn = document.getElementById("audio-limit-unlock-btn");
-
-      var currentActiveProfile = "parent";
-
-      function applyProfileSelection(val) {
-        currentActiveProfile = val;
-        if (profileSelect && profileSelect.value !== val) {
-          profileSelect.value = val;
-        }
-        if (val === "parent") {
-          document.documentElement.removeAttribute("data-kid-mode");
-          if (avatarBadge) avatarBadge.textContent = "👨‍👩‍👧";
-          if (limitPill) limitPill.classList.add("hidden");
-          if (mobileBadge) mobileBadge.textContent = "Family Hub";
-          if (window.bbsCustomerHub) window.bbsCustomerHub.setProfile("default", 60);
-        } else if (profileSelect) {
-          var opt = profileSelect.querySelector('option[value="' + val + '"]');
-          var emoji = (opt && opt.getAttribute("data-emoji")) || "🦊";
-          var name = (opt && opt.getAttribute("data-name")) || "Kid";
-          var sleep = Number((opt && opt.getAttribute("data-sleep")) || 60);
-          var limit = Number((opt && opt.getAttribute("data-limit")) || 60);
-          var used = Number((opt && opt.getAttribute("data-used")) || 0);
-          document.documentElement.setAttribute("data-kid-mode", "active");
-          if (avatarBadge) avatarBadge.textContent = emoji;
-          if (limitPill) limitPill.classList.remove("hidden");
-          if (limitText) {
-            limitText.textContent =
-              limit > 0 ? ("Limit: " + Math.max(0, limit - used) + "m left") : "Unlimited time";
-          }
-          if (mobileBadge) mobileBadge.textContent = emoji + " " + name;
-          if (window.bbsCustomerHub) window.bbsCustomerHub.setProfile(val, sleep);
-        }
-      }
-
-      function promptParentPin() {
-        var hasPin = switcherBox && switcherBox.getAttribute("data-has-pin") === "1";
-        if (!hasPin) {
-          applyProfileSelection("parent");
-          return;
-        }
-        if (pinModal) {
-          pinModal.classList.remove("hidden");
-          if (pinError) pinError.classList.add("hidden");
-          if (pinInput) {
-            pinInput.value = "";
-            pinInput.focus();
-          }
-        }
-      }
-
-      if (profileSelect && !profileSelect.__bound) {
-        profileSelect.__bound = true;
-        profileSelect.addEventListener("change", function () {
-          var nextVal = profileSelect.value;
-          if (currentActiveProfile !== "parent" && nextVal === "parent") {
-            profileSelect.value = currentActiveProfile;
-            promptParentPin();
-          } else {
-            applyProfileSelection(nextVal);
-          }
-        });
-      }
-
-      document.querySelectorAll("[data-activate-kid-profile]").forEach(function (btn) {
-        if (btn.__bound) return;
-        btn.__bound = true;
-        btn.addEventListener("click", function () {
-          var id = btn.getAttribute("data-activate-kid-profile");
-          if (id) {
-            applyProfileSelection(id);
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }
-        });
-      });
-
-      if (exitKidBtn && !exitKidBtn.__bound) {
-        exitKidBtn.__bound = true;
-        exitKidBtn.addEventListener("click", promptParentPin);
-      }
-      if (limitUnlockBtn && !limitUnlockBtn.__bound) {
-        limitUnlockBtn.__bound = true;
-        limitUnlockBtn.addEventListener("click", promptParentPin);
-      }
-      if (pinCancel && !pinCancel.__bound) {
-        pinCancel.__bound = true;
-        pinCancel.addEventListener("click", function () {
-          if (pinModal) pinModal.classList.add("hidden");
-        });
-      }
-      if (pinForm && !pinForm.__bound) {
-        pinForm.__bound = true;
-        pinForm.addEventListener("submit", async function (ev) {
-          ev.preventDefault();
-          var pin = pinInput ? pinInput.value : "";
-          var r = await fetch("/api/account/family", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "verify_pin", pin: pin }),
-          });
-          if (r.ok) {
-            if (pinModal) pinModal.classList.add("hidden");
-            applyProfileSelection("parent");
-          } else if (pinError) {
-            pinError.textContent = "Incorrect Parent PIN. Please try again.";
-            pinError.classList.remove("hidden");
-          }
-        });
-      }
-    }
-    initFamilyAndProfiles();
-    document.addEventListener("astro:page-load", initFamilyAndProfiles);
+      initShelfPage();
+      document.addEventListener("astro:page-load", initShelfPage);
+    })();
   </script>
 </body>
 </html>

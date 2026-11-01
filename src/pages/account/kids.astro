@@ -1,0 +1,373 @@
+---
+import "../../styles/global.css";
+import { env } from "cloudflare:workers";
+import Tracking from "../../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../../components/TransitionHooks.astro";
+import CustomerShell from "../../components/CustomerShell.astro";
+import { loadCustomerHubContext } from "../../lib/account-data";
+import {
+  KID_AVATARS,
+  SLEEP_TIMER_PRESETS,
+  DAILY_LIMIT_PRESETS,
+} from "../../lib/family";
+
+const e = env as any;
+const hub = await loadCustomerHubContext(Astro.request, Astro.locals, e.DB, Astro.url.origin);
+if (!hub) {
+  return Astro.redirect("/login?next=/account/kids");
+}
+
+const {
+  session,
+  books,
+  audioBooksCount,
+  parentOnboarding,
+  kidProfiles,
+  readingProgressList,
+  onboardingChecklist,
+} = hub;
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kids &amp; Sleep Limits · Big Brain Shelf</title>
+  <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased pb-28">
+  <CustomerShell
+    currentSection="kids"
+    userEmail={String(session.user.email || "")}
+    username={session.user.displayUsername || session.user.username}
+    displayName={parentOnboarding?.parent_name || session.user.name}
+    isAdmin={session.user.isAdmin}
+    kidProfiles={kidProfiles}
+    hasParentPin={Boolean(parentOnboarding?.parent_pin)}
+    bookCount={books.length}
+    audioCount={audioBooksCount}
+    onboardingComplete={onboardingChecklist.isComplete}
+  />
+
+  <main class="max-w-5xl mx-auto px-4 py-7 sm:py-10">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="rounded-full bg-orange-100 text-orange-800 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+          Family Profiles &amp; Bedtime Controls
+        </span>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900 mt-1.5">
+          Kids &amp; Sleep Limits
+        </h1>
+        <p class="text-sm text-stone-600 mt-1">
+          Each child gets their own Kid View, saved page progress, daily time limit, and automatic bedtime sleep timer.
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <a
+          href="/account/onboarding"
+          class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500"
+        >
+          Edit Family Preferences
+        </a>
+        <button
+          type="button"
+          id="toggle-add-kid-btn"
+          class="cust-pressable rounded-full bg-[#1a3454] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#132741] cursor-pointer"
+        >
+          + Add Child Profile
+        </button>
+      </div>
+    </div>
+
+    <!-- Add Child Profile Drawer -->
+    <form
+      id="add-kid-form"
+      class="mt-6 hidden rounded-3xl border border-stone-200 bg-[#fcfaf6] p-5 sm:p-6"
+    >
+      <h2 class="text-base font-extrabold text-stone-900">Add a child reader profile</h2>
+      <p class="text-xs text-stone-600 mt-0.5">
+        Switch to their profile from the sidebar anytime to turn on Kid View.
+      </p>
+      <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+        <div>
+          <label class="block text-xs font-bold text-stone-700">Child's Name</label>
+          <input
+            type="text"
+            name="name"
+            required
+            placeholder="e.g., Leo"
+            class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-semibold"
+          />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-stone-700">Birthday (for annual Birthday Gift 🎂)</label>
+          <input
+            type="date"
+            name="birth_date"
+            class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-semibold"
+          />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-stone-700">Age Group</label>
+          <select name="age_group" class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-semibold">
+            <option value="4-5">Ages 4–5</option>
+            <option value="4-8" selected>Ages 4–8</option>
+            <option value="6-8">Ages 6–8</option>
+            <option value="9-12">Ages 9–12</option>
+            <option value="13-18">Ages 13–18</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-stone-700">Character Buddy</label>
+          <select name="avatar_key" class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-semibold">
+            {KID_AVATARS.map((a) => (
+              <option value={a.key}>{a.emoji} {a.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-stone-700">Default Sleep Timer</label>
+          <select name="default_sleep_timer_minutes" class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-semibold">
+            {SLEEP_TIMER_PRESETS.map((p) => (
+              <option value={p.minutes} selected={p.minutes === 60}>{p.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-stone-700">Daily Reading/Listening Limit</label>
+          <select name="daily_limit_minutes" class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-semibold">
+            {DAILY_LIMIT_PRESETS.map((d) => (
+              <option value={d.minutes} selected={d.minutes === 60}>{d.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          id="cancel-add-kid-btn"
+          class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-bold text-stone-600 cursor-pointer"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="cust-pressable rounded-full bg-orange-600 px-5 py-2 text-xs font-extrabold text-white hover:bg-orange-700 cursor-pointer"
+        >
+          Save Child Profile
+        </button>
+      </div>
+    </form>
+
+    <!-- Existing Kid Profiles -->
+    <div class="mt-6">
+      {kidProfiles.length === 0 ? (
+        <div class="rounded-3xl border border-dashed border-stone-300 bg-[#fcfaf6] p-8 text-center">
+          <p class="text-base font-extrabold text-stone-900">No child profiles yet</p>
+          <p class="mt-1 text-xs text-stone-600 max-w-md mx-auto">
+            Add a child profile so they get a distraction-free Kid View with automatic bedtime sleep timers and saved page progress.
+          </p>
+          <button
+            type="button"
+            id="empty-add-kid-btn"
+            class="cust-pressable mt-4 rounded-full bg-orange-600 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-700 cursor-pointer"
+          >
+            + Create First Child Profile
+          </button>
+        </div>
+      ) : (
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {kidProfiles.map((kid) => {
+            const avatar = KID_AVATARS.find((a) => a.key === kid.avatar_key) || KID_AVATARS[0];
+            const kidProgressCount = readingProgressList.filter((p) => p.kid_profile_id === kid.id).length;
+            return (
+              <article class="rounded-2xl border border-stone-200 bg-[#fcfaf6] p-5 flex flex-col justify-between">
+                <div>
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-center gap-3">
+                      <span class="w-11 h-11 rounded-2xl bg-orange-100 text-xl flex items-center justify-center">
+                        {avatar.emoji}
+                      </span>
+                      <div>
+                        <h2 class="text-base font-extrabold text-stone-900">{kid.name}</h2>
+                        <p class="text-xs font-semibold text-stone-500">Ages {kid.age_group}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      data-switch-kid-id={kid.id}
+                      class="cust-pressable rounded-full bg-orange-600 text-white px-3 py-1 text-[11px] font-extrabold hover:bg-orange-700 cursor-pointer"
+                    >
+                      Open Kid View →
+                    </button>
+                  </div>
+
+                  <div class="mt-4 flex flex-wrap gap-1.5 text-[11px] font-semibold text-stone-600">
+                    <span class="rounded-lg bg-white border border-stone-200 px-2.5 py-1">
+                      🌙 Sleep Timer: {kid.default_sleep_timer_minutes}m
+                    </span>
+                    <span class="rounded-lg bg-white border border-stone-200 px-2.5 py-1">
+                      ⏱️ Daily Limit: {kid.daily_limit_minutes === 0 ? "Unlimited" : `${kid.daily_limit_minutes}m/day`}
+                    </span>
+                    <span class="rounded-lg bg-white border border-stone-200 px-2.5 py-1">
+                      📖 {kidProgressCount} {kidProgressCount === 1 ? "book" : "books"} started
+                    </span>
+                    {kid.birth_date && (
+                      <span class="rounded-lg bg-orange-50 border border-orange-200 text-orange-800 px-2.5 py-1">
+                        🎂 Birthday: {kid.birth_date}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-t border-stone-200/70 flex items-center justify-between gap-2">
+                  {kid.birth_date ? (
+                    <button
+                      type="button"
+                      data-send-bday-kid-id={kid.id}
+                      class="text-[11px] font-extrabold text-orange-700 hover:underline cursor-pointer"
+                    >
+                      🎂 Email $10 Birthday Gift (BDAY10)
+                    </button>
+                  ) : (
+                    <span class="text-[11px] text-stone-400">No birthday set</span>
+                  )}
+                  <button
+                    type="button"
+                    data-delete-kid-id={kid.id}
+                    class="text-[11px] font-bold text-stone-400 hover:text-red-600 cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  </main>
+
+  <script is:inline>
+    (function () {
+      function initKidsPage() {
+        var toggleAddKidBtn = document.getElementById("toggle-add-kid-btn");
+        var emptyAddKidBtn = document.getElementById("empty-add-kid-btn");
+        var cancelAddKidBtn = document.getElementById("cancel-add-kid-btn");
+        var addKidForm = document.getElementById("add-kid-form");
+
+        function openAddForm() {
+          if (addKidForm) {
+            addKidForm.classList.remove("hidden");
+            addKidForm.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }
+        if (toggleAddKidBtn && !toggleAddKidBtn.dataset.bound) {
+          toggleAddKidBtn.dataset.bound = "1";
+          toggleAddKidBtn.addEventListener("click", function () {
+            if (addKidForm) addKidForm.classList.toggle("hidden");
+          });
+        }
+        if (emptyAddKidBtn && !emptyAddKidBtn.dataset.bound) {
+          emptyAddKidBtn.dataset.bound = "1";
+          emptyAddKidBtn.addEventListener("click", openAddForm);
+        }
+        if (cancelAddKidBtn && addKidForm && !cancelAddKidBtn.dataset.bound) {
+          cancelAddKidBtn.dataset.bound = "1";
+          cancelAddKidBtn.addEventListener("click", function () {
+            addKidForm.classList.add("hidden");
+          });
+        }
+
+        if (addKidForm && !addKidForm.dataset.bound) {
+          addKidForm.dataset.bound = "1";
+          addKidForm.addEventListener("submit", function (ev) {
+            ev.preventDefault();
+            var fd = new FormData(addKidForm);
+            fetch("/api/account/family", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "upsert_kid",
+                name: String(fd.get("name") || ""),
+                birth_date: String(fd.get("birth_date") || ""),
+                age_group: String(fd.get("age_group") || "4-8"),
+                avatar_key: String(fd.get("avatar_key") || "mira"),
+                default_sleep_timer_minutes: Number(fd.get("default_sleep_timer_minutes") || 60),
+                daily_limit_minutes: Number(fd.get("daily_limit_minutes") || 60),
+              }),
+            })
+              .then(function (r) {
+                return r.json();
+              })
+              .then(function (data) {
+                if (data && data.ok) window.location.reload();
+              });
+          });
+        }
+
+        document.querySelectorAll("[data-switch-kid-id]").forEach(function (btn) {
+          if (btn.dataset.bound) return;
+          btn.dataset.bound = "1";
+          btn.addEventListener("click", function () {
+            var kidId = btn.getAttribute("data-switch-kid-id");
+            if (!kidId) return;
+            localStorage.setItem("bbs.activeProfileId", kidId);
+            window.location.href = "/account";
+          });
+        });
+
+        document.querySelectorAll("[data-delete-kid-id]").forEach(function (btn) {
+          if (btn.dataset.bound) return;
+          btn.dataset.bound = "1";
+          btn.addEventListener("click", function () {
+            var kidId = btn.getAttribute("data-delete-kid-id");
+            if (!kidId || !confirm("Remove this child profile?")) return;
+            // Deletion lives on the API's DELETE handler (the POST
+            // action router has no delete action and 400s, which a
+            // bare reload used to disguise as success).
+            fetch("/api/account/family?id=" + encodeURIComponent(kidId), {
+              method: "DELETE",
+            }).then(function (r) {
+              if (r.ok) window.location.reload();
+            });
+          });
+        });
+
+        document.querySelectorAll("[data-send-bday-kid-id]").forEach(function (btn) {
+          if (btn.dataset.bound) return;
+          btn.dataset.bound = "1";
+          btn.addEventListener("click", function () {
+            var kidId = btn.getAttribute("data-send-bday-kid-id");
+            if (!kidId) return;
+            btn.textContent = "Sending…";
+            fetch("/api/account/family", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "send_birthday_gift", kid_id: kidId }),
+            })
+              .then(function (r) {
+                return r.json();
+              })
+              .then(function (data) {
+                btn.textContent = data && data.ok ? "✓ Birthday Gift Sent!" : "Could not send";
+              })
+              .catch(function () {
+                btn.textContent = "Could not send";
+              });
+          });
+        });
+      }
+
+      initKidsPage();
+      document.addEventListener("astro:page-load", initKidsPage);
+    })();
+  </script>
+</body>
+</html>

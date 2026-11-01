@@ -146,8 +146,8 @@ const webhookSrc = readFileSync(new URL("../src/pages/api/stripe/webhook.ts", im
 assert(webhookSrc.includes("activateClubFromSession(e.DB, s, stripe)"), "webhook hands activation the Stripe client for the old-sub cancel");
 const clubsSrc = readFileSync(new URL("../src/pages/clubs.astro", import.meta.url), "utf8");
 assert(clubsSrc.includes("data-upgrade-plan") && clubsSrc.includes("Want the printed books too?"), "/clubs offers audio members the upgrade");
-const accountSrc = readFileSync(new URL("../src/pages/account/index.astro", import.meta.url), "utf8");
-assert(accountSrc.includes("data-club-upgrade"), "/account offers audio members the upgrade");
+const accountSrc = readFileSync(new URL("../src/pages/account/club.astro", import.meta.url), "utf8");
+assert(accountSrc.includes("data-club-upgrade"), "/account club page offers audio members the upgrade");
 
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);

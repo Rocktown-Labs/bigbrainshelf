@@ -39,8 +39,9 @@ assert(!downloadSrc.includes("ent?.audio === true : ent?.digital === true"), "do
 // ---- My Shelf UI --------------------------------------------------------------
 const accountSrc = await read("../src/pages/account/index.astro");
 assert(accountSrc.includes("The books you own are yours to download and keep."), "shelf subline names ownership as the download rule");
-assert(accountSrc.includes("b.owned && b.audiobook_key"), "shelf: the audiobook download renders only for owned listen-only entries");
-assert(accountSrc.includes("{b.owned ? ("), "shelf: download rows and the unlock button render only for owned entries");
+const viewerSrc = await read("../src/components/CustomerBookViewer.astro");
+assert(viewerSrc.includes("canDownloadAudio: Boolean(b.owned && b.audio)"), "shelf: the audiobook download renders only for owned listen-only entries");
+assert(viewerSrc.includes("canDownloadBook: Boolean(b.owned && b.digital)") && viewerSrc.includes("qc-dl-ownership-note"), "shelf: download rows gate on ownership and non-owned entries get the unlock note");
 
 // ---- Reader page ---------------------------------------------------------------
 const readerSrc = await read("../src/pages/read/[slug].astro");

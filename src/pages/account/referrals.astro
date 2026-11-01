@@ -1,0 +1,142 @@
+---
+import "../../styles/global.css";
+import { env } from "cloudflare:workers";
+import Tracking from "../../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../../components/TransitionHooks.astro";
+import CustomerShell from "../../components/CustomerShell.astro";
+import { loadCustomerHubContext } from "../../lib/account-data";
+
+const e = env as any;
+const hub = await loadCustomerHubContext(Astro.request, Astro.locals, e.DB, Astro.url.origin);
+if (!hub) {
+  return Astro.redirect("/login?next=/account/referrals");
+}
+
+const {
+  session,
+  books,
+  audioBooksCount,
+  parentOnboarding,
+  kidProfiles,
+  onboardingChecklist,
+  familyReferralCode,
+  referralShareUrl,
+} = hub;
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Give $10, Get $10 · Big Brain Shelf</title>
+  <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased pb-28">
+  <CustomerShell
+    currentSection="referrals"
+    userEmail={String(session.user.email || "")}
+    username={session.user.displayUsername || session.user.username}
+    displayName={parentOnboarding?.parent_name || session.user.name}
+    isAdmin={session.user.isAdmin}
+    kidProfiles={kidProfiles}
+    hasParentPin={Boolean(parentOnboarding?.parent_pin)}
+    bookCount={books.length}
+    audioCount={audioBooksCount}
+    onboardingComplete={onboardingChecklist.isComplete}
+  />
+
+  <main class="max-w-4xl mx-auto px-4 py-7 sm:py-10">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="rounded-full bg-orange-600 text-white px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+          Family Referral Program · Give $10, Get $10
+        </span>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900 mt-1.5">
+          Give another family $10. Get $10 for your child's shelf.
+        </h1>
+        <p class="text-sm text-stone-600 mt-1 max-w-2xl">
+          Know a parent raising a curious 4-to-8-year-old? Share your personal link below. They get $10 toward their first Digital Bundle ($8.99), Gift Set ($25), or Club membership, and we add $10 to your account as soon as they order.
+        </p>
+      </div>
+      <a
+        href="/account"
+        class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500"
+      >
+        ← Back to My Shelf
+      </a>
+    </div>
+
+    <section id="referrals" class="mt-6 rounded-3xl border-2 border-orange-200 bg-gradient-to-br from-orange-50 via-amber-50/60 to-white p-6 sm:p-8">
+      <div class="max-w-lg rounded-2xl bg-white border border-orange-200 p-5 shadow-xs">
+        <label for="family-referral-url" class="block text-xs font-extrabold uppercase tracking-wider text-stone-500">
+          Your Personal Family Link
+        </label>
+        <div class="mt-2 flex items-center gap-2">
+          <input
+            id="family-referral-url"
+            type="text"
+            readonly
+            value={referralShareUrl}
+            class="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2.5 text-xs font-mono text-stone-800 select-all"
+          />
+          <button
+            type="button"
+            id="copy-referral-btn"
+            data-referral-url={referralShareUrl}
+            data-referral-code={familyReferralCode}
+            class="cust-pressable shrink-0 rounded-xl bg-orange-600 text-white px-4 py-2.5 text-xs font-extrabold hover:bg-orange-700 cursor-pointer"
+          >
+            Copy Link
+          </button>
+        </div>
+        <div class="mt-3.5 flex flex-wrap items-center justify-between gap-2">
+          <span class="text-xs font-bold text-stone-500">
+            Referral Code: <strong class="text-stone-900 font-mono">{familyReferralCode}</strong>
+          </span>
+          <a
+            id="email-referral-link"
+            href={`mailto:?subject=${encodeURIComponent("A kids book series our family loves ($10 off for you)")}&body=${encodeURIComponent(`Hey! We've been reading and listening to Big Brain Shelf with our kids and thought of your family. Here is a link for $10 toward your first book or audiobook bundle: ${referralShareUrl}`)}`}
+            class="text-xs font-extrabold text-orange-700 hover:text-orange-800 underline"
+          >
+            Share via Email →
+          </a>
+        </div>
+        <p id="referral-copy-msg" class="text-xs font-semibold text-green-700 mt-2 hidden" role="status"></p>
+      </div>
+    </section>
+  </main>
+
+  <script is:inline>
+    (function () {
+      function initReferralsPage() {
+        var copyReferralBtn = document.getElementById("copy-referral-btn");
+        var referralCopyMsg = document.getElementById("referral-copy-msg");
+        if (copyReferralBtn && !copyReferralBtn.dataset.bound) {
+          copyReferralBtn.dataset.bound = "1";
+          copyReferralBtn.addEventListener("click", function () {
+            var url = copyReferralBtn.getAttribute("data-referral-url") || "";
+            if (navigator.clipboard && url) {
+              navigator.clipboard.writeText(url).catch(function () {});
+            }
+            if (referralCopyMsg) {
+              referralCopyMsg.textContent = "✓ Copied! Share this link with another parent.";
+              referralCopyMsg.classList.remove("hidden");
+            }
+            if (typeof window.bbsTraks === "function") {
+              window.bbsTraks("referral_link_shared", { channel: "clipboard" });
+            }
+          });
+        }
+      }
+      initReferralsPage();
+      document.addEventListener("astro:page-load", initReferralsPage);
+    })();
+  </script>
+</body>
+</html>

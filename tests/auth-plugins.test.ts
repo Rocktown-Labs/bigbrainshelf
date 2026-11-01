@@ -18,7 +18,7 @@ const auth = read("src/lib/auth.ts");
 const authUsers = read("src/lib/auth-users.ts");
 const client = read("src/lib/auth-client.ts");
 const login = read("src/pages/login.astro");
-const account = read("src/pages/account/index.astro");
+const account = read("src/pages/account/settings.astro");
 
 // --- session management ---
 check("session: 30-day expiry kept", auth.includes("expiresIn: 60 * 60 * 24 * 30"));

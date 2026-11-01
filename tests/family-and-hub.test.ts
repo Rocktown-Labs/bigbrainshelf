@@ -287,19 +287,17 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
       resolve(root, "src/components/CustomerBookViewer.astro"),
       "utf8"
     );
-    expect(viewerSrc).toContain('data-qc-edition="story"');
+    expect(viewerSrc).toContain('data-qc-edition="color"');
     expect(viewerSrc).toContain('data-qc-edition="coloring"');
-    expect(viewerSrc).toContain('data-qc-edition="fullcolor"');
-    expect(viewerSrc).toContain('data-qc-edition="cover"');
-    expect(viewerSrc).toContain("qc-audio-sync-check");
+    expect(viewerSrc).toContain("qc-sync-audio");
 
     const audioDockSrc = readFileSync(
       resolve(root, "src/components/CustomerAudioDock.astro"),
       "utf8"
     );
-    expect(audioDockSrc).toContain("audio-sleep-select");
-    expect(audioDockSrc).toContain("persistent-audio-dock");
-    expect(audioDockSrc).toContain("bbsCustomerHub");
+    expect(audioDockSrc).toContain("dock-sleep-select");
+    expect(audioDockSrc).toContain("bbs:audio-timeupdate");
+    expect(audioDockSrc).toContain("/api/account/progress");
     expect(SLEEP_TIMER_PRESETS.some((p) => p.minutes === 60)).toBe(true);
     expect(KID_AVATARS.length).toBeGreaterThanOrEqual(5);
 
@@ -390,22 +388,24 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
       resolve(root, "src/components/CustomerBookViewer.astro"),
       "utf8"
     );
-    expect(viewerSrc).toContain('data-qc-edition="readalong"');
-    expect(viewerSrc).toContain("qc-inline-theater-player");
-    expect(viewerSrc).toContain("qc-auto-flip-check");
+    expect(viewerSrc).toContain('data-stage-tab="readalong"');
+    expect(viewerSrc).toContain('data-stage-tab="listen"');
+    expect(viewerSrc).toContain("qc-auto-flip-Audio");
 
     const audioDockSrc = readFileSync(
       resolve(root, "src/components/CustomerAudioDock.astro"),
       "utf8"
     );
-    expect(audioDockSrc).toContain("autoFlipPageForCurrentTime");
+    expect(audioDockSrc).toContain("bbs:audio-timeupdate");
 
-    const accountSrc = readFileSync(resolve(root, "src/pages/account/index.astro"), "utf8");
-    expect(accountSrc).toContain('id="referrals"');
-    expect(accountSrc).toContain('name="future_topics"');
-    expect(accountSrc).toContain('name="tos_accepted"');
-    expect(accountSrc).toContain('name="marketing_opt_in"');
-    expect(accountSrc).toContain('name="kid_birth_date"');
+    const referralsSrc = readFileSync(resolve(root, "src/pages/account/referrals.astro"), "utf8");
+    expect(referralsSrc).toContain('id="referrals"');
+    const onboardingSrc = readFileSync(resolve(root, "src/pages/account/onboarding.astro"), "utf8");
+    expect(onboardingSrc).toContain('name="future_topics"');
+    expect(onboardingSrc).toContain('name="tos_accepted"');
+    expect(onboardingSrc).toContain('name="marketing_opt_in"');
+    expect(onboardingSrc).toContain('name="first_kid_dob"');
+    expect(onboardingSrc).toContain("kid_profile");
   });
 
   test("Better Auth username plugin, availability checker, user account menu, and admin /accounts access", async () => {
@@ -480,8 +480,8 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     expect(signupSrc).toContain("/api/auth/is-username-available");
     expect(signupSrc).toContain('id="username"');
 
-    const accountSrc = readFileSync(resolve(root, "src/pages/account/index.astro"), "utf8");
-    expect(accountSrc).toContain("onboarding-username-input");
+    const accountSrc = readFileSync(resolve(root, "src/pages/account/onboarding.astro"), "utf8");
+    expect(accountSrc).toContain('id="ob-username"');
     expect(accountSrc).toContain("/api/auth/is-username-available");
     expect(accountSrc).toContain("/api/auth/update-user");
 
@@ -495,7 +495,7 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     expect(adminShellSrc).toContain('href="/accounts"');
 
     const custShellSrc = readFileSync(resolve(root, "src/components/CustomerShell.astro"), "utf8");
-    expect(custShellSrc).toContain("bbs-cust-user-popover");
+    expect(custShellSrc).toContain("cust-acct-menu-btn");
     expect(custShellSrc).toContain('href="/admin"');
   });
 });

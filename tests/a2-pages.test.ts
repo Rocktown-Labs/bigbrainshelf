@@ -80,7 +80,7 @@ assert(adminClubApi.includes("second_selected_title") && adminClubApi.includes("
 const adminClubPage = read("../src/pages/admin/club.astro");
 assert(adminClubPage.includes("Extras: sticker sheet + little extra"), "admin box rows carry the extras packing line");
 assert(adminClubPage.includes("box-book-2"), "admin can resolve the second slot");
-const accountPageSrc = read("../src/pages/account/index.astro");
+const accountPageSrc = read("../src/pages/account/club.astro");
 assert(accountPageSrc.includes('name="club-pick-2"'), "account pick form has a second-book fieldset");
 assert(accountPageSrc.includes("selection_2"), "account pick form submits the second pick");
 assert(!accountPageSrc.includes("bonus back catalog coloring book"), "account page no longer promises the old bonus coloring book");

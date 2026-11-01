@@ -1,530 +1,744 @@
 ---
-import { KID_AVATARS, type KidProfileRecord } from "../lib/family";
+import { KID_AVATARS, type KidProfile } from "../lib/family";
 
 interface Props {
   currentSection?: string;
-  userEmail?: string;
+  userEmail: string;
   username?: string | null;
   displayName?: string | null;
   isAdmin?: boolean;
-  kidProfiles?: KidProfileRecord[];
+  kidProfiles?: KidProfile[];
   hasParentPin?: boolean;
   bookCount?: number;
   audioCount?: number;
+  onboardingComplete?: boolean;
 }
 
 const {
   currentSection = "shelf",
-  userEmail = "",
+  userEmail,
   username = null,
   displayName = null,
   isAdmin = false,
   kidProfiles = [],
   hasParentPin = false,
   bookCount = 0,
-  audioCount = 0,
+  onboardingComplete = false,
 } = Astro.props;
 
-const userHandleLabel = username
-  ? `@${username}`
-  : displayName || (userEmail ? userEmail.split("@")[0] : "Account");
+const avatarEmojiMap = new Map(KID_AVATARS.map((a) => [a.key, a.emoji]));
 
-const NAV_GROUPS = [
+interface NavItem {
+  id: string;
+  href: string;
+  label: string;
+  icon: string;
+  badge?: string;
+  kidSafe: boolean;
+}
+
+interface NavGroup {
+  label: string;
+  kidSafe: boolean;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Reading & Listening",
+    label: "Read & Listen",
+    kidSafe: true,
     items: [
-      { id: "shelf", href: "#shelf", label: "My Shelf", icon: "book", badge: bookCount > 0 ? String(bookCount) : null },
-      { id: "qc-viewer", href: "#qc-viewer", label: "Book Viewer", icon: "viewer", badge: "QC" },
-      { id: "audio-slot", href: "#audio-slot", label: "Audiobook Player", icon: "audio", badge: audioCount > 0 ? String(audioCount) : null },
+      {
+        id: "shelf",
+        href: "/account",
+        label: "My Shelf",
+        icon: "shelf",
+        badge: String(bookCount),
+        kidSafe: true,
+      },
     ],
   },
   {
-    label: "Family & Profiles",
+    label: "Family",
+    kidSafe: false,
     items: [
-      { id: "kids-family", href: "#kids-family", label: "Kids & Limits", icon: "characters", badge: kidProfiles.length > 0 ? String(kidProfiles.length) : null, parentOnly: true },
-      { id: "referrals", href: "#referrals", label: "Refer a Friend", icon: "reviews", badge: "$10", parentOnly: true },
+      {
+        id: "kids",
+        href: "/account/kids",
+        label: "Kids & Sleep Limits",
+        icon: "kids",
+        badge: kidProfiles.length > 0 ? String(kidProfiles.length) : undefined,
+        kidSafe: false,
+      },
+      {
+        id: "onboarding",
+        href: "/account/onboarding",
+        label: "Family Setup",
+        icon: "sparkles",
+        badge: onboardingComplete ? undefined : "1 min",
+        kidSafe: false,
+      },
+      {
+        id: "referrals",
+        href: "/account/referrals",
+        label: "Give $10, Get $10",
+        icon: "gift",
+        badge: "$10",
+        kidSafe: false,
+      },
     ],
   },
   {
     label: "Account",
+    kidSafe: false,
     items: [
-      { id: "book-club", href: "#book-club", label: "Book Club", icon: "club", parentOnly: true },
-      { id: "orders", href: "#orders", label: "Your Orders", icon: "orders", parentOnly: true },
-      { id: "reviews", href: "#reviews", label: "My Reviews", icon: "reviews", parentOnly: true },
-      { id: "store", href: "/", label: "Browse Storefront", icon: "store", external: true },
-      ...(isAdmin ? [{ id: "admin", href: "/admin", label: "Admin Dashboard", icon: "panel", badge: "Admin", parentOnly: true, external: true }] : []),
+      {
+        id: "club",
+        href: "/account/club",
+        label: "Book & Audio Club",
+        icon: "club",
+        kidSafe: false,
+      },
+      {
+        id: "orders",
+        href: "/account/orders",
+        label: "Orders & Receipts",
+        icon: "orders",
+        kidSafe: false,
+      },
+      {
+        id: "reviews",
+        href: "/account/reviews",
+        label: "My Reviews",
+        icon: "star",
+        kidSafe: false,
+      },
+      {
+        id: "settings",
+        href: "/account/settings",
+        label: "Sign-in & Security",
+        icon: "shield",
+        kidSafe: false,
+      },
     ],
   },
 ];
 
 const ICONS: Record<string, string> = {
-  book: '<path d="M2 3.5h6A4 4 0 0 1 12 7.5v13a3 3 0 0 0-3-3H2z"/><path d="M22 3.5h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/>',
-  viewer: '<rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M9 3v18"/><path d="M13 8h5M13 12h5M13 16h3"/>',
-  audio: '<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M3 14h3.5v4H5a2 2 0 0 1-2-2v-2z"/><path d="M21 14h-3.5v4H19a2 2 0 0 0 2-2v-2z"/>',
-  characters: '<circle cx="9" cy="8" r="3.5"/><path d="M2.8 20c.7-3.1 3.2-4.9 6.2-4.9s5.5 1.8 6.2 4.9"/><circle cx="17.3" cy="9" r="2.6"/><path d="M16.2 15.3c2.2.3 3.9 1.8 4.4 4.2"/>',
-  orders: '<path d="M5.5 8h13l-1 12.5h-11z"/><path d="M9 10V6.5a3 3 0 0 1 6 0V10"/>',
-  club: '<path d="M12 2.8 20 7v10l-8 4.2L4 17V7z"/><path d="M4.3 7.3 12 11l7.7-3.7"/><path d="M12 11v10"/>',
-  reviews: '<path d="m12 3.2 2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-2.9-5.4 2.9 1.1-6L3.2 9.6l6.1-.8z"/>',
-  store: '<path d="M3.5 9.3 5.2 3.5h13.6l1.7 5.8"/><path d="M3.5 9.3a2.9 2.9 0 0 0 5.5.8 2.9 2.9 0 0 0 6 0 2.9 2.9 0 0 0 5.5-.8"/><path d="M5 12.6V20.5h14v-7.9"/><path d="M9.7 20.5v-5.4h4.6v5.4"/>',
-  signout: '<path d="M9 20.5H5.5a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2H9"/><path d="m16 16.5 5-4.5-5-4.5"/><path d="M21 12H9.5"/>',
-  panel: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9.5 4v16"/>',
-  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
-  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  shelf: `<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M9 7h6"/><path d="M9 11h4"/>`,
+  kids: `<circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20v-1.5A4.5 4.5 0 0 1 7.5 14h3A4.5 4.5 0 0 1 15 18.5V20"/><path d="M15 14.5h2.5A3.5 3.5 0 0 1 21 18v2"/>`,
+  sparkles: `<path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/>`,
+  gift: `<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>`,
+  club: `<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>`,
+  orders: `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10"/><path d="M7 12h6"/><path d="M7 16h4"/>`,
+  star: `<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>`,
+  shield: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>`,
+  store: `<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>`,
+  admin: `<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>`,
+  logout: `<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>`,
 };
-
-const icon = (name: string) =>
-  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
-
-const avatarMap = new Map(KID_AVATARS.map((a) => [a.id, a]));
 ---
 
-<script is:inline>
-  (function () {
-    var stored = null;
-    try { stored = window.localStorage.getItem("bbs-customer-sidebar"); } catch (e) {}
-    var state = stored === "collapsed" ? "collapsed" : "expanded";
-    document.documentElement.setAttribute("data-cust-sidebar", state);
-    document.documentElement.setAttribute("data-cust-mobile-nav", "closed");
-  })();
-</script>
-
 <style is:global>
-  .bbs-cust-sidebar {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 60;
-    width: 16.5rem;
-    height: 100dvh;
-    background: #ffffff;
-    border-right: 1px solid #e7e5e4;
-    display: flex;
-    flex-direction: column;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    transition: width 0.18s ease, transform 0.18s ease;
+  :root {
+    --cust-sb-w: 248px;
+    --cust-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  html {
     -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
   }
-  .bbs-cust-head {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.85rem 0.9rem;
-    border-bottom: 1px solid #f0efed;
-    min-height: 3.75rem;
-  }
-  .bbs-cust-wordmark {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 999px;
-    background: #1a3454;
-    color: #fff;
-    padding: 0.35rem 0.85rem;
-    font-size: 0.95rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    line-height: 1;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-  .bbs-cust-wordmark .bbs-wm-orange { color: #fb923c; }
-  .bbs-cust-mono {
-    display: none;
-    width: 2.2rem;
-    height: 2.2rem;
-    border-radius: 999px;
-    background: #1a3454;
-    color: #fff;
-    font-weight: 800;
-    font-size: 0.85rem;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-  }
-  .bbs-cust-tag {
-    font-size: 0.62rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: #ea580c;
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
-    padding: 0.15rem 0.45rem;
-    border-radius: 999px;
-    white-space: nowrap;
-  }
-  .bbs-cust-toggle, .bbs-cust-menu-btn {
-    margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.4rem;
-    height: 2.4rem;
-    border-radius: 0.6rem;
-    border: 1px solid transparent;
-    background: transparent;
-    color: #78716c;
-    cursor: pointer;
-    flex: none;
+  button,
+  a,
+  [role="button"] {
     touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
   }
-  .bbs-cust-toggle:active, .bbs-cust-menu-btn:active {
-    transform: scale(0.96);
-  }
-  @media (hover: hover) and (pointer: fine) {
-    .bbs-cust-toggle:hover, .bbs-cust-menu-btn:hover {
-      background: #f5f5f4;
-      color: #1c1917;
+  @media (pointer: coarse) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
     }
   }
-  .bbs-cust-profile-box {
-    margin: 0.65rem 0.7rem 0.25rem;
-    padding: 0.6rem 0.65rem;
-    border-radius: 0.85rem;
-    background: #fafaf9;
-    border: 1px solid #e7e5e4;
-  }
-  .bbs-cust-nav {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 0.5rem 0.65rem 1rem;
-    overscroll-behavior: contain;
-  }
-  .bbs-cust-group { margin-top: 1rem; }
-  .bbs-cust-group:first-child { margin-top: 0.2rem; }
-  .bbs-cust-group-label {
-    margin: 0 0 0.35rem;
-    padding: 0 0.55rem;
-    font-size: 0.65rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: #a8a29e;
-    white-space: nowrap;
-  }
-  .bbs-cust-item {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 0.7rem;
-    padding: 0.6rem 0.65rem;
-    margin: 0.15rem 0;
-    min-height: 2.75rem;
-    border-radius: 0.65rem;
-    color: #57534e;
-    font-size: 0.92rem;
-    font-weight: 550;
-    text-decoration: none;
-    white-space: nowrap;
-    touch-action: manipulation;
-    transition: background-color 0.12s ease, color 0.12s ease, transform 0.1s ease;
-  }
-  .bbs-cust-item:active {
-    transform: scale(0.98);
-  }
-  .bbs-cust-item svg { flex: none; }
-  @media (hover: hover) and (pointer: fine) {
-    .bbs-cust-item:hover {
-      background: #f5f5f4;
-      color: #1c1917;
+  @media (min-width: 1024px) {
+    body {
+      padding-left: var(--cust-sb-w) !important;
     }
   }
-  .bbs-cust-item.bbs-cust-active {
-    background: #fff7ed;
-    color: #9a3412;
-    font-weight: 700;
-    box-shadow: inset 3px 0 0 #ea580c;
+  @media (max-width: 1023px) {
+    body {
+      padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px)) !important;
+    }
   }
-  .bbs-cust-badge {
-    margin-left: auto;
-    background: #f5f5f4;
-    color: #57534e;
-    font-size: 0.68rem;
-    font-weight: 700;
-    line-height: 1;
-    padding: 0.24rem 0.5rem;
-    border-radius: 999px;
-    font-variant-numeric: tabular-nums;
-  }
-  .bbs-cust-item.bbs-cust-active .bbs-cust-badge {
-    background: #ffedd5;
-    color: #9a3412;
-  }
-  .bbs-cust-foot {
-    border-top: 1px solid #f0efed;
-    padding: 0.65rem;
-  }
-  .bbs-cust-mobilebar { display: none; }
-  .bbs-cust-backdrop { display: none; }
-
-  /* Kid mode hides parent-only billing/order sections so kids ages 4-8 stay in a safe reading/listening space */
-  html[data-kid-mode="active"] [data-parent-only="true"] {
+  body[data-kid-mode="true"] [data-parent-only="true"] {
     display: none !important;
   }
-
-  @media (min-width: 1024px) {
-    html[data-cust-sidebar] body {
-      padding-left: 16.5rem;
-      transition: padding-left 0.18s ease;
-    }
-    html[data-cust-sidebar="collapsed"] body {
-      padding-left: 4.5rem;
-    }
-    html[data-cust-sidebar="collapsed"] .bbs-cust-sidebar {
-      width: 4.5rem;
-    }
-    html[data-cust-sidebar="collapsed"] .bbs-cust-wordmark,
-    html[data-cust-sidebar="collapsed"] .bbs-cust-tag,
-    html[data-cust-sidebar="collapsed"] .bbs-cust-group-label,
-    html[data-cust-sidebar="collapsed"] .bbs-cust-item-label,
-    html[data-cust-sidebar="collapsed"] .bbs-cust-badge,
-    html[data-cust-sidebar="collapsed"] .bbs-cust-profile-details {
-      display: none;
-    }
-    html[data-cust-sidebar="collapsed"] .bbs-cust-mono {
-      display: inline-flex;
-    }
-    html[data-cust-sidebar="collapsed"] .bbs-cust-item {
-      justify-content: center;
-      padding: 0.6rem 0;
-    }
-    html[data-cust-sidebar="collapsed"] .bbs-cust-head {
-      justify-content: center;
-      flex-direction: column;
-      gap: 0.5rem;
-      padding: 0.8rem 0.3rem;
-    }
-    html[data-cust-sidebar="collapsed"] .bbs-cust-toggle {
-      margin-left: 0;
-    }
+  .cust-pressable {
+    transition:
+      transform 140ms var(--cust-ease-out),
+      background-color 150ms var(--cust-ease-out),
+      border-color 150ms var(--cust-ease-out),
+      color 150ms var(--cust-ease-out);
   }
-
-  @media (max-width: 1023.98px) {
-    html[data-cust-sidebar] body {
-      padding-top: calc(3.6rem + env(safe-area-inset-top, 0px));
-    }
-    .bbs-cust-sidebar {
-      transform: translateX(-106%);
-      width: 17.5rem;
-      box-shadow: 0 12px 42px rgba(28, 25, 23, 0.22);
-    }
-    html[data-cust-mobile-nav="open"] .bbs-cust-sidebar {
-      transform: none;
-    }
-    .bbs-cust-mobilebar {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 55;
-      height: calc(3.6rem + env(safe-area-inset-top, 0px));
-      padding: env(safe-area-inset-top, 0px) 0.9rem 0;
-      background: rgba(255, 255, 255, 0.96);
-      backdrop-filter: blur(10px);
-      border-bottom: 1px solid #e7e5e4;
-    }
-    html[data-cust-mobile-nav="open"] .bbs-cust-backdrop {
-      display: block;
-      position: fixed;
-      inset: 0;
-      z-index: 58;
-      background: rgba(28, 25, 23, 0.38);
+  .cust-pressable:active {
+    transform: scale(0.97);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
     }
   }
 </style>
 
-<div class="bbs-cust-mobilebar">
-  <a class="bbs-cust-wordmark" href="/">big<span class="bbs-wm-orange">brain</span>shelf</a>
-  <span class="bbs-cust-tag" id="mobile-active-mode-badge">Family Hub</span>
-  <button class="bbs-cust-menu-btn" id="bbs-cust-menu-btn" type="button" aria-label="Open family navigation menu">
-    <Fragment set:html={icon("menu")} />
+<style>
+  .cust-sb {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    width: var(--cust-sb-w);
+    background: #fcfaf6;
+    border-right: 1px solid #ece6dc;
+    display: flex;
+    flex-direction: column;
+    font-family:
+      "Plus Jakarta Sans",
+      -apple-system,
+      BlinkMacSystemFont,
+      sans-serif;
+    user-select: none;
+  }
+
+  .cust-sb-top {
+    height: 3.5rem;
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #ece6dc;
+    flex-shrink: 0;
+  }
+  .cust-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    text-decoration: none;
+  }
+  .cust-brand-pill {
+    background: #1a3454;
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.85rem;
+    letter-spacing: -0.02em;
+    padding: 0.25rem 0.65rem;
+    border-radius: 9999px;
+    line-height: 1.2;
+  }
+  .cust-brand-sub {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #c2410c;
+    background: #ffedd5;
+    padding: 0.15rem 0.45rem;
+    border-radius: 9999px;
+  }
+
+  .cust-profile-box {
+    margin: 0.75rem 0.75rem 0.25rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 0.85rem;
+    background: #fff;
+    border: 1px solid #e7e0d3;
+    box-shadow: 0 1px 2px rgba(26, 52, 84, 0.04);
+  }
+  .cust-profile-lbl {
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #78716c;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.35rem;
+  }
+  .cust-profile-select {
+    width: 100%;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: #1c1917;
+    background: #faf7f2;
+    border: 1px solid #e7e0d3;
+    border-radius: 0.55rem;
+    padding: 0.4rem 0.55rem;
+    cursor: pointer;
+  }
+
+  .cust-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem 0.65rem 1rem;
+  }
+  .cust-group {
+    margin-top: 0.9rem;
+  }
+  .cust-group:first-child {
+    margin-top: 0.35rem;
+  }
+  .cust-group-lbl {
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #a8a29e;
+    padding: 0 0.6rem 0.35rem;
+  }
+  .cust-link {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: 0.6rem;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #57534e;
+    text-decoration: none;
+    transition:
+      background-color 150ms var(--cust-ease-out),
+      color 150ms var(--cust-ease-out),
+      transform 120ms var(--cust-ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .cust-link:hover {
+      background: #f3ede2;
+      color: #1c1917;
+    }
+  }
+  .cust-link:active {
+    transform: scale(0.98);
+  }
+  .cust-link[aria-current="page"] {
+    background: #ffedd5;
+    color: #9a3412;
+    font-weight: 800;
+  }
+  .cust-ico {
+    width: 1.05rem;
+    height: 1.05rem;
+    flex-shrink: 0;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.85;
+  }
+  .cust-link[aria-current="page"] .cust-ico {
+    opacity: 1;
+    stroke: #ea580c;
+  }
+  .cust-badge {
+    margin-left: auto;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 0.1rem 0.45rem;
+    border-radius: 9999px;
+    background: #f5f0e6;
+    color: #57534e;
+  }
+  .cust-link[aria-current="page"] .cust-badge {
+    background: #fed7aa;
+    color: #9a3412;
+  }
+
+  .cust-foot {
+    border-top: 1px solid #ece6dc;
+    padding: 0.65rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  /* Mobile top bar */
+  .cust-mbar {
+    display: none;
+    position: sticky;
+    top: 0;
+    z-index: 35;
+    height: 3.35rem;
+    background: rgba(252, 250, 246, 0.94);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #ece6dc;
+    padding: 0 1rem;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .cust-mbtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.42rem 0.7rem;
+    border-radius: 0.55rem;
+    border: 1px solid #e7e0d3;
+    background: #fff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #1c1917;
+  }
+  .cust-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    background: rgba(28, 25, 23, 0.4);
+  }
+
+  /* Mobile bottom navigation bar for native app feel */
+  .cust-bottom-tabs {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 36;
+    background: rgba(252, 250, 246, 0.96);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid #ece6dc;
+    padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
+    justify-content: space-around;
+    align-items: center;
+  }
+  .cust-tab-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.18rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: 0.65rem;
+    text-decoration: none;
+    color: #78716c;
+    font-size: 0.68rem;
+    font-weight: 700;
+    min-width: 3.8rem;
+    transition:
+      color 140ms var(--cust-ease-out),
+      transform 120ms var(--cust-ease-out);
+  }
+  .cust-tab-item:active {
+    transform: scale(0.95);
+  }
+  .cust-tab-item[aria-current="page"] {
+    color: #ea580c;
+    font-weight: 800;
+  }
+
+  @media (max-width: 1023px) {
+    .cust-mbar {
+      display: flex;
+    }
+    .cust-bottom-tabs {
+      display: flex;
+    }
+    .cust-sb {
+      transform: translateX(-100%);
+      transition: transform 200ms var(--cust-ease-out);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+    }
+    .cust-sb.is-open {
+      transform: translateX(0);
+    }
+    .cust-backdrop.is-open {
+      display: block;
+    }
+  }
+</style>
+
+<div class="cust-mbar">
+  <button type="button" class="cust-mbtn cust-pressable" id="cust-open-drawer" aria-label="Open menu">
+    <svg class="cust-ico" viewBox="0 0 24 24">
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+    <span>Menu</span>
   </button>
+  <a href="/account" class="cust-brand">
+    <span class="cust-brand-pill">bigbrainshelf</span>
+  </a>
+  <a href="/" class="text-xs font-bold text-stone-600 hover:text-stone-900">Storefront →</a>
 </div>
-<div class="bbs-cust-backdrop" id="bbs-cust-backdrop"></div>
 
-<aside class="bbs-cust-sidebar" aria-label="Family Hub Navigation">
-  <div class="bbs-cust-head">
-    <a class="bbs-cust-wordmark" href="/" aria-label="Big Brain Shelf home">big<span class="bbs-wm-orange">brain</span>shelf</a>
-    <a class="bbs-cust-mono" href="/" aria-label="Big Brain Shelf home">B</a>
-    <span class="bbs-cust-tag">Hub</span>
-    <button class="bbs-cust-toggle" id="bbs-cust-side-toggle" type="button" aria-label="Collapse or expand sidebar">
-      <Fragment set:html={icon("panel")} />
-    </button>
+<div class="cust-backdrop" id="cust-backdrop"></div>
+
+<aside
+  class="cust-sb"
+  id="cust-sidebar"
+  aria-label="Family shelf navigation"
+  data-has-pin={hasParentPin ? "true" : "false"}
+>
+  <div class="cust-sb-top">
+    <a href="/account" class="cust-brand">
+      <span class="cust-brand-pill">bigbrainshelf</span>
+      <span class="cust-brand-sub">Family</span>
+    </a>
+    <a
+      href="/"
+      class="text-xs font-bold text-stone-500 hover:text-stone-900"
+      title="Return to Storefront"
+    >
+      Store ↗
+    </a>
   </div>
 
-  {/* Active Reader / Kid Profile Switcher */}
-  <div class="bbs-cust-profile-box" id="sidebar-profile-switcher" data-has-pin={hasParentPin ? "1" : "0"}>
-    <div class="flex items-center gap-2.5">
-      <span
-        id="active-profile-avatar"
-        class="w-9 h-9 rounded-full bg-amber-100 text-amber-900 font-extrabold text-base flex items-center justify-center shrink-0 border border-amber-300"
+  <!-- Active Reader / Kid Profile Switcher -->
+  <div class="cust-profile-box">
+    <div class="cust-profile-lbl">
+      <span>Who is reading?</span>
+      <span id="cust-mode-pill" class="text-[10px] font-extrabold text-orange-700">Parent View</span>
+    </div>
+    <select
+      id="cust-profile-switcher"
+      class="cust-profile-select"
+      aria-label="Switch between Parent View and Child Profiles"
+    >
+      <option value="parent">👩‍👧 Parent View (All pages)</option>
+      {kidProfiles.map((kid) => {
+        const emoji = avatarEmojiMap.get(kid.avatar_key) || "🦊";
+        return (
+          <option
+            value={kid.id}
+            data-kid-name={kid.name}
+            data-sleep-minutes={kid.default_sleep_timer_minutes}
+            data-daily-limit={kid.daily_limit_minutes}
+          >
+            {emoji} {kid.name} ({kid.age_group} · {kid.default_sleep_timer_minutes}m timer)
+          </option>
+        );
+      })}
+    </select>
+    {kidProfiles.length === 0 && (
+      <a
+        href="/account/onboarding"
+        data-parent-only="true"
+        class="mt-1.5 inline-block text-[11px] font-bold text-orange-700 hover:underline"
       >
-        👨‍👩‍👧
-      </span>
-      <div class="bbs-cust-profile-details min-w-0 flex-1">
-        <p class="text-[11px] font-bold uppercase tracking-wider text-stone-400">Who is reading?</p>
-        <select
-          id="active-profile-select"
-          aria-label="Switch reader profile"
-          class="mt-0.5 w-full bg-transparent text-xs font-bold text-stone-900 focus:outline-none cursor-pointer truncate"
-        >
-          <option value="parent">Parent View (All access)</option>
-          {kidProfiles.map((kp) => {
-            const av = avatarMap.get(kp.avatar_key);
-            return (
-              <option
-                value={kp.id}
-                data-name={kp.name}
-                data-age-group={kp.age_group}
-                data-emoji={av?.emoji || "🦊"}
-                data-sleep={kp.default_sleep_timer_minutes}
-                data-limit={kp.daily_limit_minutes}
-                data-used={kp.daily_minutes_used}
-              >
-                {av?.emoji || "🦊"} {kp.name} (Ages {kp.age_group})
-              </option>
-            );
-          })}
-        </select>
-      </div>
-    </div>
-    <div id="active-kid-limit-pill" class="bbs-cust-profile-details hidden mt-2 pt-2 border-t border-stone-200/80 flex items-center justify-between text-[11px] text-stone-600">
-      <span id="active-kid-limit-text">Daily limit: 60m</span>
-      <button type="button" id="exit-kid-mode-btn" class="font-bold text-orange-700 hover:underline">Parent PIN</button>
-    </div>
+        + Add a child profile for Kid View
+      </a>
+    )}
   </div>
 
-  <nav class="bbs-cust-nav" aria-label="Account sections">
+  <nav class="cust-nav">
     {NAV_GROUPS.map((group) => (
-      <div class="bbs-cust-group" data-parent-only={group.label === "Family & Profiles" ? "true" : undefined}>
-        <p class="bbs-cust-group-label">{group.label}</p>
+      <div class="cust-group" data-parent-only={group.kidSafe ? undefined : "true"}>
+        <div class="cust-group-lbl">{group.label}</div>
         {group.items.map((item) => (
           <a
-            class={`bbs-cust-item${item.id === currentSection ? " bbs-cust-active" : ""}`}
             href={item.href}
             data-nav-id={item.id}
-            data-parent-only={item.parentOnly ? "true" : undefined}
-            aria-label={item.label}
+            data-parent-only={item.kidSafe ? undefined : "true"}
+            aria-current={currentSection === item.id ? "page" : undefined}
+            class="cust-link"
           >
-            <Fragment set:html={icon(item.icon)} />
-            <span class="bbs-cust-item-label">{item.label}</span>
-            {item.badge && <span class="bbs-cust-badge">{item.badge}</span>}
+            <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS[item.icon] || ICONS.shelf} />
+            <span>{item.label}</span>
+            {item.badge && <span class="cust-badge">{item.badge}</span>}
           </a>
         ))}
       </div>
     ))}
+
+    <div class="cust-group" data-parent-only="true">
+      <div class="cust-group-lbl">Explore</div>
+      <a href="/books" class="cust-link">
+        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.store} />
+        <span>Browse All Books</span>
+      </a>
+    </div>
   </nav>
 
-  <div class="bbs-cust-foot relative" id="bbs-cust-user-foot">
-    <div
-      id="bbs-cust-user-popover"
-      role="menu"
-      class="hidden absolute bottom-full left-2 right-2 mb-2 rounded-2xl border border-stone-200 bg-white p-2 shadow-xl z-50"
-    >
-      <div class="px-2.5 py-2 border-b border-stone-100">
-        <div class="flex items-center justify-between gap-2">
-          <p class="text-xs font-extrabold text-stone-900 truncate">{userHandleLabel}</p>
-          <span
-            class={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider ${
-              isAdmin ? "bg-[#1a3454] text-white" : "bg-orange-100 text-orange-800"
-            }`}
-          >
-            {isAdmin ? "Admin" : "Family"}
-          </span>
-        </div>
-        {userEmail && <p class="text-[11px] text-stone-500 truncate mt-0.5">{userEmail}</p>}
-      </div>
-      <div class="py-1 space-y-0.5">
-        <a
-          href="/accounts"
-          role="menuitem"
-          class="flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs font-bold text-stone-800 hover:bg-orange-50"
-        >
-          <span>Customer Hub</span>
-          <span class="text-[10px] font-mono text-stone-400">/accounts</span>
-        </a>
-        {isAdmin && (
-          <a
-            href="/admin"
-            role="menuitem"
-            class="flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs font-extrabold text-[#1a3454] bg-stone-50 hover:bg-stone-100"
-          >
-            <span>Admin Dashboard</span>
-            <span class="rounded-full bg-[#1a3454] text-white px-2 py-0.5 text-[10px] font-bold">/admin</span>
-          </a>
-        )}
-        <a
-          href="/"
-          role="menuitem"
-          class="flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-100"
-        >
-          <span>Browse Storefront</span>
-        </a>
-      </div>
-    </div>
-
+  <!-- Account Dropdown Menu in Sidebar Footer -->
+  <div class="cust-foot relative">
     <button
       type="button"
-      id="bbs-cust-user-menu-btn"
-      data-parent-only="true"
-      aria-haspopup="menu"
+      id="cust-acct-menu-btn"
       aria-expanded="false"
-      class="bbs-cust-item w-full text-left cursor-pointer bg-stone-50 border border-stone-200 mb-1"
+      aria-haspopup="menu"
+      class="w-full flex items-center justify-between gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-left hover:border-stone-400 transition cust-pressable"
     >
-      <span class="w-6 h-6 rounded-full bg-[#1a3454] text-white text-xs font-extrabold inline-flex items-center justify-center shrink-0 uppercase">
-        {userHandleLabel.replace(/^@+/, "").charAt(0) || "U"}
-      </span>
-      <span class="bbs-cust-item-label flex-1 truncate font-bold text-stone-900">
-        {userHandleLabel}
-      </span>
-      <span class="bbs-cust-badge">{isAdmin ? "Admin ▴" : "Menu ▴"}</span>
+      <div class="min-w-0 flex items-center gap-2.5">
+        <span class="w-7 h-7 rounded-full bg-[#1a3454] text-white text-xs font-extrabold flex items-center justify-center shrink-0">
+          {(displayName || username || userEmail || "U").slice(0, 1).toUpperCase()}
+        </span>
+        <div class="min-w-0">
+          <p class="text-xs font-extrabold text-stone-900 truncate">
+            {username ? `@${username}` : displayName || userEmail.split("@")[0]}
+          </p>
+          <p class="text-[11px] text-stone-500 truncate">{userEmail}</p>
+        </div>
+      </div>
+      <svg class="w-4 h-4 text-stone-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6 9 12 15 18 9" />
+      </svg>
     </button>
 
-    <button
-      type="button"
-      id="signout"
-      class="bbs-cust-item w-full text-left cursor-pointer bg-transparent border-0"
-      data-parent-only="true"
-      aria-label="Sign out"
+    <div
+      id="cust-acct-dropdown"
+      role="menu"
+      class="hidden absolute bottom-16 left-3 right-3 z-50 rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl"
     >
-      <Fragment set:html={icon("signout")} />
-      <span class="bbs-cust-item-label">Sign out</span>
-    </button>
+      <div class="px-3 py-2 border-b border-stone-100">
+        <p class="text-[11px] font-extrabold uppercase tracking-wider text-stone-400">Signed in as</p>
+        <p class="text-xs font-extrabold text-stone-900 truncate">
+          {username ? `@${username}` : userEmail}
+        </p>
+      </div>
+      <a
+        href="/account"
+        role="menuitem"
+        class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-stone-700 hover:bg-stone-100"
+      >
+        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.shelf} />
+        <span>My Shelf</span>
+      </a>
+      <a
+        href="/account/settings"
+        role="menuitem"
+        data-parent-only="true"
+        class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-stone-700 hover:bg-stone-100"
+      >
+        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.shield} />
+        <span>Sign-in &amp; Security</span>
+      </a>
+      {isAdmin && (
+        <a
+          href="/admin"
+          role="menuitem"
+          data-parent-only="true"
+          class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs font-extrabold text-[#1a3454] hover:bg-orange-50"
+        >
+          <span class="flex items-center gap-2">
+            <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.admin} />
+            <span>Admin Workspace</span>
+          </span>
+          <span class="rounded-full bg-orange-100 text-orange-800 px-2 py-0.5 text-[10px]">Staff</span>
+        </a>
+      )}
+      <a
+        href="/"
+        role="menuitem"
+        data-parent-only="true"
+        class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-stone-700 hover:bg-stone-100"
+      >
+        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.store} />
+        <span>Browse Storefront</span>
+      </a>
+      <div class="my-1 border-t border-stone-100"></div>
+      <button
+        type="button"
+        id="cust-signout-btn"
+        role="menuitem"
+        class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50 text-left cursor-pointer"
+      >
+        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.logout} />
+        <span>Sign out</span>
+      </button>
+    </div>
   </div>
 </aside>
 
-{/* Parent PIN Gate Modal when switching out of Kid Mode */}
+<!-- Mobile Bottom Tab Bar -->
+<nav class="cust-bottom-tabs" aria-label="Quick navigation">
+  <a
+    href="/account"
+    aria-current={currentSection === "shelf" ? "page" : undefined}
+    class="cust-tab-item"
+  >
+    <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.shelf} />
+    <span>My Shelf</span>
+  </a>
+  <a
+    href="/account/kids"
+    data-parent-only="true"
+    aria-current={currentSection === "kids" || currentSection === "onboarding" ? "page" : undefined}
+    class="cust-tab-item"
+  >
+    <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.kids} />
+    <span>Kids</span>
+  </a>
+  <a
+    href="/account/club"
+    data-parent-only="true"
+    aria-current={currentSection === "club" ? "page" : undefined}
+    class="cust-tab-item"
+  >
+    <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.club} />
+    <span>Club</span>
+  </a>
+  <a
+    href="/account/orders"
+    data-parent-only="true"
+    aria-current={currentSection === "orders" ? "page" : undefined}
+    class="cust-tab-item"
+  >
+    <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.orders} />
+    <span>Orders</span>
+  </a>
+  <a
+    href="/account/settings"
+    data-parent-only="true"
+    aria-current={currentSection === "settings" || currentSection === "referrals" || currentSection === "reviews" ? "page" : undefined}
+    class="cust-tab-item"
+  >
+    <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.shield} />
+    <span>Account</span>
+  </a>
+</nav>
+
+<!-- Parent PIN Modal for exiting Kid View -->
 <div
-  id="parent-pin-modal"
-  class="hidden fixed inset-0 z-70 bg-stone-950/50 backdrop-blur-xs flex items-center justify-center p-4"
+  id="cust-pin-modal"
+  class="fixed inset-0 z-50 hidden items-center justify-center bg-stone-950/60 p-4"
   role="dialog"
   aria-modal="true"
-  aria-labelledby="parent-pin-title"
+  aria-labelledby="cust-pin-title"
 >
-  <div class="w-full max-w-sm rounded-2xl bg-white border border-stone-200 p-6 shadow-xl">
-    <h3 id="parent-pin-title" class="text-lg font-extrabold text-stone-900">Enter Parent PIN</h3>
-    <p class="text-xs text-stone-500 mt-1">Enter your 4-digit Parent PIN to switch back to Parent View and manage limits.</p>
-    <form id="parent-pin-form" class="mt-4">
+  <div class="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl border border-stone-200">
+    <h3 id="cust-pin-title" class="text-lg font-extrabold text-stone-900">Enter Parent PIN</h3>
+    <p class="mt-1 text-xs text-stone-600">
+      Enter your 4-digit parent PIN to leave Kid View and open parent settings.
+    </p>
+    <form id="cust-pin-form" class="mt-4 space-y-3">
       <input
         type="password"
-        id="parent-pin-input"
+        id="cust-pin-input"
         inputmode="numeric"
-        pattern="[0-9]*"
-        maxlength="6"
+        maxlength="8"
         placeholder="••••"
-        class="w-full text-center text-2xl tracking-[0.4em] font-extrabold rounded-xl border border-stone-300 px-4 py-3 focus:border-orange-600 focus:outline-none"
+        class="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-center text-lg font-extrabold tracking-widest focus:border-orange-500 focus:outline-none"
       />
-      <p id="parent-pin-error" class="text-xs text-red-600 mt-2 hidden"></p>
-      <div class="mt-4 flex items-center justify-end gap-2">
-        <button type="button" id="parent-pin-cancel" class="rounded-full border border-stone-300 px-4 py-2 text-xs font-semibold text-stone-700">
+      <p id="cust-pin-error" class="hidden text-xs font-semibold text-red-600"></p>
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button
+          type="button"
+          id="cust-pin-cancel"
+          class="rounded-full border border-stone-300 px-4 py-2 text-xs font-bold text-stone-700 hover:border-stone-500"
+        >
           Stay in Kid View
         </button>
-        <button type="submit" class="rounded-full bg-[#1a3454] text-white px-5 py-2 text-xs font-bold hover:bg-[#132741]">
+        <button
+          type="submit"
+          class="rounded-full bg-[#1a3454] px-4 py-2 text-xs font-bold text-white hover:bg-[#132741]"
+        >
           Unlock Parent View
         </button>
       </div>
@@ -534,61 +748,182 @@ const avatarMap = new Map(KID_AVATARS.map((a) => [a.id, a]));
 
 <script is:inline>
   (function () {
-    var root = document.documentElement;
-    var toggle = document.getElementById("bbs-cust-side-toggle");
-    if (toggle && !toggle.__bound) {
-      toggle.__bound = true;
-      toggle.addEventListener("click", function () {
-        var next = root.getAttribute("data-cust-sidebar") === "collapsed" ? "expanded" : "collapsed";
-        root.setAttribute("data-cust-sidebar", next);
-        try { window.localStorage.setItem("bbs-customer-sidebar", next); } catch (e) {}
-      });
-    }
-    var menuBtn = document.getElementById("bbs-cust-menu-btn");
-    if (menuBtn && !menuBtn.__bound) {
-      menuBtn.__bound = true;
-      menuBtn.addEventListener("click", function () {
-        root.setAttribute(
-          "data-cust-mobile-nav",
-          root.getAttribute("data-cust-mobile-nav") === "open" ? "closed" : "open"
+    function initCustomerShell() {
+      var sb = document.getElementById("cust-sidebar");
+      var backdrop = document.getElementById("cust-backdrop");
+      var openBtn = document.getElementById("cust-open-drawer");
+      var switcher = document.getElementById("cust-profile-switcher");
+      var modePill = document.getElementById("cust-mode-pill");
+      var pinModal = document.getElementById("cust-pin-modal");
+      var pinForm = document.getElementById("cust-pin-form");
+      var pinInput = document.getElementById("cust-pin-input");
+      var pinError = document.getElementById("cust-pin-error");
+      var pinCancel = document.getElementById("cust-pin-cancel");
+
+      function closeDrawer() {
+        if (sb) sb.classList.remove("is-open");
+        if (backdrop) backdrop.classList.remove("is-open");
+      }
+      if (openBtn && !openBtn.dataset.bound) {
+        openBtn.dataset.bound = "1";
+        openBtn.addEventListener("click", function () {
+          if (sb) sb.classList.add("is-open");
+          if (backdrop) backdrop.classList.add("is-open");
+        });
+      }
+      if (backdrop && !backdrop.dataset.bound) {
+        backdrop.dataset.bound = "1";
+        backdrop.addEventListener("click", closeDrawer);
+      }
+
+      var acctBtn = document.getElementById("cust-acct-menu-btn");
+      var acctDrop = document.getElementById("cust-acct-dropdown");
+      if (acctBtn && acctDrop && !acctBtn.dataset.bound) {
+        acctBtn.dataset.bound = "1";
+        acctBtn.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          var isHidden = acctDrop.classList.contains("hidden");
+          acctDrop.classList.toggle("hidden", !isHidden);
+          acctBtn.setAttribute("aria-expanded", isHidden ? "true" : "false");
+        });
+        document.addEventListener("click", function (ev) {
+          if (!acctDrop.classList.contains("hidden") && !acctDrop.contains(ev.target) && ev.target !== acctBtn) {
+            acctDrop.classList.add("hidden");
+            acctBtn.setAttribute("aria-expanded", "false");
+          }
+        });
+      }
+
+      var signOutBtn = document.getElementById("cust-signout-btn");
+      if (signOutBtn && !signOutBtn.dataset.bound) {
+        signOutBtn.dataset.bound = "1";
+        signOutBtn.addEventListener("click", function () {
+          fetch("/api/auth/sign-out", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+          }).finally(function () {
+            window.location.href = "/";
+          });
+        });
+      }
+
+      var STORAGE_KEY = "bbs.activeProfileId";
+      var currentProfile = localStorage.getItem(STORAGE_KEY) || "parent";
+
+      function applyProfileMode(profileId) {
+        var isKid = profileId && profileId !== "parent";
+        document.body.setAttribute("data-kid-mode", isKid ? "true" : "false");
+        document.body.setAttribute("data-active-kid-id", isKid ? profileId : "");
+        if (modePill) {
+          modePill.textContent = isKid ? "Kid View" : "Parent View";
+        }
+        if (switcher && switcher.value !== profileId) {
+          var exists = Array.from(switcher.options).some(function (o) {
+            return o.value === profileId;
+          });
+          switcher.value = exists ? profileId : "parent";
+        }
+        var selectedOpt = switcher && switcher.selectedOptions ? switcher.selectedOptions[0] : null;
+        var sleepMins = selectedOpt ? Number(selectedOpt.getAttribute("data-sleep-minutes") || "60") : 60;
+        var kidName = selectedOpt ? selectedOpt.getAttribute("data-kid-name") || "" : "";
+
+        // If user switches to Kid View while on a parent-only page, take them to My Shelf (/account)
+        if (isKid && window.location.pathname !== "/account" && window.location.pathname !== "/account/") {
+          window.location.href = "/account";
+          return;
+        }
+
+        window.dispatchEvent(
+          new CustomEvent("bbs:profile-change", {
+            detail: {
+              profileId: isKid ? profileId : null,
+              isKid: Boolean(isKid),
+              kidName: kidName,
+              sleepMinutes: sleepMins,
+            },
+          })
         );
-      });
-    }
-    var backdrop = document.getElementById("bbs-cust-backdrop");
-    if (backdrop && !backdrop.__bound) {
-      backdrop.__bound = true;
-      backdrop.addEventListener("click", function () {
-        root.setAttribute("data-cust-mobile-nav", "closed");
-      });
-    }
-    document.querySelectorAll(".bbs-cust-sidebar .bbs-cust-item").forEach(function (el) {
-      el.addEventListener("click", function () {
-        root.setAttribute("data-cust-mobile-nav", "closed");
-        var navId = el.getAttribute("data-nav-id");
-        if (navId && navId !== "store") {
-          document.querySelectorAll(".bbs-cust-sidebar .bbs-cust-item").forEach(function (item) {
-            item.classList.toggle("bbs-cust-active", item.getAttribute("data-nav-id") === navId);
+      }
+
+      if (switcher) {
+        var validOption = Array.from(switcher.options).some(function (o) {
+          return o.value === currentProfile;
+        });
+        if (!validOption) currentProfile = "parent";
+        applyProfileMode(currentProfile);
+
+        if (!switcher.dataset.bound) {
+          switcher.dataset.bound = "1";
+          switcher.addEventListener("change", function () {
+            var nextVal = switcher.value;
+            var wasKid = currentProfile && currentProfile !== "parent";
+            var hasPin = sb && sb.getAttribute("data-has-pin") === "true";
+
+            if (wasKid && nextVal === "parent" && hasPin && pinModal) {
+              switcher.value = currentProfile;
+              pinModal.classList.remove("hidden");
+              pinModal.classList.add("flex");
+              if (pinError) pinError.classList.add("hidden");
+              if (pinInput) {
+                pinInput.value = "";
+                pinInput.focus();
+              }
+              return;
+            }
+
+            currentProfile = nextVal;
+            localStorage.setItem(STORAGE_KEY, currentProfile);
+            applyProfileMode(currentProfile);
           });
         }
-      });
-    });
-    var custUserBtn = document.getElementById("bbs-cust-user-menu-btn");
-    var custUserPop = document.getElementById("bbs-cust-user-popover");
-    var custUserFoot = document.getElementById("bbs-cust-user-foot");
-    if (custUserBtn && custUserPop && !custUserBtn.__bound) {
-      custUserBtn.__bound = true;
-      custUserBtn.addEventListener("click", function (ev) {
-        ev.stopPropagation();
-        var isHidden = custUserPop.classList.contains("hidden");
-        custUserPop.classList.toggle("hidden", !isHidden);
-        custUserBtn.setAttribute("aria-expanded", isHidden ? "true" : "false");
-      });
-      document.addEventListener("pointerdown", function (ev) {
-        if (custUserFoot && !custUserFoot.contains(ev.target)) {
-          custUserPop.classList.add("hidden");
-          custUserBtn.setAttribute("aria-expanded", "false");
-        }
-      });
+      }
+
+      if (pinCancel && pinModal && !pinCancel.dataset.bound) {
+        pinCancel.dataset.bound = "1";
+        pinCancel.addEventListener("click", function () {
+          pinModal.classList.add("hidden");
+          pinModal.classList.remove("flex");
+        });
+      }
+
+      if (pinForm && pinModal && !pinForm.dataset.bound) {
+        pinForm.dataset.bound = "1";
+        pinForm.addEventListener("submit", function (ev) {
+          ev.preventDefault();
+          var pin = pinInput ? pinInput.value.trim() : "";
+          fetch("/api/account/family", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "verify_pin", pin: pin }),
+          })
+            .then(function (r) {
+              return r.json();
+            })
+            .then(function (data) {
+              if (data && data.ok) {
+                currentProfile = "parent";
+                localStorage.setItem(STORAGE_KEY, "parent");
+                if (switcher) switcher.value = "parent";
+                applyProfileMode("parent");
+                pinModal.classList.add("hidden");
+                pinModal.classList.remove("flex");
+              } else if (pinError) {
+                pinError.textContent = "Incorrect PIN. Try again.";
+                pinError.classList.remove("hidden");
+              }
+            })
+            .catch(function () {
+              if (pinError) {
+                pinError.textContent = "Could not verify PIN right now.";
+                pinError.classList.remove("hidden");
+              }
+            });
+        });
+      }
     }
+
+    initCustomerShell();
+    document.addEventListener("astro:page-load", initCustomerShell);
   })();
 </script>
