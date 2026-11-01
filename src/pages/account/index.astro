@@ -1469,7 +1469,7 @@ if (showSuccess) {
         addBtn.disabled = true;
         try {
           var name = (document.getElementById("passkey-name").value || "").trim();
-          var opts = await jpost("/api/auth/passkey/generate-register-options", {});
+          var opts = await jget("/api/auth/passkey/generate-register-options");
           var pub = {
             challenge: secB64urlToBuf(opts.challenge),
             rp: opts.rp,

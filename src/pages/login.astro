@@ -321,9 +321,8 @@ if (Astro.locals.user) {
 
     async function passkeySignIn(useConditional) {
       var r = await fetch("/api/auth/passkey/generate-authenticate-options", {
-        method: "POST",
+        method: "GET",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
       });
       var opts = await r.json().catch(function () { return null; });
       if (!r.ok || !opts || !opts.challenge) throw new Error("Passkey sign-in could not start.");
