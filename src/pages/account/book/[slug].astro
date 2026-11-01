@@ -1,0 +1,262 @@
+---
+// The book overview (DESIGN.md): where a tap on the shelf lands.
+// Mirrors the top half of the store book page (cover, title, topic,
+// about), then the family's business with the book: progress and
+// Continue, Read / Listen / Print, quiet downloads, and buy options
+// for books the family does not own yet. Nothing here plays or reads;
+// the QC reader at /read/[slug] does that, one tap away.
+import "../../../styles/global.css";
+import { env } from "cloudflare:workers";
+import Tracking from "../../../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../../../components/TransitionHooks.astro";
+import { publicSlugFor } from "../../../lib/public-slugs";
+import { coverDerivative } from "../../../lib/derivatives";
+import { STANDARD_STANDARD_DIGITAL_PRICE_CENTS, STANDARD_STANDARD_PRINT_PRICE_CENTS, GIFT_SET_PRICE_CENTS, AUDIO_PRICE_CENTS } from "../../../lib/offers";
+import CustomerShell from "../../../components/CustomerShell.astro";
+import { loadCustomerHubContext } from "../../../lib/account-data";
+
+const e = env as any;
+const hub = await loadCustomerHubContext(Astro.request, Astro.locals, e.DB, Astro.url.origin);
+if (!hub) {
+  return Astro.redirect("/login?next=/account");
+}
+const { session, kidProfiles, parentOnboarding, onboardingChecklist, readingProgressList } = hub;
+
+const param = String(Astro.params.slug || "");
+const book: any = (hub.books as any[]).find(
+  (b: any) => publicSlugFor(b) === param || String(b.slug) === param
+);
+if (!book) {
+  return Astro.redirect("/account");
+}
+
+const R2 = "https://media.bigbrainshelf.com/";
+const pub = publicSlugFor(book);
+const cover =
+  coverDerivative(book.slug, "hero", book.cover_key) || (book.cover_key ? R2 + book.cover_key : null);
+
+let description = "";
+try {
+  const row = await e.DB.prepare("SELECT description FROM books WHERE slug = ?")
+    .bind(book.slug)
+    .first();
+  description = String((row as any)?.description || "").trim();
+} catch { /* description is a nicety, not a gate */ }
+
+const prog = readingProgressList.find((p) => p.book_slug === book.slug);
+const progPct =
+  prog && prog.total_pages > 0
+    ? Math.min(100, Math.round((prog.current_page / prog.total_pages) * 100))
+    : 0;
+
+const audioOnly = Boolean(book.audioOnly);
+const owned = Boolean(book.owned);
+const canDownloadBook = owned && Boolean(book.digital);
+const canDownloadAudio = owned && Boolean(book.audio);
+const dl = (format: string) => `/api/download?slug=${encodeURIComponent(book.slug)}&format=${format}`;
+const unlockCents = Math.max(0, Math.round(Number(book.price || STANDARD_DIGITAL_PRICE_CENTS)) - AUDIO_PRICE_CENTS);
+const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{book.title} · My Shelf · Big Brain Shelf</title>
+  <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased pb-28">
+  <CustomerShell
+    currentSection="shelf"
+    userEmail={String(session.user.email || "")}
+    username={session.user.displayUsername || session.user.username}
+    displayName={parentOnboarding?.parent_name || session.user.name}
+    isAdmin={session.user.isAdmin}
+    kidProfiles={kidProfiles}
+    hasParentPin={Boolean(parentOnboarding?.parent_pin)}
+    bookCount={hub.books.length}
+    onboardingComplete={onboardingChecklist.isComplete}
+  />
+
+  <main class="max-w-5xl mx-auto px-4 py-6 sm:py-8">
+    <a href="/account" class="text-sm font-bold text-stone-500 hover:text-stone-900">← Back to the shelf</a>
+
+    <div class="mt-4 grid sm:grid-cols-[240px_1fr] gap-6 items-start">
+      <div
+        class="rounded-2xl overflow-hidden border border-stone-200 shadow-sm bg-stone-100 aspect-square max-w-[240px]"
+        transition:name={`book-cover-${book.slug}`}
+      >
+        {cover && <img src={cover} alt={book.title} width="480" height="480" class="w-full h-full object-cover" />}
+      </div>
+
+      <div class="min-w-0">
+        {book.topic && (
+          <p class="text-[11px] font-extrabold uppercase tracking-wider text-orange-700">{book.topic}</p>
+        )}
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900 mt-1">{book.title}</h1>
+
+        {!owned && (
+          <p class="mt-2 inline-block rounded-full bg-[#1a3454]/10 text-[#1a3454] px-3 py-1 text-xs font-bold">
+            On your shelf with your club membership. Downloads come with books you own.
+          </p>
+        )}
+        {audioOnly && (
+          <p class="mt-2 inline-block rounded-full bg-stone-100 text-stone-700 px-3 py-1 text-xs font-bold">
+            🎧 You own the audiobook edition of this book.
+          </p>
+        )}
+
+        {description && <p class="mt-3 text-sm sm:text-[15px] text-stone-600 leading-relaxed">{description}</p>}
+
+        {progPct > 0 && (
+          <div class="mt-4 max-w-md">
+            <div class="flex items-baseline justify-between text-xs font-bold text-stone-600">
+              <span>{progPct >= 100 ? "Finished" : `Page ${prog?.current_page} of ${prog?.total_pages}`}</span>
+              <span>{progPct}%</span>
+            </div>
+            <div class="h-1.5 rounded-full bg-stone-200 overflow-hidden mt-1">
+              <div class="h-full bg-orange-500 rounded-full" style={`width:${progPct}%`}></div>
+            </div>
+          </div>
+        )}
+
+        <!-- The three actions. Read defaults to the full-color
+             read-along in the reader; Print opens the chooser. -->
+        <div class="mt-5 flex flex-wrap items-center gap-2.5">
+          {!audioOnly && (
+            <a
+              href={`/read/${pub}`}
+              class="cust-pressable rounded-full bg-orange-600 px-5 py-2.5 text-sm font-extrabold text-white hover:bg-orange-700"
+            >
+              {progPct > 0 && progPct < 100 ? "Continue reading" : "Read"}
+            </a>
+          )}
+          {book.audiobook_key && (
+            <a
+              href={`/read/${pub}?listen=1`}
+              class="cust-pressable rounded-full bg-[#1a3454] px-5 py-2.5 text-sm font-extrabold text-white hover:bg-[#132741]"
+            >
+              🎧 Listen
+            </a>
+          )}
+          {!audioOnly && canDownloadBook && (
+            <details class="relative" data-parent-only="true">
+              <summary class="cust-pressable list-none cursor-pointer rounded-full border border-stone-300 bg-white px-5 py-2.5 text-sm font-extrabold text-stone-700 hover:border-stone-500 [&::-webkit-details-marker]:hidden">
+                🖨️ Print
+              </summary>
+              <div class="absolute z-20 mt-2 w-56 rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl">
+                <a href={dl("coloring")} class="block rounded-xl px-3 py-2 text-sm font-bold text-stone-700 hover:bg-stone-100">Coloring book (line art)</a>
+                <a href={dl("storybook")} class="block rounded-xl px-3 py-2 text-sm font-bold text-stone-700 hover:bg-stone-100">Storybook pages</a>
+                {book.color_book_key && (
+                  <a href={dl("color")} class="block rounded-xl px-3 py-2 text-sm font-bold text-stone-700 hover:bg-stone-100">Full-color book</a>
+                )}
+              </div>
+            </details>
+          )}
+        </div>
+
+        <!-- Quiet downloads: ownership only, per the lock model. -->
+        {(canDownloadBook || canDownloadAudio) && (
+          <p class="mt-4 text-xs text-stone-500" data-parent-only="true">
+            Download:
+            {canDownloadBook && book.epub_key && (
+              <> <a href={dl("epub")} class="font-bold text-orange-700 hover:underline">EPUB ebook</a> ·</>
+            )}
+            {canDownloadAudio && book.audiobook_key && (
+              <> <a href={dl("audiobook")} class="font-bold text-orange-700 hover:underline">Audiobook file</a> ·</>
+            )}
+            <a href="/account/reviews" class="font-bold text-orange-700 hover:underline">Write a review</a>
+          </p>
+        )}
+        {!canDownloadBook && !canDownloadAudio && (
+          <p class="mt-4 text-xs text-stone-500" data-parent-only="true">
+            <a href="/account/reviews" class="font-bold text-orange-700 hover:underline">Write a review</a>
+          </p>
+        )}
+      </div>
+    </div>
+
+    <!-- Buy options for books the family does not own yet: same cart,
+         same checkout, without leaving the account. -->
+    {!owned && !audioOnly && (
+      <section class="mt-8 rounded-3xl border border-stone-200 bg-[#fcfaf6] p-5" data-parent-only="true" aria-label="Buy this book">
+        <h2 class="text-sm font-extrabold text-stone-900">Make it yours</h2>
+        <p class="text-xs text-stone-600 mt-1">Club access ends with the membership. Your own copy is yours to download and keep.</p>
+        <div class="mt-4 grid sm:grid-cols-3 gap-3">
+          {[
+            { format: "digital", label: "Digital bundle", note: "Storybook, coloring book, ebook and audiobook.", cents: STANDARD_DIGITAL_PRICE_CENTS },
+            { format: "printed", label: "Printed book", note: "Full-color printed storybook. Digital bundle included.", cents: STANDARD_PRINT_PRICE_CENTS },
+            { format: "giftset", label: "Gift Set", note: "Printed storybook and printed coloring book.", cents: GIFT_SET_PRICE_CENTS },
+          ].map((opt) => (
+            <div class="rounded-2xl border border-stone-200 bg-white p-4 flex flex-col">
+              <p class="text-sm font-extrabold text-stone-900">{opt.label}</p>
+              <p class="text-xs text-stone-600 mt-1 flex-1">{opt.note}</p>
+              <div class="mt-3 flex items-center justify-between">
+                <span class="text-sm font-extrabold">{money(opt.cents)}</span>
+                <button
+                  type="button"
+                  data-add-to-cart
+                  data-slug={book.slug}
+                  data-format={opt.format}
+                  class="cust-pressable rounded-full bg-[#1a3454] px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-[#132741] cursor-pointer"
+                >
+                  Add to cart
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
+    {audioOnly && (
+      <section class="mt-8 rounded-3xl border border-stone-200 bg-[#fcfaf6] p-5" data-parent-only="true" aria-label="Add the storybook">
+        <h2 class="text-sm font-extrabold text-stone-900">Want the pages too?</h2>
+        <p class="text-xs text-stone-600 mt-1">
+          Add the storybook and coloring PDFs for {money(unlockCents)}. Your audiobook purchase counts toward it.
+        </p>
+        <a
+          href={`/books/${pub}?upgrade=digital`}
+          class="cust-pressable inline-block mt-3 rounded-full bg-[#1a3454] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#132741]"
+        >
+          Add Storybook &amp; Coloring PDFs ({money(unlockCents)})
+        </a>
+      </section>
+    )}
+
+    <p class="text-[11px] text-stone-400 mt-8">For your family's personal use.</p>
+  </main>
+
+  <script is:inline>
+    (function () {
+      function initOverview() {
+        document.querySelectorAll("[data-add-to-cart]").forEach(function (btn) {
+          if (btn.dataset.boundCart) return;
+          btn.dataset.boundCart = "1";
+          btn.addEventListener("click", function () {
+            var slug = btn.getAttribute("data-slug");
+            var format = btn.getAttribute("data-format");
+            if (window.bbsCart && slug && format) {
+              window.bbsCart.add(slug, format);
+              if (window.openCartSheet) window.openCartSheet();
+            }
+          });
+        });
+      }
+      initOverview();
+      document.addEventListener("astro:page-load", initOverview);
+    })();
+  </script>
+</body>
+</html>
