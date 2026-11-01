@@ -143,7 +143,7 @@ export async function ensureFamilySyncSchema(db?: D1Database): Promise<void> {
       `CREATE TABLE IF NOT EXISTS cast_companion_sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
-        kid_profile_id INTEGER,
+        kid_profile_id TEXT,
         book_slug TEXT NOT NULL,
         character_name TEXT NOT NULL,
         question_text TEXT NOT NULL,
@@ -349,7 +349,9 @@ export async function updateFamilySyncState(
 export async function askCastCompanion(params: {
   db?: D1Database;
   userId: string;
-  kidProfileId?: number | null;
+  /** The caller's own kid profile id (a UUID string; ownership is
+   * verified by the route, F6). */
+  kidProfileId?: string | null;
   bookSlug: string;
   characterName?: string;
   questionText: string;
