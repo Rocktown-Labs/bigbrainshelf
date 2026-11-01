@@ -11,6 +11,7 @@ import {
   type DownloadGrant,
 } from "../../lib/download-guard";
 import { stampPdfForBuyer } from "../../lib/pdf-stamp";
+import { listKidProfiles } from "../../lib/family";
 import { serveStampedM4b } from "../../lib/m4b-stamp";
 
 // GET /api/download?slug=&format=picture|coloring|epub|color|audiobook
@@ -94,12 +95,22 @@ export const GET: APIRoute = async ({ request, url }) => {
   if (ext === "pdf") {
     const raw = new Uint8Array(await obj.arrayBuffer());
     let body: Uint8Array = raw;
+    // The dedication page names the family's default reader (the
+    // first child profile when none is marked default). No profile,
+    // no page: the stamp proceeds exactly as before.
+    let childName: string | null = null;
+    try {
+      const kids = await listKidProfiles(e.DB, user.id);
+      const def = kids.find((k) => k.is_default) || kids[0];
+      childName = def?.name ? String(def.name) : null;
+    } catch { /* dedication is a delight, never a blocker */ }
     try {
       body = await stampPdfForBuyer(raw, {
         email: grant.buyerEmail,
         shortId: grant.shortId,
         marker: grant.marker,
         markerIsOrder: grant.markerIsOrder,
+        childName,
       });
     } catch (err) {
       console.error("pdf stamp failed, serving original", (err as any)?.message || err);

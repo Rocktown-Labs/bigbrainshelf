@@ -8,7 +8,7 @@
 // Run with: bun tests/download-protection.test.ts
 import { Database } from "bun:sqlite";
 import { PDFDocument, StandardFonts, PDFRawStream, decodePDFRawStream } from "pdf-lib";
-import { stampPdfForBuyer, licensedLine, microtextCode } from "../src/lib/pdf-stamp";
+import { stampPdfForBuyer, licensedLine, microtextCode, dedicationName } from "../src/lib/pdf-stamp";
 import {
   DOWNLOAD_LIMIT,
   DOWNLOAD_LIMIT_MESSAGE,
@@ -92,6 +92,25 @@ assert(runsOf(8).some((r) => r === licensedLine(info)), "a middle interior page 
 assert(runsOf(7).some((r) => r === microtextCode(info)), "7th interior page carries the standalone microtext code");
 assert(!runsOf(6).some((r) => r === microtextCode(info)), "6th interior page has no microtext code");
 assert(runsOf(14).some((r) => r === microtextCode(info)), "14th interior page carries the microtext code");
+
+// The dedication page (CG's queued delight, 2026-11-01): with a
+// child name the stamp inserts one page after the cover carrying
+// the inscription, and the rest of the book is untouched.
+assert(dedicationName({ ...info, childName: "Ruby Joy" }) === "Ruby", "dedication name is the first name only");
+assert(dedicationName({ ...info, childName: null }) === null, "no child name, no dedication");
+assert(dedicationName({ ...info }) === null, "absent child name, no dedication");
+const dedicated = await PDFDocument.load(
+  await stampPdfForBuyer(await samplePdf(6), { ...info, childName: "Ruby" })
+);
+const dPages = dedicated.getPages();
+assert(dPages.length === 7, "dedication adds exactly one page");
+const dRuns = pageTextRuns(dedicated, dPages[1]);
+assert(dRuns.some((r) => r.includes("This book belongs to")), "dedication page carries the inscription line");
+assert(dRuns.some((r) => r === "Ruby"), "dedication page carries the child's first name");
+assert(!dRuns.some((r) => r.includes("Licensed to")), "dedication page carries no licensed footer");
+assert(pageTextRuns(dedicated, dPages[2]).some((r) => r.includes("Story page 2")), "the story's second page follows the dedication");
+const undedicated = await PDFDocument.load(await stampPdfForBuyer(await samplePdf(6), info));
+assert(undedicated.getPages().length === 6, "without a child name the page count is unchanged");
 
 // Club-box grants stamp without an order reference.
 const boxInfo = { email: "member@example.com", shortId: null, marker: "club-box:box-9", markerIsOrder: false };
