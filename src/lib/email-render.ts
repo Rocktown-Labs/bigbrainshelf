@@ -165,7 +165,13 @@ export async function renderOutboxEmailHtml(
       owner_club_canceled: { label: "Open the club list", href: `${site}/admin/club` },
       owner_new_review: { label: "Open the review queue", href: `${site}/admin/reviews` },
       owner_payment_alert: { label: "Open orders", href: `${site}/admin/orders` },
-      completion_upsell: { label: "See the clubs", href: `${site}/clubs` },
+      // The finished-book email carries the review ask ("How was
+      // it?"), so its one button is the review. Mid-book mail keeps
+      // the clubs button. Keyed on the body so the button always
+      // matches what the text actually asks.
+      completion_upsell: String(row.body_text || "").includes("How was it?")
+        ? { label: "Write a review", href: `${site}/account/reviews` }
+        : { label: "See the clubs", href: `${site}/clubs` },
     };
     return await render(
       createElement(SimpleEmail, {

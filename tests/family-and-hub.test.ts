@@ -487,7 +487,8 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
 
     const siteHeaderSrc = readFileSync(resolve(root, "src/components/SiteHeader.astro"), "utf8");
     expect(siteHeaderSrc).toContain("user-account-menu-wrap");
-    expect(siteHeaderSrc).toContain('href="/accounts"');
+    expect(siteHeaderSrc).toContain('href="/account"');
+    expect(siteHeaderSrc).not.toContain('href="/accounts"');
     expect(siteHeaderSrc).toContain('href="/admin"');
 
     const adminShellSrc = readFileSync(resolve(root, "src/components/AdminShell.astro"), "utf8");
@@ -495,7 +496,12 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     expect(adminShellSrc).toContain('href="/accounts"');
 
     const custShellSrc = readFileSync(resolve(root, "src/components/CustomerShell.astro"), "utf8");
-    expect(custShellSrc).toContain("cust-acct-menu-btn");
-    expect(custShellSrc).toContain('href="/admin"');
+    // DESIGN.md chrome (2026-11-01): no sidebar; the store top bar
+    // (SiteHeader) renders inside the account, the family switcher
+    // and section chips live in one slim bar.
+    expect(custShellSrc).toContain("SiteHeader");
+    expect(custShellSrc).toContain("cust-profile-switcher");
+    expect(custShellSrc).toContain('href="/account/orders"');
+    expect(custShellSrc).not.toContain("cust-sb");
   });
 });

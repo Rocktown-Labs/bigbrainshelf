@@ -260,7 +260,10 @@ export async function checkAndEnqueueCompletionUpsell(params: {
     .first();
   if (existing) return { triggered: false };
 
-  // Check if already a paid Club member in `club_signups`
+  // Paid club members have nothing to upsell, so mid-book they get
+  // nothing (the original rule). A FINISHED book is different: members
+  // are our best reviewers, so they get the review-only variant below.
+  let isMember = false;
   try {
     const activeSub = await params.db
       .prepare(
@@ -270,10 +273,11 @@ export async function checkAndEnqueueCompletionUpsell(params: {
       )
       .bind(email)
       .first();
-    if (activeSub) return { triggered: false };
+    isMember = !!activeSub;
   } catch {
     // ignore if table absent
   }
+  if (isMember && params.percentComplete < 100) return { triggered: false };
 
   const siteUrl = (params.siteUrl || "https://bigbrainshelf.com").replace(/\/+$/, "");
   const now = new Date().toISOString();
@@ -293,19 +297,54 @@ export async function checkAndEnqueueCompletionUpsell(params: {
   const titleRef = bookTitle || "your book";
 
   const finished = params.percentComplete >= 100;
+
+  // The review ask rides the finished email only, and never asks a
+  // family that already reviewed the book (one review per reader per
+  // book is the standing rule).
+  let hasReviewed = false;
+  if (finished) {
+    try {
+      const r = await params.db
+        .prepare(
+          `SELECT id FROM reviews WHERE book_slug = ? AND (user_id = ? OR LOWER(user_email) = ?) LIMIT 1`
+        )
+        .bind(params.bookSlug, params.userId, email)
+        .first();
+      hasReviewed = !!r;
+    } catch {
+      // reviews table absent in isolated unit tests; ask anyway
+    }
+  }
+  // A member who finished and already reviewed has nothing to be
+  // emailed about. Do not send noise.
+  if (isMember && hasReviewed) return { triggered: false };
+
   const subject = finished
     ? `You finished ${titleRef}`
     : `You are most of the way through ${titleRef}`;
-  const textBody = [
+  const paragraphs = [
     finished
       ? `Your family finished ${titleRef}. Nice work.`
       : `Your family has read ${params.percentComplete}% of ${titleRef}. Nice work.`,
-    `When you are ready for the next book, the clubs keep the shelf full:`,
-    `- The Audio Club ($5.99/month or $49/year): every Big Brain Shelf audiobook in your library while your membership is active, with read-along.`,
-    `- The Book Club ($60/quarter or $199/year): a printed gift set box every 3 months with a second printed book from the back catalog, and the digital editions in your library from day one.`,
-    `- Or add single books anytime: digital bundle $8.99, printed book $20, complete gift set $25.`,
-    `See the clubs: ${siteUrl}/clubs`,
-  ].join("\n\n");
+  ];
+  if (finished && !hasReviewed) {
+    paragraphs.push(
+      `How was it? If ${titleRef} earned its place on your shelf, a short review helps other families find it. It takes about a minute.`,
+      `Write a review: ${siteUrl}/account/reviews`
+    );
+  }
+  if (!isMember) {
+    paragraphs.push(
+      `When you are ready for the next book, the clubs keep the shelf full:`,
+      `- The Audio Club ($5.99/month or $49/year): every Big Brain Shelf audiobook in your library while your membership is active, with read-along.`,
+      `- The Book Club ($60/quarter or $199/year): a printed gift set box every 3 months with a second printed book from the back catalog, and the digital editions in your library from day one.`,
+      `- Or add single books anytime: digital bundle $8.99, printed book $20, complete gift set $25.`,
+      `See the clubs: ${siteUrl}/clubs`
+    );
+  } else {
+    paragraphs.push(`More books are waiting on your shelf: ${siteUrl}/account`);
+  }
+  const textBody = paragraphs.join("\n\n");
 
   try {
     await enqueueEmail(params.db as any, {

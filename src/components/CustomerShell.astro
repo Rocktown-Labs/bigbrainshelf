@@ -1,5 +1,19 @@
 ---
+// CustomerShell: the account-area chrome (DESIGN.md, 2026-10-31).
+//
+// The store top bar never leaves: SiteHeader (logo, search, cart,
+// account menu) renders on every account page, with the cart sheet so
+// buying works without leaving /account. Under it, one slim bar holds
+// the family switcher (who is reading) and the section links. There is
+// no sidebar. On phones a bottom tab bar carries the main sections.
+//
+// Kid View is a body state: [data-parent-only] elements hide while a
+// kid profile is active, and leaving Kid View can require the parent
+// PIN. The switcher contract (select id, option data attributes, the
+// bbs:profile-change event) is stable: the shelf and reader listen.
 import { KID_AVATARS, type KidProfile } from "../lib/family";
+import SiteHeader from "./SiteHeader.astro";
+import CartSheet from "./CartSheet.astro";
 
 interface Props {
   currentSection?: string;
@@ -16,10 +30,6 @@ interface Props {
 
 const {
   currentSection = "shelf",
-  userEmail,
-  username = null,
-  displayName = null,
-  isAdmin = false,
   kidProfiles = [],
   hasParentPin = false,
   bookCount = 0,
@@ -34,94 +44,18 @@ interface NavItem {
   label: string;
   icon: string;
   badge?: string;
-  kidSafe: boolean;
+  parentOnly?: boolean;
 }
 
-interface NavGroup {
-  label: string;
-  kidSafe: boolean;
-  items: NavItem[];
-}
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: "Read & Listen",
-    kidSafe: true,
-    items: [
-      {
-        id: "shelf",
-        href: "/account",
-        label: "My Shelf",
-        icon: "shelf",
-        badge: String(bookCount),
-        kidSafe: true,
-      },
-    ],
-  },
-  {
-    label: "Family",
-    kidSafe: false,
-    items: [
-      {
-        id: "kids",
-        href: "/account/kids",
-        label: "Kids & Sleep Limits",
-        icon: "kids",
-        badge: kidProfiles.length > 0 ? String(kidProfiles.length) : undefined,
-        kidSafe: false,
-      },
-      {
-        id: "onboarding",
-        href: "/account/onboarding",
-        label: "Family Setup",
-        icon: "sparkles",
-        badge: onboardingComplete ? undefined : "1 min",
-        kidSafe: false,
-      },
-      {
-        id: "referrals",
-        href: "/account/referrals",
-        label: "Give $10, Get $10",
-        icon: "gift",
-        badge: "$10",
-        kidSafe: false,
-      },
-    ],
-  },
-  {
-    label: "Account",
-    kidSafe: false,
-    items: [
-      {
-        id: "club",
-        href: "/account/club",
-        label: "Book & Audio Club",
-        icon: "club",
-        kidSafe: false,
-      },
-      {
-        id: "orders",
-        href: "/account/orders",
-        label: "Orders & Receipts",
-        icon: "orders",
-        kidSafe: false,
-      },
-      {
-        id: "reviews",
-        href: "/account/reviews",
-        label: "My Reviews",
-        icon: "star",
-        kidSafe: false,
-      },
-      {
-        id: "settings",
-        href: "/account/settings",
-        label: "Sign-in & Security",
-        icon: "shield",
-        kidSafe: false,
-      },
-    ],
-  },
+const NAV_ITEMS: NavItem[] = [
+  { id: "shelf", href: "/account", label: "My Shelf", icon: "shelf", badge: bookCount > 0 ? String(bookCount) : undefined },
+  { id: "club", href: "/account/club", label: "Clubs", icon: "club", parentOnly: true },
+  { id: "orders", href: "/account/orders", label: "Orders", icon: "orders", parentOnly: true },
+  { id: "reviews", href: "/account/reviews", label: "Reviews", icon: "star", parentOnly: true },
+  { id: "kids", href: "/account/kids", label: "Kids & Limits", icon: "kids", parentOnly: true },
+  { id: "onboarding", href: "/account/onboarding", label: "Family Setup", icon: "sparkles", badge: onboardingComplete ? undefined : "1 min", parentOnly: true },
+  { id: "referrals", href: "/account/referrals", label: "Give $10, Get $10", icon: "gift", parentOnly: true },
+  { id: "settings", href: "/account/settings", label: "Settings", icon: "shield", parentOnly: true },
 ];
 
 const ICONS: Record<string, string> = {
@@ -133,15 +67,11 @@ const ICONS: Record<string, string> = {
   orders: `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10"/><path d="M7 12h6"/><path d="M7 16h4"/>`,
   star: `<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>`,
   shield: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>`,
-  store: `<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>`,
-  admin: `<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>`,
-  logout: `<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>`,
 };
 ---
 
 <style is:global>
   :root {
-    --cust-sb-w: 248px;
     --cust-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   }
   html {
@@ -160,11 +90,6 @@ const ICONS: Record<string, string> = {
     textarea,
     select {
       font-size: 16px;
-    }
-  }
-  @media (min-width: 1024px) {
-    body {
-      padding-left: var(--cust-sb-w) !important;
     }
   }
   @media (max-width: 1023px) {
@@ -197,143 +122,102 @@ const ICONS: Record<string, string> = {
 </style>
 
 <style>
-  .cust-sb {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    z-index: 40;
-    width: var(--cust-sb-w);
+  .cust-bar {
     background: #fcfaf6;
-    border-right: 1px solid #ece6dc;
-    display: flex;
-    flex-direction: column;
+    border-bottom: 1px solid #ece6dc;
     font-family:
       "Plus Jakarta Sans",
       -apple-system,
       BlinkMacSystemFont,
       sans-serif;
-    user-select: none;
   }
-
-  .cust-sb-top {
-    height: 3.5rem;
-    padding: 0 1rem;
+  .cust-bar-in {
+    max-width: 80rem;
+    margin: 0 auto;
+    padding: 0.5rem 1rem;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid #ece6dc;
+    gap: 0.75rem;
+  }
+  @media (min-width: 640px) {
+    .cust-bar-in {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+  .cust-switcher {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     flex-shrink: 0;
   }
-  .cust-brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.45rem;
-    text-decoration: none;
-  }
-  .cust-brand-pill {
-    background: #1a3454;
-    color: #fff;
-    font-weight: 800;
-    font-size: 0.85rem;
-    letter-spacing: -0.02em;
-    padding: 0.25rem 0.65rem;
-    border-radius: 9999px;
-    line-height: 1.2;
-  }
-  .cust-brand-sub {
-    font-size: 0.68rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #c2410c;
-    background: #ffedd5;
-    padding: 0.15rem 0.45rem;
-    border-radius: 9999px;
-  }
-
-  .cust-profile-box {
-    margin: 0.75rem 0.75rem 0.25rem;
-    padding: 0.65rem 0.75rem;
-    border-radius: 0.85rem;
-    background: #fff;
-    border: 1px solid #e7e0d3;
-    box-shadow: 0 1px 2px rgba(26, 52, 84, 0.04);
-  }
-  .cust-profile-lbl {
-    font-size: 0.65rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: #78716c;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.35rem;
-  }
-  .cust-profile-select {
-    width: 100%;
+  .cust-switcher select {
     font-size: 0.8125rem;
     font-weight: 700;
     color: #1c1917;
-    background: #faf7f2;
+    background: #fff;
     border: 1px solid #e7e0d3;
-    border-radius: 0.55rem;
-    padding: 0.4rem 0.55rem;
+    border-radius: 9999px;
+    padding: 0.42rem 0.7rem;
     cursor: pointer;
+    max-width: 13.5rem;
   }
-
-  .cust-nav {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0.5rem 0.65rem 1rem;
-  }
-  .cust-group {
-    margin-top: 0.9rem;
-  }
-  .cust-group:first-child {
-    margin-top: 0.35rem;
-  }
-  .cust-group-lbl {
-    font-size: 0.65rem;
+  .cust-mode-pill {
+    font-size: 10px;
     font-weight: 800;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #a8a29e;
-    padding: 0 0.6rem 0.35rem;
+    color: #9a3412;
+    background: #ffedd5;
+    padding: 0.18rem 0.5rem;
+    border-radius: 9999px;
+    white-space: nowrap;
   }
-  .cust-link {
+  .cust-nav {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.5rem 0.65rem;
-    border-radius: 0.6rem;
-    font-size: 0.84rem;
+    gap: 0.25rem;
+    margin-left: auto;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .cust-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .cust-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.83rem;
     font-weight: 600;
     color: #57534e;
     text-decoration: none;
+    white-space: nowrap;
     transition:
       background-color 150ms var(--cust-ease-out),
       color 150ms var(--cust-ease-out),
       transform 120ms var(--cust-ease-out);
   }
   @media (hover: hover) and (pointer: fine) {
-    .cust-link:hover {
+    .cust-chip:hover {
       background: #f3ede2;
       color: #1c1917;
     }
   }
-  .cust-link:active {
-    transform: scale(0.98);
+  .cust-chip:active {
+    transform: scale(0.97);
   }
-  .cust-link[aria-current="page"] {
+  .cust-chip[aria-current="page"] {
     background: #ffedd5;
     color: #9a3412;
     font-weight: 800;
   }
   .cust-ico {
-    width: 1.05rem;
-    height: 1.05rem;
+    width: 1rem;
+    height: 1rem;
     flex-shrink: 0;
     stroke: currentColor;
     fill: none;
@@ -342,64 +226,21 @@ const ICONS: Record<string, string> = {
     stroke-linejoin: round;
     opacity: 0.85;
   }
-  .cust-link[aria-current="page"] .cust-ico {
+  .cust-chip[aria-current="page"] .cust-ico {
     opacity: 1;
     stroke: #ea580c;
   }
   .cust-badge {
-    margin-left: auto;
-    font-size: 0.68rem;
+    font-size: 0.66rem;
     font-weight: 800;
-    padding: 0.1rem 0.45rem;
+    padding: 0.08rem 0.42rem;
     border-radius: 9999px;
     background: #f5f0e6;
     color: #57534e;
   }
-  .cust-link[aria-current="page"] .cust-badge {
+  .cust-chip[aria-current="page"] .cust-badge {
     background: #fed7aa;
     color: #9a3412;
-  }
-
-  .cust-foot {
-    border-top: 1px solid #ece6dc;
-    padding: 0.65rem 0.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
-
-  /* Mobile top bar */
-  .cust-mbar {
-    display: none;
-    position: sticky;
-    top: 0;
-    z-index: 35;
-    height: 3.35rem;
-    background: rgba(252, 250, 246, 0.94);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid #ece6dc;
-    padding: 0 1rem;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .cust-mbtn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.42rem 0.7rem;
-    border-radius: 0.55rem;
-    border: 1px solid #e7e0d3;
-    background: #fff;
-    font-size: 0.78rem;
-    font-weight: 700;
-    color: #1c1917;
-  }
-  .cust-backdrop {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 39;
-    background: rgba(28, 25, 23, 0.4);
   }
 
   /* Mobile bottom navigation bar for native app feel */
@@ -416,6 +257,11 @@ const ICONS: Record<string, string> = {
     padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
     justify-content: space-around;
     align-items: center;
+    font-family:
+      "Plus Jakarta Sans",
+      -apple-system,
+      BlinkMacSystemFont,
+      sans-serif;
   }
   .cust-tab-item {
     display: flex;
@@ -441,220 +287,67 @@ const ICONS: Record<string, string> = {
     color: #ea580c;
     font-weight: 800;
   }
-
   @media (max-width: 1023px) {
-    .cust-mbar {
-      display: flex;
-    }
     .cust-bottom-tabs {
       display: flex;
-    }
-    .cust-sb {
-      transform: translateX(-100%);
-      transition: transform 200ms var(--cust-ease-out);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
-    }
-    .cust-sb.is-open {
-      transform: translateX(0);
-    }
-    .cust-backdrop.is-open {
-      display: block;
     }
   }
 </style>
 
-<div class="cust-mbar">
-  <button type="button" class="cust-mbtn cust-pressable" id="cust-open-drawer" aria-label="Open menu">
-    <svg class="cust-ico" viewBox="0 0 24 24">
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="3" y1="18" x2="21" y2="18" />
-    </svg>
-    <span>Menu</span>
-  </button>
-  <a href="/account" class="cust-brand">
-    <span class="cust-brand-pill">bigbrainshelf</span>
-  </a>
-  <a href="/" class="text-xs font-bold text-stone-600 hover:text-stone-900">Storefront →</a>
-</div>
+<SiteHeader search cartMode="sheet" />
+<CartSheet />
 
-<div class="cust-backdrop" id="cust-backdrop"></div>
-
-<aside
-  class="cust-sb"
-  id="cust-sidebar"
-  aria-label="Family shelf navigation"
-  data-has-pin={hasParentPin ? "true" : "false"}
->
-  <div class="cust-sb-top">
-    <a href="/account" class="cust-brand">
-      <span class="cust-brand-pill">bigbrainshelf</span>
-      <span class="cust-brand-sub">Family</span>
-    </a>
-    <a
-      href="/"
-      class="text-xs font-bold text-stone-500 hover:text-stone-900"
-      title="Return to Storefront"
-    >
-      Store ↗
-    </a>
-  </div>
-
-  <!-- Active Reader / Kid Profile Switcher -->
-  <div class="cust-profile-box">
-    <div class="cust-profile-lbl">
-      <span>Who is reading?</span>
-      <span id="cust-mode-pill" class="text-[10px] font-extrabold text-orange-700">Parent View</span>
-    </div>
-    <select
-      id="cust-profile-switcher"
-      class="cust-profile-select"
-      aria-label="Switch between Parent View and Child Profiles"
-    >
-      <option value="parent">👩‍👧 Parent View (All pages)</option>
-      {kidProfiles.map((kid) => {
-        const emoji = avatarEmojiMap.get(kid.avatar_key) || "🦊";
-        return (
-          <option
-            value={kid.id}
-            data-kid-name={kid.name}
-            data-sleep-minutes={kid.default_sleep_timer_minutes}
-            data-daily-limit={kid.daily_limit_minutes}
-          >
-            {emoji} {kid.name} ({kid.age_group} · {kid.default_sleep_timer_minutes}m timer)
-          </option>
-        );
-      })}
-    </select>
-    {kidProfiles.length === 0 && (
-      <a
-        href="/account/onboarding"
-        data-parent-only="true"
-        class="mt-1.5 inline-block text-[11px] font-bold text-orange-700 hover:underline"
+<div class="cust-bar" data-has-pin={hasParentPin ? "true" : "false"} id="cust-bar">
+  <div class="cust-bar-in">
+    <div class="cust-switcher">
+      <select
+        id="cust-profile-switcher"
+        aria-label="Switch between Parent View and Child Profiles"
       >
-        + Add a child profile for Kid View
-      </a>
-    )}
-  </div>
-
-  <nav class="cust-nav">
-    {NAV_GROUPS.map((group) => (
-      <div class="cust-group" data-parent-only={group.kidSafe ? undefined : "true"}>
-        <div class="cust-group-lbl">{group.label}</div>
-        {group.items.map((item) => (
-          <a
-            href={item.href}
-            data-nav-id={item.id}
-            data-parent-only={item.kidSafe ? undefined : "true"}
-            aria-current={currentSection === item.id ? "page" : undefined}
-            class="cust-link"
-          >
-            <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS[item.icon] || ICONS.shelf} />
-            <span>{item.label}</span>
-            {item.badge && <span class="cust-badge">{item.badge}</span>}
-          </a>
-        ))}
-      </div>
-    ))}
-
-    <div class="cust-group" data-parent-only="true">
-      <div class="cust-group-lbl">Explore</div>
-      <a href="/books" class="cust-link">
-        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.store} />
-        <span>Browse All Books</span>
-      </a>
-    </div>
-  </nav>
-
-  <!-- Account Dropdown Menu in Sidebar Footer -->
-  <div class="cust-foot relative">
-    <button
-      type="button"
-      id="cust-acct-menu-btn"
-      aria-expanded="false"
-      aria-haspopup="menu"
-      class="w-full flex items-center justify-between gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-left hover:border-stone-400 transition cust-pressable"
-    >
-      <div class="min-w-0 flex items-center gap-2.5">
-        <span class="w-7 h-7 rounded-full bg-[#1a3454] text-white text-xs font-extrabold flex items-center justify-center shrink-0">
-          {(displayName || username || userEmail || "U").slice(0, 1).toUpperCase()}
-        </span>
-        <div class="min-w-0">
-          <p class="text-xs font-extrabold text-stone-900 truncate">
-            {username ? `@${username}` : displayName || userEmail.split("@")[0]}
-          </p>
-          <p class="text-[11px] text-stone-500 truncate">{userEmail}</p>
-        </div>
-      </div>
-      <svg class="w-4 h-4 text-stone-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="6 9 12 15 18 9" />
-      </svg>
-    </button>
-
-    <div
-      id="cust-acct-dropdown"
-      role="menu"
-      class="hidden absolute bottom-16 left-3 right-3 z-50 rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl"
-    >
-      <div class="px-3 py-2 border-b border-stone-100">
-        <p class="text-[11px] font-extrabold uppercase tracking-wider text-stone-400">Signed in as</p>
-        <p class="text-xs font-extrabold text-stone-900 truncate">
-          {username ? `@${username}` : userEmail}
-        </p>
-      </div>
-      <a
-        href="/account"
-        role="menuitem"
-        class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-stone-700 hover:bg-stone-100"
-      >
-        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.shelf} />
-        <span>My Shelf</span>
-      </a>
-      <a
-        href="/account/settings"
-        role="menuitem"
-        data-parent-only="true"
-        class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-stone-700 hover:bg-stone-100"
-      >
-        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.shield} />
-        <span>Sign-in &amp; Security</span>
-      </a>
-      {isAdmin && (
+        <option value="parent">👩‍👧 Parent View (All pages)</option>
+        {kidProfiles.map((kid) => {
+          const emoji = avatarEmojiMap.get(kid.avatar_key) || "🦊";
+          return (
+            <option
+              value={kid.id}
+              data-kid-name={kid.name}
+              data-sleep-minutes={kid.default_sleep_timer_minutes}
+              data-daily-limit={kid.daily_limit_minutes}
+            >
+              {emoji} {kid.name} ({kid.age_group} · {kid.default_sleep_timer_minutes}m timer)
+            </option>
+          );
+        })}
+      </select>
+      <span id="cust-mode-pill" class="cust-mode-pill">Parent View</span>
+      {kidProfiles.length === 0 && (
         <a
-          href="/admin"
-          role="menuitem"
+          href="/account/onboarding"
           data-parent-only="true"
-          class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs font-extrabold text-[#1a3454] hover:bg-orange-50"
+          class="hidden sm:inline-block text-[11px] font-bold text-orange-700 hover:underline whitespace-nowrap"
         >
-          <span class="flex items-center gap-2">
-            <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.admin} />
-            <span>Admin Workspace</span>
-          </span>
-          <span class="rounded-full bg-orange-100 text-orange-800 px-2 py-0.5 text-[10px]">Staff</span>
+          + Add a child profile
         </a>
       )}
-      <a
-        href="/"
-        role="menuitem"
-        data-parent-only="true"
-        class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-stone-700 hover:bg-stone-100"
-      >
-        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.store} />
-        <span>Browse Storefront</span>
-      </a>
-      <div class="my-1 border-t border-stone-100"></div>
-      <button
-        type="button"
-        id="cust-signout-btn"
-        role="menuitem"
-        class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50 text-left cursor-pointer"
-      >
-        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.logout} />
-        <span>Sign out</span>
-      </button>
     </div>
+
+    <nav class="cust-nav" aria-label="Account sections">
+      {NAV_ITEMS.map((item) => (
+        <a
+          href={item.href}
+          data-nav-id={item.id}
+          data-parent-only={item.parentOnly ? "true" : undefined}
+          aria-current={currentSection === item.id ? "page" : undefined}
+          class="cust-chip cust-pressable"
+        >
+          <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS[item.icon] || ICONS.shelf} />
+          <span>{item.label}</span>
+          {item.badge && <span class="cust-badge">{item.badge}</span>}
+        </a>
+      ))}
+    </nav>
   </div>
-</aside>
+</div>
 
 <!-- Mobile Bottom Tab Bar -->
 <nav class="cust-bottom-tabs" aria-label="Quick navigation">
@@ -749,9 +442,7 @@ const ICONS: Record<string, string> = {
 <script is:inline>
   (function () {
     function initCustomerShell() {
-      var sb = document.getElementById("cust-sidebar");
-      var backdrop = document.getElementById("cust-backdrop");
-      var openBtn = document.getElementById("cust-open-drawer");
+      var bar = document.getElementById("cust-bar");
       var switcher = document.getElementById("cust-profile-switcher");
       var modePill = document.getElementById("cust-mode-pill");
       var pinModal = document.getElementById("cust-pin-modal");
@@ -759,54 +450,6 @@ const ICONS: Record<string, string> = {
       var pinInput = document.getElementById("cust-pin-input");
       var pinError = document.getElementById("cust-pin-error");
       var pinCancel = document.getElementById("cust-pin-cancel");
-
-      function closeDrawer() {
-        if (sb) sb.classList.remove("is-open");
-        if (backdrop) backdrop.classList.remove("is-open");
-      }
-      if (openBtn && !openBtn.dataset.bound) {
-        openBtn.dataset.bound = "1";
-        openBtn.addEventListener("click", function () {
-          if (sb) sb.classList.add("is-open");
-          if (backdrop) backdrop.classList.add("is-open");
-        });
-      }
-      if (backdrop && !backdrop.dataset.bound) {
-        backdrop.dataset.bound = "1";
-        backdrop.addEventListener("click", closeDrawer);
-      }
-
-      var acctBtn = document.getElementById("cust-acct-menu-btn");
-      var acctDrop = document.getElementById("cust-acct-dropdown");
-      if (acctBtn && acctDrop && !acctBtn.dataset.bound) {
-        acctBtn.dataset.bound = "1";
-        acctBtn.addEventListener("click", function (ev) {
-          ev.stopPropagation();
-          var isHidden = acctDrop.classList.contains("hidden");
-          acctDrop.classList.toggle("hidden", !isHidden);
-          acctBtn.setAttribute("aria-expanded", isHidden ? "true" : "false");
-        });
-        document.addEventListener("click", function (ev) {
-          if (!acctDrop.classList.contains("hidden") && !acctDrop.contains(ev.target) && ev.target !== acctBtn) {
-            acctDrop.classList.add("hidden");
-            acctBtn.setAttribute("aria-expanded", "false");
-          }
-        });
-      }
-
-      var signOutBtn = document.getElementById("cust-signout-btn");
-      if (signOutBtn && !signOutBtn.dataset.bound) {
-        signOutBtn.dataset.bound = "1";
-        signOutBtn.addEventListener("click", function () {
-          fetch("/api/auth/sign-out", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: "{}",
-          }).finally(function () {
-            window.location.href = "/";
-          });
-        });
-      }
 
       var STORAGE_KEY = "bbs.activeProfileId";
       var currentProfile = localStorage.getItem(STORAGE_KEY) || "parent";
@@ -858,7 +501,7 @@ const ICONS: Record<string, string> = {
           switcher.addEventListener("change", function () {
             var nextVal = switcher.value;
             var wasKid = currentProfile && currentProfile !== "parent";
-            var hasPin = sb && sb.getAttribute("data-has-pin") === "true";
+            var hasPin = bar && bar.getAttribute("data-has-pin") === "true";
 
             if (wasKid && nextVal === "parent" && hasPin && pinModal) {
               switcher.value = currentProfile;
