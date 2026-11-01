@@ -127,13 +127,29 @@ if (clubSignup?.status === "paid") {
   <Tracking />
 
   <style is:global>
-    .pick-card { position: relative; border: 2px solid rgba(255,255,255,.16); background: rgba(255,255,255,.05); border-radius: .8rem; padding: .45rem; text-align: left; cursor: pointer; width: 100%; transition: border-color .15s, background .15s, opacity .15s; }
-    .pick-card:hover { border-color: rgba(255,255,255,.45); }
-    .pick-card[aria-pressed="true"] { border-color: #fb923c; background: rgba(255,255,255,.14); }
-    .pick-card.is-blocked { opacity: .5; cursor: not-allowed; }
-    .pick-pill { display: inline-block; margin-top: .4rem; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.14); color: rgba(255,255,255,.85); }
-    .pick-card[aria-pressed="true"] .pick-pill { background: #fb923c; color: #1a3454; }
-    .pick-surprise { display: flex; flex-direction: column; justify-content: center; aspect-ratio: 3/4; border-radius: .5rem; background: rgba(255,255,255,.07); padding: .5rem; }
+    /* Box picker: the Shelf (CG picked it from the HTML prototype,
+       2026-11-01). Two box slots on top, a shelf of covers on a
+       plank below; tap a book and it goes in the box. */
+    .pick-boxslots { display: flex; gap: .6rem; margin-top: .9rem; }
+    .pick-boxslot { flex: 1; border: 1.5px dashed rgba(255,255,255,.35); border-radius: .9rem; min-height: 118px; padding: .5rem; background: rgba(255,255,255,.04); color: #fff; text-align: center; cursor: pointer; transition: border-color .15s, background .15s, transform .12s; }
+    .pick-boxslot:active { transform: scale(.98); }
+    .pick-boxslot.active { border-color: #fb923c; border-style: solid; background: rgba(251,146,60,.12); }
+    .pick-boxslot-label { display: block; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.55); margin-bottom: .35rem; }
+    .pick-boxslot img { width: 52px; aspect-ratio: 3/4; object-fit: cover; border-radius: .35rem; display: block; margin: 0 auto; }
+    .pick-boxslot-title { display: block; font-size: 11px; font-weight: 700; line-height: 1.3; margin-top: .35rem; }
+    .pick-boxslot-empty { display: block; font-size: 24px; font-weight: 800; color: #fdba74; margin-top: .55rem; line-height: 1; }
+    .pick-boxslot-emptytxt { display: block; font-size: 11.5px; color: rgba(255,255,255,.7); font-weight: 700; margin-top: .35rem; }
+    .pick-shelfbooks { display: flex; gap: .6rem; overflow-x: auto; padding: .25rem .1rem 0; scrollbar-width: none; }
+    .pick-shelfbooks::-webkit-scrollbar { display: none; }
+    .pick-sbook { flex: none; width: 86px; background: none; border: 0; padding: 0; cursor: pointer; color: #fff; text-align: center; font: inherit; transition: transform .16s, opacity .16s; }
+    .pick-sbook:active { transform: translateY(-4px); }
+    .pick-sbook img { width: 86px; aspect-ratio: 3/4; object-fit: cover; border-radius: .45rem .45rem .2rem .2rem; display: block; box-shadow: 0 4px 10px rgba(0,0,0,.35); }
+    .pick-sbook-title { display: block; font-size: 10.5px; font-weight: 700; line-height: 1.3; margin-top: .35rem; }
+    .pick-sbook-tag { display: inline-block; margin-top: .2rem; font-size: 9.5px; font-weight: 800; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,.14); color: rgba(255,255,255,.85); }
+    .pick-sbook-tag:empty { display: none; }
+    .pick-sbook.inbox { opacity: .35; }
+    .pick-sbook.is-blocked { opacity: .5; cursor: not-allowed; }
+    .pick-plank { height: 12px; border-radius: 3px; background: linear-gradient(#b07a45, #8a5a2e); box-shadow: 0 6px 12px rgba(0,0,0,.35); margin-top: .5rem; }
   </style>
 </head>
 <body class="bg-white text-stone-900 antialiased pb-28">
@@ -303,38 +319,33 @@ if (clubSignup?.status === "paid") {
               ) : (
                 <form id="club-pick-form" class="mt-3" data-ship-date={clubBox.ship_date} data-pick-1={clubBox.selected_book_slug || "surprise"} data-pick-2={clubBox.second_selected_book_slug || "surprise"}>
                   <p class="text-xs text-white/70">
-                    Each box ships two printed books plus their coloring books. Tap a cover to pick it. Books already on your shelf sit dimmed. Leave a slot on Surprise and we pick from your {shelfLabel(clubSignup.shelf)} shelf.
+                    Each box ships two printed books plus their coloring books. Tap a book on the shelf and it goes in the box. Tap a filled slot to swap it back to Surprise. Books already on your shelf sit dimmed, and a slot left on Surprise means we pick from your {shelfLabel(clubSignup.shelf)} shelf.
                   </p>
-                  {[
-                    { label: "First book", slot: "1" },
-                    { label: "Second book", slot: "2" },
-                  ].map((s) => (
-                    <div>
-                      <p class="mt-4 text-xs font-bold uppercase tracking-wider text-orange-300">{s.label}</p>
-                      <div class="mt-2 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5" data-pick-grid data-slot={s.slot}>
-                        <button type="button" data-pick="surprise" aria-pressed="false" class="pick-card">
-                          <span class="pick-surprise">
-                            <span class="block text-sm font-extrabold text-white leading-tight">Surprise me</span>
-                            <span class="block mt-1 text-[11px] text-white/70 leading-snug">We pick from your shelf</span>
-                          </span>
-                          <span class="pick-pill" data-label="Surprise">Surprise</span>
+                  <div class="pick-boxslots">
+                    {[1, 2].map((slot) => (
+                      <button type="button" class="pick-boxslot" data-boxslot={slot}>
+                        <span class="pick-boxslot-label">Book {slot}<span data-picking /></span>
+                        <span class="pick-boxslot-body" />
+                      </button>
+                    ))}
+                  </div>
+                  <div class="mt-5" data-pick-shelf>
+                    <div class="pick-shelfbooks">
+                      {clubGridOptions.map((o: any) => (
+                        <button
+                          type="button"
+                          class="pick-sbook"
+                          data-book={o.slug}
+                          data-kind={o.blockKind || ""}
+                        >
+                          {o.cover && <img src={o.cover} alt="" loading="lazy" />}
+                          <span class="pick-sbook-title">{o.title}</span>
+                          <span class="pick-sbook-tag" data-label={o.blockKind === "owned" ? "On your shelf" : o.blockKind === "committed" ? "In another box" : ""} />
                         </button>
-                        {clubGridOptions.map((o: any) => (
-                          <button
-                            type="button"
-                            data-pick={o.slug}
-                            data-kind={o.blockKind || ""}
-                            aria-pressed="false"
-                            class="pick-card"
-                          >
-                            {o.cover && <img src={o.cover} alt="" loading="lazy" class="w-full aspect-[3/4] object-cover rounded-lg" />}
-                            <span class="block mt-1.5 text-[11px] font-bold leading-tight text-white line-clamp-2">{o.title}</span>
-                            <span class="pick-pill" data-label={o.blockKind === "owned" ? "On your shelf" : o.blockKind === "committed" ? "In another box" : "Available"}>{o.blockKind === "owned" ? "On your shelf" : o.blockKind === "committed" ? "In another box" : "Available"}</span>
-                          </button>
-                        ))}
-                      </div>
+                      ))}
                     </div>
-                  ))}
+                    <div class="pick-plank" />
+                  </div>
                   <label class="mt-4 flex items-start gap-2 text-xs text-white/75 cursor-pointer">
                     <input
                       type="checkbox"
@@ -464,42 +475,76 @@ if (clubSignup?.status === "paid") {
     )}
   </main>
 
-  <script is:inline>
+  <script is:inline define:vars={{ shelfBooks: clubGridOptions }}>
+    // The Shelf picker (CG's pick from the prototype, 2026-11-01):
+    // tap a book and it goes into the active box slot, tap a filled
+    // slot to swap it back to Surprise. Same save payload as the
+    // grid it replaced.
     function initClubPick() {
       var form = document.getElementById("club-pick-form");
       if (!form || form.__clubPickBound) return;
       form.__clubPickBound = true;
       var repeat = document.getElementById("club-allow-repeat");
       var msg = document.getElementById("club-pick-msg");
+      var bySlug = {};
+      (shelfBooks || []).forEach(function (b) { bySlug[b.slug] = b; });
       var picks = {
         "1": form.getAttribute("data-pick-1") || "surprise",
         "2": form.getAttribute("data-pick-2") || "surprise",
       };
+      var activeSlot = picks["1"] === "surprise" ? "1" : picks["2"] === "surprise" ? "2" : "1";
+      function esc(s) {
+        return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
       function paint() {
-        form.querySelectorAll("[data-pick-grid]").forEach(function (grid) {
-          var slot = grid.getAttribute("data-slot");
-          grid.querySelectorAll(".pick-card").forEach(function (card) {
-            var val = card.getAttribute("data-pick");
-            var kind = card.getAttribute("data-kind") || "";
-            var picked = picks[slot] === val;
-            card.setAttribute("aria-pressed", picked ? "true" : "false");
-            var blocked = kind !== "" && !(repeat && repeat.checked) && !picked;
-            card.classList.toggle("is-blocked", blocked);
-            var pill = card.querySelector(".pick-pill");
-            if (pill) pill.textContent = picked ? "Picked" : pill.getAttribute("data-label") || "";
-          });
+        form.querySelectorAll("[data-boxslot]").forEach(function (el) {
+          var slot = el.getAttribute("data-boxslot");
+          el.classList.toggle("active", activeSlot === slot);
+          var picking = el.querySelector("[data-picking]");
+          if (picking) picking.textContent = activeSlot === slot ? " · picking" : "";
+          var body = el.querySelector(".pick-boxslot-body");
+          var v = picks[slot];
+          if (!body) return;
+          if (v === "surprise" || !bySlug[v]) {
+            body.innerHTML = '<span class="pick-boxslot-empty">?</span><span class="pick-boxslot-emptytxt">Surprise me</span>';
+          } else {
+            body.innerHTML =
+              (bySlug[v].cover ? '<img src="' + esc(bySlug[v].cover) + '" alt="">' : "") +
+              '<span class="pick-boxslot-title">' + esc(bySlug[v].title) + "</span>";
+          }
+        });
+        form.querySelectorAll(".pick-sbook").forEach(function (el) {
+          var slug = el.getAttribute("data-book");
+          var kind = el.getAttribute("data-kind") || "";
+          var inBox = picks["1"] === slug || picks["2"] === slug;
+          var blocked = kind !== "" && !(repeat && repeat.checked) && !inBox;
+          el.classList.toggle("inbox", inBox);
+          el.classList.toggle("is-blocked", blocked);
+          var tag = el.querySelector(".pick-sbook-tag");
+          if (tag) tag.textContent = inBox ? "In the box" : blocked ? tag.getAttribute("data-label") || "" : "";
         });
       }
-      form.querySelectorAll(".pick-card").forEach(function (card) {
-        card.addEventListener("click", function () {
-          var grid = card.closest("[data-pick-grid]");
-          var slot = grid.getAttribute("data-slot");
-          var val = card.getAttribute("data-pick");
-          var kind = card.getAttribute("data-kind") || "";
-          if (kind !== "" && !(repeat && repeat.checked) && picks[slot] !== val) return;
-          picks[slot] = val;
-          var other = slot === "1" ? "2" : "1";
-          if (val !== "surprise" && picks[other] === val) picks[other] = "surprise";
+      form.querySelectorAll("[data-boxslot]").forEach(function (el) {
+        el.addEventListener("click", function () {
+          var slot = el.getAttribute("data-boxslot");
+          if (activeSlot === slot && picks[slot] !== "surprise") {
+            picks[slot] = "surprise";
+          } else {
+            activeSlot = slot;
+          }
+          paint();
+        });
+      });
+      form.querySelectorAll(".pick-sbook").forEach(function (el) {
+        el.addEventListener("click", function () {
+          var slug = el.getAttribute("data-book");
+          var kind = el.getAttribute("data-kind") || "";
+          if (picks["1"] === slug || picks["2"] === slug) return;
+          if (kind !== "" && !(repeat && repeat.checked)) return;
+          picks[activeSlot] = slug;
+          var other = activeSlot === "1" ? "2" : "1";
+          if (picks[other] === slug) picks[other] = "surprise";
+          activeSlot = other;
           paint();
         });
       });

@@ -81,7 +81,7 @@ const adminClubPage = read("../src/pages/admin/club.astro");
 assert(adminClubPage.includes("Extras: sticker sheet + little extra"), "admin box rows carry the extras packing line");
 assert(adminClubPage.includes("box-book-2"), "admin can resolve the second slot");
 const accountPageSrc = read("../src/pages/account/club.astro");
-assert(accountPageSrc.includes('data-pick-2') && accountPageSrc.includes('data-pick-grid'), "account pick form is the cover-grid selector with two slots (radio list retired 2026-11-01)");
+assert(accountPageSrc.includes('data-pick-2') && accountPageSrc.includes('data-pick-shelf'), "account pick form is the Shelf selector with two box slots (radio list retired 2026-11-01; Shelf won the prototype, grid retired same day)");
 assert(accountPageSrc.includes("selection_2"), "account pick form submits the second pick");
 assert(!accountPageSrc.includes("bonus back catalog coloring book"), "account page no longer promises the old bonus coloring book");
 

@@ -534,8 +534,12 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
 
   test("Hub simplification surfaces stay wired (2026-11-01 pass 2)", () => {
     const clubSrc = readFileSync(resolve(root, "src/pages/account/club.astro"), "utf8");
-    // The cover-grid box picker replaced the radio list for good.
-    expect(clubSrc).toContain("data-pick-grid");
+    // The box picker is the Shelf (CG picked it from the HTML
+    // prototype over the grid, 2026-11-01): box slots + a shelf of
+    // covers on a plank. The radio list and the grid are both gone.
+    expect(clubSrc).toContain("data-pick-shelf");
+    expect(clubSrc).toContain("data-boxslot");
+    expect(clubSrc).not.toContain("data-pick-grid");
     expect(clubSrc).not.toContain('name="club-pick"');
     // Downgrade: Book members can schedule a switch to The Audio
     // Club from the club page, undo it, and start audio after the
