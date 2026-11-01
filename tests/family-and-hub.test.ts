@@ -538,6 +538,24 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     expect(audioOnlySection).toContain('format: "giftset"');
   });
 
+  test("No account surface links at the dead /books index", () => {
+    // The catalog lives on / (SectionNav Books -> /); /books has no
+    // index page, so account links there 404'd until 2026-11-01.
+    // A stub now redirects /books to /, and the links point home.
+    for (const rel of [
+      "src/components/CustomerShell.astro",
+      "src/pages/account/index.astro",
+      "src/pages/account/library.astro",
+      "src/pages/account/orders.astro",
+    ]) {
+      const src = readFileSync(resolve(root, rel), "utf8");
+      expect(src).not.toContain('href="/books"');
+      expect(src).not.toContain('href: "/books"');
+    }
+    const stub = readFileSync(resolve(root, "src/pages/books/index.astro"), "utf8");
+    expect(stub).toContain('Astro.redirect("/", 301)');
+  });
+
   test("Dedication page v2 carries CG's fixes (2026-11-01)", () => {
     const stampSrc = readFileSync(resolve(root, "src/lib/pdf-stamp.ts"), "utf8");
     // Just "Presents" under the logo, never the doubled name line.

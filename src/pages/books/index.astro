@@ -1,0 +1,10 @@
+---
+export const prerender = false;
+
+// There is no /books index: the home page IS the catalog (the
+// public nav's Books item points at /). Account pages linked here
+// for years and 404'd (found in the 2026-11-01 signed-in
+// verification); the links now point at / directly, and this stub
+// catches any /books URL still out in the world.
+return Astro.redirect("/", 301);
+---
