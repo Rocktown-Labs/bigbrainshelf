@@ -116,11 +116,14 @@ const audioAnnualMonthlyLabel = clubPriceLabel(Math.round(AUDIO_CLUB_ANNUAL_PRIC
 // Savings as percentages for the yearly badges, computed from the
 // same constants (2026-10-31): 17% on The Book Club, 32% on The
 // Audio Club at today's prices, and they move on their own if the
-// prices ever change. The card's "about" figure is the itemized box
-// value rounded the way a person would say it: about $54.
+// prices ever change. The box value claim is a flat $60 (CG,
+// 2026-11-01): the real total value of the box with shipping
+// included, matching the promo's "$60 in value, shipping included"
+// line so the store and the ads never read as a contradiction. (The
+// itemized books-only sum underneath it is about $54.)
 const clubSavePct = Math.round((1 - CLUB_ANNUAL_PRICE_CENTS / (CLUB_PRICE_CENTS * 4)) * 100);
 const audioSavePct = Math.round((1 - AUDIO_CLUB_ANNUAL_PRICE_CENTS / (AUDIO_CLUB_PRICE_CENTS * 12)) * 100);
-const boxAboutLabel = `$${Math.round((GIFT_SET_PRICE_CENTS + STANDARD_PRINT_PRICE_CENTS + STANDARD_DIGITAL_PRICE_CENTS) / 100)}`;
+const boxValueLabel = "$60";
 // The member's club plan (physical | audio) drives the member panel:
 // audio members see listening copy, never boxes or shelves.
 const memberPlan = member ? clubPlanOf(member) : null;
@@ -232,7 +235,7 @@ const clubTraksEvent = joined
             <h2 class="text-xl font-extrabold tracking-tight mb-1">The Book Club</h2>
             <p class="text-lg font-bold leading-snug">A new big idea in your mailbox every 3 months.</p>
             <p class="text-white/70 text-sm leading-relaxed mt-2">Decide once. Each box brings a printed gift set and a second printed book, and the whole shelf opens in your library. The club book is yours to keep digitally, even if you cancel. First box ships within 5 to 7 days of joining, then every 3 months.</p>
-            <p class="text-white/70 text-sm leading-relaxed mt-2">About {boxAboutLabel} in books in every box, plus a cast sticker sheet and a little extra. Shipping is on us.</p>
+            <p class="text-white/70 text-sm leading-relaxed mt-2">{boxValueLabel} in value in every box, shipping included, plus a cast sticker sheet and a little extra.</p>
             <ul class="text-sm text-white/85 leading-relaxed mt-4 space-y-2 list-disc pl-5">
               <li>The gift set: a printed storybook and a printed coloring book.</li>
               <li>A second printed book: your pick, or a surprise you do not own.</li>
