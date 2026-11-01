@@ -5,7 +5,7 @@ import { passkey } from "@better-auth/passkey";
 import { kyselyAdapter } from "@better-auth/kysely-adapter";
 import { Kysely } from "kysely";
 import { D1Dialect } from "kysely-d1";
-import { turnstileEnforced } from "./turnstile";
+import { turnstileEnforced, turnstileSiteKey } from "./turnstile";
 import {
   USERNAME_MIN_LENGTH,
   USERNAME_MAX_LENGTH,
@@ -32,6 +32,10 @@ export type { EffectiveUser } from "./auth-users";
 // Customer auth for the bigbrainshelf storefront (email + username + password).
 // Separate from the hand-rolled admin_session cookie used by /admin,
 // though getEffectiveSession bridges both so admins can access /account & /accounts.
+
+// F16: warns once per isolate when exactly one Turnstile key is set.
+let warnedPartialTurnstile = false;
+
 export function getAuth() {
   const e = env as any;
   const db = new Kysely({ dialect: new D1Dialect({ database: e.DB }) });
@@ -107,10 +111,40 @@ export function getAuth() {
         ],
       })
     );
+  } else if (turnstileSiteKey(e) || String(e?.TURNSTILE_SECRET_KEY || "").trim()) {
+    // F16 (2026-10-31): exactly one of the two keys being set silently
+    // disabled the bot check on every credential endpoint — the
+    // enforce helper is all-or-nothing by design. A partial config is
+    // a deployment error, so it logs loudly (once per isolate) instead
+    // of passing quietly.
+    if (!warnedPartialTurnstile) {
+      warnedPartialTurnstile = true;
+      console.error(
+        "[security] Turnstile is PARTIALLY configured: the credential endpoints " +
+          "(sign-in, sign-up, password reset, magic link) are running WITHOUT a bot check. " +
+          "Set both TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY on the worker, or remove both."
+      );
+    }
   }
   return betterAuth({
     database: kyselyAdapter(db, { type: "sqlite" }),
-    baseURL: e.BETTER_AUTH_URL || "https://bookstore.rocktownlabs.app",
+    // F17 (2026-10-31): the fallback used to be the legacy
+    // bookstore.rocktownlabs.app host, so a missing BETTER_AUTH_URL
+    // minted magic-link, reset, and verification URLs against the
+    // wrong domain (and OAuth/CSRF origin checks keyed on it). The
+    // canonical site is bigbrainshelf.com (the passkey rpID and every
+    // SITE constant agree); set BETTER_AUTH_URL to override only for
+    // non-production environments.
+    baseURL: e.BETTER_AUTH_URL || "https://bigbrainshelf.com",
+    // Same-origin trust for the auth endpoints: the canonical apex,
+    // its www twin, and the configured base URL (which covers a
+    // staging host explicitly). Unknown cross-origin callers stay
+    // rejected by better-auth's origin checks.
+    trustedOrigins: [
+      "https://bigbrainshelf.com",
+      "https://www.bigbrainshelf.com",
+      ...(e.BETTER_AUTH_URL ? [String(e.BETTER_AUTH_URL)] : []),
+    ],
     secret: e.BETTER_AUTH_SECRET,
     user: {
       changeEmail: {

@@ -26,6 +26,13 @@ export const GET: APIRoute = async ({ request, locals }) => {
 export const POST: APIRoute = async ({ request, locals }) => {
   const db = (env as any)?.DB;
   const session = await getEffectiveSession(request, locals, db);
+  // F14 (2026-10-31): every POST action — including username
+  // availability — now requires a signed-in session. The old surface
+  // answered anonymous check_username probes, which enumerated which
+  // usernames exist. No client called it signed-out, so nothing breaks.
+  if (!session?.user?.id) {
+    return json({ error: "Sign in required" }, 401);
+  }
   let body: any = {};
   try {
     body = await request.json();
@@ -39,7 +46,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const check = await checkUsernameAvailabilityInDb(
       db,
       String(body.username || ""),
-      session?.user?.id || null
+      session.user.id
     );
     return json({
       ok: true,
@@ -48,10 +55,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
       displayUsername: check.displayUsername,
       error: check.error || null,
     });
-  }
-
-  if (!session?.user?.id) {
-    return json({ error: "Sign in required" }, 401);
   }
 
   if (action === "update_username" || action === "update_account") {

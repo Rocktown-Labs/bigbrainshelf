@@ -4,6 +4,7 @@ import { isAdminEmail } from "./lib/admins";
 import { getAuth } from "./lib/auth";
 import { classifyApiRoute, isLocalDevHostname } from "./lib/route-policy";
 import { reportErrorToSentry } from "./lib/sentry";
+import { timingSafeEqualStr } from "./lib/timing";
 import {
   isEdgeCacheablePath,
   hasSessionCookie,
@@ -29,7 +30,9 @@ async function verifySession(cookie: string | null, secret: string): Promise<str
     const [payloadB64, sigB64] = cookie.split(".");
     if (!payloadB64 || !sigB64) return null;
     const expected = await sign(payloadB64, secret);
-    if (expected !== sigB64) return null;
+    // F13: constant-time compare — a !== on the HMAC leaks a
+    // length/prefix signal to a timing attacker.
+    if (!(await timingSafeEqualStr(expected, sigB64))) return null;
     const payload = JSON.parse(atob(payloadB64));
     if (payload.exp < Date.now() / 1000) return null;
     if (!isAdminEmail(payload.email)) return null;
@@ -208,6 +211,14 @@ async function withEdgeCache(context: any, runGate: () => Promise<Response>): Pr
   const cacheable =
     req.method === "GET" &&
     isEdgeCacheablePath(pathname) &&
+    // F11 (2026-10-31): never cache a URL with a query string. The
+    // cache key was pathname-only, so /clubs?joined=1 or a book page
+    // with ?format=audio could store one variant and serve it for
+    // every future visitor of the bare path (and vice versa). Skipped
+    // wholesale rather than keyed: the allowlist pages have no
+    // semantics worth caching per-variant, and the miss rate stays
+    // the same for the canonical URLs.
+    !context.url.search &&
     !hasSessionCookie(req.headers.get("Cookie"));
   const cache =
     cacheable && typeof caches !== "undefined" ? (caches as any).default : null;
