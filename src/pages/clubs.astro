@@ -21,7 +21,7 @@ import {
   STANDARD_DIGITAL_PRICE_CENTS,
   STANDARD_PRINT_PRICE_CENTS,
 } from "../lib/offers";
-import { shelfLabel, ensureClubTable, getClubSignup, clubPlanOf } from "../lib/club";
+import { shelfLabel, ensureClubTable, getClubSignupForUser, clubPlanOf } from "../lib/club";
 import { ensureClubCycleTables, generateUpcomingCyclesForMember, getNextClubBox } from "../lib/club-cycles";
 import { formatClubDate } from "../lib/club-cycle-dates";
 import { env } from "cloudflare:workers";
@@ -48,8 +48,15 @@ try {
   const session = await getAuth().api.getSession({ headers: Astro.request.headers }).catch(() => null);
   sessionEmail = String(session?.user?.email || "").toLowerCase();
   await ensureClubTable(e.DB);
-  if (sessionEmail) {
-    member = await getClubSignup(e.DB, sessionEmail);
+  if (session?.user?.id) {
+    // SECURITY (F1): member match by user_id first, by email only
+    // for a verified session, so registering someone else's
+    // address never shows their membership, plan, or next box.
+    member = await getClubSignupForUser(e.DB, {
+      id: String(session.user.id),
+      email: sessionEmail,
+      emailVerified: (session.user as any).emailVerified === true,
+    });
     if (member?.status === "paid") {
       const slug = CLUB_FIRST_BOX_BOOK[String(member.shelf || "")];
       if (slug) {

@@ -59,7 +59,16 @@ export const POST: APIRoute = async ({ request }) => {
   // uses. Runs before any media upload so a refused review never
   // leaves orphan files behind.
   const { reviewEligibility } = await import("../../lib/reviews");
-  const eligibility = await reviewEligibility(e.DB, { id: session.user.id, email: session.user.email }, slug);
+  const eligibility = await reviewEligibility(
+    e.DB,
+    {
+      id: session.user.id,
+      email: session.user.email,
+      // SECURITY (F1): email fallback only for verified sessions.
+      emailVerified: (session.user as any).emailVerified === true,
+    },
+    slug
+  );
   if (!eligibility.allowed && eligibility.reason === "not_entitled") {
     return Response.json(
       { error: "Reviews are for readers of this book. Buy it or join a club and listen first, then come back and tell us what you thought." },

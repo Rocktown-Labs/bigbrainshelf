@@ -86,15 +86,24 @@ function orderGrantsFile(order: any, slug: string, format: DownloadFileKind): bo
  * The earliest completed order of this user that grants the file, or
  * null. This is the purchase the download is stamped and counted
  * against, whichever route serves it.
+ *
+ * SECURITY (SECURITY-FINDINGS F1): the email fallback in the order
+ * match is only honored for verified sessions, so registering a guest
+ * buyer's address can never resolve (and so never download) their
+ * purchases.
  */
 export async function resolveOrderGrant(
   db: DBLike,
-  user: { id: string; email: string },
+  user: { id: string; email: string; emailVerified?: boolean },
   slug: string,
   format: DownloadFileKind
 ): Promise<DownloadGrant | null> {
   const userId = String(user?.id || "");
-  const email = String(user?.email || "").trim().toLowerCase();
+  const email =
+    user?.emailVerified === true
+      ? String(user?.email || "").trim().toLowerCase()
+      : "";
+  if (!userId && !email) return null;
   const { results } = await db
     .prepare(
       "SELECT * FROM orders WHERE status = 'complete' AND (user_id = ? OR email = ?) ORDER BY created_at ASC"
@@ -119,15 +128,19 @@ export async function resolveOrderGrant(
 /**
  * A shipped/delivered club box that brought this book, or null. Box
  * grants carry no order, so the stamp names the buyer alone and the
- * budget keys on the box.
+ * budget keys on the box. The email member match requires a verified
+ * session, exactly like resolveOrderGrant (SECURITY-FINDINGS F1).
  */
 export async function resolveBoxGrant(
   db: DBLike,
-  user: { id: string; email: string },
+  user: { id: string; email: string; emailVerified?: boolean },
   slug: string
 ): Promise<DownloadGrant | null> {
   const userId = String(user?.id || "");
-  const email = String(user?.email || "").trim().toLowerCase();
+  const email =
+    user?.emailVerified === true
+      ? String(user?.email || "").trim().toLowerCase()
+      : "";
   try {
     await ensureClubTable(db);
     await ensureClubCycleTables(db);
@@ -152,7 +165,9 @@ export async function resolveBoxGrant(
       shortId: null,
       marker: grantKey,
       markerIsOrder: false,
-      buyerEmail: email,
+      // The stamp names the session's own email (boxes carry no order
+      // row); the grant itself was resolved by user_id above.
+      buyerEmail: email || String(user?.email || "").trim().toLowerCase(),
     };
   } catch {
     return null;

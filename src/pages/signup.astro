@@ -196,6 +196,9 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
           name: document.getElementById("name").value.trim(),
           email: document.getElementById("email").value.trim(),
           password: document.getElementById("password").value,
+          // F1 soft gate: the verification link sent on sign-up
+          // lands back on My Shelf with a confirmation notice.
+          callbackURL: "/account?verified=1",
         };
         if (chosenUsername) {
           signupPayload.username = chosenUsername.toLowerCase();

@@ -28,6 +28,15 @@ export const POST: APIRoute = async ({ request }) => {
   if (!session?.user?.email) {
     return json({ error: "Sign in to choose your book." }, 401);
   }
+  // SECURITY (F1): the member row is keyed by email; an unverified
+  // session (a password account that never clicked the verification
+  // link) must not read or change the next box for the address.
+  if ((session.user as any).emailVerified !== true) {
+    return json(
+      { error: "Verify your email first (check your inbox for the verification link) to choose your book." },
+      403
+    );
+  }
   let body: any = {};
   try {
     body = await request.json();

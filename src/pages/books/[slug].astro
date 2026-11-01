@@ -164,7 +164,12 @@ if (customer) {
   // listen through a club: the same map the library uses, and the
   // same gate the review API enforces (CG, 2026-10-31).
   const { getDigitalEntitlements } = await import("../../lib/library");
-  ownsBook = (await getDigitalEntitlements(db as any, { id: customer.id, email: customer.email } as any)).has(String(slug));
+  // SECURITY (F1): email fallback only for verified sessions.
+  ownsBook = (await getDigitalEntitlements(db as any, {
+    id: customer.id,
+    email: customer.email,
+    emailVerified: customer.emailVerified === true,
+  } as any)).has(String(slug));
 }
 const starRow = (n: number) => [1, 2, 3, 4, 5].map((i) => (i <= Math.round(n) ? "★" : "☆")).join("");
 // Audiobook only: offered beside the bundle whenever the book has an
@@ -183,6 +188,7 @@ if (customer) {
     const ents = await getDigitalEntitlements(db as any, {
       id: customer.id,
       email: String(customer.email || ""),
+      emailVerified: customer.emailVerified === true,
     });
     const ent = ents.get(String(slug));
     audioOnlyOwner = !!ent && ent.owned && !ent.digital && ent.audio;

@@ -97,12 +97,20 @@ export function clubMembershipActive(member: any): boolean {
 // The membership row for a signed-in user, matched by account email
 // with the user id as the second key (the same lookup shape the
 // library's shipped-box grants use).
+//
+// SECURITY (SECURITY-FINDINGS F1): the email term is only honored
+// when the session's email is verified, so registering someone
+// else's address can never inherit their membership, plan, or boxes.
+// An unverified session matches by user_id alone.
 export async function getClubMembership(
   db: DBLike,
-  user: { id?: string; email?: string }
+  user: { id?: string; email?: string; emailVerified?: boolean }
 ): Promise<any | null> {
   await ensureClubTable(db);
-  const email = String(user?.email || "").trim().toLowerCase();
+  const email =
+    user?.emailVerified === true
+      ? String(user?.email || "").trim().toLowerCase()
+      : "";
   const userId = String(user?.id || "");
   if (!email && !userId) return null;
   return db
@@ -220,6 +228,30 @@ export async function getClubSignup(db: DBLike, email: string): Promise<any | nu
     .prepare("SELECT * FROM club_signups WHERE email = ?")
     .bind(email.trim().toLowerCase())
     .first();
+}
+
+/**
+ * The member row for a signed-in session (SECURITY-FINDINGS F1):
+ * matched by user_id first, then by email ONLY when the session's
+ * email is verified. An unverified session that registered someone
+ * else's address must never see, upgrade, cancel, or manage that
+ * membership (selection, portal, checkout, the club account page).
+ */
+export async function getClubSignupForUser(
+  db: DBLike,
+  user: { id?: string; email?: string; emailVerified?: boolean }
+): Promise<any | null> {
+  await ensureClubTable(db);
+  const userId = String(user?.id || "");
+  if (userId) {
+    const byUser: any = await db
+      .prepare("SELECT * FROM club_signups WHERE user_id = ? LIMIT 1")
+      .bind(userId)
+      .first();
+    if (byUser) return byUser;
+  }
+  if (user?.emailVerified !== true) return null;
+  return getClubSignup(db, String(user?.email || ""));
 }
 
 export async function isPaidClubMember(db: DBLike, email: string): Promise<boolean> {

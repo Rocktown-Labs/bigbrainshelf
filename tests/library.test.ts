@@ -116,7 +116,11 @@ assert(normalizeFormat("audio") === "audio", "checkout normalization keeps the a
 assert(normalizeFormat("bogus") === "digital", "unknown formats still fold into digital");
 
 // ---- Orders -------------------------------------------------------------
-const userA = { id: "user-1", email: "a@example.com" };
+// The session user models a VERIFIED account (magic-link or Google,
+// or a password account that clicked the verification email): its
+// email-matched guest orders join the library. F1 section below
+// proves the unverified claimer gets nothing.
+const userA = { id: "user-1", email: "a@example.com", emailVerified: true };
 insertOrder({ userId: "user-1", email: "a@example.com", items: [{ slug: "alpha", format: "digital" }] });
 insertOrder({ userId: "user-1", email: "a@example.com", items: [{ slug: "beta", format: "printed" }] });
 insertOrder({ userId: "user-1", email: "a@example.com", items: [{ slug: "gamma", format: "giftset" }] });
@@ -280,13 +284,19 @@ const audioModel = buildConfirmationEmailModel(
   alphaFiles as any
 );
 assert(audioModel.items[0]?.formatLabel === "audiobook only", "audio order is labeled audiobook only in the confirmation");
-assert(audioModel.downloads[0]?.links.length === 1 && audioModel.downloads[0].links[0].label === "Audiobook", "audio order email links the audiobook alone");
+// Auth-backed email contract (CG, 2026-10-31): one library CTA per
+// book with files — never per-file bearer links, whatever the format.
+assert(
+  audioModel.downloads[0]?.links.length === 1 && audioModel.downloads[0].links[0].label === "Open in your library",
+  "audio order email links the library alone (no per-file links)"
+);
 const digitalModel = buildConfirmationEmailModel(
   "https://bigbrainshelf.com",
   { delivery_token: "tok", items: JSON.stringify([{ slug: "alpha", format: "digital" }]), book_slugs: JSON.stringify(["alpha"]) },
   alphaFiles as any
 );
-assert(digitalModel.downloads[0]?.links.length === 5, "digital order email links every file");
+assert(digitalModel.downloads[0]?.links.length === 1, "digital order email links the library once (no per-file links)");
+assert(digitalModel.downloads[0]?.links[0]?.url === "https://bigbrainshelf.com/account", "every download link points at /account");
 
 // ---- Book page: ?format=audio preselects the audio format -----------------
 const bookPageSrc = await Bun.file(new URL("../src/pages/books/[slug].astro", import.meta.url)).text();
@@ -363,6 +373,44 @@ const docker = await loadReaderBook(fakeBooks, "docker");
 assert(docker.chapters.length > 0 && docker.totalPages > 0, "docker falls back to the bundled chapters");
 assert(docker.chapters[0].pages[0].lineUrl.startsWith("/api/library/page/docker?key="), "docker legacy page keys are gated too");
 assert(!JSON.stringify(docker).includes("r2.dev"), "docker reader data contains no public bucket URLs");
+
+// ---- SECURITY F1: the email fallback is verified-only ---------------------
+// An UNVERIFIED session (a password account that never clicked the
+// verification email) that registered a guest buyer's address must
+// inherit nothing: no email-matched orders, no club membership layer,
+// no shipped boxes. The same session WITH the flag verified (the
+// inbox owner, via magic link or the verification link) inherits
+// everything, so the guest-buyer claiming flow keeps working.
+const unverifiedClaimer = { id: "user-att", email: "a@example.com", emailVerified: false };
+const entClaimer = await getDigitalEntitlements(db, unverifiedClaimer);
+assert(entClaimer.size === 0, "F1: unverified session inherits no email-matched orders");
+
+const verifiedClaimer = { id: "user-att", email: "a@example.com", emailVerified: true };
+const entVerifiedClaimer = await getDigitalEntitlements(db, verifiedClaimer);
+assert(entVerifiedClaimer.has("eta"), "F1: verified session inherits the email-matched guest order");
+assert(entVerifiedClaimer.has("zeta"), "F1: verified session inherits the email-matched legacy row");
+assert(entVerifiedClaimer.get("eta")?.owned === true, "F1: inherited guest order is owned");
+
+// A session object with NO emailVerified flag (a caller not yet
+// threaded) behaves like unverified — the safe default.
+const legacyShape = { id: "user-att", email: "a@example.com" };
+assert(
+  (await getDigitalEntitlements(db, legacyShape)).size === 0,
+  "F1: a session with no emailVerified flag gets no email fallback (safe default)"
+);
+
+// Club membership: an unverified claimer of a member's email gets no
+// live membership layer (every published book) and no shipped box.
+const memberEmail = "c@example.com"; // paid physical member, user-3
+const claimerOfMember = { id: "user-att3", email: memberEmail, emailVerified: false };
+const entMemberClaim = await getDigitalEntitlements(db, claimerOfMember);
+assert(entMemberClaim.size === 0, "F1: unverified session inherits no club membership layer or boxes");
+const verifiedMemberClaim = { id: "user-att3", email: memberEmail, emailVerified: true };
+const entMemberVerified = await getDigitalEntitlements(db, verifiedMemberClaim);
+assert(
+  [...entMemberVerified.values()].some((e) => e.membership === "physical"),
+  "F1: verified session inherits the email-matched membership layer"
+);
 
 if (failures) {
   console.error(`\n${failures} failure(s)`);

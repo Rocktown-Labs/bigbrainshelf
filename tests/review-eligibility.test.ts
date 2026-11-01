@@ -47,20 +47,26 @@ const stranger = await reviewEligibility(db, { id: "u-stranger", email: "strange
 assert(!stranger.allowed && stranger.reason === "not_entitled", "stranger is not entitled");
 
 // 2. A buyer whose order is on their EMAIL only (guest checkout,
-// signed in later) can review, verified.
+// signed in later — a VERIFIED session: the inbox owner via magic
+// link or the verification email) can review, verified.
 raw.exec(`INSERT INTO orders (id, user_id, email, book_slugs, items, amount, status, created_at)
   VALUES ('o1', NULL, 'buyer@example.com', '["alpha"]', '[{"slug":"alpha","format":"digital"}]', 899, 'complete', 100)`);
-const buyer = await reviewEligibility(db, { id: "u-buyer", email: "buyer@example.com" }, "alpha");
+const buyer = await reviewEligibility(db, { id: "u-buyer", email: "buyer@example.com", emailVerified: true }, "alpha");
 assert(buyer.allowed && buyer.verified, "email-matched buyer allowed + verified");
 
+// 2b. SECURITY (F1): an UNVERIFIED session that registered the same
+// address inherits nothing — no review eligibility either.
+const claimer = await reviewEligibility(db, { id: "u-claimer", email: "buyer@example.com", emailVerified: false }, "alpha");
+assert(!claimer.allowed && claimer.reason === "not_entitled", "F1: unverified session that registered the address cannot review");
+
 // 3. The same buyer cannot review a different book they lack.
-const other = await reviewEligibility(db, { id: "u-buyer", email: "buyer@example.com" }, "beta");
+const other = await reviewEligibility(db, { id: "u-buyer", email: "buyer@example.com", emailVerified: true }, "beta");
 assert(!other.allowed && other.reason === "not_entitled", "buyer cannot review a book they do not have");
 
 // 4. One review per reader per book: an existing pending review blocks.
 raw.exec(`INSERT INTO reviews (id, book_slug, user_id, user_email, display_name, rating, title, body, status, created_at)
   VALUES ('r1', 'alpha', 'u-buyer', 'buyer@example.com', 'Buyer', 5, 'Great', 'Loved it', 'pending', 200)`);
-const dupe = await reviewEligibility(db, { id: "u-buyer", email: "buyer@example.com" }, "alpha");
+const dupe = await reviewEligibility(db, { id: "u-buyer", email: "buyer@example.com", emailVerified: true }, "alpha");
 assert(!dupe.allowed && dupe.reason === "already_reviewed", "second review blocked");
 
 // 5. An Audio Club member can review a book they can listen to.

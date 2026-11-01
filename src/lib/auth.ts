@@ -140,6 +140,40 @@ export function getAuth() {
         await flushOutbox(db, env as any, 5).catch(() => {});
       },
     },
+    // SECURITY (SECURITY-FINDINGS F1, 2026-10-31): sign-up sends a
+    // verification email, but sign-in is NOT blocked while unverified
+    // (the soft gate). What an unverified session loses is the email
+    // fallback in entitlement matching (lib/library, lib/club,
+    // lib/download-guard): guest purchases and legacy rows tied to the
+    // address only join the library once the inbox owner clicks this
+    // link, so registering someone else's email inherits nothing.
+    // Magic-link and Google sessions are verified by Better Auth and
+    // never see this email. This better-auth version takes the
+    // post-verification landing page as callbackURL on each request
+    // (the sign-up and send-verification-email calls pass
+    // /account?verified=1); the verify-email route signs the clicker
+    // in when it redirects. Resend lives at POST
+    // /api/auth/send-verification-email (session-gated); the account
+    // hub offers it under "Verify your email".
+    emailVerification: {
+      sendOnSignUp: true,
+      sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
+        const { enqueueEmail } = await import("./orders");
+        const { flushOutbox } = await import("./email");
+        const db = (env as any).DB;
+        await enqueueEmail(db, {
+          orderId: null,
+          kind: "verify_email",
+          to: user.email,
+          subject: "Verify your email for Big Brain Shelf",
+          text:
+            `Tap below to verify your email for Big Brain Shelf. Verifying links any guest purchases made with this address to your library, and unlocks club membership tied to it.\n\n${url}\n\n` +
+            `If you did not create this account, you can ignore this email.\n`,
+          dedupeKey: null,
+        });
+        await flushOutbox(db, env as any, 5).catch(() => {});
+      },
+    },
     socialProviders: {
       google: {
         clientId: e.GOOGLE_CLIENT_ID || "",

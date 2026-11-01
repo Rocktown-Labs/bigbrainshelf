@@ -230,6 +230,14 @@ export interface EffectiveUser {
   displayUsername: string | null;
   role: string;
   isAdmin: boolean;
+  /**
+   * Whether Better Auth has verified this session's email
+   * (magic-link + Google set it; password accounts verify via the
+   * sign-up email). Callers that key entitlements, club rows, or
+   * admin recognition on the email must check this
+   * (SECURITY-FINDINGS F1/F2).
+   */
+  emailVerified: boolean;
 }
 
 /**
@@ -252,6 +260,7 @@ export async function getEffectiveSessionWith(
     if (s?.user) {
       const u = s.user as any;
       const email = String(u.email || "").toLowerCase();
+      const emailVerified = u.emailVerified === true || u.emailVerified === 1;
       const adminFlag = isAdminEmail(email) || u.role === "admin";
       let usernameVal = u.username ? String(u.username) : null;
       let displayUsernameVal = u.displayUsername ? String(u.displayUsername) : null;
@@ -273,6 +282,7 @@ export async function getEffectiveSessionWith(
           displayUsername: displayUsernameVal || usernameVal,
           role: adminFlag ? "admin" : String(u.role || "user"),
           isAdmin: adminFlag,
+          emailVerified,
         },
       };
     }
@@ -326,6 +336,10 @@ export async function getEffectiveSessionWith(
         displayUsername: displayUsernameVal,
         role: "admin",
         isAdmin: true,
+        // The admin_session cookie is minted only after the admin
+        // password proof or a verified owner sign-in (lib/auth +
+        // /auth/land), so this bridge is trusted as verified.
+        emailVerified: true,
       },
     };
   }

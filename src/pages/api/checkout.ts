@@ -177,6 +177,8 @@ export const POST: APIRoute = async ({ request }) => {
     ? await getDigitalEntitlements(e.DB, {
         id: String(user.id),
         email: String(user.email || ""),
+        // SECURITY (F1): email fallback only for verified sessions.
+        emailVerified: (user as any).emailVerified === true,
       })
     : new Map<string, { digital: boolean; audio: boolean; owned: boolean }>();
 

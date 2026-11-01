@@ -25,6 +25,18 @@ export const POST: APIRoute = async ({ request }) => {
       headers: { Location: `/login?next=${encodeURIComponent("/account/club")}` },
     });
   }
+  // SECURITY (F1): the Stripe billing portal opens the member row
+  // keyed by the session email (cancel, change card) — the highest-
+  // stakes email match in the club surface. It requires a verified
+  // inbox, so registering someone else's address can never reach the
+  // victim's billing portal. The account page's "Verify your email"
+  // banner explains the 302.
+  if ((session.user as any).emailVerified !== true) {
+    return new Response(null, {
+      status: 302,
+      headers: { Location: `${back}?verify_email=1` },
+    });
+  }
   if (!e.STRIPE_SECRET_KEY) {
     return new Response(null, { status: 302, headers: { Location: back } });
   }

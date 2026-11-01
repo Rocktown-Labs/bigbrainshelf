@@ -53,11 +53,16 @@ export async function ensureReviewsTable(db: DBLike): Promise<void> {
 // blocks another, the same rule the submit API has always kept.
 export async function reviewEligibility(
   db: DBLike,
-  user: { id: string; email?: string | null },
+  user: { id: string; email?: string | null; emailVerified?: boolean },
   slug: string
 ): Promise<{ allowed: boolean; verified: boolean; reason: "not_entitled" | "already_reviewed" | null }> {
   const { getDigitalEntitlements } = await import("./library");
-  const ent = (await getDigitalEntitlements(db, { id: user.id, email: user.email || "" } as any)).get(slug);
+  // SECURITY (F1): the email fallback in the entitlement match only
+  // applies to verified sessions.
+  const ent = (await getDigitalEntitlements(
+    db,
+    { id: user.id, email: user.email || "", emailVerified: user.emailVerified === true } as any
+  )).get(slug);
   if (!ent) return { allowed: false, verified: false, reason: "not_entitled" };
   const existing: any = await db
     .prepare("SELECT status FROM reviews WHERE user_id = ? AND book_slug = ?")

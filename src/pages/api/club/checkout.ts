@@ -54,6 +54,20 @@ export const POST: APIRoute = async ({ request }) => {
       { status: 401 }
     );
   }
+  // SECURITY (F1): club rows are keyed by email, and paid join drives
+  // upsertClubReservation, which writes this session's user_id onto
+  // the existing row for the address. The email-keyed claim requires a
+  // verified inbox, so registering someone else's address can neither
+  // see nor subscribe over their membership.
+  if ((session.user as any).emailVerified !== true) {
+    return Response.json(
+      {
+        error: "Verify your email first (check your inbox for the verification link) to join the club.",
+        needsVerification: true,
+      },
+      { status: 403 }
+    );
+  }
   if (!e.STRIPE_SECRET_KEY) {
     return Response.json({ error: "Checkout is not configured yet." }, { status: 503 });
   }

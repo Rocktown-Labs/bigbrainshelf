@@ -33,9 +33,13 @@ export const GET: APIRoute = async ({ request, url }) => {
   const format = fmtParam === "coloring" ? "coloring" : fmtParam === "epub" ? "epub" : fmtParam === "color" ? "color" : fmtParam === "audiobook" ? "audiobook" : "picture";
   if (!slug) return Response.json({ error: "slug required" }, { status: 400 });
 
+  // SECURITY (F1): the email fallback in both the entitlement check
+  // and the grant resolution only applies to verified sessions.
+  const sessionUserVerified = (session.user as any).emailVerified === true;
   const entitlements = await getDigitalEntitlements(e.DB, {
     id: session.user.id,
     email: String(session.user.email || ""),
+    emailVerified: sessionUserVerified,
   });
   const ent = entitlements.get(slug);
   const allowed = entitlementDownloads(ent, format === "audiobook" ? "audiobook" : "book");
@@ -56,7 +60,11 @@ export const GET: APIRoute = async ({ request, url }) => {
   // (or shipped club box) so the file can be stamped for this buyer
   // and counted against that purchase's budget. The guest token route
   // keys on the same order id, so both routes share one budget.
-  const user = { id: String(session.user.id), email: String(session.user.email || "") };
+  const user = {
+    id: String(session.user.id),
+    email: String(session.user.email || ""),
+    emailVerified: sessionUserVerified,
+  };
   let grant: DownloadGrant | null = await resolveOrderGrant(e.DB, user, slug, format).catch(() => null);
   if (!grant) grant = await resolveBoxGrant(e.DB, user, slug).catch(() => null);
   if (!grant) {

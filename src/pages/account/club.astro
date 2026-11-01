@@ -12,7 +12,7 @@ import {
   AUDIO_CLUB_PRICE_CENTS,
   AUDIO_CLUB_ANNUAL_PRICE_CENTS,
 } from "../../lib/offers";
-import { ensureClubTable, shelfLabel, clubPlanOf } from "../../lib/club";
+import { ensureClubTable, shelfLabel, clubPlanOf, getClubSignupForUser } from "../../lib/club";
 import {
   ensureClubCycleTables,
   generateUpcomingCyclesForMember,
@@ -40,9 +40,14 @@ const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
 const justJoined = Astro.url.searchParams.get("joined") === "1";
 
 await ensureClubTable(e.DB);
-const clubSignup = (await e.DB.prepare("SELECT * FROM club_signups WHERE email = ?")
-  .bind(String(session.user.email || "").toLowerCase())
-  .first()) as any;
+// SECURITY (F1): member match by user_id first, by email only for a
+// verified session, so registering someone else's address never shows
+// (or manages) their membership, plan, or next box.
+const clubSignup = await getClubSignupForUser(e.DB, {
+  id: String(session.user.id),
+  email: String(session.user.email || ""),
+  emailVerified: session.user.emailVerified === true,
+}).catch(() => null);
 const clubPlan = clubSignup ? clubPlanOf(clubSignup) : null;
 
 let clubBox: any = null;
@@ -118,6 +123,16 @@ if (clubSignup?.status === "paid") {
     {justJoined && (
       <div class="mb-6 rounded-2xl bg-green-50 border border-green-200 px-4 py-3 text-sm font-semibold text-green-800">
         Welcome to the club. Your membership is active, and your library already reflects it.
+      </div>
+    )}
+    {/* F1 soft gate: /api/club/portal 302s here when the session email
+        is unverified (it must not open the Stripe billing portal for
+        an address the session never proved it owns). */}
+    {Astro.url.searchParams.get("verify_email") === "1" && (
+      <div class="mb-6 rounded-2xl bg-orange-50 border border-orange-200 px-4 py-3 text-sm text-orange-900">
+        <strong>Verify your email</strong> to manage club billing. Use the
+        <a href="/account" class="underline font-bold">resend link on My Shelf</a> if you need a new
+        verification email.
       </div>
     )}
     <div class="flex flex-wrap items-center justify-between gap-4">
