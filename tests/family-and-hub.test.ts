@@ -581,5 +581,13 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     const ordersSrc = readFileSync(resolve(root, "src/pages/account/orders.astro"), "utf8");
     expect(ordersSrc).toContain("orders-sort-form");
     expect(ordersSrc).toContain("In your library");
+
+    // The Listening Shelf's club lookup follows the F1 rule: the
+    // email arm of the match is gated on a verified session email
+    // (PR #5 fixed the dashboard but missed this page; fixed in
+    // main 2026-11-01 so it survives either merge order).
+    const listenSrc = readFileSync(resolve(root, "src/pages/account/listen.astro"), "utf8");
+    expect(listenSrc).toContain("? = 1 AND LOWER(email)");
+    expect(listenSrc).toContain("emailVerified");
   });
 });

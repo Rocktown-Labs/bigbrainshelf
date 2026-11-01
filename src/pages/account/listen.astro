@@ -39,10 +39,14 @@ let isMember = false;
 let memberPlan: string | null = null;
 try {
   await ensureClubTable(e.DB);
+  // Email matching counts only when the session email is verified
+  // (the F1 rule): an unverified signup must not see another
+  // family's membership by claiming their address.
+  const emailVerified = (session.user as any).emailVerified === true ? 1 : 0;
   const rows = await e.DB.prepare(
-    `SELECT plan, club_plan FROM club_signups WHERE (user_id = ? OR LOWER(email) = ?) AND status = 'paid' LIMIT 1`
+    `SELECT plan, club_plan FROM club_signups WHERE (user_id = ? OR (? = 1 AND LOWER(email) = ?)) AND status = 'paid' LIMIT 1`
   )
-    .bind(session.user.id, String(session.user.email || "").toLowerCase())
+    .bind(session.user.id, emailVerified, String(session.user.email || "").toLowerCase())
     .all();
   const signup = ((rows.rows || rows.results || []) as any[])[0];
   if (signup) {
