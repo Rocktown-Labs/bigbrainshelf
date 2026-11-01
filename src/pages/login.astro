@@ -271,15 +271,41 @@ if (Astro.locals.user) {
   initLogin();
   document.addEventListener("astro:page-load", initLogin);
 </script>
-<script data-astro-rerun>
-  // Passkey sign-in + "Last used" badges (better-auth client).
-  // Bundled module (not inline) because it imports the auth client;
-  // data-astro-rerun keeps it live across view transitions.
-  import { authClient } from "../lib/auth-client";
+<script is:inline>
+  // Passkey sign-in + "Last used" badges. is:inline like every other
+  // script on this page (module scripts with imports ship verbatim
+  // in this build and die), so WebAuthn is hand-rolled against the
+  // passkey plugin's endpoints with plain fetch + navigator.credentials.
+  function b64urlToBuf(s) {
+    s = String(s).replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    var bin = atob(s);
+    var b = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+    return b.buffer;
+  }
+  function bufToB64url(buf) {
+    var b = new Uint8Array(buf);
+    var s = "";
+    for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+    return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function landUrl() {
+    var next = new URLSearchParams(window.location.search).get("next") || "";
+    var land = "/auth/land";
+    if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login")) {
+      land += "?next=" + encodeURIComponent(next);
+    }
+    return land;
+  }
 
-  if (window.location.pathname === "/login") {
+  function initPasskeyLogin() {
+    if (window.location.pathname !== "/login") return;
+
+    // "Last used" badges from the last-login-method cookie.
     try {
-      var last = authClient.getLastUsedLoginMethod();
+      var m = document.cookie.match(/(?:^|;\s*)better-auth\.last_used_login_method=([^;]*)/);
+      var last = m ? decodeURIComponent(m[1]) : null;
       if (last) {
         document.querySelectorAll("[data-last-used-badge]").forEach(function (el) {
           var methods = (el.getAttribute("data-last-used-badge") || "").split(" ");
@@ -289,41 +315,87 @@ if (Astro.locals.user) {
     } catch (ex) {}
 
     var pkBtn = document.getElementById("passkey-btn");
-    if (pkBtn && !pkBtn.__pkBound) {
-      pkBtn.__pkBound = true;
-      pkBtn.addEventListener("click", async function () {
-        var err = document.getElementById("err");
-        err.classList.add("hidden");
-        pkBtn.disabled = true;
-        try {
-          var res = await authClient.signIn.passkey();
-          if (res && res.error) throw new Error(res.error.message || "Passkey sign-in was cancelled.");
-          var next = new URLSearchParams(window.location.search).get("next") || "";
-          var land = "/auth/land";
-          if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login")) {
-            land += "?next=" + encodeURIComponent(next);
-          }
-          window.location.href = land;
-        } catch (ex) {
-          err.textContent = (ex && ex.message) || "Passkey sign-in did not work. Try another way in.";
-          err.classList.remove("hidden");
-          pkBtn.disabled = false;
-        }
+    if (!pkBtn || pkBtn.__pkBound) return;
+    pkBtn.__pkBound = true;
+    var conditionalAbort = null;
+
+    async function passkeySignIn(useConditional) {
+      var r = await fetch("/api/auth/passkey/generate-authenticate-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
       });
-      // Conditional UI: if the browser has a passkey for this site,
-      // it offers it right in the email field's autofill.
-      try {
-        if (window.PublicKeyCredential && PublicKeyCredential.isConditionalMediationAvailable) {
-          var cm = await PublicKeyCredential.isConditionalMediationAvailable();
-          if (cm) {
-            authClient.signIn.passkey({ autoFill: true }).then(function (res) {
-              if (res && !res.error) window.location.href = "/auth/land";
-            }).catch(function () {});
-          }
-        }
-      } catch (ex) {}
+      var opts = await r.json().catch(function () { return null; });
+      if (!r.ok || !opts || !opts.challenge) throw new Error("Passkey sign-in could not start.");
+      var pub = {
+        challenge: b64urlToBuf(opts.challenge),
+        rpId: opts.rpId,
+        timeout: opts.timeout,
+        userVerification: opts.userVerification,
+        allowCredentials: (opts.allowCredentials || []).map(function (c) {
+          return { id: b64urlToBuf(c.id), type: c.type, transports: c.transports };
+        }),
+      };
+      var getOpts = { publicKey: pub };
+      if (useConditional) {
+        getOpts.mediation = "conditional";
+        conditionalAbort = new AbortController();
+        getOpts.signal = conditionalAbort.signal;
+      }
+      var cred = await navigator.credentials.get(getOpts);
+      if (!cred) throw new Error("Passkey sign-in was cancelled.");
+      var body = {
+        response: {
+          id: cred.id,
+          rawId: bufToB64url(cred.rawId),
+          type: cred.type,
+          authenticatorAttachment: cred.authenticatorAttachment || undefined,
+          response: {
+            clientDataJSON: bufToB64url(cred.response.clientDataJSON),
+            authenticatorData: bufToB64url(cred.response.authenticatorData),
+            signature: bufToB64url(cred.response.signature),
+            userHandle: cred.response.userHandle ? bufToB64url(cred.response.userHandle) : null,
+          },
+        },
+      };
+      var v = await fetch("/api/auth/passkey/verify-authentication", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!v.ok) {
+        var d = await v.json().catch(function () { return {}; });
+        throw new Error(d.message || "That passkey did not match an account.");
+      }
+      window.location.href = landUrl();
     }
+
+    pkBtn.addEventListener("click", async function () {
+      var err = document.getElementById("err");
+      err.classList.add("hidden");
+      if (conditionalAbort) { try { conditionalAbort.abort(); } catch (ex) {} }
+      pkBtn.disabled = true;
+      try {
+        await passkeySignIn(false);
+      } catch (ex) {
+        err.textContent = (ex && ex.message) || "Passkey sign-in did not work. Try another way in.";
+        err.classList.remove("hidden");
+        pkBtn.disabled = false;
+      }
+    });
+
+    // Conditional UI: a passkey for this site is offered in the
+    // email field's autofill when the browser supports it.
+    try {
+      if (window.PublicKeyCredential && PublicKeyCredential.isConditionalMediationAvailable) {
+        PublicKeyCredential.isConditionalMediationAvailable().then(function (ok) {
+          if (ok) passkeySignIn(true).catch(function () {});
+        }).catch(function () {});
+      }
+    } catch (ex) {}
   }
+  initPasskeyLogin();
+  document.addEventListener("astro:page-load", initPasskeyLogin);
 </script>
 </body>
 </html>

@@ -1336,14 +1336,28 @@ if (showSuccess) {
     initSignout();
     document.addEventListener("astro:page-load", initSignout);
   </script>
-  <script data-astro-rerun>
+  <script is:inline>
     // Passkeys + sessions manager for the security section.
-    // Bundled module (imports the better-auth client); reruns across
-    // view transitions. Everything degrades to a note when there is
-    // no better-auth session (e.g. admin-cookie preview).
-    import { authClient } from "../../lib/auth-client";
+    // is:inline like the rest of this page (module scripts with
+    // imports ship verbatim in this build), so it talks to the
+    // better-auth endpoints with plain fetch and hand-rolled
+    // WebAuthn. Degrades to a note without a better-auth session.
+    function secB64urlToBuf(s) {
+      s = String(s).replace(/-/g, "+").replace(/_/g, "/");
+      while (s.length % 4) s += "=";
+      var bin = atob(s);
+      var b = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+      return b.buffer;
+    }
+    function secBufToB64url(buf) {
+      var b = new Uint8Array(buf);
+      var s = "";
+      for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+      return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    }
 
-    async function initSecurity() {
+    function initSecurity() {
       var list = document.getElementById("passkey-list");
       if (!list || list.__secBound) return;
       list.__secBound = true;
@@ -1355,12 +1369,27 @@ if (showSuccess) {
         msg.textContent = text;
         msg.className = "text-sm mt-2 " + (ok ? "text-green-700" : "text-red-600");
       }
+      async function jget(url) {
+        var r = await fetch(url, { headers: { "Content-Type": "application/json" } });
+        var d = await r.json().catch(function () { return null; });
+        if (!r.ok) throw new Error((d && d.message) || "request failed");
+        return d;
+      }
+      async function jpost(url, body) {
+        var r = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body || {}),
+        });
+        var d = await r.json().catch(function () { return null; });
+        if (!r.ok) throw new Error((d && d.message) || "request failed");
+        return d;
+      }
 
       async function renderPasskeys() {
         try {
-          var res = await authClient.passkey.listUserPasskeys();
-          if (res && res.error) throw new Error("unauthorized");
-          var keys = (res && res.data) || [];
+          var keys = await jget("/api/auth/passkey/list-user-passkeys");
+          if (!Array.isArray(keys)) throw new Error("unauthorized");
           if (!keys.length) {
             list.textContent = "No passkeys yet. Add one below to sign in faster next time.";
             return;
@@ -1378,10 +1407,14 @@ if (showSuccess) {
             del.className = "text-xs font-semibold text-red-600 hover:underline";
             del.addEventListener("click", async function () {
               del.disabled = true;
-              var r = await authClient.passkey.deletePasskey({ id: k.id });
-              if (r && r.error) { showMsg("That passkey could not be removed.", false); del.disabled = false; return; }
-              showMsg("Passkey removed.", true);
-              renderPasskeys();
+              try {
+                await jpost("/api/auth/passkey/delete-passkey", { id: k.id });
+                showMsg("Passkey removed.", true);
+                renderPasskeys();
+              } catch (ex) {
+                showMsg("That passkey could not be removed.", false);
+                del.disabled = false;
+              }
             });
             row.appendChild(label);
             row.appendChild(del);
@@ -1398,11 +1431,10 @@ if (showSuccess) {
       async function renderSessions() {
         if (!sessionsEl) return;
         try {
-          var cur = await authClient.getSession();
-          var curToken = cur && cur.data && cur.data.session ? cur.data.session.token : null;
-          var res = await authClient.listSessions();
-          if (res && res.error) throw new Error("unauthorized");
-          var sessions = (res && res.data) || [];
+          var cur = await jget("/api/auth/get-session").catch(function () { return null; });
+          var curToken = cur && cur.session ? cur.session.token : null;
+          var sessions = await jget("/api/auth/list-sessions");
+          if (!Array.isArray(sessions)) throw new Error("unauthorized");
           if (!sessions.length) { sessionsEl.textContent = "No active sessions found."; return; }
           sessionsEl.innerHTML = "";
           sessions.forEach(function (s) {
@@ -1420,7 +1452,7 @@ if (showSuccess) {
               btn.className = "text-xs font-semibold text-red-600 hover:underline";
               btn.addEventListener("click", async function () {
                 btn.disabled = true;
-                await authClient.revokeSession({ token: s.token });
+                await jpost("/api/auth/revoke-session", { token: s.token }).catch(function () {});
                 renderSessions();
               });
               row.appendChild(btn);
@@ -1437,8 +1469,40 @@ if (showSuccess) {
         addBtn.disabled = true;
         try {
           var name = (document.getElementById("passkey-name").value || "").trim();
-          var r = await authClient.passkey.addPasskey(name ? { name: name } : {});
-          if (r && r.error) throw new Error(r.error.message || "Passkey setup was cancelled.");
+          var opts = await jpost("/api/auth/passkey/generate-register-options", {});
+          var pub = {
+            challenge: secB64urlToBuf(opts.challenge),
+            rp: opts.rp,
+            user: {
+              id: secB64urlToBuf(opts.user.id),
+              name: opts.user.name,
+              displayName: opts.user.displayName,
+            },
+            pubKeyCredParams: opts.pubKeyCredParams,
+            timeout: opts.timeout,
+            attestation: opts.attestation,
+            authenticatorSelection: opts.authenticatorSelection,
+            excludeCredentials: (opts.excludeCredentials || []).map(function (c) {
+              return { id: secB64urlToBuf(c.id), type: c.type, transports: c.transports };
+            }),
+          };
+          var cred = await navigator.credentials.create({ publicKey: pub });
+          if (!cred) throw new Error("Passkey setup was cancelled.");
+          var body = {
+            response: {
+              id: cred.id,
+              rawId: secBufToB64url(cred.rawId),
+              type: cred.type,
+              authenticatorAttachment: cred.authenticatorAttachment || undefined,
+              response: {
+                clientDataJSON: secBufToB64url(cred.response.clientDataJSON),
+                attestationObject: secBufToB64url(cred.response.attestationObject),
+                transports: cred.response.getTransports ? cred.response.getTransports() : [],
+              },
+            },
+            name: name || undefined,
+          };
+          await jpost("/api/auth/passkey/verify-registration", body);
           showMsg("Passkey added. You can sign in with it on the sign-in page.", true);
           renderPasskeys();
         } catch (ex) {
