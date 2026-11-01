@@ -123,6 +123,15 @@ export async function runScheduledWork(
     console.error("scheduled outbox flush (before) failed", err?.message || err);
   }
   const club = await runClubCycleScheduler(db, { site, now: opts.now, batch });
+  // Comp memberships (granted free years) whose window has closed
+  // flip to canceled here, so status-only readers (member counts,
+  // the admin list) agree with the time-boxed access guards.
+  try {
+    const { expireCompMemberships } = await import("./club");
+    await expireCompMemberships(db);
+  } catch (err: any) {
+    console.error("scheduled comp expiry failed", err?.message || err);
+  }
   let birthdayGifts = { checkedKids: 0, queuedBirthdayEmails: 0 };
   try {
     birthdayGifts = await runBirthdayGiftScheduler(db as any, site, opts.now || new Date());

@@ -134,6 +134,8 @@ export function clubMemberCycleEligible(member: any): boolean {
   // enter the box pipeline, whatever their billing state.
   if (clubPlanOf(member) !== "physical") return false;
   const sub = String(member.subscription_status || "");
+  // A comp (granted free year) mints boxes only inside its window.
+  if (sub === "comp") return Number(member.comp_until || 0) > nowSeconds();
   return !INACTIVE_SUBSCRIPTION_STATUSES.includes(sub) && !PAUSED_SUBSCRIPTION_STATUSES.includes(sub);
 }
 
@@ -141,6 +143,7 @@ export function clubMemberCanSelect(member: any): boolean {
   if (!member || member.status !== "paid") return false;
   if (clubPlanOf(member) !== "physical") return false;
   const sub = String(member.subscription_status || "");
+  if (sub === "comp") return Number(member.comp_until || 0) > nowSeconds();
   return !INACTIVE_SUBSCRIPTION_STATUSES.includes(sub);
 }
 

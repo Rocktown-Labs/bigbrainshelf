@@ -20,6 +20,7 @@ export interface OwnerOrderEmailModel {
   itemCount: number;
   lines: { title: string; formatLabel: string; price: string }[];
   shipping: string | null;
+  promo: { code: string; amount: string } | null;
   buyerEmail: string;
   shipName: string | null;
   shipAddress: string | null;
@@ -71,6 +72,24 @@ export default function OwnerOrderEmail({ model }: { model: OwnerOrderEmailModel
               }}
             >
               <Text style={{ ...styles.listItem, margin: 0 }}>{model.shipping}</Text>
+            </Column>
+          </Row>
+        )}
+        {model.promo && (
+          <Row>
+            <Column style={{ verticalAlign: "top", padding: "8px 12px 2px 0" }}>
+              <Text style={{ ...styles.listItem, margin: 0 }}>Promo {model.promo.code}</Text>
+            </Column>
+            <Column
+              style={{
+                verticalAlign: "top",
+                textAlign: "right",
+                whiteSpace: "nowrap",
+                width: "96px",
+                padding: "8px 0 2px",
+              }}
+            >
+              <Text style={{ ...styles.listItem, margin: 0 }}>-{model.promo.amount}</Text>
             </Column>
           </Row>
         )}

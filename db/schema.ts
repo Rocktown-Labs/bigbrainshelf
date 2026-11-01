@@ -107,6 +107,8 @@ export const orders = sqliteTable(
     shippoTransactionId: text("shippo_transaction_id"),
     quotedCarrier: text("quoted_carrier"),
     quotedService: text("quoted_service"),
+    promoCode: text("promo_code"),
+    promoDiscountCents: integer("promo_discount_cents"),
     shippoRateId: text("shippo_rate_id"),
     seenAt: integer("seen_at"),
     createdAt: integer("created_at").notNull(),

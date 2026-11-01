@@ -662,3 +662,33 @@ CREATE TABLE IF NOT EXISTS revops_lifecycle_events (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS revops_lifecycle_email_idx ON revops_lifecycle_events(email, play_type);
+
+-- Promo codes (2026-11-01, src/lib/promo.ts; also ensured at
+-- runtime so a deploy never depends on this file being applied).
+CREATE TABLE IF NOT EXISTS promo_codes (
+  code TEXT PRIMARY KEY,
+  percent_off INTEGER NOT NULL,
+  min_subtotal_cents INTEGER NOT NULL DEFAULT 0,
+  max_redemptions INTEGER NOT NULL,
+  grant_months INTEGER NOT NULL DEFAULT 12,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS promo_redemptions (
+  id TEXT PRIMARY KEY,
+  code TEXT NOT NULL,
+  order_id TEXT NOT NULL UNIQUE,
+  email TEXT,
+  user_id TEXT,
+  discount_cents INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'reserved',
+  note TEXT,
+  club_signup_id TEXT,
+  created_at INTEGER NOT NULL,
+  completed_at INTEGER
+);
+INSERT OR IGNORE INTO promo_codes (code, percent_off, min_subtotal_cents, max_redemptions, grant_months, active, created_at)
+VALUES ('FOUNDING15', 15, 3000, 10, 12, 1, 1793577600);
+ALTER TABLE orders ADD COLUMN promo_code TEXT;
+ALTER TABLE orders ADD COLUMN promo_discount_cents INTEGER;
+ALTER TABLE club_signups ADD COLUMN comp_until INTEGER;

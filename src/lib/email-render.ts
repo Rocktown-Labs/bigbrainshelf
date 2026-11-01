@@ -220,6 +220,10 @@ export async function renderOutboxEmailHtml(
         price: money(l.lineTotalCents),
       })),
       shipping: Number(order.shipping_cents || 0) > 0 ? money(order.shipping_cents) : null,
+      promo:
+        order.promo_code && Number(order.promo_discount_cents || 0) > 0
+          ? { code: String(order.promo_code), amount: money(order.promo_discount_cents) }
+          : null,
       buyerEmail: String(order.email || ""),
       shipName: order.ship_name ? String(order.ship_name) : null,
       shipAddress,

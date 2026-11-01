@@ -737,6 +737,9 @@ export interface ConfirmationEmailModel {
   // the same numbers as the receipt and the admin order view. Null for
   // digital/audio orders (no shipping was charged).
   shipping: { carrier: string; service: string; cents: number } | null;
+  // A promo redemption on this order (lib/promo.ts): the discount
+  // line that makes the full-price lines add up to the total.
+  promo: { code: string; discountCents: number } | null;
   totalCents: number;
   printed: boolean;
   // True when every physical item in the order is a Gift Set, so the
@@ -826,6 +829,10 @@ export function buildConfirmationEmailModel(
             cents: Number(order.shipping_cents),
           }
         : null,
+    promo:
+      order?.promo_code && Number(order?.promo_discount_cents || 0) > 0
+        ? { code: String(order.promo_code), discountCents: Number(order.promo_discount_cents) }
+        : null,
     totalCents: Number(order?.amount || 0),
     printed: physical.length > 0,
     giftsetOnly: physical.length > 0 && physical.every((i) => i.format === "giftset"),
@@ -857,6 +864,13 @@ export function buildConfirmationEmail(
   if (model.shipping) {
     const via = [model.shipping.carrier, model.shipping.service].filter(Boolean).join(" ");
     lines.push(`- Shipping${via ? ` (${via})` : ""}: $${(model.shipping.cents / 100).toFixed(2)}`);
+  }
+  if (model.promo) {
+    // Discount only: whether the free club year granted is the
+    // grant path's own email to announce (a redemption can void at
+    // completion, e.g. a guest who turns out not to be a first
+    // purchase, and this email must never promise it falsely).
+    lines.push(`- Promo ${model.promo.code}: -$${(model.promo.discountCents / 100).toFixed(2)}`);
   }
   if (model.totalCents > 0) {
     lines.push(`Total charged: $${(model.totalCents / 100).toFixed(2)}`);

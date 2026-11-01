@@ -72,6 +72,29 @@ export default function OrderConfirmationEmail({
             </Column>
           </Row>
         )}
+        {model.promo && (
+          <Row>
+            <Column style={{ verticalAlign: "top", padding: "4px 12px 2px 0" }}>
+              <Text style={{ ...styles.listItem, margin: 0 }}>
+                Promo {model.promo.code}{" "}
+                <span style={{ color: BRAND.muted }}>(15% off your first order)</span>
+              </Text>
+            </Column>
+            <Column
+              style={{
+                verticalAlign: "top",
+                textAlign: "right",
+                whiteSpace: "nowrap",
+                width: "96px",
+                padding: "4px 0 2px",
+              }}
+            >
+              <Text style={{ ...styles.listItem, margin: 0 }}>
+                {`-$${(model.promo.discountCents / 100).toFixed(2)}`}
+              </Text>
+            </Column>
+          </Row>
+        )}
         {model.totalCents > 0 && (
           <Row>
             <Column

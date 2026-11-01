@@ -261,14 +261,24 @@ if (complete && order) {
                 </tr>
               ))}
             </tbody>
-            {model.shipping && (
+            {(model.shipping || model.promo) && (
               <tfoot>
-                <tr>
-                  <td colspan="4" class="text-sm text-stone-500">
-                    Shipping{model.shipping.carrier || model.shipping.service ? ` (${[model.shipping.carrier, model.shipping.service].filter(Boolean).join(" ")})` : ""}
-                    <span class="float-right font-semibold text-stone-900 tabular-nums">{money(model.shipping.cents)}</span>
-                  </td>
-                </tr>
+                {model.shipping && (
+                  <tr>
+                    <td colspan="4" class="text-sm text-stone-500">
+                      Shipping{model.shipping.carrier || model.shipping.service ? ` (${[model.shipping.carrier, model.shipping.service].filter(Boolean).join(" ")})` : ""}
+                      <span class="float-right font-semibold text-stone-900 tabular-nums">{money(model.shipping.cents)}</span>
+                    </td>
+                  </tr>
+                )}
+                {model.promo && (
+                  <tr>
+                    <td colspan="4" class="text-sm text-stone-500">
+                      Promo {model.promo.code} (15% off your first order)
+                      <span class="float-right font-semibold text-stone-900 tabular-nums">-{money(model.promo.discountCents)}</span>
+                    </td>
+                  </tr>
+                )}
               </tfoot>
             )}
           </table>

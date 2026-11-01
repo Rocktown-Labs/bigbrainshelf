@@ -88,6 +88,11 @@ const CLUB_PAUSED_SUBSCRIPTION_STATUSES = ["past_due", "paused"];
 export function clubMembershipActive(member: any): boolean {
   if (!member || member.status !== "paid") return false;
   const sub = String(member.subscription_status || "");
+  // A comp membership (a granted free year, lib/promo.ts) is active
+  // strictly inside its comp window; the window is the whole truth,
+  // so an expired comp reads inactive everywhere this helper is
+  // consulted, even before the scheduler flips the row.
+  if (sub === "comp") return Number(member.comp_until || 0) > Math.floor(Date.now() / 1000);
   return (
     !CLUB_INACTIVE_SUBSCRIPTION_STATUSES.includes(sub) &&
     !CLUB_PAUSED_SUBSCRIPTION_STATUSES.includes(sub)
@@ -145,6 +150,10 @@ const CLUB_COLUMNS: Record<string, string> = {
   // deleted webhook) sends the right email and the club page can
   // show what happens next.
   downgrade_to_audio_at: "INTEGER",
+  // Comp memberships (2026-11-01, lib/promo.ts): a granted free year
+  // carries subscription_status 'comp' and an epoch end in
+  // comp_until. No Stripe subscription exists behind it.
+  comp_until: "INTEGER",
   downgrade_audio_period: "TEXT",
 };
 
@@ -480,6 +489,23 @@ export async function activateClubFromSession(
 // and the owner both hear about it (CG, 2026-10-31: cancellations
 // were silent before): one email each, deduped per membership and
 // cancellation, in the branded shell.
+// Scheduler pass: comp memberships whose granted window has closed
+// flip to canceled, so counts, the admin list, and every status-only
+// reader agree with the time-boxed guards above. Silent by design:
+// the free year ending is not a cancellation the member caused.
+export async function expireCompMemberships(db: DBLike): Promise<number> {
+  await ensureClubTable(db);
+  const res: any = await db
+    .prepare(
+      `UPDATE club_signups SET status = 'canceled', subscription_status = 'canceled', canceled_at = ?
+       WHERE status = 'paid' AND subscription_status = 'comp' AND comp_until IS NOT NULL AND comp_until <= ?`
+    )
+    .bind(now(), now())
+    .run()
+    .catch(() => null);
+  return Number(res?.meta?.changes ?? 0);
+}
+
 export async function cancelClubBySubscription(db: DBLike, subscriptionId: string): Promise<void> {
   if (!subscriptionId) return;
   await ensureClubTable(db);
@@ -488,6 +514,34 @@ export async function cancelClubBySubscription(db: DBLike, subscriptionId: strin
     .bind(subscriptionId)
     .first()
     .catch(() => null);
+  // A banked comp year (lib/promo.ts: a promo redeemer who was
+  // already a member) starts HERE, at the moment the paid
+  // subscription ends, instead of the membership ending: the row
+  // converts to a comp membership for the rest of its granted
+  // window, any scheduled downgrade is moot, and the member hears
+  // their free year has begun rather than a cancellation.
+  if (member && Number(member.comp_until || 0) > now()) {
+    await db
+      .prepare(
+        `UPDATE club_signups SET subscription_status = 'comp', stripe_subscription_id = NULL,
+           downgrade_to_audio_at = NULL, downgrade_audio_period = NULL
+         WHERE id = ?`
+      )
+      .bind(member.id)
+      .run();
+    try {
+      const { enqueueEmail } = await import("./orders");
+      await enqueueEmail(db, {
+        orderId: null,
+        kind: "club_welcome",
+        to: String(member.email),
+        subject: "Your free year of The Book Club has started",
+        text: `Good news: the free year of The Book Club you earned has started, so your membership rolls on with no charge. Your boxes keep coming on the same schedule, and your picks carry over.\n\nManage your boxes: https://bigbrainshelf.com/account/club`,
+        dedupeKey: `club-comp-start:${member.id}:${Number(member.comp_until || 0)}`,
+      });
+    } catch { /* the conversion stands even if the email fails */ }
+    return;
+  }
   const canceledAt = now();
   const res: any = await db
     .prepare(

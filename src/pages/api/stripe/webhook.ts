@@ -70,6 +70,19 @@ export const POST: APIRoute = async ({ request }) => {
             console.error("club followup enqueue failed", err?.message || err);
           }
         }
+        // Promo redemption (lib/promo.ts): a FOUNDING15 order grants
+        // its free year of The Book Club here, where the buyer's
+        // email is final. Best effort like the followup: the order
+        // and its discount stand whatever the grant does, and a
+        // failure is visible in the redemption row for a human.
+        if (order && (s.metadata as any)?.promo_code) {
+          try {
+            const { grantPromoClubYear } = await import("../../../lib/promo");
+            await grantPromoClubYear(e.DB, SITE, { order, session: s, stripe });
+          } catch (err: any) {
+            console.error("promo club grant failed", err?.message || err);
+          }
+        }
         // Best effort: email delivery must never fail the webhook. If the
         // send cannot happen (no email transport configured yet), rows
         // stay pending in the outbox and go out on a later flush.

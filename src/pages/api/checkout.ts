@@ -18,6 +18,7 @@ import {
   loadShippingQuote,
 } from "../../lib/shipping-quotes";
 import { resolveInternalSlug } from "../../lib/public-slugs";
+import { normalizePromoCode, validatePromo, reservePromo, repriceLineItemsWithDiscount } from "../../lib/promo";
 
 
 // POST /api/checkout { items: [{slug, format}], guest_id? } -> { url }
@@ -227,6 +228,48 @@ export const POST: APIRoute = async ({ request }) => {
   const physical = bought.some((i) => isPhysicalFormat(i.format));
   const itemsTotal = lineItems.reduce((sum, li) => sum + (li.price_data.unit_amount || 0) * (li.quantity || 1), 0);
 
+  // Promo code (lib/promo.ts): validated against the server-priced
+  // merchandise subtotal, never a client figure. A code that was
+  // sent but does not validate fails the call with the reason, on
+  // every action, so the buyer never pays expecting a discount
+  // that is not coming. The "promo" action is validation alone
+  // (the checkout page's Apply button); the pay call reprices the
+  // line items and reserves the redemption against the order.
+  const promoCode = normalizePromoCode(body?.promo_code);
+  let promoApplied: { code: string; percentOff: number; discountCents: number } | null = null;
+  if (promoCode) {
+    const v = await validatePromo(e.DB, {
+      code: promoCode,
+      email: buyerEmail,
+      userId: buyerId,
+      subtotalCents: itemsTotal,
+    }).catch(() => ({ ok: false as const, error: "That code could not be checked. Please try again." }));
+    if (!v.ok) {
+      return Response.json({ error: v.error || "That code is not a current offer." }, { status: 400 });
+    }
+    promoApplied = {
+      code: promoCode,
+      percentOff: Number((v as any).promo?.percent_off || 0),
+      discountCents: Number((v as any).discountCents || 0),
+    };
+  }
+  if (action === "promo") {
+    if (!promoApplied) {
+      return Response.json({ error: "Enter a promo code." }, { status: 400 });
+    }
+    return Response.json({
+      ok: true,
+      promo: {
+        code: promoApplied.code,
+        percent_off: promoApplied.percentOff,
+        discount_cents: promoApplied.discountCents,
+      },
+      items_total: itemsTotal,
+      total: itemsTotal - promoApplied.discountCents,
+    });
+  }
+  const promoDiscountCents = promoApplied?.discountCents || 0;
+
   // --- Pass-through shipping: destination in, server-side quote out.
   // The preview stores its quote; the pay call reuses that exact
   // quote (same code path AND same numbers), so what the buyer was
@@ -280,7 +323,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
   }
   const shippingCents = quote?.amountCents ?? 0;
-  const total = itemsTotal + shippingCents;
+  const total = itemsTotal - promoDiscountCents + shippingCents;
 
   if (action === "quote") {
     // Preview only: no order is created. The quote itself is stored
@@ -295,6 +338,9 @@ export const POST: APIRoute = async ({ request }) => {
       ok: true,
       physical,
       items_total: itemsTotal,
+      ...(promoApplied
+        ? { promo: { code: promoApplied.code, percent_off: promoApplied.percentOff, discount_cents: promoApplied.discountCents } }
+        : {}),
       shipping: quote
         ? {
             quote_id: quoteId,
@@ -311,6 +357,15 @@ export const POST: APIRoute = async ({ request }) => {
         : null,
       total,
     });
+  }
+
+  // The discount reprices the Stripe lines themselves (the order
+  // total already netted it out), so what Stripe charges, what the
+  // order records, and what the buyer was shown agree to the cent.
+  if (promoApplied && promoDiscountCents > 0) {
+    const repriced = repriceLineItemsWithDiscount(lineItems, promoDiscountCents);
+    lineItems.length = 0;
+    lineItems.push(...repriced);
   }
 
   // Idempotency: one pending order per (buyer, cart), where the buyer
@@ -337,6 +392,21 @@ export const POST: APIRoute = async ({ request }) => {
     // order always carries what the buyer was quoted; the webhook
     // completion keeps these values and only confirms them.
     await storeCheckoutQuote(e.DB, order.id, { dest, quote, amount: total });
+  }
+
+  if (promoApplied) {
+    // Reserve the redemption against this order (the cap counts
+    // live reservations, so parallel checkouts cannot oversell the
+    // ten spots) and stamp the order for the receipt. A failure
+    // here never blocks the purchase: the webhook's grant path
+    // recreates the row from the session metadata if it is missing.
+    await reservePromo(e.DB, {
+      code: promoApplied.code,
+      orderId: order.id,
+      email: buyerEmail,
+      userId: buyerId,
+      discountCents: promoDiscountCents,
+    }).catch((err: any) => console.error("promo reserve failed", err?.message || err));
   }
 
   if (total === 0) {
@@ -374,6 +444,7 @@ export const POST: APIRoute = async ({ request }) => {
     success_url: successUrl,
     cancel_url: `${SITE}/checkout?checkout=cancelled`,
   };
+  if (promoApplied) sessionParams.metadata.promo_code = promoApplied.code;
   // Signed-in buyers: Stripe pre-fills the account email. Guests:
   // no customer_email is set, so Stripe collects one on its page;
   // the webhook copies it onto the order at completion.
