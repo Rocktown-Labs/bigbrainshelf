@@ -292,9 +292,14 @@ export async function checkAndEnqueueCompletionUpsell(params: {
   }
   const titleRef = bookTitle || "your book";
 
-  const subject = `You are most of the way through ${titleRef}`;
+  const finished = params.percentComplete >= 100;
+  const subject = finished
+    ? `You finished ${titleRef}`
+    : `You are most of the way through ${titleRef}`;
   const textBody = [
-    `Your family has read ${params.percentComplete}% of ${titleRef}. Nice work.`,
+    finished
+      ? `Your family finished ${titleRef}. Nice work.`
+      : `Your family has read ${params.percentComplete}% of ${titleRef}. Nice work.`,
     `When you are ready for the next book, the clubs keep the shelf full:`,
     `- The Audio Club ($5.99/month or $49/year): every Big Brain Shelf audiobook in your library while your membership is active, with read-along.`,
     `- The Book Club ($60/quarter or $199/year): a printed gift set box every 3 months with a second printed book from the back catalog, and the digital editions in your library from day one.`,

@@ -156,7 +156,7 @@ assert(p4.id !== p3.id, "expired checkout frees the cart for a new pending order
 const confBody = (raw.query("SELECT body_text FROM email_outbox WHERE kind='order_confirmation' AND order_id=?").get(order.id) as any).body_text as string;
 assert(confBody.includes("About the Book Club:"), "confirmation pitches the club to a non-member");
 assert(confBody.includes("$60.00 every 3 months"), "club block price comes from the club constant");
-assert(confBody.includes("first box is due the day you join"), "club block names the purchase-anchored first box timing");
+assert(confBody.includes("first box ships within a few days of joining"), "club block names the first box ship window (processing time included)");
 assert(!confBody.includes("January 1"), "club block carries no launch-date ship framing");
 assert(confBody.includes("/clubs"), "club block links to /clubs");
 

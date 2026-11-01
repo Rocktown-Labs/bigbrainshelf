@@ -8,6 +8,24 @@ astro dev --background
 
 Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
 
+## Design
+
+Read `DESIGN.md` before touching any customer-facing page, especially
+anything under `src/pages/account/`. The non-negotiables:
+
+- The account hub is pages joined by view transitions (shelf -> book
+  overview -> reader), never one stacked mega page.
+- The reader is the QC reader (`/read/[slug]` pattern): flip or scroll,
+  color default. Do not build a second reader or player.
+- The store top bar (search, cart) and the family switcher stay visible
+  inside /account.
+- Every list ships an empty state with one clear call to action.
+- Customer copy: no em dashes, public book titles only (never internal
+  slugs), one call to action per email, and every email kind needs a
+  styled render branch in `src/lib/email-render.ts`.
+- Club promises: first box ships within a few days of joining
+  (`CLUB_PROCESSING_DAYS`), never same-day.
+
 ## Documentation
 
 Full documentation: https://docs.astro.build

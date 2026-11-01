@@ -886,7 +886,7 @@ export function buildConfirmationEmail(
     lines.push("");
     lines.push("About the Book Club:");
     lines.push(
-      `Members get a full gift set in every box: the club book as a printed storybook and printed coloring book, a second printed book from the back catalog, a sticker sheet, and a little extra from the cast. The digital editions are in their library from day one. Membership is ${model.club.priceLabel} every 3 months, shipping included, or ${model.club.annualLabel} a year, and your price stays locked while your membership stays active. Your first box is due the day you join, and a new box follows every 3 months from your join date.`
+      `Members get a full gift set in every box: the club book as a printed storybook and printed coloring book, a second printed book from the back catalog, a sticker sheet, and a little extra from the cast. The digital editions are in their library from day one. Membership is ${model.club.priceLabel} every 3 months, shipping included, or ${model.club.annualLabel} a year, and your price stays locked while your membership stays active. Your first box ships within a few days of joining, and a new box follows every 3 months from your join date.`
     );
     lines.push(
       `Rather just listen? The Audio Club puts every Big Brain Shelf audiobook in your library for ${model.club.audioMonthlyLabel} a month, or ${model.club.audioAnnualLabel} a year, for as long as your membership is active. Listening only: nothing ships on that plan.`

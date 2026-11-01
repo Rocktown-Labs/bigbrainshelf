@@ -19,7 +19,7 @@ import {
   getNextClubBox,
   getClubSelectionOptions,
 } from "../../lib/club-cycles";
-import { boxCreatedDateString, clubCycleTiming, formatClubDate } from "../../lib/club-cycle-dates";
+import { addDaysToDateString, boxCreatedDateString, CLUB_PROCESSING_DAYS, clubCycleTiming, formatClubDate } from "../../lib/club-cycle-dates";
 
 const e = env as any;
 const hub = await loadCustomerHubContext(Astro.request, Astro.locals, e.DB, Astro.url.origin);
@@ -195,7 +195,9 @@ if (clubSignup?.status === "paid") {
             <div class="mt-6 rounded-2xl bg-white/10 p-5">
               <div class="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 class="text-base font-bold">
-                  Your next box · ships {formatClubDate(String(clubBox.ship_date))}
+                  {String(clubBox.ship_date) === String(clubSignup.first_ship_date || "")
+                    ? `Your first box · ships by ${formatClubDate(addDaysToDateString(String(clubBox.ship_date), CLUB_PROCESSING_DAYS))}`
+                    : `Your next box · ships ${formatClubDate(String(clubBox.ship_date))}`}
                 </h2>
                 <span class="text-xs font-semibold text-orange-300">
                   {clubBox.status === "shipped"

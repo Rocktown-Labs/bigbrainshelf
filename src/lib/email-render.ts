@@ -147,7 +147,7 @@ export async function renderOutboxEmailHtml(
     row.kind === "club_welcome" || row.kind === "owner_new_subscription" ||
     row.kind === "club_payment_failed" || row.kind === "club_canceled" ||
     row.kind === "owner_club_canceled" || row.kind === "owner_new_review" ||
-    row.kind === "owner_payment_alert"
+    row.kind === "owner_payment_alert" || row.kind === "completion_upsell"
   ) {
     // Club + owner-notice mail carries no order; it renders from
     // its stored text and must be handled BEFORE the order gate
@@ -165,6 +165,7 @@ export async function renderOutboxEmailHtml(
       owner_club_canceled: { label: "Open the club list", href: `${site}/admin/club` },
       owner_new_review: { label: "Open the review queue", href: `${site}/admin/reviews` },
       owner_payment_alert: { label: "Open orders", href: `${site}/admin/orders` },
+      completion_upsell: { label: "See the clubs", href: `${site}/clubs` },
     };
     return await render(
       createElement(SimpleEmail, {

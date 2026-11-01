@@ -144,7 +144,7 @@ export function buildClubFollowupEmail(
   );
   lines.push("");
   lines.push(
-    "Your first box is due the day you join, and a new box follows every 3 months from your join date. Membership is capped at 25 members, so spots are limited."
+    "Your first box ships within a few days of the day you join, and a new box follows every 3 months from your join date."
   );
   lines.push("");
   lines.push(

@@ -18,6 +18,12 @@
 export const CLUB_REMINDER_14_DAYS = 14;
 export const CLUB_REMINDER_3_DAYS = 3;
 export const CLUB_LOCK_DAYS_BEFORE = 2;
+// Print-and-pack processing window (CG, 2026-10-31): the first box is
+// NOT promised for the join day. The cycle stays anchored to the join
+// date (picks open, digital lands day one), but the first box's
+// member-facing ship-by date is the anchor plus this many days. Later
+// boxes build the window in through the pick lock instead.
+export const CLUB_PROCESSING_DAYS = 3;
 export const CLUB_CYCLE_HORIZON = 2;
 export const CLUB_CYCLE_MONTHS = 3;
 
