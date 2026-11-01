@@ -498,12 +498,14 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     expect(adminShellSrc).not.toContain('#qc-viewer');
 
     const custShellSrc = readFileSync(resolve(root, "src/components/CustomerShell.astro"), "utf8");
-    // DESIGN.md chrome (2026-11-01): no sidebar; the store top bar
-    // (SiteHeader) renders inside the account, the family switcher
-    // and section chips live in one slim bar.
+    // DESIGN.md chrome (CG correction, 2026-11-01): a sidebar with
+    // the same mechanics as /admin (fixed rail, grouped nav, user
+    // popover), the store top bar above it, and the family switcher
+    // inside the sidebar.
     expect(custShellSrc).toContain("SiteHeader");
     expect(custShellSrc).toContain("cust-profile-switcher");
     expect(custShellSrc).toContain('href="/account/orders"');
-    expect(custShellSrc).not.toContain("cust-sb");
+    expect(custShellSrc).toContain('href="/account/library"');
+    expect(custShellSrc).toContain("cust-sb");
   });
 });

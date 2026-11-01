@@ -1,0 +1,184 @@
+---
+// My Library: the whole shelf, on its own page (CG, 2026-11-01).
+// Covers rest on shelf boards, four to a board, two-up on phones.
+// A tap opens the book's overview page; reading happens in the
+// reader, never stacked on this page.
+import "../../styles/global.css";
+import { env } from "cloudflare:workers";
+import Tracking from "../../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../../components/TransitionHooks.astro";
+import { publicSlugFor } from "../../lib/public-slugs";
+import { coverDerivative } from "../../lib/derivatives";
+import CustomerShell from "../../components/CustomerShell.astro";
+import { loadCustomerHubContext } from "../../lib/account-data";
+
+const e = env as any;
+const hub = await loadCustomerHubContext(Astro.request, Astro.locals, e.DB, Astro.url.origin);
+if (!hub) {
+  return Astro.redirect("/login?next=/account/library");
+}
+const { session, books, audioBooksCount, parentOnboarding, kidProfiles, readingProgressList, onboardingChecklist } = hub;
+
+const R2 = "https://media.bigbrainshelf.com/";
+const cardFor = (b: any) => {
+  const prog = readingProgressList.find((p) => p.book_slug === b.slug);
+  const pct =
+    prog && prog.total_pages > 0
+      ? Math.min(100, Math.round((prog.current_page / prog.total_pages) * 100))
+      : 0;
+  return {
+    b,
+    cover: coverDerivative(b.slug, "card", b.cover_key) || (b.cover_key ? R2 + b.cover_key : null),
+    href: `/account/book/${publicSlugFor(b)}`,
+    audioOnly: Boolean(b.audioOnly),
+    owned: Boolean(b.owned),
+    pct,
+    progPage: prog?.current_page,
+    progTotal: prog?.total_pages,
+  };
+};
+const boards: any[][] = [];
+for (let i = 0; i < books.length; i += 4) boards.push((books as any[]).slice(i, i + 4).map(cardFor));
+---
+
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Library · Big Brain Shelf</title>
+  <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+  <style is:global>
+    .shelf-board { margin-top: 1.75rem; }
+    .shelf-board:first-of-type { margin-top: 0.75rem; }
+    .shelf-plank {
+      height: 0.65rem;
+      margin-top: 0.55rem;
+      border-radius: 0.3rem;
+      background: linear-gradient(180deg, #b08954 0%, #8a6844 55%, #6f5133 100%);
+      box-shadow: 0 10px 14px -8px rgba(90, 62, 27, 0.55), inset 0 1px 0 rgba(255, 235, 200, 0.5);
+    }
+  </style>
+</head>
+<body class="bg-white text-stone-900 antialiased pb-28">
+  <CustomerShell
+    currentSection="library"
+    userEmail={String(session.user.email || "")}
+    username={session.user.displayUsername || session.user.username}
+    displayName={parentOnboarding?.parent_name || session.user.name}
+    isAdmin={session.user.isAdmin}
+    kidProfiles={kidProfiles}
+    hasParentPin={Boolean(parentOnboarding?.parent_pin)}
+    bookCount={books.length}
+    audioCount={audioBooksCount}
+    onboardingComplete={onboardingChecklist.isComplete}
+  />
+
+  <main class="max-w-6xl mx-auto px-4 py-7 sm:py-9">
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900">My Library</h1>
+        <p class="text-sm text-stone-600 mt-1">
+          Pick a book to read along with the narrator, listen at bedtime, or print coloring pages.
+          The books you own are yours to download and keep.
+        </p>
+      </div>
+      <a
+        href="/books"
+        data-parent-only="true"
+        class="cust-pressable rounded-full bg-[#1a3454] px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-[#132741]"
+      >
+        Browse New Books →
+      </a>
+    </div>
+
+    {books.length === 0 ? (
+      <div class="mt-6 rounded-3xl border border-stone-200 bg-[#fcfaf6] p-6 sm:p-8">
+        <div class="max-w-2xl">
+          <span class="rounded-full bg-orange-100 text-orange-800 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+            Welcome to Big Brain Shelf
+          </span>
+          <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight text-stone-900 mt-2">
+            Your family shelf is ready for its first story
+          </h2>
+          <p class="text-sm text-stone-600 mt-1.5 leading-relaxed">
+            Every Big Brain Shelf title turns big ideas (courage, money, technology, science) into warm illustrated stories for ages 4 to 8. When you add a book, it appears right here with both <strong>playable</strong> and <strong>printable</strong> editions.
+          </p>
+        </div>
+        <div class="mt-6 flex flex-wrap items-center gap-3" data-parent-only="true">
+          <a
+            href="/books"
+            class="cust-pressable rounded-full bg-orange-600 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-700"
+          >
+            Explore Digital Bundles ($8.99) →
+          </a>
+          <a
+            href="/clubs"
+            class="cust-pressable rounded-full border border-stone-300 bg-white px-5 py-2.5 text-xs font-extrabold text-stone-800 hover:border-stone-500"
+          >
+            Join Audio Club ($5.99/mo) or Book Club →
+          </a>
+        </div>
+      </div>
+    ) : (
+      boards.map((row) => (
+        <div class="shelf-board">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 px-1">
+            {row.map((c) => (
+              <a href={c.href} class="shelf-card group block" data-book-card-slug={c.b.slug}>
+                <div
+                  class="aspect-square rounded-xl bg-stone-100 overflow-hidden border border-stone-200 relative shadow-sm"
+                  transition:name={`book-cover-${c.b.slug}`}
+                >
+                  {c.cover && (
+                    <img
+                      src={c.cover}
+                      alt={c.b.title}
+                      width="300"
+                      height="300"
+                      loading="lazy"
+                      decoding="async"
+                      class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200"
+                    />
+                  )}
+                  {c.audioOnly && (
+                    <span class="absolute top-1.5 right-1.5 rounded-full bg-stone-900/75 text-white text-[10px] font-bold px-2 py-0.5">🎧 Audio</span>
+                  )}
+                  {!c.owned && (
+                    <span class="absolute top-1.5 left-1.5 rounded-full bg-[#1a3454]/85 text-white text-[10px] font-bold px-2 py-0.5">Club</span>
+                  )}
+                </div>
+                <h3 class="font-extrabold text-xs sm:text-sm leading-snug text-stone-900 line-clamp-2 mt-2">{c.b.title}</h3>
+                <p class="text-[11px] text-stone-500 mt-0.5">{c.b.topic}</p>
+                {c.pct > 0 && (
+                  <div class="mt-1.5" aria-label={`Reading progress ${c.pct}%`}>
+                    <div class="h-1 rounded-full bg-stone-200 overflow-hidden">
+                      <div class="h-full bg-orange-500 rounded-full" style={`width:${c.pct}%`}></div>
+                    </div>
+                    <p class="text-[10px] font-bold text-stone-500 mt-0.5">{c.pct}% · page {c.progPage} of {c.progTotal}</p>
+                  </div>
+                )}
+              </a>
+            ))}
+          </div>
+          <div class="shelf-plank" aria-hidden="true"></div>
+        </div>
+      ))
+    )}
+
+    {books.length > 0 && (
+      <p class="text-[11px] text-stone-400 mt-6">For your family's personal use.</p>
+    )}
+  </main>
+</body>
+</html>

@@ -1,16 +1,16 @@
 ---
-// CustomerShell: the account-area chrome (DESIGN.md, 2026-10-31).
+// CustomerShell: the account-area frame (DESIGN.md, corrected by CG
+// 2026-11-01). Same mechanics as the admin shell: a fixed sidebar on
+// desktop (grouped nav, user popover in the foot), a drawer behind a
+// menu button on phones, and the store top bar (SiteHeader: logo,
+// search, cart, account menu) above everything so search and the cart
+// never leave. Customer styling: warm paper, orange active states.
 //
-// The store top bar never leaves: SiteHeader (logo, search, cart,
-// account menu) renders on every account page, with the cart sheet so
-// buying works without leaving /account. Under it, one slim bar holds
-// the family switcher (who is reading) and the section links. There is
-// no sidebar. On phones a bottom tab bar carries the main sections.
-//
-// Kid View is a body state: [data-parent-only] elements hide while a
-// kid profile is active, and leaving Kid View can require the parent
-// PIN. The switcher contract (select id, option data attributes, the
-// bbs:profile-change event) is stable: the shelf and reader listen.
+// The sidebar carries the family switcher (who is reading). Kid View
+// is a body state: [data-parent-only] elements hide while a kid
+// profile is active, and leaving Kid View can require the parent PIN.
+// The switcher contract (select id, option data attributes, the
+// bbs:profile-change event) is stable: the library and reader listen.
 import { KID_AVATARS, type KidProfile } from "../lib/family";
 import SiteHeader from "./SiteHeader.astro";
 import CartSheet from "./CartSheet.astro";
@@ -29,7 +29,11 @@ interface Props {
 }
 
 const {
-  currentSection = "shelf",
+  currentSection = "dashboard",
+  userEmail,
+  username = null,
+  displayName = null,
+  isAdmin = false,
   kidProfiles = [],
   hasParentPin = false,
   bookCount = 0,
@@ -46,19 +50,46 @@ interface NavItem {
   badge?: string;
   parentOnly?: boolean;
 }
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
 
-const NAV_ITEMS: NavItem[] = [
-  { id: "shelf", href: "/account", label: "My Shelf", icon: "shelf", badge: bookCount > 0 ? String(bookCount) : undefined },
-  { id: "club", href: "/account/club", label: "Clubs", icon: "club", parentOnly: true },
-  { id: "orders", href: "/account/orders", label: "Orders", icon: "orders", parentOnly: true },
-  { id: "reviews", href: "/account/reviews", label: "Reviews", icon: "star", parentOnly: true },
-  { id: "kids", href: "/account/kids", label: "Kids & Limits", icon: "kids", parentOnly: true },
-  { id: "onboarding", href: "/account/onboarding", label: "Family Setup", icon: "sparkles", badge: onboardingComplete ? undefined : "1 min", parentOnly: true },
-  { id: "referrals", href: "/account/referrals", label: "Give $10, Get $10", icon: "gift", parentOnly: true },
-  { id: "settings", href: "/account/settings", label: "Settings", icon: "shield", parentOnly: true },
+const NAV_GROUPS: NavGroup[] = [
+  {
+    label: "Home",
+    items: [
+      { id: "dashboard", href: "/account", label: "Dashboard", icon: "dashboard" },
+      { id: "library", href: "/account/library", label: "My Library", icon: "shelf", badge: bookCount > 0 ? String(bookCount) : undefined },
+    ],
+  },
+  {
+    label: "Family",
+    items: [
+      { id: "kids", href: "/account/kids", label: "Kids & Sleep Limits", icon: "kids", badge: kidProfiles.length > 0 ? String(kidProfiles.length) : undefined, parentOnly: true },
+      { id: "onboarding", href: "/account/onboarding", label: "Family Setup", icon: "sparkles", badge: onboardingComplete ? undefined : "1 min", parentOnly: true },
+      { id: "referrals", href: "/account/referrals", label: "Give $10, Get $10", icon: "gift", badge: "$10", parentOnly: true },
+    ],
+  },
+  {
+    label: "Account",
+    items: [
+      { id: "club", href: "/account/club", label: "Book & Audio Club", icon: "club", parentOnly: true },
+      { id: "orders", href: "/account/orders", label: "Orders & Receipts", icon: "orders", parentOnly: true },
+      { id: "reviews", href: "/account/reviews", label: "My Reviews", icon: "star", parentOnly: true },
+      { id: "settings", href: "/account/settings", label: "Sign-in & Security", icon: "shield", parentOnly: true },
+    ],
+  },
+  {
+    label: "Explore",
+    items: [
+      { id: "books", href: "/books", label: "Browse All Books", icon: "store", parentOnly: true },
+    ],
+  },
 ];
 
 const ICONS: Record<string, string> = {
+  dashboard: `<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>`,
   shelf: `<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M9 7h6"/><path d="M9 11h4"/>`,
   kids: `<circle cx="9" cy="7" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20v-1.5A4.5 4.5 0 0 1 7.5 14h3A4.5 4.5 0 0 1 15 18.5V20"/><path d="M15 14.5h2.5A3.5 3.5 0 0 1 21 18v2"/>`,
   sparkles: `<path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/>`,
@@ -67,11 +98,16 @@ const ICONS: Record<string, string> = {
   orders: `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10"/><path d="M7 12h6"/><path d="M7 16h4"/>`,
   star: `<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>`,
   shield: `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>`,
+  store: `<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>`,
+  admin: `<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>`,
+  logout: `<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>`,
 };
 ---
 
 <style is:global>
   :root {
+    --cust-sb-w: 16rem;
+    --cust-header-h: 4rem;
     --cust-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   }
   html {
@@ -90,6 +126,11 @@ const ICONS: Record<string, string> = {
     textarea,
     select {
       font-size: 16px;
+    }
+  }
+  @media (min-width: 1024px) {
+    body {
+      padding-left: var(--cust-sb-w) !important;
     }
   }
   @media (max-width: 1023px) {
@@ -122,102 +163,105 @@ const ICONS: Record<string, string> = {
 </style>
 
 <style>
-  .cust-bar {
+  .cust-sb {
+    position: fixed;
+    top: var(--cust-header-h);
+    left: 0;
+    bottom: 0;
+    z-index: 40;
+    width: var(--cust-sb-w);
     background: #fcfaf6;
-    border-bottom: 1px solid #ece6dc;
+    border-right: 1px solid #ece6dc;
+    display: flex;
+    flex-direction: column;
     font-family:
       "Plus Jakarta Sans",
       -apple-system,
       BlinkMacSystemFont,
       sans-serif;
+    user-select: none;
   }
-  .cust-bar-in {
-    max-width: 80rem;
-    margin: 0 auto;
-    padding: 0.5rem 1rem;
+  .cust-profile-box {
+    margin: 0.75rem 0.75rem 0.25rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 0.85rem;
+    background: #fff;
+    border: 1px solid #e7e0d3;
+    box-shadow: 0 1px 2px rgba(26, 52, 84, 0.04);
+  }
+  .cust-profile-lbl {
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #78716c;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    justify-content: space-between;
+    margin-bottom: 0.35rem;
   }
-  @media (min-width: 640px) {
-    .cust-bar-in {
-      padding-left: 1.5rem;
-      padding-right: 1.5rem;
-    }
-  }
-  .cust-switcher {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-shrink: 0;
-  }
-  .cust-switcher select {
+  .cust-profile-select {
+    width: 100%;
     font-size: 0.8125rem;
     font-weight: 700;
     color: #1c1917;
-    background: #fff;
+    background: #faf7f2;
     border: 1px solid #e7e0d3;
-    border-radius: 9999px;
-    padding: 0.42rem 0.7rem;
+    border-radius: 0.55rem;
+    padding: 0.4rem 0.55rem;
     cursor: pointer;
-    max-width: 13.5rem;
-  }
-  .cust-mode-pill {
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #9a3412;
-    background: #ffedd5;
-    padding: 0.18rem 0.5rem;
-    border-radius: 9999px;
-    white-space: nowrap;
   }
   .cust-nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem 0.65rem 1rem;
+  }
+  .cust-group {
+    margin-top: 0.9rem;
+  }
+  .cust-group:first-child {
+    margin-top: 0.35rem;
+  }
+  .cust-group-lbl {
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #a8a29e;
+    padding: 0 0.6rem 0.35rem;
+  }
+  .cust-link {
     display: flex;
     align-items: center;
-    gap: 0.25rem;
-    margin-left: auto;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .cust-nav::-webkit-scrollbar {
-    display: none;
-  }
-  .cust-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.45rem 0.75rem;
-    border-radius: 9999px;
-    font-size: 0.83rem;
+    gap: 0.6rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: 0.6rem;
+    font-size: 0.84rem;
     font-weight: 600;
     color: #57534e;
     text-decoration: none;
-    white-space: nowrap;
     transition:
       background-color 150ms var(--cust-ease-out),
       color 150ms var(--cust-ease-out),
       transform 120ms var(--cust-ease-out);
   }
   @media (hover: hover) and (pointer: fine) {
-    .cust-chip:hover {
+    .cust-link:hover {
       background: #f3ede2;
       color: #1c1917;
     }
   }
-  .cust-chip:active {
-    transform: scale(0.97);
+  .cust-link:active {
+    transform: scale(0.98);
   }
-  .cust-chip[aria-current="page"] {
+  .cust-link[aria-current="page"] {
     background: #ffedd5;
     color: #9a3412;
     font-weight: 800;
   }
   .cust-ico {
-    width: 1rem;
-    height: 1rem;
+    width: 1.05rem;
+    height: 1.05rem;
     flex-shrink: 0;
     stroke: currentColor;
     fill: none;
@@ -226,21 +270,65 @@ const ICONS: Record<string, string> = {
     stroke-linejoin: round;
     opacity: 0.85;
   }
-  .cust-chip[aria-current="page"] .cust-ico {
+  .cust-link[aria-current="page"] .cust-ico {
     opacity: 1;
     stroke: #ea580c;
   }
   .cust-badge {
-    font-size: 0.66rem;
+    margin-left: auto;
+    font-size: 0.68rem;
     font-weight: 800;
-    padding: 0.08rem 0.42rem;
+    padding: 0.1rem 0.45rem;
     border-radius: 9999px;
     background: #f5f0e6;
     color: #57534e;
   }
-  .cust-chip[aria-current="page"] .cust-badge {
+  .cust-link[aria-current="page"] .cust-badge {
     background: #fed7aa;
     color: #9a3412;
+  }
+  .cust-foot {
+    border-top: 1px solid #ece6dc;
+    padding: 0.65rem 0.75rem;
+    position: relative;
+  }
+
+  /* Mobile: menu strip under the store header + drawer + backdrop */
+  .cust-mbar {
+    display: none;
+    position: static;
+    z-index: 35;
+    background: rgba(252, 250, 246, 0.94);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #ece6dc;
+    padding: 0.45rem 1rem;
+    align-items: center;
+    justify-content: space-between;
+    font-family:
+      "Plus Jakarta Sans",
+      -apple-system,
+      BlinkMacSystemFont,
+      sans-serif;
+  }
+  .cust-mbtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.42rem 0.7rem;
+    border-radius: 0.55rem;
+    border: 1px solid #e7e0d3;
+    background: #fff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #1c1917;
+    cursor: pointer;
+  }
+  .cust-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    background: rgba(28, 25, 23, 0.4);
   }
 
   /* Mobile bottom navigation bar for native app feel */
@@ -287,9 +375,26 @@ const ICONS: Record<string, string> = {
     color: #ea580c;
     font-weight: 800;
   }
+
   @media (max-width: 1023px) {
+    .cust-mbar {
+      display: flex;
+    }
     .cust-bottom-tabs {
       display: flex;
+    }
+    .cust-sb {
+      top: 0;
+      transform: translateX(-100%);
+      transition: transform 200ms var(--cust-ease-out);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+      z-index: 45;
+    }
+    .cust-sb.is-open {
+      transform: translateX(0);
+    }
+    .cust-backdrop.is-open {
+      display: block;
     }
   }
 </style>
@@ -297,76 +402,192 @@ const ICONS: Record<string, string> = {
 <SiteHeader search cartMode="sheet" />
 <CartSheet />
 
-<div class="cust-bar" data-has-pin={hasParentPin ? "true" : "false"} id="cust-bar">
-  <div class="cust-bar-in">
-    <div class="cust-switcher">
-      <select
-        id="cust-profile-switcher"
-        aria-label="Switch between Parent View and Child Profiles"
+<div class="cust-mbar">
+  <button type="button" class="cust-mbtn cust-pressable" id="cust-open-drawer" aria-label="Open menu">
+    <svg class="cust-ico" viewBox="0 0 24 24">
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+    <span>Menu</span>
+  </button>
+  <span class="text-xs font-extrabold uppercase tracking-wider text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">Family</span>
+  <a href="/" class="text-xs font-bold text-stone-600 hover:text-stone-900">Store ↗</a>
+</div>
+
+<div class="cust-backdrop" id="cust-backdrop"></div>
+
+<aside
+  class="cust-sb"
+  id="cust-sidebar"
+  aria-label="Family account navigation"
+  data-has-pin={hasParentPin ? "true" : "false"}
+>
+  <!-- Active Reader / Kid Profile Switcher -->
+  <div class="cust-profile-box">
+    <div class="cust-profile-lbl">
+      <span>Who is reading?</span>
+      <span id="cust-mode-pill" class="text-[10px] font-extrabold text-orange-700">Parent View</span>
+    </div>
+    <select
+      id="cust-profile-switcher"
+      class="cust-profile-select"
+      aria-label="Switch between Parent View and Child Profiles"
+    >
+      <option value="parent">👩‍👧 Parent View (All pages)</option>
+      {kidProfiles.map((kid) => {
+        const emoji = avatarEmojiMap.get(kid.avatar_key) || "🦊";
+        return (
+          <option
+            value={kid.id}
+            data-kid-name={kid.name}
+            data-sleep-minutes={kid.default_sleep_timer_minutes}
+            data-daily-limit={kid.daily_limit_minutes}
+          >
+            {emoji} {kid.name} ({kid.age_group} · {kid.default_sleep_timer_minutes}m timer)
+          </option>
+        );
+      })}
+    </select>
+    {kidProfiles.length === 0 && (
+      <a
+        href="/account/onboarding"
+        data-parent-only="true"
+        class="mt-1.5 inline-block text-[11px] font-bold text-orange-700 hover:underline"
       >
-        <option value="parent">👩‍👧 Parent View (All pages)</option>
-        {kidProfiles.map((kid) => {
-          const emoji = avatarEmojiMap.get(kid.avatar_key) || "🦊";
-          return (
-            <option
-              value={kid.id}
-              data-kid-name={kid.name}
-              data-sleep-minutes={kid.default_sleep_timer_minutes}
-              data-daily-limit={kid.daily_limit_minutes}
-            >
-              {emoji} {kid.name} ({kid.age_group} · {kid.default_sleep_timer_minutes}m timer)
-            </option>
-          );
-        })}
-      </select>
-      <span id="cust-mode-pill" class="cust-mode-pill">Parent View</span>
-      {kidProfiles.length === 0 && (
+        + Add a child profile for Kid View
+      </a>
+    )}
+  </div>
+
+  <nav class="cust-nav">
+    {NAV_GROUPS.map((group) => (
+      <div class="cust-group">
+        <div class="cust-group-lbl">{group.label}</div>
+        {group.items.map((item) => (
+          <a
+            href={item.href}
+            data-nav-id={item.id}
+            data-parent-only={item.parentOnly ? "true" : undefined}
+            aria-current={currentSection === item.id ? "page" : undefined}
+            class="cust-link"
+          >
+            <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS[item.icon] || ICONS.shelf} />
+            <span>{item.label}</span>
+            {item.badge && <span class="cust-badge">{item.badge}</span>}
+          </a>
+        ))}
+      </div>
+    ))}
+  </nav>
+
+  <!-- Account popover in the sidebar foot, same mechanics as /admin -->
+  <div class="cust-foot">
+    <button
+      type="button"
+      id="cust-acct-menu-btn"
+      aria-expanded="false"
+      aria-haspopup="menu"
+      class="w-full flex items-center justify-between gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-left hover:border-stone-400 transition cust-pressable cursor-pointer"
+    >
+      <div class="min-w-0 flex items-center gap-2.5">
+        <span class="w-7 h-7 rounded-full bg-[#1a3454] text-white text-xs font-extrabold flex items-center justify-center shrink-0">
+          {(displayName || username || userEmail || "U").slice(0, 1).toUpperCase()}
+        </span>
+        <div class="min-w-0">
+          <p class="text-xs font-extrabold text-stone-900 truncate">
+            {username ? `@${username}` : displayName || userEmail.split("@")[0]}
+          </p>
+          <p class="text-[11px] text-stone-500 truncate">{userEmail}</p>
+        </div>
+      </div>
+      <svg class="w-4 h-4 text-stone-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="6 9 12 15 18 9" />
+      </svg>
+    </button>
+
+    <div
+      id="cust-acct-dropdown"
+      role="menu"
+      class="hidden absolute bottom-16 left-3 right-3 z-50 rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl"
+    >
+      <div class="px-3 py-2 border-b border-stone-100">
+        <p class="text-[11px] font-extrabold uppercase tracking-wider text-stone-400">Signed in as</p>
+        <p class="text-xs font-extrabold text-stone-900 truncate">
+          {username ? `@${username}` : userEmail}
+        </p>
+      </div>
+      <a
+        href="/account"
+        role="menuitem"
+        class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-stone-700 hover:bg-stone-100"
+      >
+        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.dashboard} />
+        <span>Dashboard</span>
+      </a>
+      <a
+        href="/account/settings"
+        role="menuitem"
+        data-parent-only="true"
+        class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-stone-700 hover:bg-stone-100"
+      >
+        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.shield} />
+        <span>Sign-in &amp; Security</span>
+      </a>
+      {isAdmin && (
         <a
-          href="/account/onboarding"
+          href="/admin"
+          role="menuitem"
           data-parent-only="true"
-          class="hidden sm:inline-block text-[11px] font-bold text-orange-700 hover:underline whitespace-nowrap"
+          class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs font-extrabold text-[#1a3454] hover:bg-orange-50"
         >
-          + Add a child profile
+          <span class="flex items-center gap-2">
+            <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.admin} />
+            <span>Admin Workspace</span>
+          </span>
+          <span class="rounded-full bg-orange-100 text-orange-800 px-2 py-0.5 text-[10px]">Staff</span>
         </a>
       )}
+      <a
+        href="/"
+        role="menuitem"
+        data-parent-only="true"
+        class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-stone-700 hover:bg-stone-100"
+      >
+        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.store} />
+        <span>Browse Storefront</span>
+      </a>
+      <div class="my-1 border-t border-stone-100"></div>
+      <button
+        type="button"
+        id="cust-signout-btn"
+        role="menuitem"
+        class="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-red-700 hover:bg-red-50 text-left cursor-pointer"
+      >
+        <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.logout} />
+        <span>Sign out</span>
+      </button>
     </div>
-
-    <nav class="cust-nav" aria-label="Account sections">
-      {NAV_ITEMS.map((item) => (
-        <a
-          href={item.href}
-          data-nav-id={item.id}
-          data-parent-only={item.parentOnly ? "true" : undefined}
-          aria-current={currentSection === item.id ? "page" : undefined}
-          class="cust-chip cust-pressable"
-        >
-          <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS[item.icon] || ICONS.shelf} />
-          <span>{item.label}</span>
-          {item.badge && <span class="cust-badge">{item.badge}</span>}
-        </a>
-      ))}
-    </nav>
   </div>
-</div>
+</aside>
 
 <!-- Mobile Bottom Tab Bar -->
 <nav class="cust-bottom-tabs" aria-label="Quick navigation">
   <a
     href="/account"
-    aria-current={currentSection === "shelf" ? "page" : undefined}
+    aria-current={currentSection === "dashboard" ? "page" : undefined}
+    class="cust-tab-item"
+  >
+    <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.dashboard} />
+    <span>Home</span>
+  </a>
+  <a
+    href="/account/library"
+    aria-current={currentSection === "library" || currentSection === "shelf" ? "page" : undefined}
     class="cust-tab-item"
   >
     <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.shelf} />
-    <span>My Shelf</span>
-  </a>
-  <a
-    href="/account/kids"
-    data-parent-only="true"
-    aria-current={currentSection === "kids" || currentSection === "onboarding" ? "page" : undefined}
-    class="cust-tab-item"
-  >
-    <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.kids} />
-    <span>Kids</span>
+    <span>Library</span>
   </a>
   <a
     href="/account/club"
@@ -389,7 +610,7 @@ const ICONS: Record<string, string> = {
   <a
     href="/account/settings"
     data-parent-only="true"
-    aria-current={currentSection === "settings" || currentSection === "referrals" || currentSection === "reviews" ? "page" : undefined}
+    aria-current={currentSection === "settings" || currentSection === "referrals" || currentSection === "reviews" || currentSection === "kids" || currentSection === "onboarding" ? "page" : undefined}
     class="cust-tab-item"
   >
     <svg class="cust-ico" viewBox="0 0 24 24" set:html={ICONS.shield} />
@@ -442,7 +663,9 @@ const ICONS: Record<string, string> = {
 <script is:inline>
   (function () {
     function initCustomerShell() {
-      var bar = document.getElementById("cust-bar");
+      var sb = document.getElementById("cust-sidebar");
+      var backdrop = document.getElementById("cust-backdrop");
+      var openBtn = document.getElementById("cust-open-drawer");
       var switcher = document.getElementById("cust-profile-switcher");
       var modePill = document.getElementById("cust-mode-pill");
       var pinModal = document.getElementById("cust-pin-modal");
@@ -450,6 +673,54 @@ const ICONS: Record<string, string> = {
       var pinInput = document.getElementById("cust-pin-input");
       var pinError = document.getElementById("cust-pin-error");
       var pinCancel = document.getElementById("cust-pin-cancel");
+
+      function closeDrawer() {
+        if (sb) sb.classList.remove("is-open");
+        if (backdrop) backdrop.classList.remove("is-open");
+      }
+      if (openBtn && !openBtn.dataset.bound) {
+        openBtn.dataset.bound = "1";
+        openBtn.addEventListener("click", function () {
+          if (sb) sb.classList.add("is-open");
+          if (backdrop) backdrop.classList.add("is-open");
+        });
+      }
+      if (backdrop && !backdrop.dataset.bound) {
+        backdrop.dataset.bound = "1";
+        backdrop.addEventListener("click", closeDrawer);
+      }
+
+      var acctBtn = document.getElementById("cust-acct-menu-btn");
+      var acctDrop = document.getElementById("cust-acct-dropdown");
+      if (acctBtn && acctDrop && !acctBtn.dataset.bound) {
+        acctBtn.dataset.bound = "1";
+        acctBtn.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          var isHidden = acctDrop.classList.contains("hidden");
+          acctDrop.classList.toggle("hidden", !isHidden);
+          acctBtn.setAttribute("aria-expanded", isHidden ? "true" : "false");
+        });
+        document.addEventListener("click", function (ev) {
+          if (!acctDrop.classList.contains("hidden") && !acctDrop.contains(ev.target) && ev.target !== acctBtn) {
+            acctDrop.classList.add("hidden");
+            acctBtn.setAttribute("aria-expanded", "false");
+          }
+        });
+      }
+
+      var signOutBtn = document.getElementById("cust-signout-btn");
+      if (signOutBtn && !signOutBtn.dataset.bound) {
+        signOutBtn.dataset.bound = "1";
+        signOutBtn.addEventListener("click", function () {
+          fetch("/api/auth/sign-out", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+          }).finally(function () {
+            window.location.href = "/";
+          });
+        });
+      }
 
       var STORAGE_KEY = "bbs.activeProfileId";
       var currentProfile = localStorage.getItem(STORAGE_KEY) || "parent";
@@ -471,9 +742,10 @@ const ICONS: Record<string, string> = {
         var sleepMins = selectedOpt ? Number(selectedOpt.getAttribute("data-sleep-minutes") || "60") : 60;
         var kidName = selectedOpt ? selectedOpt.getAttribute("data-kid-name") || "" : "";
 
-        // If user switches to Kid View while on a parent-only page, take them to My Shelf (/account)
-        if (isKid && window.location.pathname !== "/account" && window.location.pathname !== "/account/") {
-          window.location.href = "/account";
+        // Kid View belongs on the library and the reader; anywhere
+        // else, send them to the library.
+        if (isKid && !/^\/(account|account\/library|read\/)/.test(window.location.pathname)) {
+          window.location.href = "/account/library";
           return;
         }
 
@@ -501,7 +773,7 @@ const ICONS: Record<string, string> = {
           switcher.addEventListener("change", function () {
             var nextVal = switcher.value;
             var wasKid = currentProfile && currentProfile !== "parent";
-            var hasPin = bar && bar.getAttribute("data-has-pin") === "true";
+            var hasPin = sb && sb.getAttribute("data-has-pin") === "true";
 
             if (wasKid && nextVal === "parent" && hasPin && pinModal) {
               switcher.value = currentProfile;

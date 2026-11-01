@@ -37,7 +37,9 @@ assert(downloadSrc.includes('error: "You don\'t own this book yet."'), "download
 assert(!downloadSrc.includes("ent?.audio === true : ent?.digital === true"), "download route no longer serves on raw access flags");
 
 // ---- My Shelf UI --------------------------------------------------------------
-const accountSrc = await read("../src/pages/account/index.astro");
+// The shelf lives at /account/library since the dashboard split
+// (CG, 2026-11-01); /account is the dashboard.
+const accountSrc = await read("../src/pages/account/library.astro");
 assert(accountSrc.includes("The books you own are yours to download and keep."), "shelf subline names ownership as the download rule");
 const viewerSrc = await read("../src/components/CustomerBookViewer.astro");
 assert(viewerSrc.includes("canDownloadAudio: Boolean(b.owned && b.audio)"), "shelf: the audiobook download renders only for owned listen-only entries");

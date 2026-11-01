@@ -1,4 +1,9 @@
 ---
+// /account is the family dashboard (CG, 2026-11-01): Welcome, stat
+// cards, action buttons, a shelf preview, and a View all that goes to
+// the library (/account/library), which is its own page. The reader
+// never lives here; books open their overview page, and the overview
+// opens the reader.
 import "../../styles/global.css";
 import { env } from "cloudflare:workers";
 import Tracking from "../../components/Tracking.astro";
@@ -7,7 +12,9 @@ import TransitionHooks from "../../components/TransitionHooks.astro";
 import { parseItems } from "../../lib/orders";
 import { publicSlugFor } from "../../lib/public-slugs";
 import { coverDerivative } from "../../lib/derivatives";
-import { AUDIO_PRICE_CENTS } from "../../lib/offers";
+import { ensureClubTable, clubPlanOf } from "../../lib/club";
+import { getNextClubBox } from "../../lib/club-cycles";
+import { formatClubDate } from "../../lib/club-cycle-dates";
 import CustomerShell from "../../components/CustomerShell.astro";
 import { loadCustomerHubContext } from "../../lib/account-data";
 
@@ -25,22 +32,58 @@ const {
   kidProfiles,
   readingProgressList,
   onboardingChecklist,
-  defaultSleepMinutes,
 } = hub;
 
 const R2 = "https://media.bigbrainshelf.com/";
-const unlockPriceFor = (b: any): number =>
-  Math.max(0, Math.round(Number(b?.price || 0)) - AUDIO_PRICE_CENTS);
-const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
+const firstName =
+  String(parentOnboarding?.parent_name || session.user.name || "").trim().split(/\s+/)[0] ||
+  String(session.user.email || "").split("@")[0];
+const ownedCount = (books as any[]).filter((b: any) => b.owned).length;
 
-const showSuccess = Astro.url.searchParams.get("checkout") === "success";
+// Continue reading: the furthest-along unfinished book.
+const inProgress = (books as any[])
+  .map((b: any) => {
+    const prog = readingProgressList.find((p) => p.book_slug === b.slug);
+    const pct =
+      prog && prog.total_pages > 0
+        ? Math.min(100, Math.round((prog.current_page / prog.total_pages) * 100))
+        : 0;
+    return { b, prog, pct };
+  })
+  .filter((x) => x.pct > 0 && x.pct < 100)
+  .sort((a, b) => b.pct - a.pct)[0];
 
-// Shelf boards (DESIGN.md): four covers per board, the first two
-// boards on the page, the rest behind View more. View models are
-// computed here so the template stays a plain map.
-const shelfCardFor = (b: any) => {
+// Club state for the stat card + club panel.
+let clubSignup: any = null;
+let nextBox: any = null;
+try {
+  await ensureClubTable(e.DB);
+  const rows = await e.DB.prepare(
+    `SELECT * FROM club_signups
+     WHERE (user_id = ? OR LOWER(email) = ?)
+     ORDER BY CASE status WHEN 'paid' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END, created_at DESC
+     LIMIT 1`
+  )
+    .bind(session.user.id, String(session.user.email || "").toLowerCase())
+    .all();
+  clubSignup = ((rows.rows || rows.results || []) as any[])[0] || null;
+  if (clubSignup && clubSignup.status === "paid" && clubPlanOf(clubSignup) === "physical") {
+    nextBox = await getNextClubBox(e.DB, clubSignup.id);
+  }
+} catch { /* the dashboard renders fine without club state */ }
+const clubIsMember = Boolean(clubSignup && clubSignup.status === "paid");
+const clubLabel = !clubSignup
+  ? "No club yet"
+  : clubIsMember
+    ? clubPlanOf(clubSignup) === "physical"
+      ? "The Book Club"
+      : "The Audio Club"
+    : "Signup started";
+
+// Shelf preview: the first board only (4 books).
+const previewCards = (books as any[]).slice(0, 4).map((b: any) => {
   const prog = readingProgressList.find((p) => p.book_slug === b.slug);
-  const progPct =
+  const pct =
     prog && prog.total_pages > 0
       ? Math.min(100, Math.round((prog.current_page / prog.total_pages) * 100))
       : 0;
@@ -50,21 +93,11 @@ const shelfCardFor = (b: any) => {
     href: `/account/book/${publicSlugFor(b)}`,
     audioOnly: Boolean(b.audioOnly),
     owned: Boolean(b.owned),
-    progPct,
-    progPage: prog?.current_page,
-    progTotal: prog?.total_pages,
+    pct,
   };
-};
-const boardsOf = (list: any[]) => {
-  const boards: any[][] = [];
-  for (let i = 0; i < list.length; i += 4) boards.push(list.slice(i, i + 4).map(shelfCardFor));
-  return boards;
-};
-const shelfBoards = boardsOf(books.slice(0, 8));
-const shelfMoreBoards = books.length > 8 ? boardsOf(books.slice(8)) : [];
+});
 
-// Purchase event for the tracking component: Stripe sends buyers back
-// to /account?checkout=success after a completed payment.
+const showSuccess = Astro.url.searchParams.get("checkout") === "success";
 let purchaseEvent: { name: string; data: Record<string, unknown> } | null = null;
 let purchaseTraksEvent: { name: string; props: Record<string, string>; value: number; onceKey: string } | null = null;
 if (showSuccess) {
@@ -115,25 +148,14 @@ if (showSuccess) {
   <meta name="theme-color" content="#1a3454" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>My Shelf · Big Brain Shelf</title>
-  <style is:global>
-    .shelf-board { margin-top: 1.75rem; }
-    .shelf-board:first-child { margin-top: 0.5rem; }
-    .shelf-plank {
-      height: 0.65rem;
-      margin-top: 0.55rem;
-      border-radius: 0.3rem;
-      background: linear-gradient(180deg, #b08954 0%, #8a6844 55%, #6f5133 100%);
-      box-shadow: 0 10px 14px -8px rgba(90, 62, 27, 0.55), inset 0 1px 0 rgba(255, 235, 200, 0.5);
-    }
-  </style>
+  <title>Dashboard · Big Brain Shelf</title>
   <ClientRouter />
   <TransitionHooks />
   <Tracking pageEvent={purchaseEvent} traksEvent={purchaseTraksEvent} />
 </head>
 <body class="bg-white text-stone-900 antialiased pb-28">
   <CustomerShell
-    currentSection="shelf"
+    currentSection="dashboard"
     userEmail={String(session.user.email || "")}
     username={session.user.displayUsername || session.user.username}
     displayName={parentOnboarding?.parent_name || session.user.name}
@@ -148,292 +170,200 @@ if (showSuccess) {
   <main class="max-w-6xl mx-auto px-4 py-7 sm:py-9">
     {showSuccess && (
       <div class="mb-6 rounded-2xl bg-green-50 border border-green-200 px-4 py-3 text-sm font-semibold text-green-800">
-        Payment complete. Your books are on your shelf below. Tap any book to read along, listen, or print coloring pages.
+        Payment complete. Your books are in your library, and the newest one is on your shelf below.
       </div>
     )}
 
-    <!-- Clean Family Header (No Admin Preview or QC Jargon) -->
-    <div class="flex flex-wrap items-center justify-between gap-4">
+    <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <div class="flex flex-wrap items-center gap-2.5">
-          <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900">
-            My Shelf
-          </h1>
-          {(session.user.displayUsername || session.user.username) && (
-            <span class="rounded-full bg-orange-100 text-orange-800 px-2.5 py-0.5 text-xs font-extrabold">
-              @{session.user.displayUsername || session.user.username}
-            </span>
-          )}
-        </div>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900">
+          Welcome, {firstName}
+        </h1>
         <p class="text-sm text-stone-600 mt-1">
-          Pick a book below to read along with the narrator, listen at bedtime, or print coloring pages.
-          The books you own are yours to download and keep.
+          Here is your family's shelf at a glance.
         </p>
       </div>
-
-      <div class="flex flex-wrap items-center gap-2" data-parent-only="true">
-        <a
-          href="/account/kids"
-          class="cust-pressable rounded-full border border-stone-300 bg-white px-3.5 py-1.5 text-xs font-extrabold text-stone-700 hover:border-stone-500"
-        >
-          👧 Kids &amp; Timers ({kidProfiles.length})
-        </a>
-        <a
-          href="/books"
-          class="cust-pressable rounded-full bg-[#1a3454] px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-[#132741]"
-        >
-          Browse New Books →
-        </a>
-      </div>
+      {(session.user.displayUsername || session.user.username) && (
+        <span class="rounded-full bg-orange-100 text-orange-800 px-2.5 py-0.5 text-xs font-extrabold">
+          @{session.user.displayUsername || session.user.username}
+        </span>
+      )}
     </div>
 
-    <!-- Compact, Dismissible Family Onboarding Prompt (Never blocks the shelf) -->
-    {!onboardingChecklist.isComplete && (
-      <div
-        id="shelf-onboarding-nudge"
-        data-parent-only="true"
-        class="mt-5 rounded-2xl border border-orange-200 bg-orange-50/70 px-4 py-3.5 flex flex-wrap items-center justify-between gap-3"
+    <!-- Action buttons -->
+    <div class="mt-5 flex flex-wrap items-center gap-2" data-parent-only="true">
+      {inProgress && (
+        <a
+          href={`/read/${publicSlugFor(inProgress.b)}`}
+          class="cust-pressable rounded-full bg-orange-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-orange-700"
+        >
+          ▶ Continue {inProgress.b.title} ({inProgress.pct}%)
+        </a>
+      )}
+      {nextBox && nextBox.status === "awaiting_selection" && (
+        <a
+          href="/account/club"
+          class="cust-pressable rounded-full bg-[#1a3454] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#132741]"
+        >
+          📦 Make your picks for the next box
+        </a>
+      )}
+      <a
+        href="/books"
+        class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500"
       >
-        <div class="flex items-center gap-3 min-w-0">
-          <span class="w-9 h-9 rounded-xl bg-orange-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0">
-            🦊
-          </span>
-          <div class="min-w-0">
-            <p class="text-xs sm:text-sm font-extrabold text-stone-900">
-              Personalize your family shelf ({onboardingChecklist.percent}% ready)
-            </p>
-            <p class="text-xs text-stone-600 truncate">
-              Add your child's reader profile, bedtime sleep timer, and birthday for their annual $10 gift email.
-            </p>
+        Browse New Books →
+      </a>
+      {!onboardingChecklist.isComplete && (
+        <a
+          href="/account/onboarding"
+          class="cust-pressable rounded-full border border-orange-300 bg-orange-50 px-4 py-2 text-xs font-extrabold text-orange-800 hover:border-orange-400"
+        >
+          Finish Family Setup ({onboardingChecklist.percent}%)
+        </a>
+      )}
+    </div>
+
+    <!-- Stat cards -->
+    <section class="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Your family at a glance">
+      <a href="/account/library" class="rounded-2xl border border-stone-200 bg-[#fcfaf6] p-4 hover:border-stone-300 transition block">
+        <p class="text-[11px] font-extrabold uppercase tracking-wider text-stone-500">Books on your shelf</p>
+        <p class="text-3xl font-extrabold text-stone-900 mt-1">{books.length}</p>
+        <p class="text-xs text-stone-500 mt-0.5">{ownedCount} owned · {books.length - ownedCount} with the club</p>
+      </a>
+      <a href="/account/library" class="rounded-2xl border border-stone-200 bg-[#fcfaf6] p-4 hover:border-stone-300 transition block">
+        <p class="text-[11px] font-extrabold uppercase tracking-wider text-stone-500">Audiobooks</p>
+        <p class="text-3xl font-extrabold text-stone-900 mt-1">{audioBooksCount}</p>
+        <p class="text-xs text-stone-500 mt-0.5">Ready to listen, bedtime included</p>
+      </a>
+      <a href="/account/club" class="rounded-2xl border border-stone-200 bg-[#fcfaf6] p-4 hover:border-stone-300 transition block" data-parent-only="true">
+        <p class="text-[11px] font-extrabold uppercase tracking-wider text-stone-500">Club</p>
+        <p class="text-lg font-extrabold text-stone-900 mt-1.5 leading-snug">{clubLabel}</p>
+        <p class="text-xs text-stone-500 mt-0.5">
+          {nextBox
+            ? `Next box ships ${formatClubDate(String(nextBox.ship_date))}`
+            : clubIsMember
+              ? "Membership active"
+              : "Printed boxes or the listening shelf"}
+        </p>
+      </a>
+      <a href="/account/kids" class="rounded-2xl border border-stone-200 bg-[#fcfaf6] p-4 hover:border-stone-300 transition block" data-parent-only="true">
+        <p class="text-[11px] font-extrabold uppercase tracking-wider text-stone-500">Readers</p>
+        <p class="text-3xl font-extrabold text-stone-900 mt-1">{kidProfiles.length}</p>
+        <p class="text-xs text-stone-500 mt-0.5">
+          {kidProfiles.length === 0 ? "Add a child profile for Kid View" : "Child profiles with limits and timers"}
+        </p>
+      </a>
+    </section>
+
+    <!-- Continue reading -->
+    {inProgress && (
+      <section class="mt-6 rounded-3xl border border-orange-200 bg-orange-50/60 p-5 flex flex-wrap items-center gap-4" aria-label="Continue reading">
+        {inProgress.b.cover_key && (
+          <img
+            src={coverDerivative(inProgress.b.slug, "card", inProgress.b.cover_key) || R2 + inProgress.b.cover_key}
+            alt=""
+            width="72"
+            height="72"
+            class="w-[72px] h-[72px] rounded-xl object-cover border border-orange-200"
+          />
+        )}
+        <div class="min-w-0 flex-1">
+          <p class="text-[11px] font-extrabold uppercase tracking-wider text-orange-700">Continue reading</p>
+          <h2 class="text-base sm:text-lg font-extrabold text-stone-900 truncate">{inProgress.b.title}</h2>
+          <div class="mt-2 max-w-sm">
+            <div class="h-1.5 rounded-full bg-white overflow-hidden border border-orange-100">
+              <div class="h-full bg-orange-500 rounded-full" style={`width:${inProgress.pct}%`}></div>
+            </div>
+            <p class="text-[11px] font-bold text-stone-500 mt-1">Page {inProgress.prog?.current_page} of {inProgress.prog?.total_pages} · {inProgress.pct}%</p>
           </div>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <a
-            href="/account/onboarding"
-            class="cust-pressable rounded-full bg-orange-600 px-3.5 py-1.5 text-xs font-extrabold text-white hover:bg-orange-700"
-          >
-            Set Up Family Profile →
-          </a>
-          <button
-            type="button"
-            id="dismiss-onboarding-nudge"
-            class="cust-pressable rounded-full border border-stone-300 bg-white px-2.5 py-1 text-xs font-bold text-stone-500 hover:text-stone-800 cursor-pointer"
-            aria-label="Dismiss setup reminder for now"
-          >
-            Later ✕
-          </button>
-        </div>
-      </div>
+        <a
+          href={`/read/${publicSlugFor(inProgress.b)}`}
+          class="cust-pressable rounded-full bg-orange-600 px-5 py-2.5 text-sm font-extrabold text-white hover:bg-orange-700"
+        >
+          Keep reading →
+        </a>
+      </section>
     )}
 
-    <!-- SHELF GRID OR ZERO-ORDER FIRST-RUN EXPERIENCE -->
-    <section id="shelf" class="mt-6" aria-label="Books on your shelf">
+    <!-- Shelf preview -->
+    <section class="mt-8" aria-label="From your shelf">
+      <div class="flex items-baseline justify-between gap-3">
+        <h2 class="text-lg font-extrabold tracking-tight text-stone-900">From your shelf</h2>
+        <a href="/account/library" class="text-xs font-extrabold text-orange-700 hover:underline">View all →</a>
+      </div>
       {books.length === 0 ? (
-        <div class="rounded-3xl border border-stone-200 bg-[#fcfaf6] p-6 sm:p-8">
-          <div class="max-w-2xl">
-            <span class="rounded-full bg-orange-100 text-orange-800 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
-              Welcome to Big Brain Shelf
-            </span>
-            <h2 class="text-xl sm:text-2xl font-extrabold tracking-tight text-stone-900 mt-2">
-              Your family shelf is ready for its first story
-            </h2>
-            <p class="text-sm text-stone-600 mt-1.5 leading-relaxed">
-              Every Big Brain Shelf title turns big ideas (courage, money, technology, science) into warm illustrated stories for ages 4–8. When you add a book, it appears right here with both <strong>playable</strong> and <strong>printable</strong> editions:
-            </p>
-          </div>
-
-          <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="rounded-2xl border border-stone-200 bg-white p-4">
-              <span class="text-xl" aria-hidden="true">✨</span>
-              <h3 class="text-sm font-extrabold text-stone-900 mt-1.5">Playable Read-Along</h3>
-              <p class="text-xs text-stone-600 mt-1">
-                Full-color story pages on top with a synced narrator below that turns the pages automatically for young readers.
-              </p>
-            </div>
-            <div class="rounded-2xl border border-stone-200 bg-white p-4">
-              <span class="text-xl" aria-hidden="true">🖍️</span>
-              <h3 class="text-sm font-extrabold text-stone-900 mt-1.5">Printable Coloring Book</h3>
-              <p class="text-xs text-stone-600 mt-1">
-                Print black-and-white line-art scenes at home so kids can color with crayons while listening to the story.
-              </p>
-            </div>
-            <div class="rounded-2xl border border-stone-200 bg-white p-4">
-              <span class="text-xl" aria-hidden="true">🌙</span>
-              <h3 class="text-sm font-extrabold text-stone-900 mt-1.5">Bedtime Audiobook &amp; Timer</h3>
-              <p class="text-xs text-stone-600 mt-1">
-                Multi-chapter narration with a gentle bedtime sleep timer and downloadable M4B/EPUB files you keep forever.
-              </p>
-            </div>
-          </div>
-
-          <div class="mt-6 flex flex-wrap items-center gap-3">
-            <a
-              href="/books"
-              class="cust-pressable rounded-full bg-orange-600 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-700"
-            >
+        <div class="mt-3 rounded-3xl border border-stone-200 bg-[#fcfaf6] p-6">
+          <h3 class="text-base font-extrabold text-stone-900">Your family shelf is ready for its first story</h3>
+          <p class="text-sm text-stone-600 mt-1 max-w-xl leading-relaxed">
+            When you add a book, it appears here with its read-along, audiobook, and coloring pages.
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2" data-parent-only="true">
+            <a href="/books" class="cust-pressable rounded-full bg-orange-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-orange-700">
               Explore Digital Bundles ($8.99) →
             </a>
-            <a
-              href="/clubs"
-              class="cust-pressable rounded-full border border-stone-300 bg-white px-5 py-2.5 text-xs font-extrabold text-stone-800 hover:border-stone-500"
-            >
-              Join Audio Club ($5.99/mo) or Book Club →
+            <a href="/clubs" class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-800 hover:border-stone-500">
+              See the Clubs →
             </a>
-            {!onboardingChecklist.isComplete && (
-              <a
-                href="/account/onboarding"
-                class="cust-pressable rounded-full px-4 py-2 text-xs font-bold text-[#1a3454] hover:underline"
-              >
-                Finish 1-Minute Family Setup →
-              </a>
-            )}
           </div>
         </div>
       ) : (
-        <>
-          {shelfBoards.map((row) => (
-            <div class="shelf-board">
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 px-1">
-                {row.map((c) => (
-                  <a href={c.href} class="shelf-card group block" data-book-card-slug={c.b.slug}>
-                    <div
-                      class="aspect-square rounded-xl bg-stone-100 overflow-hidden border border-stone-200 relative shadow-sm"
-                      transition:name={`book-cover-${c.b.slug}`}
-                    >
-                      {c.cover && (
-                        <img
-                          src={c.cover}
-                          alt={c.b.title}
-                          width="300"
-                          height="300"
-                          loading="lazy"
-                          decoding="async"
-                          class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200"
-                        />
-                      )}
-                      {c.audioOnly && (
-                        <span class="absolute top-1.5 right-1.5 rounded-full bg-stone-900/75 text-white text-[10px] font-bold px-2 py-0.5">🎧 Audio</span>
-                      )}
-                      {!c.owned && (
-                        <span class="absolute top-1.5 left-1.5 rounded-full bg-[#1a3454]/85 text-white text-[10px] font-bold px-2 py-0.5">Club</span>
-                      )}
-                    </div>
-                    <h3 class="font-extrabold text-xs sm:text-sm leading-snug text-stone-900 line-clamp-2 mt-2">
-                      {c.b.title}
-                    </h3>
-                    <p class="text-[11px] text-stone-500 mt-0.5">{c.b.topic}</p>
-                    {c.progPct > 0 && (
-                      <div class="mt-1.5" aria-label={`Reading progress ${c.progPct}%`}>
-                        <div class="h-1 rounded-full bg-stone-200 overflow-hidden">
-                          <div class="h-full bg-orange-500 rounded-full" style={`width:${c.progPct}%`}></div>
-                        </div>
-                        <p class="text-[10px] font-bold text-stone-500 mt-0.5">{c.progPct}% · page {c.progPage} of {c.progTotal}</p>
-                      </div>
-                    )}
-                  </a>
-                ))}
-              </div>
-              <div class="shelf-plank" aria-hidden="true"></div>
-            </div>
-          ))}
-          {shelfMoreBoards.length > 0 && (
-            <>
-              <div id="shelf-more" class="hidden">
-                {shelfMoreBoards.map((row) => (
-                  <div class="shelf-board">
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 px-1">
-                      {row.map((c) => (
-                        <a href={c.href} class="shelf-card group block" data-book-card-slug={c.b.slug}>
-                          <div
-                            class="aspect-square rounded-xl bg-stone-100 overflow-hidden border border-stone-200 relative shadow-sm"
-                            transition:name={`book-cover-${c.b.slug}`}
-                          >
-                            {c.cover && (
-                              <img
-                                src={c.cover}
-                                alt={c.b.title}
-                                width="300"
-                                height="300"
-                                loading="lazy"
-                                decoding="async"
-                                class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200"
-                              />
-                            )}
-                            {c.audioOnly && (
-                              <span class="absolute top-1.5 right-1.5 rounded-full bg-stone-900/75 text-white text-[10px] font-bold px-2 py-0.5">🎧 Audio</span>
-                            )}
-                            {!c.owned && (
-                              <span class="absolute top-1.5 left-1.5 rounded-full bg-[#1a3454]/85 text-white text-[10px] font-bold px-2 py-0.5">Club</span>
-                            )}
-                          </div>
-                          <h3 class="font-extrabold text-xs sm:text-sm leading-snug text-stone-900 line-clamp-2 mt-2">
-                            {c.b.title}
-                          </h3>
-                          <p class="text-[11px] text-stone-500 mt-0.5">{c.b.topic}</p>
-                          {c.progPct > 0 && (
-                            <div class="mt-1.5" aria-label={`Reading progress ${c.progPct}%`}>
-                              <div class="h-1 rounded-full bg-stone-200 overflow-hidden">
-                                <div class="h-full bg-orange-500 rounded-full" style={`width:${c.progPct}%`}></div>
-                              </div>
-                              <p class="text-[10px] font-bold text-stone-500 mt-0.5">{c.progPct}% · page {c.progPage} of {c.progTotal}</p>
-                            </div>
-                          )}
-                        </a>
-                      ))}
-                    </div>
-                    <div class="shelf-plank" aria-hidden="true"></div>
-                  </div>
-                ))}
-              </div>
-              <div class="mt-5 text-center">
-                <button
-                  type="button"
-                  id="shelf-view-more"
-                  class="cust-pressable rounded-full border border-stone-300 bg-white px-5 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500 cursor-pointer"
+        <div class="shelf-board mt-3">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 px-1">
+            {previewCards.map((c) => (
+              <a href={c.href} class="shelf-card group block" data-book-card-slug={c.b.slug}>
+                <div
+                  class="aspect-square rounded-xl bg-stone-100 overflow-hidden border border-stone-200 relative shadow-sm"
+                  transition:name={`book-cover-${c.b.slug}`}
                 >
-                  View more books ({books.length - 8} more)
-                </button>
-              </div>
-            </>
-          )}
-        </>
+                  {c.cover && (
+                    <img
+                      src={c.cover}
+                      alt={c.b.title}
+                      width="300"
+                      height="300"
+                      loading="lazy"
+                      decoding="async"
+                      class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200"
+                    />
+                  )}
+                  {c.audioOnly && (
+                    <span class="absolute top-1.5 right-1.5 rounded-full bg-stone-900/75 text-white text-[10px] font-bold px-2 py-0.5">🎧 Audio</span>
+                  )}
+                  {!c.owned && (
+                    <span class="absolute top-1.5 left-1.5 rounded-full bg-[#1a3454]/85 text-white text-[10px] font-bold px-2 py-0.5">Club</span>
+                  )}
+                </div>
+                <h3 class="font-extrabold text-xs sm:text-sm leading-snug text-stone-900 line-clamp-2 mt-2">{c.b.title}</h3>
+                <p class="text-[11px] text-stone-500 mt-0.5">{c.b.topic}</p>
+                {c.pct > 0 && (
+                  <div class="mt-1.5">
+                    <div class="h-1 rounded-full bg-stone-200 overflow-hidden">
+                      <div class="h-full bg-orange-500 rounded-full" style={`width:${c.pct}%`}></div>
+                    </div>
+                    <p class="text-[10px] font-bold text-stone-500 mt-0.5">{c.pct}% read</p>
+                  </div>
+                )}
+              </a>
+            ))}
+          </div>
+          <div class="shelf-plank" aria-hidden="true"></div>
+        </div>
       )}
     </section>
 
-    {books.length > 0 && (
-      <p class="text-[11px] text-stone-400 mt-3">For your family's personal use.</p>
-    )}
+    <p class="text-[11px] text-stone-400 mt-8">For your family's personal use.</p>
   </main>
 
-  <script is:inline>
-    (function () {
-      function initShelfPage() {
-        var nudge = document.getElementById("shelf-onboarding-nudge");
-        var dismissBtn = document.getElementById("dismiss-onboarding-nudge");
-        var NUDGE_KEY = "bbs.dismissOnboardingNudge";
-        if (nudge && sessionStorage.getItem(NUDGE_KEY) === "1") {
-          nudge.classList.add("hidden");
-        }
-        if (dismissBtn && nudge && !dismissBtn.dataset.bound) {
-          dismissBtn.dataset.bound = "1";
-          dismissBtn.addEventListener("click", function () {
-            sessionStorage.setItem(NUDGE_KEY, "1");
-            nudge.classList.add("hidden");
-          });
-        }
-        var moreBtn = document.getElementById("shelf-view-more");
-        var more = document.getElementById("shelf-more");
-        if (moreBtn && more && !moreBtn.dataset.bound) {
-          moreBtn.dataset.bound = "1";
-          moreBtn.addEventListener("click", function () {
-            more.classList.remove("hidden");
-            moreBtn.classList.add("hidden");
-          });
-        }
-      }
-      initShelfPage();
-      document.addEventListener("astro:page-load", initShelfPage);
-    })();
-  </script>
+  <style is:global>
+    .shelf-plank {
+      height: 0.65rem;
+      margin-top: 0.55rem;
+      border-radius: 0.3rem;
+      background: linear-gradient(180deg, #b08954 0%, #8a6844 55%, #6f5133 100%);
+      box-shadow: 0 10px 14px -8px rgba(90, 62, 27, 0.55), inset 0 1px 0 rgba(255, 235, 200, 0.5);
+    }
+  </style>
 </body>
 </html>

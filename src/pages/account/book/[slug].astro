@@ -78,7 +78,7 @@ const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
 </head>
 <body class="bg-white text-stone-900 antialiased pb-28">
   <CustomerShell
-    currentSection="shelf"
+    currentSection="library"
     userEmail={String(session.user.email || "")}
     username={session.user.displayUsername || session.user.username}
     displayName={parentOnboarding?.parent_name || session.user.name}
@@ -90,7 +90,7 @@ const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
   />
 
   <main class="max-w-5xl mx-auto px-4 py-6 sm:py-8">
-    <a href="/account" class="text-sm font-bold text-stone-500 hover:text-stone-900">← Back to the shelf</a>
+    <a href="/account/library" class="text-sm font-bold text-stone-500 hover:text-stone-900">← Back to the library</a>
 
     <div class="mt-4 grid sm:grid-cols-[240px_1fr] gap-6 items-start">
       <div
