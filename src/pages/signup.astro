@@ -52,6 +52,17 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
           <input id="email" type="email" required autocomplete="email" class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-600" />
         </div>
         <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-sm font-medium" for="username">Username <span class="text-xs font-normal text-stone-400">(optional)</span></label>
+            <span id="signup-username-status" class="text-xs font-semibold text-stone-400" role="status"></span>
+          </div>
+          <div class="relative flex items-center">
+            <span class="absolute left-3 text-sm font-bold text-stone-400 select-none">@</span>
+            <input id="username" type="text" minlength="3" maxlength="30" pattern="[a-zA-Z0-9_.]*" autocomplete="username" placeholder="alex_family (or leave blank to use email)" class="w-full rounded-lg border border-stone-300 pl-7 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-600" />
+          </div>
+          <p class="text-xs text-stone-400 mt-1">3–30 letters, numbers, underscores, or dots. You can also set this during onboarding.</p>
+        </div>
+        <div>
           <label class="block text-sm font-medium mb-1" for="password">Password</label>
           <input id="password" type="password" required minlength="8" autocomplete="new-password" class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-600" />
           <p class="text-xs text-stone-400 mt-1">At least 8 characters.</p>
@@ -124,6 +135,46 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
     function resetCaptcha() {
       if (window.turnstile) { try { window.turnstile.reset(); } catch (ex) {} }
     }
+    var usernameInput = document.getElementById("username");
+    var usernameStatus = document.getElementById("signup-username-status");
+    var usernameTimer = null;
+    if (usernameInput && usernameStatus) {
+      usernameInput.addEventListener("input", function () {
+        var raw = (usernameInput.value || "").trim().replace(/^@+/, "");
+        if (usernameTimer) clearTimeout(usernameTimer);
+        if (!raw) {
+          usernameStatus.textContent = "Using email to sign in";
+          usernameStatus.className = "text-xs font-semibold text-stone-400";
+          return;
+        }
+        if (raw.length < 3 || raw.length > 30 || !/^[a-zA-Z0-9_.]+$/.test(raw)) {
+          usernameStatus.textContent = "Use 3–30 letters, numbers, _ or .";
+          usernameStatus.className = "text-xs font-semibold text-amber-700";
+          return;
+        }
+        usernameStatus.textContent = "Checking...";
+        usernameStatus.className = "text-xs font-semibold text-stone-500";
+        usernameTimer = setTimeout(async function () {
+          try {
+            var r = await fetch("/api/auth/is-username-available", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ username: raw }),
+            });
+            var d = await r.json().catch(function () { return {}; });
+            if (r.ok && d.available) {
+              usernameStatus.textContent = "✓ @" + raw.toLowerCase() + " is available";
+              usernameStatus.className = "text-xs font-semibold text-green-700";
+            } else {
+              usernameStatus.textContent = "✗ Already taken";
+              usernameStatus.className = "text-xs font-semibold text-red-600";
+            }
+          } catch {
+            usernameStatus.textContent = "";
+          }
+        }, 250);
+      });
+    }
     form.addEventListener("submit", async function (e) {
       e.preventDefault();
       var btn = document.getElementById("btn");
@@ -140,14 +191,20 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
       try {
         var headers = { "Content-Type": "application/json" };
         if (token) headers["x-captcha-response"] = token;
+        var chosenUsername = usernameInput ? (usernameInput.value || "").trim().replace(/^@+/, "") : "";
+        var signupPayload = {
+          name: document.getElementById("name").value.trim(),
+          email: document.getElementById("email").value.trim(),
+          password: document.getElementById("password").value,
+        };
+        if (chosenUsername) {
+          signupPayload.username = chosenUsername.toLowerCase();
+          signupPayload.displayUsername = chosenUsername;
+        }
         var r = await fetch("/api/auth/sign-up/email", {
           method: "POST",
           headers: headers,
-          body: JSON.stringify({
-            name: document.getElementById("name").value.trim(),
-            email: document.getElementById("email").value.trim(),
-            password: document.getElementById("password").value,
-          }),
+          body: JSON.stringify(signupPayload),
         });
         var data = await r.json().catch(function () { return {}; });
         if (!r.ok) {

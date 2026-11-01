@@ -4,6 +4,7 @@
 // an admin approves it in /admin/reviews.
 
 import type { DBLike } from "./orders";
+import { ensureOnce } from "./schema-cache";
 
 export const REVIEW_PHOTO_MAX_BYTES = 10 * 1024 * 1024; // 10MB per photo
 export const REVIEW_VIDEO_MAX_BYTES = 50 * 1024 * 1024; // 50MB per video
@@ -12,31 +13,33 @@ export const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"
 export const VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
 
 export async function ensureReviewsTable(db: DBLike): Promise<void> {
-  await db
-    .prepare(
-      `CREATE TABLE IF NOT EXISTS reviews (
-         id TEXT PRIMARY KEY,
-         book_slug TEXT NOT NULL,
-         user_id TEXT NOT NULL,
-         user_email TEXT NOT NULL,
-         display_name TEXT NOT NULL,
-         rating INTEGER NOT NULL,
-         title TEXT NOT NULL,
-         body TEXT NOT NULL,
-         media_keys TEXT NOT NULL DEFAULT '[]',
-         video_key TEXT,
-         verified_purchase INTEGER NOT NULL DEFAULT 0,
-         status TEXT NOT NULL DEFAULT 'pending',
-         created_at INTEGER NOT NULL
-       )`
-    )
-    .run();
-  await db
-    .prepare("CREATE INDEX IF NOT EXISTS reviews_book_status_idx ON reviews(book_slug, status)")
-    .run();
-  await db
-    .prepare("CREATE INDEX IF NOT EXISTS reviews_user_idx ON reviews(user_id)")
-    .run();
+  await ensureOnce(db, "reviews", async () => {
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS reviews (
+           id TEXT PRIMARY KEY,
+           book_slug TEXT NOT NULL,
+           user_id TEXT NOT NULL,
+           user_email TEXT NOT NULL,
+           display_name TEXT NOT NULL,
+           rating INTEGER NOT NULL,
+           title TEXT NOT NULL,
+           body TEXT NOT NULL,
+           media_keys TEXT NOT NULL DEFAULT '[]',
+           video_key TEXT,
+           verified_purchase INTEGER NOT NULL DEFAULT 0,
+           status TEXT NOT NULL DEFAULT 'pending',
+           created_at INTEGER NOT NULL
+         )`
+      )
+      .run();
+    await db
+      .prepare("CREATE INDEX IF NOT EXISTS reviews_book_status_idx ON reviews(book_slug, status)")
+      .run();
+    await db
+      .prepare("CREATE INDEX IF NOT EXISTS reviews_user_idx ON reviews(user_id)")
+      .run();
+  });
 }
 
 // Does this account own the book? Complete orders carry their slugs in

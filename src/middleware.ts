@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 import { defineMiddleware } from "astro:middleware";
 import { isAdminEmail } from "./lib/admins";
+import { getAuth } from "./lib/auth";
+import { classifyApiRoute, isLocalDevHostname } from "./lib/route-policy";
 import { reportErrorToSentry } from "./lib/sentry";
 import {
   isEdgeCacheablePath,
@@ -61,14 +63,34 @@ const gate = async (context: any, next: any) => {
   const e = env as any;
   const secret = e?.BETTER_AUTH_SECRET;
 
-  // Without secret, skip auth (local dev).
+  // Without secret, only skip auth on local dev hostnames.
   if (!secret) {
     context.locals.user = null;
+    if (!isLocalDevHostname(context.url.hostname) && (pathname.startsWith("/admin") || pathname.startsWith("/api/"))) {
+      return new Response(JSON.stringify({ error: "Auth secret not configured" }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     return next();
   }
 
   const sessionCookie = getCookie(context.request, "admin_session");
-  const email = await verifySession(sessionCookie, secret);
+  let email = await verifySession(sessionCookie, secret);
+
+  // Unified auth bridge: if no legacy admin_session cookie is present on an
+  // admin route, also accept a valid better-auth session for an admin email.
+  if (!email && (pathname.startsWith("/admin") || pathname.startsWith("/api/")) && hasSessionCookie(context.request.headers.get("Cookie"))) {
+    try {
+      const s = await getAuth().api.getSession({ headers: context.request.headers });
+      if (s?.user?.email && isAdminEmail(s.user.email)) {
+        email = s.user.email;
+      }
+    } catch {
+      // Fall through to standard admin check
+    }
+  }
+
   context.locals.user = email ? { email } : null;
 
   // Protect /admin/* (except the password reset page). Sign-in is unified
@@ -159,6 +181,8 @@ const gate = async (context: any, next: any) => {
     // completes jobs here; the route verifies the LIFT_WORKER_TOKEN
     // bearer secret on every call.
     if (pathname === "/api/lift/worker") return next();
+    const routeTier = classifyApiRoute(pathname, context.request.method, context.url.searchParams);
+    if (routeTier !== "admin") return next();
     if (!email) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { "Content-Type": "application/json" },

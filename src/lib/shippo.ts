@@ -20,6 +20,7 @@
 // /admin/orders (quote first, then confirm); nothing auto-buys.
 
 import type { DBLike } from "./orders";
+import { ensureOnce } from "./schema-cache";
 
 // Parcel defaults per physical format (CG, 2026-10-28: "a few pounds").
 // One printed 8.5x11 book ships at 2 lb in an 11.25 x 8.75 mailer; the
@@ -232,16 +233,18 @@ const ORDER_LABEL_COLUMNS: Record<string, string> = {
 };
 
 export async function ensureOrderLabelColumns(db: DBLike): Promise<void> {
-  const { results } = await db
-    .prepare("SELECT name FROM pragma_table_info('orders')")
-    .bind()
-    .all();
-  const have = new Set((results || []).map((r: any) => String(r.name)));
-  for (const [name, type] of Object.entries(ORDER_LABEL_COLUMNS)) {
-    if (!have.has(name)) {
-      await db.prepare(`ALTER TABLE orders ADD COLUMN ${name} ${type}`).bind().run();
+  await ensureOnce(db, "orders.label_columns", async () => {
+    const { results } = await db
+      .prepare("SELECT name FROM pragma_table_info('orders')")
+      .bind()
+      .all();
+    const have = new Set((results || []).map((r: any) => String(r.name)));
+    for (const [name, type] of Object.entries(ORDER_LABEL_COLUMNS)) {
+      if (!have.has(name)) {
+        await db.prepare(`ALTER TABLE orders ADD COLUMN ${name} ${type}`).bind().run();
+      }
     }
-  }
+  });
 }
 
 // A shipping destination in the store's stored shape: the address half
@@ -545,16 +548,18 @@ const ORDER_QUOTE_COLUMNS: Record<string, string> = {
 };
 
 export async function ensureOrderQuoteColumns(db: DBLike): Promise<void> {
-  const { results } = await db
-    .prepare("SELECT name FROM pragma_table_info('orders')")
-    .bind()
-    .all();
-  const have = new Set((results || []).map((r: any) => String(r.name)));
-  for (const [name, type] of Object.entries(ORDER_QUOTE_COLUMNS)) {
-    if (!have.has(name)) {
-      await db.prepare(`ALTER TABLE orders ADD COLUMN ${name} ${type}`).bind().run();
+  await ensureOnce(db, "orders.quote_columns", async () => {
+    const { results } = await db
+      .prepare("SELECT name FROM pragma_table_info('orders')")
+      .bind()
+      .all();
+    const have = new Set((results || []).map((r: any) => String(r.name)));
+    for (const [name, type] of Object.entries(ORDER_QUOTE_COLUMNS)) {
+      if (!have.has(name)) {
+        await db.prepare(`ALTER TABLE orders ADD COLUMN ${name} ${type}`).bind().run();
+      }
     }
-  }
+  });
 }
 
 // Persist a checkout quote (and the destination it was quoted for) on
@@ -693,16 +698,18 @@ const ORDER_TRACKING_COLUMNS: Record<string, string> = {
 };
 
 export async function ensureOrderTrackingColumns(db: DBLike): Promise<void> {
-  const { results } = await db
-    .prepare("SELECT name FROM pragma_table_info('orders')")
-    .bind()
-    .all();
-  const have = new Set((results || []).map((r: any) => String(r.name)));
-  for (const [name, type] of Object.entries(ORDER_TRACKING_COLUMNS)) {
-    if (!have.has(name)) {
-      await db.prepare(`ALTER TABLE orders ADD COLUMN ${name} ${type}`).bind().run();
+  await ensureOnce(db, "orders.tracking_columns", async () => {
+    const { results } = await db
+      .prepare("SELECT name FROM pragma_table_info('orders')")
+      .bind()
+      .all();
+    const have = new Set((results || []).map((r: any) => String(r.name)));
+    for (const [name, type] of Object.entries(ORDER_TRACKING_COLUMNS)) {
+      if (!have.has(name)) {
+        await db.prepare(`ALTER TABLE orders ADD COLUMN ${name} ${type}`).bind().run();
+      }
     }
-  }
+  });
 }
 
 // One tracking lookup: GET /tracks/{carrier}/{tracking_number}.

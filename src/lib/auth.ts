@@ -1,22 +1,47 @@
 import { env } from "cloudflare:workers";
 import { betterAuth } from "better-auth";
-import { admin, captcha, magicLink } from "better-auth/plugins";
+import { admin, captcha, magicLink, username } from "better-auth/plugins";
 import { kyselyAdapter } from "@better-auth/kysely-adapter";
 import { Kysely } from "kysely";
 import { D1Dialect } from "kysely-d1";
 import { turnstileEnforced } from "./turnstile";
+import {
+  USERNAME_MIN_LENGTH,
+  USERNAME_MAX_LENGTH,
+  USERNAME_REGEX,
+} from "./auth-client";
 
 // Admin addresses live in lib/admins. A better-auth user created
 // with an admin address gets the admin role automatically, and
 // /auth/land routes admins into /admin after any sign-in.
 import { isAdminEmail } from "./admins";
+import {
+  ensureAuthUserSchema,
+  checkUsernameAvailabilityInDb,
+  updateUserUsernameInDb,
+  getEffectiveSessionWith,
+} from "./auth-users";
+export {
+  ensureAuthUserSchema,
+  checkUsernameAvailabilityInDb,
+  updateUserUsernameInDb,
+} from "./auth-users";
+export type { EffectiveUser } from "./auth-users";
 
-// Customer auth for the bigbrainshelf storefront (email + password).
-// Separate from the hand-rolled admin_session cookie used by /admin.
+// Customer auth for the bigbrainshelf storefront (email + username + password).
+// Separate from the hand-rolled admin_session cookie used by /admin,
+// though getEffectiveSession bridges both so admins can access /account & /accounts.
 export function getAuth() {
   const e = env as any;
   const db = new Kysely({ dialect: new D1Dialect({ database: e.DB }) });
-  const plugins: any[] = [admin({ defaultRole: "user", adminRoles: ["admin"] })];
+  const plugins: any[] = [
+    admin({ defaultRole: "user", adminRoles: ["admin"] }),
+    username({
+      minUsernameLength: USERNAME_MIN_LENGTH,
+      maxUsernameLength: USERNAME_MAX_LENGTH,
+      usernameValidator: (u) => USERNAME_REGEX.test(u),
+    }),
+  ];
   // Passwordless sign-in (CG, 2026-10-31): guest buyers never
   // made a password, so the way back into their library is a
   // one-click email link. The link rides the store's own outbox
@@ -60,7 +85,12 @@ export function getAuth() {
       captcha({
         provider: "cloudflare-turnstile",
         secretKey: String(e.TURNSTILE_SECRET_KEY).trim(),
-        endpoints: ["/sign-in/email", "/sign-up/email", "/request-password-reset"],
+        endpoints: [
+          "/sign-in/email",
+          "/sign-in/username",
+          "/sign-up/email",
+          "/request-password-reset",
+        ],
       })
     );
   }
@@ -68,6 +98,11 @@ export function getAuth() {
     database: kyselyAdapter(db, { type: "sqlite" }),
     baseURL: e.BETTER_AUTH_URL || "https://bookstore.rocktownlabs.app",
     secret: e.BETTER_AUTH_SECRET,
+    user: {
+      changeEmail: {
+        enabled: true,
+      },
+    },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
@@ -154,3 +189,25 @@ export function getAuth() {
 }
 
 export type Auth = ReturnType<typeof getAuth>;
+
+/**
+ * Resolves the signed-in user across both Better Auth customer sessions and
+ * the owner `admin_session` cookie (stored on `locals.user`), so an admin
+ * account can seamlessly access `/account` (`/accounts`) as well as `/admin`.
+ * The logic lives in lib/auth-users (getEffectiveSessionWith); this wrapper
+ * supplies the Workers env DB and the live better-auth session lookup.
+ */
+export async function getEffectiveSession(
+  request: Request,
+  locals?: any,
+  dbOverride?: any
+): Promise<{ user: import("./auth-users").EffectiveUser } | null> {
+  const e = env as any;
+  return getEffectiveSessionWith(request, locals, dbOverride || e?.DB, async (headers) => {
+    try {
+      return await getAuth().api.getSession({ headers });
+    } catch {
+      return null;
+    }
+  });
+}

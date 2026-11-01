@@ -27,6 +27,7 @@
 // migration.sql carries the same statements as the schema record.
 
 import type { DBLike } from "./orders";
+import { ensureOnce } from "./schema-cache";
 
 /** "Mira the Heron and the Still Water" -> "mira-the-heron-and-the-still-water". */
 export function slugifyTitle(title: string): string {
@@ -56,14 +57,16 @@ export function readHref(book: { slug: string; public_slug?: string | null }): s
 }
 
 export async function ensurePublicSlugColumn(db: DBLike): Promise<void> {
-  const { results } = await db
-    .prepare("SELECT name FROM pragma_table_info('books')")
-    .bind()
-    .all();
-  const have = new Set((results || []).map((r: any) => String(r.name)));
-  if (!have.has("public_slug")) {
-    await db.prepare("ALTER TABLE books ADD COLUMN public_slug TEXT").bind().run();
-  }
+  await ensureOnce(db, "books.public_slug", async () => {
+    const { results } = await db
+      .prepare("SELECT name FROM pragma_table_info('books')")
+      .bind()
+      .all();
+    const have = new Set((results || []).map((r: any) => String(r.name)));
+    if (!have.has("public_slug")) {
+      await db.prepare("ALTER TABLE books ADD COLUMN public_slug TEXT").bind().run();
+    }
+  });
 }
 
 export interface ResolvedBook {

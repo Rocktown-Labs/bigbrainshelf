@@ -20,6 +20,7 @@
 //   marked sent (with sent_at) only after the provider accepts it.
 
 import { ensureClubTable, isPaidClubMember } from "./club";
+import { ensureOnce } from "./schema-cache";
 import { publicSlugFor } from "./public-slugs";
 import { coverDerivative, MEDIA_PUBLIC } from "./derivatives";
 import {
@@ -942,24 +943,26 @@ const OUTBOX_COLUMNS: Record<string, string> = {
 };
 
 export async function ensureOutboxColumns(db: DBLike): Promise<void> {
-  const { results } = await db
-    .prepare("SELECT name FROM pragma_table_info('email_outbox')")
-    .bind()
-    .all();
-  const have = new Set((results || []).map((r: any) => String(r.name)));
-  for (const [name, type] of Object.entries(OUTBOX_COLUMNS)) {
-    if (!have.has(name)) {
-      await db.prepare(`ALTER TABLE email_outbox ADD COLUMN ${name} ${type}`).bind().run();
-    }
-  }
-  try {
-    await db
-      .prepare(
-        "CREATE UNIQUE INDEX IF NOT EXISTS email_outbox_dedupe_idx ON email_outbox(dedupe_key) WHERE dedupe_key IS NOT NULL"
-      )
+  await ensureOnce(db, "email_outbox.columns", async () => {
+    const { results } = await db
+      .prepare("SELECT name FROM pragma_table_info('email_outbox')")
       .bind()
-      .run();
-  } catch { /* index is a dedupe guard, never a reason to fail a send */ }
+      .all();
+    const have = new Set((results || []).map((r: any) => String(r.name)));
+    for (const [name, type] of Object.entries(OUTBOX_COLUMNS)) {
+      if (!have.has(name)) {
+        await db.prepare(`ALTER TABLE email_outbox ADD COLUMN ${name} ${type}`).bind().run();
+      }
+    }
+    try {
+      await db
+        .prepare(
+          "CREATE UNIQUE INDEX IF NOT EXISTS email_outbox_dedupe_idx ON email_outbox(dedupe_key) WHERE dedupe_key IS NOT NULL"
+        )
+        .bind()
+        .run();
+    } catch { /* index is a dedupe guard, never a reason to fail a send */ }
+  });
 }
 
 // Enqueue an email. The unique (order_id, kind) index makes this a no-op

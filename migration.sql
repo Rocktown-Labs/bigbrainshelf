@@ -451,3 +451,81 @@ CREATE TABLE IF NOT EXISTS download_counts (
   PRIMARY KEY (grant_key, slug, file_kind)
 );
 CREATE INDEX IF NOT EXISTS download_counts_order_idx ON download_counts(order_id);
+
+
+-- Family Onboarding, Kid Profiles & Synced Reading/Listening Progress (2026-10-31):
+-- Parent onboarding preferences & PIN gate, switchable Kid Profiles (ages 4-8,
+-- 9-12, 13-18) with daily time budgets and default sleep timers, and synced
+-- book viewer + audiobook playback state.
+CREATE TABLE IF NOT EXISTS parent_onboarding (
+  user_id TEXT PRIMARY KEY,
+  parent_name TEXT,
+  family_nickname TEXT,
+  discovery_source TEXT,
+  reading_goals TEXT,
+  favorite_topics TEXT DEFAULT '["tech","money","courage"]',
+  future_topics TEXT DEFAULT '[]',
+  custom_topic_request TEXT,
+  tos_accepted INTEGER NOT NULL DEFAULT 0,
+  tos_accepted_at INTEGER,
+  marketing_opt_in INTEGER NOT NULL DEFAULT 0,
+  referral_code TEXT,
+  referred_by_code TEXT,
+  parent_pin TEXT,
+  onboarding_step INTEGER NOT NULL DEFAULT 1,
+  completed_at INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS kid_profiles (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  birth_date TEXT,
+  birthday_gift_sent_year INTEGER,
+  age INTEGER NOT NULL DEFAULT 6,
+  age_group TEXT NOT NULL DEFAULT '4-8',
+  avatar_key TEXT NOT NULL DEFAULT 'mira',
+  favorite_themes TEXT,
+  daily_limit_minutes INTEGER NOT NULL DEFAULT 60,
+  default_sleep_timer_minutes INTEGER NOT NULL DEFAULT 60,
+  bedtime_cutoff TEXT,
+  allow_audio_autoplay INTEGER NOT NULL DEFAULT 1,
+  allowed_book_slugs TEXT,
+  daily_minutes_used INTEGER NOT NULL DEFAULT 0,
+  daily_minutes_date TEXT,
+  is_default INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS kid_profiles_user_idx ON kid_profiles(user_id, created_at);
+
+CREATE TABLE IF NOT EXISTS reading_progress (
+  user_id TEXT NOT NULL,
+  profile_id TEXT NOT NULL DEFAULT 'parent',
+  book_slug TEXT NOT NULL,
+  chapter_num INTEGER NOT NULL DEFAULT 1,
+  page_index INTEGER NOT NULL DEFAULT 0,
+  view_edition TEXT NOT NULL DEFAULT 'story',
+  view_mode TEXT NOT NULL DEFAULT 'flip',
+  audio_track_id TEXT NOT NULL DEFAULT 'ch1',
+  audio_position_sec INTEGER NOT NULL DEFAULT 0,
+  audio_duration_sec INTEGER NOT NULL DEFAULT 0,
+  sync_enabled INTEGER NOT NULL DEFAULT 1,
+  daily_minutes_used INTEGER NOT NULL DEFAULT 0,
+  usage_date TEXT NOT NULL DEFAULT '',
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, profile_id, book_slug)
+);
+CREATE INDEX IF NOT EXISTS reading_progress_user_updated_idx ON reading_progress(user_id, updated_at);
+
+-- Better Auth username & admin plugin columns on "user"
+ALTER TABLE "user" ADD COLUMN username TEXT;
+ALTER TABLE "user" ADD COLUMN displayUsername TEXT;
+ALTER TABLE "user" ADD COLUMN role TEXT DEFAULT 'user';
+ALTER TABLE "user" ADD COLUMN banned INTEGER DEFAULT 0;
+ALTER TABLE "user" ADD COLUMN banReason TEXT;
+ALTER TABLE "user" ADD COLUMN banExpires INTEGER;
+CREATE UNIQUE INDEX IF NOT EXISTS user_username_idx ON "user"(username) WHERE username IS NOT NULL;
+

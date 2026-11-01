@@ -22,6 +22,7 @@
 // paid, so an abandoned or replayed session cannot fake a membership.
 
 import type { DBLike } from "./orders";
+import { ensureOnce } from "./schema-cache";
 import {
   AUDIO_CLUB_ANNUAL_PRICE_CENTS,
   AUDIO_CLUB_PRICE_CENTS,
@@ -134,34 +135,36 @@ const CLUB_COLUMNS: Record<string, string> = {
 };
 
 export async function ensureClubTable(db: DBLike): Promise<void> {
-  await db
-    .prepare(
-      `CREATE TABLE IF NOT EXISTS club_signups (
-         id TEXT PRIMARY KEY,
-         name TEXT NOT NULL,
-         email TEXT NOT NULL UNIQUE,
-         shelf TEXT NOT NULL,
-         status TEXT NOT NULL DEFAULT 'queued',
-         created_at INTEGER NOT NULL,
-         user_id TEXT,
-         plan TEXT,
-         stripe_customer_id TEXT,
-         stripe_subscription_id TEXT,
-         first_ship_date TEXT,
-         paid_at INTEGER,
-         canceled_at INTEGER,
-         club_plan TEXT DEFAULT 'physical'
-       )`
-    )
-    .bind()
-    .run();
-  const { results } = await db.prepare("PRAGMA table_info(club_signups)").bind().all();
-  const have = new Set(((results || []) as any[]).map((r) => String(r.name)));
-  for (const [col, type] of Object.entries(CLUB_COLUMNS)) {
-    if (!have.has(col)) {
-      await db.prepare(`ALTER TABLE club_signups ADD COLUMN ${col} ${type}`).bind().run();
+  await ensureOnce(db, "club_signups", async () => {
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS club_signups (
+           id TEXT PRIMARY KEY,
+           name TEXT NOT NULL,
+           email TEXT NOT NULL UNIQUE,
+           shelf TEXT NOT NULL,
+           status TEXT NOT NULL DEFAULT 'queued',
+           created_at INTEGER NOT NULL,
+           user_id TEXT,
+           plan TEXT,
+           stripe_customer_id TEXT,
+           stripe_subscription_id TEXT,
+           first_ship_date TEXT,
+           paid_at INTEGER,
+           canceled_at INTEGER,
+           club_plan TEXT DEFAULT 'physical'
+         )`
+      )
+      .bind()
+      .run();
+    const { results } = await db.prepare("PRAGMA table_info(club_signups)").bind().all();
+    const have = new Set(((results || []) as any[]).map((r) => String(r.name)));
+    for (const [col, type] of Object.entries(CLUB_COLUMNS)) {
+      if (!have.has(col)) {
+        await db.prepare(`ALTER TABLE club_signups ADD COLUMN ${col} ${type}`).bind().run();
+      }
     }
-  }
+  });
 }
 
 const now = () => Math.floor(Date.now() / 1000);

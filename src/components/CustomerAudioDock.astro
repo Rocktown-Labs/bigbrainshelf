@@ -1,0 +1,1243 @@
+---
+import { SLEEP_TIMER_PRESETS } from "../lib/family";
+import { publicSlugFor } from "../lib/public-slugs";
+
+interface Props {
+  books: any[];
+  defaultSleepMinutes?: number;
+}
+
+const { books = [], defaultSleepMinutes = 60 } = Astro.props;
+const audioBooks = books.filter((b) => Boolean(b.audiobook_key));
+---
+
+{/* Dedicated Audiobook Player Slot in the Dashboard */}
+<section
+  id="audio-slot"
+  class="mt-12 rounded-2xl bg-[#1a3454] text-white p-5 sm:p-7 shadow-sm scroll-mt-20"
+  aria-labelledby="audio-slot-heading"
+>
+  <div class="flex flex-wrap items-start justify-between gap-4 border-b border-white/15 pb-4">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="rounded-full bg-orange-500 text-[#1a3454] px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+          Synced Audiobook Slot
+        </span>
+        <span
+          id="audio-sleep-live-badge"
+          class="rounded-full bg-white/15 text-orange-200 px-3 py-0.5 text-xs font-bold tabular-nums"
+        >
+          ⏱ Sleep timer: {defaultSleepMinutes === -1 ? "End of chapter" : defaultSleepMinutes > 0 ? `${defaultSleepMinutes}m stop` : "Off"}
+        </span>
+      </div>
+      <h2 id="audio-slot-heading" class="text-xl font-extrabold tracking-tight mt-1.5">
+        Read-Along Audiobook Player
+      </h2>
+      <p class="text-xs text-white/75 mt-0.5">
+        Designed for ages 4–8 and up: press play, follow along in the Book Viewer above, and let the sleep timer turn off automatically at bedtime.
+      </p>
+    </div>
+
+    {audioBooks.length > 0 && (
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="text-xs font-bold text-white/85 flex items-center gap-2">
+          <span>Audiobook:</span>
+          <select
+            id="audio-book-select"
+            aria-label="Select audiobook to play"
+            class="rounded-xl border border-white/25 bg-white/10 text-white px-3 py-2 text-sm font-bold focus:border-orange-400 focus:outline-none"
+          >
+            {audioBooks.map((b, idx) => (
+              <option
+                value={b.slug}
+                data-public-slug={publicSlugFor(b)}
+                data-title={b.title}
+                class="text-stone-900"
+                selected={idx === 0}
+              >
+                {b.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    )}
+  </div>
+
+  {audioBooks.length === 0 ? (
+    <div class="py-10 text-center text-white/80">
+      <p class="font-bold text-base">No audiobooks in your shelf yet.</p>
+      <p class="text-xs text-white/65 mt-1">
+        Add an audiobook or join the Book Club to listen and sync with your books here.
+      </p>
+    </div>
+  ) : (
+    <div class="mt-5">
+      {/* Daily Limit Reached Banner (Kid Mode) */}
+      <div
+        id="audio-limit-banner"
+        class="hidden mb-4 rounded-xl bg-amber-400/20 border border-amber-300/40 px-4 py-3 text-sm text-amber-100 flex items-center justify-between gap-3"
+      >
+        <span>🌙 Today's listening &amp; reading time limit is complete! Time to rest those big brains.</span>
+        <button
+          type="button"
+          id="audio-limit-unlock-btn"
+          class="shrink-0 rounded-full bg-amber-300 text-[#1a3454] px-3.5 py-1 text-xs font-extrabold"
+        >
+          Parent Override
+        </button>
+      </div>
+
+      {/* Main Player Controls Card */}
+      <div class="rounded-2xl bg-white/10 border border-white/15 p-4 sm:p-5">
+        <div class="flex flex-wrap items-center gap-4">
+          <img
+            id="audio-slot-cover"
+            src=""
+            alt=""
+            class="hidden w-16 h-20 rounded-xl object-cover border border-white/20 shrink-0"
+          />
+          <div class="min-w-0 flex-1">
+            <p id="audio-slot-book-title" class="text-xs font-bold uppercase tracking-wider text-orange-300 truncate">
+              {audioBooks[0]?.title || "Audiobook"}
+            </p>
+            <h3 id="audio-slot-track-title" class="text-base sm:text-lg font-extrabold truncate mt-0.5">
+              Tap Play to start listening
+            </h3>
+            <p id="audio-slot-resume-hint" class="text-xs text-white/70 mt-0.5">
+              Ready to play in sync with the Book Viewer
+            </p>
+          </div>
+
+          <div class="text-right tabular-nums text-sm font-bold text-white/90">
+            <span id="audio-slot-elapsed">0:00</span>
+            <span class="text-white/40"> / </span>
+            <span id="audio-slot-duration">0:00</span>
+          </div>
+        </div>
+
+        <audio id="hub-audio-element" preload="metadata"></audio>
+
+        {/* Scrubber Bar */}
+        <div class="mt-4">
+          <input
+            id="audio-slot-seek"
+            type="range"
+            min="0"
+            max="1000"
+            value="0"
+            step="1"
+            aria-label="Seek audiobook position"
+            class="w-full accent-orange-400 h-2 rounded-lg cursor-pointer"
+          />
+        </div>
+
+        {/* Kid-Friendly Transport Buttons + Speed + Sleep Timer */}
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <button
+              type="button"
+              id="audio-prev-ch"
+              aria-label="Previous chapter"
+              class="w-11 h-11 rounded-full border border-white/25 bg-white/10 hover:bg-white/20 flex items-center justify-center disabled:opacity-40 active:scale-[0.96] transition"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2.5v14H6zM19 5v14L9.5 12z"/></svg>
+            </button>
+
+            <button
+              type="button"
+              id="audio-rew-15"
+              aria-label="Rewind 15 seconds"
+              class="h-11 px-3 rounded-full border border-white/25 bg-white/10 hover:bg-white/20 text-xs font-extrabold active:scale-[0.96] transition"
+            >
+              -15s
+            </button>
+
+            <button
+              type="button"
+              id="audio-play-toggle"
+              aria-label="Play or pause audiobook"
+              class="w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-400 text-[#1a3454] shadow-md flex items-center justify-center active:scale-[0.95] transition"
+            >
+              <svg id="audio-icon-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+              <svg id="audio-icon-pause" class="hidden" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.5 5h4v14h-4zM13.5 5h4v14h-4z"/></svg>
+            </button>
+
+            <button
+              type="button"
+              id="audio-fwd-15"
+              aria-label="Forward 15 seconds"
+              class="h-11 px-3 rounded-full border border-white/25 bg-white/10 hover:bg-white/20 text-xs font-extrabold active:scale-[0.96] transition"
+            >
+              +15s
+            </button>
+
+            <button
+              type="button"
+              id="audio-next-ch"
+              aria-label="Next chapter"
+              class="w-11 h-11 rounded-full border border-white/25 bg-white/10 hover:bg-white/20 flex items-center justify-center disabled:opacity-40 active:scale-[0.96] transition"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.5 5H18v14h-2.5zM5 5v14l9.5-7z"/></svg>
+            </button>
+          </div>
+
+          {/* Sleep Timer ("Timed Turn Off") + Speed Controls */}
+          <div class="flex flex-wrap items-center gap-2.5">
+            <label class="inline-flex items-center gap-1.5 rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-xs font-bold">
+              <span>🌙 Sleep Timer:</span>
+              <select
+                id="audio-sleep-select"
+                aria-label="Audiobook sleep timer turn off"
+                data-default-sleep={defaultSleepMinutes}
+                class="bg-transparent text-orange-300 font-extrabold focus:outline-none cursor-pointer"
+              >
+                {SLEEP_TIMER_PRESETS.map((preset) => (
+                  <option
+                    value={preset.minutes}
+                    selected={preset.minutes === defaultSleepMinutes}
+                    class="text-stone-900"
+                  >
+                    {preset.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <button
+              type="button"
+              id="audio-sleep-add-15"
+              class="rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 px-2.5 py-2 text-xs font-bold text-orange-200"
+              title="Add 15 minutes to sleep timer"
+            >
+              +15m
+            </button>
+
+            <label class="inline-flex items-center gap-1.5 rounded-xl bg-white/10 border border-white/20 px-3 py-2 text-xs font-bold">
+              <span>Speed</span>
+              <select
+                id="audio-speed-select"
+                aria-label="Playback speed"
+                class="bg-transparent text-white font-extrabold focus:outline-none cursor-pointer"
+              >
+                <option value="0.75" class="text-stone-900">0.75x</option>
+                <option value="0.9" class="text-stone-900">0.9x</option>
+                <option value="1" selected class="text-stone-900">1x</option>
+                <option value="1.25" class="text-stone-900">1.25x</option>
+                <option value="1.5" class="text-stone-900">1.5x</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        {/* Chapter Pill Strip */}
+        <div
+          id="audio-chapter-strip"
+          class="mt-4 pt-3 border-t border-white/15 flex gap-1.5 overflow-x-auto pb-1"
+          role="group"
+          aria-label="Audiobook chapters"
+        >
+          <span class="text-xs text-white/60">Loading chapters...</span>
+        </div>
+      </div>
+    </div>
+  )}
+</section>
+
+{/* Persistent Bottom Audio Dock (stays accessible while reading or browsing shelf) */}
+{audioBooks.length > 0 && (
+  <div
+    id="persistent-audio-dock"
+    class="fixed bottom-0 right-0 left-0 lg:left-[16.5rem] z-50 bg-[#1a3454]/95 backdrop-blur-md text-white border-t border-white/15 px-4 py-2.5 shadow-2xl transition-all"
+    style="padding-bottom: calc(0.65rem + env(safe-area-inset-bottom, 0px));"
+    role="region"
+    aria-label="Mini Audiobook Player Dock"
+  >
+    <div class="max-w-6xl mx-auto flex items-center gap-3">
+      <button
+        type="button"
+        id="dock-play-toggle"
+        aria-label="Play or pause audiobook from dock"
+        class="w-11 h-11 rounded-full bg-orange-500 hover:bg-orange-400 text-[#1a3454] flex items-center justify-center shrink-0 font-extrabold active:scale-[0.95] transition"
+      >
+        <span id="dock-play-symbol">▶</span>
+      </button>
+
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2">
+          <p id="dock-book-title" class="text-xs font-extrabold text-orange-300 truncate">
+            {audioBooks[0]?.title || "Audiobook"}
+          </p>
+          <span class="text-white/30">·</span>
+          <p id="dock-track-label" class="text-xs font-semibold text-white truncate">
+            Ready to play
+          </p>
+        </div>
+        <div class="mt-1 flex items-center gap-2">
+          <span id="dock-time-label" class="text-[11px] tabular-nums text-white/75 shrink-0">
+            0:00 / 0:00
+          </span>
+          <span
+            id="dock-sleep-pill"
+            class="text-[11px] font-bold text-orange-200 bg-white/10 rounded-full px-2 py-0.5 truncate"
+          >
+            ⏱ 60m sleep timer
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <a
+          href="#qc-viewer"
+          class="hidden sm:inline-flex items-center rounded-full border border-white/25 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/10"
+        >
+          Book Viewer
+        </a>
+        <a
+          href="#audio-slot"
+          class="inline-flex items-center rounded-full bg-white/15 px-3 py-1.5 text-xs font-bold text-white hover:bg-white/25"
+        >
+          Full Player ↑
+        </a>
+      </div>
+    </div>
+  </div>
+)}
+
+<script is:inline>
+  (function () {
+    if (window.__bbsCustomerHubBound) return;
+    window.__bbsCustomerHubBound = true;
+
+    var state = {
+      profileId: "default",
+      bookSlug: null,
+      bookData: null,
+      edition: "story", // "story" | "coloring" | "fullcolor" | "cover"
+      mode: "flip", // "flip" | "scroll"
+      flatPages: [],
+      chapterStarts: {},
+      pageIndex: 0,
+      fontScale: 1,
+      syncEnabled: true,
+      autoFlipEnabled: true,
+      audioTracks: [],
+      audioTrackIndex: -1,
+      sleepModeMinutes: 60, // 0=off, >0=minutes, -1=end of chapter
+      sleepRemainingSec: 60 * 60,
+      sleepInterval: null,
+      limitReached: false,
+      lastMinuteTick: 0,
+    };
+
+    function fmtClock(sec) {
+      if (sec == null || !isFinite(sec) || sec < 0) return "0:00";
+      var s = Math.round(sec);
+      var h = Math.floor(s / 3600);
+      var m = Math.floor((s % 3600) / 60);
+      var r = s % 60;
+      var mm = h > 0 ? String(m).padStart(2, "0") : String(m);
+      return (h > 0 ? h + ":" : "") + mm + ":" + String(r).padStart(2, "0");
+    }
+
+    function localKey(slug) {
+      return "bbs-progress:" + (state.profileId || "default") + ":" + slug;
+    }
+
+    function saveProgressDebounced(extraDeltaMinutes) {
+      if (!state.bookSlug) return;
+      var audioEl = document.getElementById("hub-audio-element");
+      var currentPage = state.flatPages[state.pageIndex];
+      var currentTrack = state.audioTracks[state.audioTrackIndex] || null;
+      var payload = {
+        profile_id: state.profileId || "default",
+        book_slug: state.bookSlug,
+        chapter_num: currentPage ? currentPage.chapterNum : (currentTrack && currentTrack.chapter ? currentTrack.chapter : 1),
+        page_index: state.pageIndex,
+        view_edition: state.edition,
+        view_mode: state.mode,
+        audio_track_id: currentTrack ? currentTrack.id : null,
+        audio_position_sec: audioEl && isFinite(audioEl.currentTime) ? Math.round(audioEl.currentTime * 10) / 10 : 0,
+        audio_duration_sec: audioEl && isFinite(audioEl.duration) ? Math.round(audioEl.duration * 10) / 10 : 0,
+        sync_enabled: state.syncEnabled,
+        elapsed_minutes_delta: extraDeltaMinutes || 0,
+      };
+      try {
+        window.localStorage.setItem(localKey(state.bookSlug), JSON.stringify(payload));
+      } catch (e) {}
+
+      fetch("/api/account/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (res) {
+          if (!res) return;
+          if (res.limitReached) {
+            state.limitReached = true;
+            var banner = document.getElementById("audio-limit-banner");
+            if (banner) banner.classList.remove("hidden");
+            if (audioEl && !audioEl.paused) audioEl.pause();
+          }
+          if (typeof res.remainingMinutes === "number") {
+            var limitTxt = document.getElementById("active-kid-limit-text");
+            if (limitTxt) limitTxt.textContent = "Remaining today: " + res.remainingMinutes + "m";
+          }
+        })
+        .catch(function () {});
+    }
+
+    // ---- Sleep Timer ("Timed Turn Off") ----
+    function updateSleepBadges() {
+      var badge = document.getElementById("audio-sleep-live-badge");
+      var dockPill = document.getElementById("dock-sleep-pill");
+      var label = "";
+      if (state.sleepModeMinutes === 0) {
+        label = "⏱ Sleep timer: Off";
+      } else if (state.sleepModeMinutes === -1) {
+        label = "⏱ Sleep timer: End of chapter";
+      } else {
+        label = "⏱ Sleep in " + fmtClock(state.sleepRemainingSec);
+      }
+      if (badge) badge.textContent = label;
+      if (dockPill) dockPill.textContent = label;
+      var theaterSleep = document.getElementById("theater-sleep-pill");
+      if (theaterSleep) theaterSleep.textContent = label;
+    }
+
+    function setSleepTimer(minutes) {
+      state.sleepModeMinutes = Number(minutes);
+      if (state.sleepModeMinutes > 0) {
+        state.sleepRemainingSec = state.sleepModeMinutes * 60;
+      } else {
+        state.sleepRemainingSec = 0;
+      }
+      var sel = document.getElementById("audio-sleep-select");
+      if (sel && String(sel.value) !== String(minutes)) {
+        sel.value = String(minutes);
+      }
+      var audioEl = document.getElementById("hub-audio-element");
+      if (audioEl) audioEl.volume = 1;
+      updateSleepBadges();
+    }
+
+    function startSleepTicker() {
+      if (state.sleepInterval) return;
+      state.sleepInterval = window.setInterval(function () {
+        var audioEl = document.getElementById("hub-audio-element");
+        if (!audioEl || audioEl.paused) return;
+
+        // Track daily listening usage every 60 seconds
+        var now = Date.now();
+        if (state.lastMinuteTick && now - state.lastMinuteTick >= 60000) {
+          state.lastMinuteTick = now;
+          saveProgressDebounced(1);
+        } else if (!state.lastMinuteTick) {
+          state.lastMinuteTick = now;
+        }
+
+        if (state.sleepModeMinutes > 0) {
+          state.sleepRemainingSec = Math.max(0, state.sleepRemainingSec - 1);
+          // Gentle fade-out during the final 10 seconds so it doesn't startle a sleeping child
+          if (state.sleepRemainingSec > 0 && state.sleepRemainingSec <= 10) {
+            audioEl.volume = Math.max(0.1, state.sleepRemainingSec / 10);
+          }
+          updateSleepBadges();
+          if (state.sleepRemainingSec <= 0) {
+            audioEl.pause();
+            audioEl.volume = 1;
+            saveProgressDebounced(0);
+            var hint = document.getElementById("audio-slot-resume-hint");
+            if (hint) hint.textContent = "🌙 Paused by Sleep Timer. Tap Play to resume right where you left off.";
+          }
+        }
+      }, 1000);
+    }
+
+    // ---- Render Customer QC Book Viewer ----
+    function buildFlatPages(reader) {
+      var list = [];
+      var starts = {};
+      var chapters = (reader && reader.chapters) || [];
+      chapters.forEach(function (ch) {
+        if (starts[ch.num] === undefined) {
+          starts[ch.num] = list.length;
+        }
+        (ch.pages || []).forEach(function (p) {
+          list.push({
+            chapterNum: ch.num,
+            chapterTitle: ch.title || ("Chapter " + ch.num),
+            viewer: p.viewer,
+            lineUrl: p.lineUrl || "",
+            colorUrl: p.colorUrl || "",
+            text: p.text || "",
+          });
+        });
+      });
+      state.flatPages = list;
+      state.chapterStarts = starts;
+    }
+
+    function renderThumbRail() {
+      var rail = document.getElementById("qc-thumb-rail");
+      var badge = document.getElementById("qc-total-pages-badge");
+      if (!rail) return;
+      if (badge) {
+        badge.textContent = state.flatPages.length + " pages";
+      }
+      if (state.flatPages.length === 0) {
+        rail.innerHTML = '<p class="text-xs text-stone-400 py-4 text-center">Audio-only edition or no pages available.</p>';
+        return;
+      }
+      var html = "";
+      var lastCh = -1;
+      state.flatPages.forEach(function (p, idx) {
+        if (p.chapterNum !== lastCh) {
+          lastCh = p.chapterNum;
+          html +=
+            '<div class="hidden lg:block pt-2 first:pt-0 text-[10px] font-extrabold uppercase tracking-wider text-stone-400 px-1">Ch ' +
+            p.chapterNum +
+            ": " +
+            p.chapterTitle.replace(/</g, "&lt;") +
+            "</div>";
+        }
+        var active = idx === state.pageIndex && state.edition !== "cover";
+        html +=
+          '<button type="button" data-qc-page-idx="' +
+          idx +
+          '" class="qc-rail-item shrink-0 text-left rounded-lg px-2.5 py-1.5 text-xs font-bold transition flex items-center justify-between gap-2 ' +
+          (active
+            ? "bg-orange-600 text-white"
+            : "bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-200/80") +
+          '">' +
+          '<span>P' +
+          p.viewer +
+          ' <span class="opacity-75 font-normal">· Ch ' +
+          p.chapterNum +
+          "</span></span>" +
+          (p.colorUrl ? '<span class="w-2 h-2 rounded-full bg-emerald-400" title="Full-color art ready"></span>' : "") +
+          "</button>";
+      });
+      rail.innerHTML = html;
+      rail.querySelectorAll("[data-qc-page-idx]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var i = Number(btn.getAttribute("data-qc-page-idx"));
+          if (state.edition === "cover") {
+            state.edition = "story";
+            syncEditionButtons();
+          }
+          setViewerPage(i, true);
+        });
+      });
+    }
+
+    function syncEditionButtons() {
+      document.querySelectorAll(".qc-edition-btn").forEach(function (btn) {
+        var ed = btn.getAttribute("data-qc-edition");
+        var on = ed === state.edition;
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+        btn.className =
+          "qc-edition-btn rounded-lg px-3 py-1.5 text-xs font-bold transition " +
+          (on ? "bg-[#1a3454] text-white" : "text-stone-700 hover:bg-stone-200/60");
+      });
+      document.querySelectorAll(".qc-mode-btn").forEach(function (btn) {
+        var m = btn.getAttribute("data-qc-mode");
+        var on = m === state.mode;
+        btn.className =
+          "qc-mode-btn rounded-lg px-3 py-1.5 text-xs font-bold transition " +
+          (on ? "bg-orange-600 text-white" : "text-stone-700 hover:bg-stone-200/60");
+      });
+    }
+
+    function renderPageCardHtml(p) {
+      var useColor = state.edition === "fullcolor" || state.edition === "readalong";
+      var hideText = state.edition === "coloring";
+      var imgUrl = useColor ? (p.colorUrl || p.lineUrl) : p.lineUrl;
+      var fontRem = (1.02 * state.fontScale).toFixed(2);
+      var html = '<article class="rounded-xl border border-stone-200 bg-white overflow-hidden shadow-xs">';
+      html +=
+        '<div class="flex items-center justify-between px-4 py-2 bg-stone-50 border-b border-stone-100 text-xs text-stone-500">' +
+        '<span class="font-bold text-stone-700">Page ' +
+        p.viewer +
+        "</span>" +
+        "<span>Chapter " +
+        p.chapterNum +
+        ": " +
+        p.chapterTitle.replace(/</g, "&lt;") +
+        "</span>" +
+        "</div>";
+      html += '<div class="p-3 sm:p-5 flex justify-center bg-white">';
+      if (imgUrl) {
+        html +=
+          '<img src="' +
+          imgUrl +
+          '" alt="Page ' +
+          p.viewer +
+          '" class="qc-stage-img max-h-[540px] w-auto rounded-lg border border-stone-200 object-contain cursor-pointer" loading="lazy" />';
+      } else {
+        html +=
+          '<div class="py-16 px-4 text-center text-xs text-stone-400 border border-dashed border-stone-200 rounded-lg w-full">Artwork not available for this page.</div>';
+      }
+      html += "</div>";
+      if (!hideText && p.text) {
+        html +=
+          '<div class="px-5 pb-5 pt-2 border-t border-stone-100">' +
+          '<p style="font-size:' +
+          fontRem +
+          'rem;line-height:1.65" class="text-stone-800 whitespace-pre-wrap font-serif">' +
+          p.text.replace(/</g, "&lt;") +
+          "</p></div>";
+      } else if (hideText) {
+        html +=
+          '<div class="px-4 py-2 bg-amber-50/70 border-t border-amber-100 text-[11px] font-semibold text-amber-900 text-center">' +
+          "Coloring Edition Preview · Full line-art page without story text" +
+          "</div>";
+      }
+      html += "</article>";
+      return html;
+    }
+
+    function renderStage() {
+      var stage = document.getElementById("qc-stage-body");
+      var flipBar = document.getElementById("qc-flip-controls");
+      var prevBtn = document.getElementById("qc-prev-page");
+      var nextBtn = document.getElementById("qc-next-page");
+      var chLabel = document.getElementById("qc-page-chapter-label");
+      var countLabel = document.getElementById("qc-page-counter-label");
+      if (!stage) return;
+
+      if (!state.bookData) {
+        stage.innerHTML = '<div class="py-16 text-center text-stone-400 text-sm">Select a book above to inspect its pages.</div>';
+        return;
+      }
+
+      // Cover & TOC edition view
+      if (state.edition === "cover") {
+        if (flipBar) flipBar.classList.add("hidden");
+        var b = state.bookData.book;
+        var chs = (state.bookData.reader && state.bookData.reader.chapters) || [];
+        var tocHtml = '<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">';
+        tocHtml += '<div class="text-center">';
+        if (b.coverUrl) {
+          tocHtml +=
+            '<img src="' +
+            b.coverUrl +
+            '" alt="' +
+            b.title.replace(/"/g, "&quot;") +
+            ' cover" class="mx-auto max-h-[420px] rounded-xl shadow-md border border-stone-200" />';
+        }
+        tocHtml += '<p class="text-xs font-bold text-stone-500 mt-2">Front Cover · ' + b.title.replace(/</g, "&lt;") + "</p></div>";
+        tocHtml += '<div class="rounded-xl border border-stone-200 bg-stone-50 p-4">';
+        tocHtml += '<h3 class="text-sm font-extrabold uppercase tracking-wider text-[#1a3454]">Table of Contents</h3>';
+        tocHtml += '<p class="text-xs text-stone-500 mt-0.5">Tap any chapter to jump directly to its page and audio:</p>';
+        tocHtml += '<div class="mt-3 flex flex-col gap-2">';
+        chs.forEach(function (ch) {
+          tocHtml +=
+            '<button type="button" data-toc-ch="' +
+            ch.num +
+            '" class="text-left rounded-lg bg-white border border-stone-200 px-3 py-2 text-xs font-bold text-stone-800 hover:border-orange-500 flex items-center justify-between">' +
+            "<span>Chapter " +
+            ch.num +
+            ": " +
+            (ch.title || "").replace(/</g, "&lt;") +
+            "</span>" +
+            '<span class="text-orange-600">Read &amp; Listen →</span></button>';
+        });
+        tocHtml += "</div></div></div>";
+        stage.innerHTML = tocHtml;
+        stage.querySelectorAll("[data-toc-ch]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var chNum = Number(btn.getAttribute("data-toc-ch"));
+            state.edition = "story";
+            syncEditionButtons();
+            jumpToChapter(chNum, true);
+          });
+        });
+        renderThumbRail();
+        return;
+      }
+
+      if (state.flatPages.length === 0) {
+        if (flipBar) flipBar.classList.add("hidden");
+        stage.innerHTML =
+          '<div class="py-12 text-center text-stone-500 text-sm">This book is an audiobook-only edition in your library. Use the Audiobook Player below to listen!</div>';
+        return;
+      }
+
+      if (state.mode === "scroll") {
+        if (flipBar) flipBar.classList.add("hidden");
+        var allHtml = '<div class="flex flex-col gap-6 max-h-[680px] overflow-y-auto pr-1">';
+        state.flatPages.forEach(function (p, i) {
+          allHtml += '<div id="qc-scroll-page-' + i + '">' + renderPageCardHtml(p) + "</div>";
+        });
+        allHtml += "</div>";
+        stage.innerHTML = allHtml;
+      } else {
+        if (flipBar) flipBar.classList.remove("hidden");
+        var page = state.flatPages[state.pageIndex] || state.flatPages[0];
+        if (chLabel) chLabel.textContent = "Chapter " + page.chapterNum + ": " + page.chapterTitle;
+        if (countLabel) {
+          countLabel.textContent =
+            "Page " + page.viewer + " (" + (state.pageIndex + 1) + " of " + state.flatPages.length + ")";
+        }
+        if (prevBtn) prevBtn.disabled = state.pageIndex <= 0;
+        if (nextBtn) nextBtn.disabled = state.pageIndex >= state.flatPages.length - 1;
+        stage.innerHTML = renderPageCardHtml(page);
+        var img = stage.querySelector(".qc-stage-img");
+        if (img) {
+          img.addEventListener("click", function (ev) {
+            var rect = img.getBoundingClientRect();
+            var relX = (ev.clientX - rect.left) / Math.max(1, rect.width);
+            if (relX < 0.35 && state.pageIndex > 0) setViewerPage(state.pageIndex - 1, true);
+            else if (relX > 0.65 && state.pageIndex < state.flatPages.length - 1) setViewerPage(state.pageIndex + 1, true);
+          });
+        }
+      }
+      renderThumbRail();
+    }
+
+    function setViewerPage(index, userInitiated) {
+      if (index < 0 || index >= state.flatPages.length) return;
+      state.pageIndex = index;
+      renderStage();
+      if (state.mode === "scroll") {
+        var target = document.getElementById("qc-scroll-page-" + index);
+        if (target) target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+      if (userInitiated) {
+        saveProgressDebounced(0);
+      }
+    }
+
+    function jumpToChapter(chapterNum, alsoPlayAudio) {
+      var startIdx = state.chapterStarts[chapterNum];
+      if (startIdx !== undefined) {
+        setViewerPage(startIdx, false);
+      }
+      if (alsoPlayAudio) {
+        playChapterAudio(chapterNum);
+      }
+    }
+
+    // ---- Audio Player Slot + Persistent Dock ----
+    function syncAudioUi(playing) {
+      var iconPlay = document.getElementById("audio-icon-play");
+      var iconPause = document.getElementById("audio-icon-pause");
+      var dockSym = document.getElementById("dock-play-symbol");
+      var theaterSym = document.getElementById("theater-play-icon");
+      if (iconPlay) iconPlay.classList.toggle("hidden", playing);
+      if (iconPause) iconPause.classList.toggle("hidden", !playing);
+      if (dockSym) dockSym.textContent = playing ? "❚❚" : "▶";
+      if (theaterSym) theaterSym.textContent = playing ? "❚❚" : "▶";
+    }
+
+    // Automatically turns the story page inside the current chapter as the
+    // narrator progresses through the chapter audio track.
+    function autoFlipPageForCurrentTime(currentTime, duration) {
+      if (!state.syncEnabled || (!state.autoFlipEnabled && state.edition !== "readalong")) return;
+      if (!duration || duration <= 0 || state.flatPages.length === 0) return;
+      var currentTrack = state.audioTracks[state.audioTrackIndex];
+      if (!currentTrack || currentTrack.chapter == null) return;
+      var chNum = currentTrack.chapter;
+      var chIndices = [];
+      var weights = [];
+      var totalWeight = 0;
+      for (var i = 0; i < state.flatPages.length; i++) {
+        if (state.flatPages[i].chapterNum === chNum) {
+          chIndices.push(i);
+          var w = Math.max(80, (state.flatPages[i].text || "").length + 80);
+          weights.push(w);
+          totalWeight += w;
+        }
+      }
+      if (chIndices.length <= 1 || totalWeight <= 0) return;
+      var progressRatio = Math.max(0, Math.min(0.999, currentTime / duration));
+      var targetWeight = progressRatio * totalWeight;
+      var accum = 0;
+      var chosenIdx = chIndices[0];
+      for (var j = 0; j < chIndices.length; j++) {
+        accum += weights[j];
+        if (targetWeight <= accum) {
+          chosenIdx = chIndices[j];
+          break;
+        }
+      }
+      if (chosenIdx !== state.pageIndex) {
+        setViewerPage(chosenIdx, false);
+      }
+    }
+
+    function renderAudioChapters() {
+      var strip = document.getElementById("audio-chapter-strip");
+      if (!strip) return;
+      if (!state.audioTracks || state.audioTracks.length === 0) {
+        strip.innerHTML = '<span class="text-xs text-white/60">No audiobook tracks available for this title.</span>';
+        return;
+      }
+      var html = "";
+      state.audioTracks.forEach(function (t, i) {
+        var active = i === state.audioTrackIndex;
+        var shortLabel = t.id === "intro" ? "Intro" : t.id === "outro" ? "The End" : ("Ch " + t.chapter);
+        html +=
+          '<button type="button" data-audio-track-idx="' +
+          i +
+          '" class="shrink-0 rounded-full px-3.5 py-1.5 text-xs font-extrabold transition ' +
+          (active
+            ? "bg-orange-500 text-[#1a3454] shadow-xs"
+            : "bg-white/10 text-white hover:bg-white/20 border border-white/15") +
+          '">' +
+          shortLabel +
+          "</button>";
+      });
+      strip.innerHTML = html;
+      strip.querySelectorAll("[data-audio-track-idx]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var idx = Number(btn.getAttribute("data-audio-track-idx"));
+          loadAudioTrack(idx, true, 0);
+        });
+      });
+    }
+
+    function loadAudioTrack(idx, autoplay, startSec) {
+      if (!state.audioTracks || idx < 0 || idx >= state.audioTracks.length) return;
+      var audioEl = document.getElementById("hub-audio-element");
+      if (!audioEl) return;
+      state.audioTrackIndex = idx;
+      var t = state.audioTracks[idx];
+      audioEl.src = t.url;
+      var speedSel = document.getElementById("audio-speed-select");
+      audioEl.playbackRate = speedSel ? Number(speedSel.value) || 1 : 1;
+
+      var trackTitle = document.getElementById("audio-slot-track-title");
+      var dockTrack = document.getElementById("dock-track-label");
+      var theaterNow = document.getElementById("theater-now-playing");
+      var prevCh = document.getElementById("audio-prev-ch");
+      var nextCh = document.getElementById("audio-next-ch");
+      var labelText = t.label || ("Chapter " + (t.chapter || 1));
+      if (trackTitle) trackTitle.textContent = labelText;
+      if (dockTrack) dockTrack.textContent = labelText;
+      if (theaterNow) theaterNow.textContent = labelText + " · Auto-flipping pages with narrator";
+      if (prevCh) prevCh.disabled = idx <= 0;
+      if (nextCh) nextCh.disabled = idx >= state.audioTracks.length - 1;
+
+      renderAudioChapters();
+
+      // Sync the Customer QC Book Viewer to this chapter when syncEnabled is on
+      if (state.syncEnabled && t.chapter != null && state.chapterStarts[t.chapter] !== undefined) {
+        setViewerPage(state.chapterStarts[t.chapter], false);
+      }
+
+      if (startSec && startSec > 0) {
+        var onLoaded = function () {
+          audioEl.removeEventListener("loadedmetadata", onLoaded);
+          if (isFinite(audioEl.duration) && startSec < audioEl.duration) {
+            audioEl.currentTime = startSec;
+          }
+        };
+        audioEl.addEventListener("loadedmetadata", onLoaded);
+      }
+
+      if (autoplay) {
+        if (state.limitReached) {
+          var banner = document.getElementById("audio-limit-banner");
+          if (banner) banner.classList.remove("hidden");
+          return;
+        }
+        audioEl.play().catch(function () {});
+        startSleepTicker();
+      }
+      saveProgressDebounced(0);
+    }
+
+    function playChapterAudio(chapterNum) {
+      for (var i = 0; i < state.audioTracks.length; i++) {
+        if (state.audioTracks[i].chapter === chapterNum) {
+          loadAudioTrack(i, true, 0);
+          return;
+        }
+      }
+      if (state.audioTracks.length > 0) {
+        loadAudioTrack(0, true, 0);
+      }
+    }
+
+    // ---- Load Book Bundle Data from /api/account/book-pages ----
+    function loadBookBundle(slug, autoPlayAudio) {
+      if (!slug) return;
+      state.bookSlug = slug;
+
+      var qcSelect = document.getElementById("qc-book-select");
+      var audioSelect = document.getElementById("audio-book-select");
+      if (qcSelect && qcSelect.value !== slug) {
+        var hasOpt = Array.prototype.some.call(qcSelect.options, function (o) { return o.value === slug; });
+        if (hasOpt) qcSelect.value = slug;
+      }
+      if (audioSelect && audioSelect.value !== slug) {
+        var hasAudioOpt = Array.prototype.some.call(audioSelect.options, function (o) { return o.value === slug; });
+        if (hasAudioOpt) audioSelect.value = slug;
+      }
+
+      fetch("/api/account/book-pages?slug=" + encodeURIComponent(slug))
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data || !data.ok) return;
+          state.bookData = data;
+          buildFlatPages(data.reader);
+
+          var fullLink = document.getElementById("qc-fullscreen-link");
+          if (fullLink && data.book && data.book.publicSlug) {
+            fullLink.setAttribute("href", "/read/" + data.book.publicSlug);
+          }
+
+          // Quick download links inside QC viewer for owned books
+          var dlWrap = document.getElementById("qc-bundle-downloads");
+          if (dlWrap && data.book) {
+            if (data.book.owned) {
+              var b = data.book;
+              var links = [];
+              if (b.hasPicturePdf) links.push('<a data-astro-reload href="/api/download?slug=' + b.slug + '&format=picture" class="rounded-md border border-stone-300 px-2 py-1 font-bold text-stone-700 hover:border-stone-500">Story PDF</a>');
+              if (b.hasColoringPdf) links.push('<a data-astro-reload href="/api/download?slug=' + b.slug + '&format=coloring" class="rounded-md border border-stone-300 px-2 py-1 font-bold text-stone-700 hover:border-stone-500">Coloring PDF</a>');
+              if (b.hasColorPdf) links.push('<a data-astro-reload href="/api/download?slug=' + b.slug + '&format=color" class="rounded-md border border-stone-300 px-2 py-1 font-bold text-stone-700 hover:border-stone-500">Full Color PDF</a>');
+              if (b.hasAudiobook) links.push('<a data-astro-reload href="/api/download?slug=' + b.slug + '&format=audiobook" class="rounded-md border border-stone-300 px-2 py-1 font-bold text-stone-700 hover:border-stone-500">M4B Audiobook</a>');
+              dlWrap.innerHTML = links.join("");
+            } else {
+              dlWrap.innerHTML = '<span class="text-stone-400">Club reading &amp; listening edition</span>';
+            }
+          }
+
+          // Populate audio tracks
+          state.audioTracks = (data.audio && data.audio.tracks) || [];
+          var slotBookTitle = document.getElementById("audio-slot-book-title");
+          var dockBookTitle = document.getElementById("dock-book-title");
+          var slotCover = document.getElementById("audio-slot-cover");
+          if (slotBookTitle) slotBookTitle.textContent = data.book.title;
+          if (dockBookTitle) dockBookTitle.textContent = data.book.title;
+          if (slotCover && data.book.coverUrl) {
+            slotCover.src = data.book.coverUrl;
+            slotCover.classList.remove("hidden");
+          }
+
+          // Restore saved progress from localStorage or server
+          var saved = null;
+          try {
+            var raw = window.localStorage.getItem(localKey(slug));
+            if (raw) saved = JSON.parse(raw);
+          } catch (e) {}
+
+          fetch("/api/account/progress?profile_id=" + encodeURIComponent(state.profileId) + "&book_slug=" + encodeURIComponent(slug))
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (pRes) {
+              var p = (pRes && pRes.progress) || saved;
+              if (p) {
+                if (p.view_edition) state.edition = p.view_edition;
+                if (p.view_mode) state.mode = p.view_mode;
+                if (typeof p.page_index === "number" && p.page_index < state.flatPages.length) {
+                  state.pageIndex = Math.max(0, p.page_index);
+                }
+                if (typeof p.sync_enabled === "boolean") {
+                  state.syncEnabled = p.sync_enabled;
+                  var syncChk = document.getElementById("qc-audio-sync-check");
+                  if (syncChk) syncChk.checked = state.syncEnabled;
+                }
+              } else {
+                state.pageIndex = 0;
+              }
+              syncEditionButtons();
+              renderStage();
+
+              if (state.audioTracks.length > 0) {
+                var targetTrackIdx = 0;
+                var startSec = 0;
+                if (p && p.audio_track_id) {
+                  for (var i = 0; i < state.audioTracks.length; i++) {
+                    if (state.audioTracks[i].id === p.audio_track_id) {
+                      targetTrackIdx = i;
+                      startSec = Number(p.audio_position_sec || 0);
+                      break;
+                    }
+                  }
+                }
+                loadAudioTrack(targetTrackIdx, Boolean(autoPlayAudio), startSec);
+                if (startSec > 2) {
+                  var hint = document.getElementById("audio-slot-resume-hint");
+                  if (hint) hint.textContent = "Resumed at " + fmtClock(startSec) + " · Tap Play to continue";
+                }
+              } else {
+                renderAudioChapters();
+              }
+            })
+            .catch(function () {
+              syncEditionButtons();
+              renderStage();
+              if (state.audioTracks.length > 0) loadAudioTrack(0, Boolean(autoPlayAudio), 0);
+            });
+        });
+    }
+
+    // ---- Wire DOM Event Listeners ----
+    function initHubControls() {
+      var qcSelect = document.getElementById("qc-book-select");
+      var audioSelect = document.getElementById("audio-book-select");
+      var initialSlug = (qcSelect && qcSelect.value) || (audioSelect && audioSelect.value) || null;
+
+      var sleepSel = document.getElementById("audio-sleep-select");
+      if (sleepSel) {
+        var defSleep = Number(sleepSel.getAttribute("data-default-sleep") || 60);
+        setSleepTimer(defSleep);
+        sleepSel.addEventListener("change", function () {
+          setSleepTimer(Number(sleepSel.value));
+        });
+      }
+      var add15Btn = document.getElementById("audio-sleep-add-15");
+      if (add15Btn) {
+        add15Btn.addEventListener("click", function () {
+          if (state.sleepModeMinutes <= 0) {
+            setSleepTimer(15);
+          } else {
+            state.sleepRemainingSec += 15 * 60;
+            updateSleepBadges();
+          }
+        });
+      }
+
+      if (qcSelect) {
+        qcSelect.addEventListener("change", function () {
+          loadBookBundle(qcSelect.value, false);
+        });
+      }
+      if (audioSelect) {
+        audioSelect.addEventListener("change", function () {
+          loadBookBundle(audioSelect.value, false);
+        });
+      }
+
+      document.querySelectorAll(".qc-edition-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          state.edition = btn.getAttribute("data-qc-edition") || "story";
+          syncEditionButtons();
+          renderStage();
+          saveProgressDebounced(0);
+        });
+      });
+
+      document.querySelectorAll(".qc-mode-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          state.mode = btn.getAttribute("data-qc-mode") || "flip";
+          syncEditionButtons();
+          renderStage();
+          saveProgressDebounced(0);
+        });
+      });
+
+      var prevPageBtn = document.getElementById("qc-prev-page");
+      var nextPageBtn = document.getElementById("qc-next-page");
+      if (prevPageBtn) prevPageBtn.addEventListener("click", function () { setViewerPage(state.pageIndex - 1, true); });
+      if (nextPageBtn) nextPageBtn.addEventListener("click", function () { setViewerPage(state.pageIndex + 1, true); });
+
+      var fontSm = document.getElementById("qc-font-smaller");
+      var fontLg = document.getElementById("qc-font-larger");
+      if (fontSm) {
+        fontSm.addEventListener("click", function () {
+          state.fontScale = Math.max(0.85, state.fontScale - 0.1);
+          renderStage();
+        });
+      }
+      if (fontLg) {
+        fontLg.addEventListener("click", function () {
+          state.fontScale = Math.min(1.45, state.fontScale + 0.1);
+          renderStage();
+        });
+      }
+
+      var syncChk = document.getElementById("qc-audio-sync-check");
+      if (syncChk) {
+        syncChk.addEventListener("change", function () {
+          state.syncEnabled = Boolean(syncChk.checked);
+          var ind = document.getElementById("qc-sync-indicator");
+          if (ind) ind.textContent = state.syncEnabled ? "Synced with Audiobook Player" : "Audio Sync Paused";
+          saveProgressDebounced(0);
+        });
+      }
+
+      var autoFlipChk = document.getElementById("qc-auto-flip-check");
+      if (autoFlipChk) {
+        autoFlipChk.addEventListener("change", function () {
+          state.autoFlipEnabled = Boolean(autoFlipChk.checked);
+        });
+      }
+
+      var theaterPlayBtn = document.getElementById("theater-play-btn");
+      if (theaterPlayBtn) {
+        theaterPlayBtn.addEventListener("click", function () {
+          if (state.edition !== "readalong" && state.edition !== "fullcolor") {
+            state.edition = "readalong";
+            syncEditionButtons();
+            renderStage();
+          }
+          try {
+            if (typeof window.bbsTraks === "function") {
+              window.bbsTraks("read_along_started", { edition: state.edition, auto_flip: Boolean(state.autoFlipEnabled) });
+            }
+          } catch {}
+          togglePlay();
+        });
+      }
+
+      var listenChBtn = document.getElementById("qc-listen-chapter-btn");
+      if (listenChBtn) {
+        listenChBtn.addEventListener("click", function () {
+          var page = state.flatPages[state.pageIndex];
+          var ch = page ? page.chapterNum : 1;
+          playChapterAudio(ch);
+        });
+      }
+
+      var audioEl = document.getElementById("hub-audio-element");
+      var playBtn = document.getElementById("audio-play-toggle");
+      var dockPlayBtn = document.getElementById("dock-play-toggle");
+      var prevCh = document.getElementById("audio-prev-ch");
+      var nextCh = document.getElementById("audio-next-ch");
+      var rew15 = document.getElementById("audio-rew-15");
+      var fwd15 = document.getElementById("audio-fwd-15");
+      var seek = document.getElementById("audio-slot-seek");
+      var speedSel = document.getElementById("audio-speed-select");
+
+      function togglePlay() {
+        if (!audioEl) return;
+        if (state.audioTrackIndex < 0 && state.audioTracks.length > 0) {
+          loadAudioTrack(0, true, 0);
+          return;
+        }
+        if (audioEl.paused) {
+          if (state.sleepModeMinutes > 0 && state.sleepRemainingSec <= 0) {
+            state.sleepRemainingSec = state.sleepModeMinutes * 60;
+          }
+          audioEl.play().catch(function () {});
+          startSleepTicker();
+        } else {
+          audioEl.pause();
+          saveProgressDebounced(0);
+        }
+      }
+
+      if (playBtn) playBtn.addEventListener("click", togglePlay);
+      if (dockPlayBtn) dockPlayBtn.addEventListener("click", togglePlay);
+      if (prevCh) {
+        prevCh.addEventListener("click", function () {
+          if (state.audioTrackIndex > 0) loadAudioTrack(state.audioTrackIndex - 1, true, 0);
+        });
+      }
+      if (nextCh) {
+        nextCh.addEventListener("click", function () {
+          if (state.audioTrackIndex < state.audioTracks.length - 1) loadAudioTrack(state.audioTrackIndex + 1, true, 0);
+        });
+      }
+      if (rew15 && audioEl) {
+        rew15.addEventListener("click", function () {
+          audioEl.currentTime = Math.max(0, (audioEl.currentTime || 0) - 15);
+        });
+      }
+      if (fwd15 && audioEl) {
+        fwd15.addEventListener("click", function () {
+          if (isFinite(audioEl.duration)) {
+            audioEl.currentTime = Math.min(audioEl.duration, (audioEl.currentTime || 0) + 15);
+          }
+        });
+      }
+      if (speedSel && audioEl) {
+        speedSel.addEventListener("change", function () {
+          audioEl.playbackRate = Number(speedSel.value) || 1;
+        });
+      }
+
+      if (audioEl) {
+        audioEl.addEventListener("play", function () {
+          syncAudioUi(true);
+          if (window.bbsTraks && !window.__hubListenFired) {
+            window.__hubListenFired = true;
+            window.bbsTraks("listen_start", {});
+          }
+        });
+        audioEl.addEventListener("pause", function () {
+          syncAudioUi(false);
+        });
+        audioEl.addEventListener("timeupdate", function () {
+          if (!isFinite(audioEl.duration) || audioEl.duration <= 0) return;
+          var elTxt = fmtClock(audioEl.currentTime);
+          var durTxt = fmtClock(audioEl.duration);
+          var slotEl = document.getElementById("audio-slot-elapsed");
+          var slotDur = document.getElementById("audio-slot-duration");
+          var dockTime = document.getElementById("dock-time-label");
+          var theaterTime = document.getElementById("theater-time-pill");
+          if (slotEl) slotEl.textContent = elTxt;
+          if (slotDur) slotDur.textContent = durTxt;
+          if (dockTime) dockTime.textContent = elTxt + " / " + durTxt;
+          if (theaterTime) theaterTime.textContent = elTxt + " / " + durTxt;
+          if (seek) seek.value = String(Math.round((audioEl.currentTime / audioEl.duration) * 1000));
+          autoFlipPageForCurrentTime(audioEl.currentTime, audioEl.duration);
+        });
+        audioEl.addEventListener("ended", function () {
+          syncAudioUi(false);
+          // End-of-chapter sleep timer check
+          if (state.sleepModeMinutes === -1) {
+            var hint = document.getElementById("audio-slot-resume-hint");
+            if (hint) hint.textContent = "🌙 Paused at End of Chapter by Sleep Timer.";
+            saveProgressDebounced(0);
+            return;
+          }
+          if (state.audioTrackIndex < state.audioTracks.length - 1) {
+            loadAudioTrack(state.audioTrackIndex + 1, true, 0);
+          }
+        });
+      }
+
+      if (seek && audioEl) {
+        seek.addEventListener("change", function () {
+          if (isFinite(audioEl.duration) && audioEl.duration > 0) {
+            audioEl.currentTime = (Number(seek.value) / 1000) * audioEl.duration;
+            saveProgressDebounced(0);
+          }
+        });
+      }
+
+      if (initialSlug) {
+        loadBookBundle(initialSlug, false);
+      }
+    }
+
+    // Expose controller so shelf cards & kid profile switcher can interact with it
+    window.bbsCustomerHub = {
+      openBookInViewer: function (slug, edition) {
+        if (edition) state.edition = edition;
+        loadBookBundle(slug, false);
+        var el = document.getElementById("qc-viewer");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      },
+      playBookInAudioSlot: function (slug) {
+        loadBookBundle(slug, true);
+        var el = document.getElementById("audio-slot");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      },
+      setProfile: function (profileId, sleepMinutes) {
+        state.profileId = profileId || "default";
+        state.limitReached = false;
+        var banner = document.getElementById("audio-limit-banner");
+        if (banner) banner.classList.add("hidden");
+        if (typeof sleepMinutes === "number") {
+          setSleepTimer(sleepMinutes);
+        }
+        if (state.bookSlug) {
+          loadBookBundle(state.bookSlug, false);
+        }
+      },
+    };
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initHubControls);
+    } else {
+      initHubControls();
+    }
+    document.addEventListener("astro:page-load", initHubControls);
+  })();
+</script>

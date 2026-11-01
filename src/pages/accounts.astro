@@ -1,0 +1,5 @@
+---
+export const prerender = false;
+const search = Astro.url.search || "";
+return Astro.redirect(`/account${search}`, 302);
+---

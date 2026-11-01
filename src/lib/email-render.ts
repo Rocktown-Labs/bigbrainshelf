@@ -39,6 +39,8 @@ import PhysicalUpdateEmail from "../../emails/PhysicalUpdateEmail";
 import ClubFollowupEmail from "../../emails/ClubFollowupEmail";
 import ClubCycleEmail from "../../emails/ClubCycleEmail";
 import ReleaseEmail from "../../emails/ReleaseEmail";
+import WelcomeOnboardingEmail from "../../emails/WelcomeOnboardingEmail";
+import BirthdayGiftEmail from "../../emails/BirthdayGiftEmail";
 
 export async function renderOutboxEmailHtml(
   db: DBLike,
@@ -112,6 +114,40 @@ export async function renderOutboxEmailHtml(
     const token = await getOrCreateUnsubscribeToken(db, String(row.to_email || ""));
     const model = buildClubFollowupModel(site, token);
     return await render(createElement(ClubFollowupEmail, { model }));
+  }
+  if (row.kind === "birthday_gift") {
+    const paragraphs = String(row.body_text || "")
+      .split(/\n\s*\n/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    return await render(
+      createElement(BirthdayGiftEmail, {
+        model: {
+          preview: String(row.subject || "A birthday surprise from Big Brain Shelf"),
+          heading: String(row.subject || "Happy Birthday from Big Brain Shelf"),
+          paragraphs,
+          giftUrl: `${site.replace(/\/$/, "")}/account?gift=birthday`,
+          footnote: "Sent with warm wishes from the Big Brain Shelf cast.",
+        },
+      }),
+    );
+  }
+  if (row.kind === "family_onboarding") {
+    const paragraphs = String(row.body_text || "")
+      .split(/\n\s*\n/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    return await render(
+      createElement(WelcomeOnboardingEmail, {
+        model: {
+          preview: String(row.subject || "Your family shelf is ready on Big Brain Shelf"),
+          heading: String(row.subject || "Your family shelf is ready"),
+          paragraphs,
+          accountUrl: `${site.replace(/\/$/, "")}/account`,
+          footnote: "Reply anytime if you have a question for us.",
+        },
+      }),
+    );
   }
   if (
     row.kind === "club_welcome" || row.kind === "owner_new_subscription" ||
