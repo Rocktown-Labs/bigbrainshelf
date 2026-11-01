@@ -139,6 +139,7 @@ export interface ParentOnboardingRecord {
   marketing_opt_in: boolean;
   referral_code: string;
   referred_by_code: string | null;
+  notification_prefs: { new_releases: boolean; club_news: boolean; family_notes: boolean };
   parent_pin: string | null;
   onboarding_step: number;
   completed_at: number | null;
@@ -244,6 +245,36 @@ export function normalizePin(pin: string | null | undefined): string | null {
   return digits.length >= 4 ? digits : null;
 }
 
+export interface NotificationPrefs {
+  new_releases: boolean;
+  club_news: boolean;
+  family_notes: boolean;
+}
+
+// Notification preferences (Settings page, 2026-11-01). Stored as
+// JSON on the onboarding row. Defaults: club news and family notes
+// on; new-release news follows the family's marketing opt-in until
+// they set it here. Transactional mail (orders, shipping, billing)
+// is never gated by these.
+export function parseNotificationPrefs(raw: unknown, marketingOptIn: boolean): NotificationPrefs {
+  const defaults: NotificationPrefs = {
+    new_releases: marketingOptIn,
+    club_news: true,
+    family_notes: true,
+  };
+  if (typeof raw !== "string" || !raw) return defaults;
+  try {
+    const parsed = JSON.parse(raw) as Partial<NotificationPrefs>;
+    return {
+      new_releases: typeof parsed.new_releases === "boolean" ? parsed.new_releases : defaults.new_releases,
+      club_news: typeof parsed.club_news === "boolean" ? parsed.club_news : defaults.club_news,
+      family_notes: typeof parsed.family_notes === "boolean" ? parsed.family_notes : defaults.family_notes,
+    };
+  } catch {
+    return defaults;
+  }
+}
+
 function parseJsonArray(raw: unknown): string[] {
   if (!raw) return [];
   if (Array.isArray(raw)) return raw.map((v) => String(v)).filter(Boolean);
@@ -264,6 +295,7 @@ const PARENT_ONBOARDING_ADDITIVE_COLS: Record<string, string> = {
   marketing_opt_in: "INTEGER NOT NULL DEFAULT 0",
   referral_code: "TEXT",
   referred_by_code: "TEXT",
+  notification_prefs: "TEXT",
 };
 
 const KID_PROFILES_ADDITIVE_COLS: Record<string, string> = {
@@ -413,6 +445,7 @@ function hydrateParentOnboarding(row: any): ParentOnboardingRecord {
       ? String(row.referral_code)
       : generateReferralCode(parentName, userId),
     referred_by_code: row.referred_by_code ? String(row.referred_by_code) : null,
+    notification_prefs: parseNotificationPrefs(row.notification_prefs, Number(row.marketing_opt_in || 0) !== 0),
     parent_pin: row.parent_pin ? String(row.parent_pin) : null,
     onboarding_step: Number(row.onboarding_step || 1),
     completed_at: row.completed_at ? Number(row.completed_at) : null,

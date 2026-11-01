@@ -146,6 +146,7 @@ export async function renderOutboxEmailHtml(
   if (
     row.kind === "club_welcome" || row.kind === "owner_new_subscription" ||
     row.kind === "club_payment_failed" || row.kind === "club_canceled" ||
+    row.kind === "club_downgrade_ready" ||
     row.kind === "owner_club_canceled" || row.kind === "owner_new_review" ||
     row.kind === "owner_payment_alert" || row.kind === "completion_upsell"
   ) {
@@ -161,6 +162,7 @@ export async function renderOutboxEmailHtml(
       club_welcome: { label: "Open your library", href: `${site}/account` },
       club_payment_failed: { label: "Update your payment method", href: `${site}/account` },
       club_canceled: { label: "See the clubs", href: `${site}/clubs` },
+      club_downgrade_ready: { label: "Start The Audio Club", href: `${site}/account/club` },
       owner_new_subscription: { label: "Open the club list", href: `${site}/admin/club` },
       owner_club_canceled: { label: "Open the club list", href: `${site}/admin/club` },
       owner_new_review: { label: "Open the review queue", href: `${site}/admin/reviews` },

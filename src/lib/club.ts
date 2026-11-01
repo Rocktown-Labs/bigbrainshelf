@@ -138,6 +138,14 @@ const CLUB_COLUMNS: Record<string, string> = {
   // instead of the admin view borrowing one from a store order.
   ship_name: "TEXT",
   ship_address: "TEXT",
+  // Scheduled downgrade (2026-11-01): a Book Club member switching
+  // to The Audio Club at the end of the paid period. Stripe carries
+  // cancel_at_period_end; these columns remember the intent and the
+  // chosen audio billing period so the switch moment (subscription
+  // deleted webhook) sends the right email and the club page can
+  // show what happens next.
+  downgrade_to_audio_at: "INTEGER",
+  downgrade_audio_period: "TEXT",
 };
 
 export async function ensureClubTable(db: DBLike): Promise<void> {
@@ -492,22 +500,39 @@ export async function cancelClubBySubscription(db: DBLike, subscriptionId: strin
     const { enqueueEmail, OWNER_NOTIFY_EMAIL } = await import("./orders");
     const audio = member.club_plan === "audio";
     const clubName = audio ? "The Audio Club" : "The Book Club";
-    await enqueueEmail(db, {
-      orderId: null,
-      kind: "club_canceled",
-      to: String(member.email),
-      subject: `Your ${clubName} membership has ended`,
-      text: audio
-        ? `Your ${clubName} membership has ended, so the club shelf is closed. Any books you bought to own stay in your library forever.\n\nIf this was a mistake, you can rejoin anytime.`
-        : `Your ${clubName} membership has ended. Boxes already shipped are yours to keep, and any books you bought to own stay in your library forever.\n\nIf this was a mistake, you can rejoin anytime.`,
-      dedupeKey: `club-canceled:${member.id}:${canceledAt}`,
-    });
+    const isDowngrade = !audio && Number(member.downgrade_to_audio_at || 0) > 0;
+    if (isDowngrade) {
+      // The switch the member scheduled: Book Club ended on time and
+      // The Audio Club is one tap away in their account. Not a
+      // cancellation in tone or in fact.
+      await enqueueEmail(db, {
+        orderId: null,
+        kind: "club_downgrade_ready",
+        to: String(member.email),
+        subject: "Your membership switched to The Audio Club",
+        text: `Your Book Club membership ended today, right on the schedule you set. Boxes already shipped are yours to keep, and books you bought to own stay in your library forever.\n\nYour Audio Club is ready to start: every Big Brain Shelf audiobook in your library while you are a member. One tap in your account starts it.`,
+        dedupeKey: `club-downgrade:${member.id}:${canceledAt}`,
+      });
+    } else {
+      await enqueueEmail(db, {
+        orderId: null,
+        kind: "club_canceled",
+        to: String(member.email),
+        subject: `Your ${clubName} membership has ended`,
+        text: audio
+          ? `Your ${clubName} membership has ended, so the club shelf is closed. Any books you bought to own stay in your library forever.\n\nIf this was a mistake, you can rejoin anytime.`
+          : `Your ${clubName} membership has ended. Boxes already shipped are yours to keep, and any books you bought to own stay in your library forever.\n\nIf this was a mistake, you can rejoin anytime.`,
+        dedupeKey: `club-canceled:${member.id}:${canceledAt}`,
+      });
+    }
     await enqueueEmail(db, {
       orderId: null,
       kind: "owner_club_canceled",
       to: OWNER_NOTIFY_EMAIL,
-      subject: `Club cancellation: ${member.email}`,
-      text: `A ${clubName} membership was canceled.\n\nMember: ${member.name || member.email} (${member.email})\nPlan: ${member.plan || ""}\nMember page: https://bigbrainshelf.com/admin/club/${member.id}`,
+      subject: isDowngrade ? `Club downgrade switch: ${member.email}` : `Club cancellation: ${member.email}`,
+      text: isDowngrade
+        ? `A Book Club membership reached its scheduled switch to The Audio Club. The member still has to start the Audio Club from their account.\n\nMember: ${member.name || member.email} (${member.email})\nAudio period chosen: ${member.downgrade_audio_period || "monthly"}\nMember page: https://bigbrainshelf.com/admin/club/${member.id}`
+        : `A ${clubName} membership was canceled.\n\nMember: ${member.name || member.email} (${member.email})\nPlan: ${member.plan || ""}\nMember page: https://bigbrainshelf.com/admin/club/${member.id}`,
       dedupeKey: `owner-club-canceled:${member.id}:${canceledAt}`,
     });
   } catch (err) {

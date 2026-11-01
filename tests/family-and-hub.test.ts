@@ -531,4 +531,55 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     }
     expect(overviewSrc).not.toContain("STANDARD_STANDARD");
   });
+
+  test("Hub simplification surfaces stay wired (2026-11-01 pass 2)", () => {
+    const clubSrc = readFileSync(resolve(root, "src/pages/account/club.astro"), "utf8");
+    // The cover-grid box picker replaced the radio list for good.
+    expect(clubSrc).toContain("data-pick-grid");
+    expect(clubSrc).not.toContain('name="club-pick"');
+    // Downgrade: Book members can schedule a switch to The Audio
+    // Club from the club page, undo it, and start audio after the
+    // switch lands.
+    expect(clubSrc).toContain("data-club-downgrade");
+    expect(clubSrc).toContain("data-club-downgrade-undo");
+    expect(existsSync(resolve(root, "src/pages/api/club/downgrade.ts"))).toBe(true);
+    const policySrc = readFileSync(resolve(root, "src/lib/route-policy.ts"), "utf8");
+    expect(policySrc).toContain('"/api/club/downgrade"');
+    const clubLibSrc = readFileSync(resolve(root, "src/lib/club.ts"), "utf8");
+    expect(clubLibSrc).toContain("downgrade_to_audio_at");
+    expect(clubLibSrc).toContain("club_downgrade_ready");
+    const renderSrc = readFileSync(resolve(root, "src/lib/email-render.ts"), "utf8");
+    expect(renderSrc).toContain("club_downgrade_ready");
+
+    // Reviews: stat cards + pending reviews are editable in place,
+    // backed by a PATCH handler that only opens pending rows.
+    const reviewsPageSrc = readFileSync(resolve(root, "src/pages/account/reviews.astro"), "utf8");
+    expect(reviewsPageSrc).toContain("reviewStats");
+    expect(reviewsPageSrc).toContain("data-edit-form");
+    const reviewsApiSrc = readFileSync(resolve(root, "src/pages/api/reviews.ts"), "utf8");
+    expect(reviewsApiSrc).toContain("export const PATCH");
+    expect(reviewsApiSrc).toContain('"pending"');
+
+    // Referrals: real tracking (joined + ordered) from the rows the
+    // system actually records.
+    const referralsSrc2 = readFileSync(resolve(root, "src/pages/account/referrals.astro"), "utf8");
+    expect(referralsSrc2).toContain("referralJoined");
+    expect(referralsSrc2).toContain("referred_by_code");
+
+    // Settings: renamed, and email preferences save through the
+    // family API onto the onboarding row.
+    const settingsSrc = readFileSync(resolve(root, "src/pages/account/settings.astro"), "utf8");
+    expect(settingsSrc).toContain("<title>Settings · Big Brain Shelf</title>");
+    expect(settingsSrc).toContain("notif-prefs-form");
+    const familyApiSrc = readFileSync(resolve(root, "src/pages/api/account/family.ts"), "utf8");
+    expect(familyApiSrc).toContain("save_notification_prefs");
+    const familyLibSrc = readFileSync(resolve(root, "src/lib/family.ts"), "utf8");
+    expect(familyLibSrc).toContain("parseNotificationPrefs");
+    expect(familyLibSrc).toContain("notification_prefs");
+
+    // Orders: sort + pagination + a status pill for digital orders.
+    const ordersSrc = readFileSync(resolve(root, "src/pages/account/orders.astro"), "utf8");
+    expect(ordersSrc).toContain("orders-sort-form");
+    expect(ordersSrc).toContain("In your library");
+  });
 });

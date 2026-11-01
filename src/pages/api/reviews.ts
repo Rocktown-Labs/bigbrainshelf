@@ -1,5 +1,43 @@
 import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
+
+// PATCH /api/reviews (JSON {id, rating, title, body}): the author
+// edits their own review while it is still pending. Once a person
+// has approved or rejected it, the text is locked. Matched by
+// user_id only, never by email.
+export const PATCH: APIRoute = async ({ request }) => {
+  const e = env as any;
+  const auth = getAuth();
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session) {
+    return Response.json({ error: "Sign in to edit a review." }, { status: 401 });
+  }
+  await ensureReviewsTable(e.DB);
+  const data = await request.json().catch(() => null) as any;
+  if (!data) return Response.json({ error: "Could not read the edit." }, { status: 400 });
+  const id = String(data.id || "").trim();
+  const rating = Number(data.rating);
+  const title = String(data.title || "").trim().slice(0, 120);
+  const body = String(data.body || "").trim().slice(0, 4000);
+  if (!id) return Response.json({ error: "Which review?" }, { status: 400 });
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return Response.json({ error: "Please give the book a star rating." }, { status: 400 });
+  }
+  if (!title) return Response.json({ error: "Please add a headline for your review." }, { status: 400 });
+  if (!body) return Response.json({ error: "Please write a few words about the book." }, { status: 400 });
+
+  const row = await e.DB.prepare("SELECT id, status FROM reviews WHERE id = ? AND user_id = ?")
+    .bind(id, session.user.id)
+    .first();
+  if (!row) return Response.json({ error: "That review is not yours to edit." }, { status: 404 });
+  if (String((row as any).status) !== "pending") {
+    return Response.json({ error: "This review has already been checked, so it is locked." }, { status: 409 });
+  }
+  await e.DB.prepare("UPDATE reviews SET rating = ?, title = ?, body = ? WHERE id = ?")
+    .bind(rating, title, body, id)
+    .run();
+  return Response.json({ ok: true });
+};
 import { getAuth } from "../../lib/auth";
 import {
   ensureReviewsTable,

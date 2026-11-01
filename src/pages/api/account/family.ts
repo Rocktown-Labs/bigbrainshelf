@@ -16,7 +16,9 @@ import {
   computeOnboardingChecklist,
   deleteKidProfile,
   enqueueBirthdayGiftEmail,
+  ensureFamilyTables,
   getParentOnboarding,
+  parseNotificationPrefs,
   listKidProfiles,
   listReadingProgress,
   saveParentOnboarding,
@@ -247,6 +249,28 @@ export const POST: APIRoute = async ({ request, url, locals }) => {
       ok: true,
       has_pin: Boolean(updated.parent_pin),
     });
+  }
+
+  if (action === "save_notification_prefs") {
+    const prefs = parseNotificationPrefs(
+      JSON.stringify({
+        new_releases: body.new_releases === true,
+        club_news: body.club_news === true,
+        family_notes: body.family_notes === true,
+      }),
+      false
+    );
+    await ensureFamilyTables(db);
+    // Make sure a row exists to hang the prefs on, then write them.
+    const existing = await getParentOnboarding(db, userId);
+    if (!existing) {
+      await saveParentOnboarding(db, userId, userEmail, {}, url.origin);
+    }
+    await db
+      .prepare("UPDATE parent_onboarding SET notification_prefs = ?, updated_at = ? WHERE user_id = ?")
+      .bind(JSON.stringify(prefs), Math.floor(Date.now() / 1000), userId)
+      .run();
+    return json({ ok: true, notification_prefs: prefs });
   }
 
   return json({ error: "Unknown action" }, 400);

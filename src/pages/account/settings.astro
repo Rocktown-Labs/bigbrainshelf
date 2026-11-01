@@ -30,7 +30,7 @@ const {
   <meta name="theme-color" content="#1a3454" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Sign-in &amp; Security · Big Brain Shelf</title>
+  <title>Settings · Big Brain Shelf</title>
   <ClientRouter />
   <TransitionHooks />
   <Tracking />
@@ -53,20 +53,20 @@ const {
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <span class="rounded-full bg-orange-100 text-orange-800 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
-          Account &amp; Security
+          Account
         </span>
         <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900 mt-1.5">
-          Sign-in &amp; Security
+          Settings
         </h1>
         <p class="text-sm text-stone-600 mt-1">
-          Manage your @username, Face ID / Touch ID passkeys, and active signed-in devices.
+          Your family profile, email preferences, sign-in, and security, all in one place.
         </p>
       </div>
       <a
         href="/account"
         class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500"
       >
-        ← Back to My Shelf
+        ← Back to Dashboard
       </a>
     </div>
 
@@ -124,6 +124,39 @@ const {
       </div>
     </section>
 
+    <!-- Email preferences: which optional mail this family gets -->
+    <section class="mt-6 rounded-2xl border border-stone-200 bg-[#fcfaf6] p-6 sm:p-8">
+      <h2 class="text-lg font-extrabold text-stone-900">Email preferences</h2>
+      <p class="text-sm text-stone-600 mt-1">Choose the optional emails you want. Order, shipping, and billing emails always send, so nothing you bought ever goes quiet.</p>
+      <form id="notif-prefs-form" class="mt-4 space-y-3">
+        <label class="flex items-start gap-3 rounded-2xl border border-stone-200 bg-white p-4 cursor-pointer">
+          <input type="checkbox" name="new_releases" checked={parentOnboarding?.notification_prefs?.new_releases ?? false} class="mt-0.5 h-4 w-4 accent-[#1a3454]" />
+          <span>
+            <span class="block text-sm font-bold text-stone-900">New books and releases</span>
+            <span class="block text-xs text-stone-500 mt-0.5">A note when a new Big Brain Shelf book or audiobook comes out.</span>
+          </span>
+        </label>
+        <label class="flex items-start gap-3 rounded-2xl border border-stone-200 bg-white p-4 cursor-pointer">
+          <input type="checkbox" name="club_news" checked={parentOnboarding?.notification_prefs?.club_news ?? true} class="mt-0.5 h-4 w-4 accent-[#1a3454]" />
+          <span>
+            <span class="block text-sm font-bold text-stone-900">Club news and pick reminders</span>
+            <span class="block text-xs text-stone-500 mt-0.5">Box pick reminders, cycle updates, and club announcements.</span>
+          </span>
+        </label>
+        <label class="flex items-start gap-3 rounded-2xl border border-stone-200 bg-white p-4 cursor-pointer">
+          <input type="checkbox" name="family_notes" checked={parentOnboarding?.notification_prefs?.family_notes ?? true} class="mt-0.5 h-4 w-4 accent-[#1a3454]" />
+          <span>
+            <span class="block text-sm font-bold text-stone-900">Family notes</span>
+            <span class="block text-xs text-stone-500 mt-0.5">Birthday gifts for your readers and reading milestone notes.</span>
+          </span>
+        </label>
+        <div class="flex items-center gap-3 pt-1">
+          <button type="submit" class="cust-pressable rounded-full bg-[#1a3454] px-5 py-2.5 text-xs font-extrabold text-white hover:bg-[#132741]">Save preferences</button>
+          <p id="notif-prefs-msg" class="text-xs text-stone-500" role="status"></p>
+        </div>
+      </form>
+    </section>
+
     <!-- Sign-in & security: passkeys + active sessions (better-auth) -->
     <section id="security" class="mt-6 mb-6 rounded-2xl border border-stone-200 bg-white p-6 sm:p-8">
       <h2 class="text-xl font-bold tracking-tight">Passkeys &amp; active sessions</h2>
@@ -156,6 +189,36 @@ const {
   </main>
 
   <script is:inline>
+    function initNotifPrefs() {
+      var form = document.getElementById("notif-prefs-form");
+      if (!form || form.__bound) return;
+      form.__bound = true;
+      form.addEventListener("submit", async function (ev) {
+        ev.preventDefault();
+        var msg = document.getElementById("notif-prefs-msg");
+        var fd = new FormData(form);
+        if (msg) msg.textContent = "Saving...";
+        try {
+          var r = await fetch("/api/account/family", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "save_notification_prefs",
+              new_releases: fd.get("new_releases") === "on",
+              club_news: fd.get("club_news") === "on",
+              family_notes: fd.get("family_notes") === "on",
+            }),
+          });
+          var data = await r.json().catch(function () { return {}; });
+          if (msg) msg.textContent = r.ok ? "Saved. Your inbox, your rules." : (data.error || "Could not save.");
+        } catch {
+          if (msg) msg.textContent = "Could not save. Please try again.";
+        }
+      });
+    }
+    initNotifPrefs();
+    document.addEventListener("astro:page-load", initNotifPrefs);
+
     function secB64urlToBuf(s) {
       s = String(s).replace(/-/g, "+").replace(/_/g, "/");
       while (s.length % 4) s += "=";

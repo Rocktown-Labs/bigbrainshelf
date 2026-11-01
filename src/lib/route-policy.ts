@@ -24,6 +24,7 @@ export const PUBLIC_API_PREFIXES: readonly string[] = [
 export const CUSTOMER_SELF_AUTH_API_ROUTES: ReadonlySet<string> = new Set([
   "/api/club-signup",
   "/api/club/checkout",
+  "/api/club/downgrade",
   "/api/club/selection",
   "/api/reviews",
   "/api/checkout",
