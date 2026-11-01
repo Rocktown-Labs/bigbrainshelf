@@ -59,8 +59,18 @@ problem, its execution was. /account uses the same mechanics as
   into squares: a cropped cover clips its own title.
 - As the screen narrows the boards reflow to 2 by 2. It always reads as
   a shelf, never as a data grid.
-- A cover shows at most one quiet marker: a slim progress bar or percent
-  for a book in progress. Nothing else competes with the art.
+- A cover shows a slim progress bar or percent for a book in
+  progress, plus the small format access circles at the top-left
+  (green book = digital, red headphones = audio, navy pill = club),
+  the same color language as the storefront (CG, 2026-11-01: he
+  asked for the icons here explicitly). Nothing else competes with
+  the art.
+- The sidebar nav is short on purpose (simplified 2026-11-01):
+  Dashboard and My Library up top, then Family, Give $10 Get $10,
+  Book & Audio Club, Orders & Receipts, My Reviews, Settings. The
+  Listening Shelf has no nav item; listening lives inside My
+  Library and the book overview. The desktop sidebar collapses to
+  an icon rail (persisted per browser).
 - Empty shelf: one friendly line and one button to the store. No
   placeholder boxes, no grey skeletons pretending to be books.
 
