@@ -36,7 +36,7 @@ import {
   AUDIO_CLUB_ANNUAL_PRICE_CENTS,
 } from "./offers";
 import { enqueueEmail } from "./orders";
-import { enqueueBirthdayGiftEmail, calculateAgeFromDob } from "./family";
+import { enqueueBirthdayGiftEmail, calculateAgeFromDob, parseNotificationPrefs } from "./family";
 
 export const BIRTHDAY_GIFT_CODE = "BDAY10";
 
@@ -147,7 +147,8 @@ export async function runBirthdayGiftScheduler(
                 kp.avatar_key,
                 kp.age_group,
                 u.email,
-                po.marketing_opt_in
+                po.marketing_opt_in,
+                po.notification_prefs
          FROM kid_profiles kp
          INNER JOIN "user" u ON u.id = kp.user_id
          LEFT JOIN parent_onboarding po ON po.user_id = kp.user_id
@@ -163,11 +164,15 @@ export async function runBirthdayGiftScheduler(
         age_group: string | null;
         email: string;
         marketing_opt_in: number | null;
+        notification_prefs: string | null;
       }>();
 
     for (const row of rows.results || []) {
       checkedKids++;
       if (row.marketing_opt_in === 0) continue;
+      // Settings gate: the birthday gift is a family note; a family
+      // that turned family notes off does not get it.
+      if (!parseNotificationPrefs(row.notification_prefs, row.marketing_opt_in !== 0).family_notes) continue;
 
       const check = isBirthdayWithinWindow(row.birth_date, now, 0);
       if (!check.matches) continue;

@@ -589,5 +589,20 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     const listenSrc = readFileSync(resolve(root, "src/pages/account/listen.astro"), "utf8");
     expect(listenSrc).toContain("? = 1 AND LOWER(email)");
     expect(listenSrc).toContain("emailVerified");
+
+    // Notification preferences are honored, not just stored: the
+    // send-time flush suppresses by category, release announcements
+    // and club reminders check at enqueue, and the birthday
+    // scheduler checks family_notes.
+    const emailLibSrc = readFileSync(resolve(root, "src/lib/email.ts"), "utf8");
+    expect(emailLibSrc).toContain("familyNote");
+    expect(emailLibSrc).toContain("notification_prefs");
+    const releasesSrc = readFileSync(resolve(root, "src/lib/releases.ts"), "utf8");
+    expect(releasesSrc).toContain("getNotificationPrefsForEmail");
+    const clubEmailsSrc = readFileSync(resolve(root, "src/lib/club-emails.ts"), "utf8");
+    expect(clubEmailsSrc).toContain("getNotificationPrefsForUser");
+    const revopsSrc = readFileSync(resolve(root, "src/lib/revops.ts"), "utf8");
+    expect(revopsSrc).toContain("parseNotificationPrefs");
+    expect(revopsSrc).toContain("family_notes");
   });
 });

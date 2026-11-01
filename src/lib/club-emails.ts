@@ -225,6 +225,13 @@ export async function enqueueClubCycleEmail(
   if (!member?.email) return false;
   const email = String(member.email);
   if (isClubReminderKind(kind) && (await isOptedOut(db, email))) return false;
+  if (isClubReminderKind(kind) && member.user_id) {
+    // Settings gate: club news off means no pick reminders. The
+    // send-time flush re-checks the same preference.
+    const { getNotificationPrefsForUser } = await import("./family");
+    const prefs = await getNotificationPrefsForUser(db, String(member.user_id));
+    if (!prefs.club_news) return false;
+  }
 
   const timing = clubCycleTiming(String(box.ship_date), boxCreatedDateString(box.created_at));
   let bookTitle: string | null = null;

@@ -256,6 +256,33 @@ export interface NotificationPrefs {
 // on; new-release news follows the family's marketing opt-in until
 // they set it here. Transactional mail (orders, shipping, billing)
 // is never gated by these.
+export async function getNotificationPrefsForUser(
+  db: DBLike,
+  userId: string
+): Promise<NotificationPrefs> {
+  const rec = await getParentOnboarding(db, userId).catch(() => null);
+  if (rec) return rec.notification_prefs;
+  // No onboarding row: no marketing opt-in on record, club and
+  // family mail at their defaults.
+  return { new_releases: false, club_news: true, family_notes: true };
+}
+
+// Prefs for an email address, or null when no account carries it
+// (a newsletter subscriber who never signed up: their subscription
+// itself is the opt-in, and the unsubscribe link governs them).
+export async function getNotificationPrefsForEmail(
+  db: DBLike,
+  email: string
+): Promise<NotificationPrefs | null> {
+  const row: any = await db
+    .prepare('SELECT id FROM "user" WHERE lower(email) = ? LIMIT 1')
+    .bind(String(email || "").trim().toLowerCase())
+    .first()
+    .catch(() => null);
+  if (!row?.id) return null;
+  return getNotificationPrefsForUser(db, String(row.id));
+}
+
 export function parseNotificationPrefs(raw: unknown, marketingOptIn: boolean): NotificationPrefs {
   const defaults: NotificationPrefs = {
     new_releases: marketingOptIn,

@@ -180,13 +180,58 @@ async function isMarketingSuppressed(db: DBLike, row: any): Promise<boolean> {
     row.kind === "club_cycle_reminder_3" ||
     row.kind === "release_club" ||
     row.kind === "release_public";
-  if (!marketing) return false;
+  // Family notes (Settings category): the birthday gift and the
+  // reading-milestone notes. Not marketing opt-out mail, but the
+  // family's own preference governs them the same way.
+  const familyNote = row.kind === "birthday_gift" || row.kind === "completion_upsell";
+  if (!marketing && !familyNote) return false;
+  const toEmail = String(row.to_email || "").trim().toLowerCase();
+  if (marketing) {
+    try {
+      const hit = await db
+        .prepare("SELECT email FROM marketing_opt_outs WHERE email = ?")
+        .bind(toEmail)
+        .first();
+      if (hit) return true;
+    } catch {
+      return false;
+    }
+  }
+  // Account notification preferences (Settings, 2026-11-01): a
+  // family that turned a category off in their account does not get
+  // it, even if a row was queued before they chose. Read directly
+  // here for the same reason as the opt-out table above; recipients
+  // with no account keep the defaults (their subscription or club
+  // membership is the opt-in). Defaults mirror parseNotificationPrefs
+  // in lib/family.ts: releases follow marketing_opt_in, club news
+  // defaults on.
   try {
-    const hit = await db
-      .prepare("SELECT email FROM marketing_opt_outs WHERE email = ?")
-      .bind(String(row.to_email || "").trim().toLowerCase())
+    const acct: any = await db
+      .prepare(
+        `SELECT po.notification_prefs AS prefs, po.marketing_opt_in AS moi
+         FROM parent_onboarding po INNER JOIN "user" u ON u.id = po.user_id
+         WHERE lower(u.email) = ? LIMIT 1`
+      )
+      .bind(toEmail)
       .first();
-    return Boolean(hit);
+    if (!acct) return false;
+    let prefs: any = null;
+    try { prefs = acct.prefs ? JSON.parse(String(acct.prefs)) : null; } catch { prefs = null; }
+    const marketingOptIn = Number(acct.moi || 0) !== 0;
+    const newReleases = typeof prefs?.new_releases === "boolean" ? prefs.new_releases : marketingOptIn;
+    const clubNews = typeof prefs?.club_news === "boolean" ? prefs.club_news : true;
+    const familyNotes = typeof prefs?.family_notes === "boolean" ? prefs.family_notes : true;
+    if ((row.kind === "release_club" || row.kind === "release_public") && !newReleases) return true;
+    if (
+      (row.kind === "club_followup" ||
+        row.kind === "club_cycle_reminder_14" ||
+        row.kind === "club_cycle_reminder_3") &&
+      !clubNews
+    ) {
+      return true;
+    }
+    if (familyNote && !familyNotes) return true;
+    return false;
   } catch {
     return false;
   }

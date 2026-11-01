@@ -282,6 +282,11 @@ export async function enqueueReleaseAnnouncements(
 
   const sendOne = async (email: string, wave: "club" | "public") => {
     if (await isOptedOut(db, email)) return;
+    // Account holders who turned off new-release mail in Settings
+    // are skipped in both waves; the send-time flush re-checks too.
+    const { getNotificationPrefsForEmail } = await import("./family");
+    const prefs = await getNotificationPrefsForEmail(db, email);
+    if (prefs && !prefs.new_releases) return;
     const token = await getOrCreateUnsubscribeToken(db, email);
     const model = buildReleaseModel({ site, book, cast, wave, token });
     const { subject, text } = buildReleaseEmail(model);
