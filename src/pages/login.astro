@@ -257,7 +257,7 @@ if (Astro.locals.user) {
           }
           throw new Error(data.message || "That email/username and password did not match an account.");
         }
-        var dest = next && next.startsWith("/") && !next.startsWith("/login") ? next : "/account";
+        var dest = next && next.startsWith("/") && !next.startsWith("/login") ? next : "/auth/land";
         window.location.href = dest;
       } catch (ex) {
         err.textContent = ex.message;

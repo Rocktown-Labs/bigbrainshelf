@@ -50,7 +50,19 @@ if (isAdmin) {
   });
 }
 
-const dest =
+// isOnboarded gate (CG's hub brief, 2026-11-01): a customer with no
+// explicit destination who has not finished family setup lands on
+// /onboarding first. Skipping there stamps completion, so the gate
+// fires once, never as a nag. A failure here must never break
+// sign-in, so every error falls through to the account.
+let dest =
   next && safePath(next) && !next.startsWith("/admin") ? next : "/account";
+if (dest === "/account") {
+  try {
+    const { getParentOnboarding } = await import("../../lib/family");
+    const ob = await getParentOnboarding(e.DB, session.user.id).catch(() => null);
+    if (!ob?.completed_at) dest = "/onboarding";
+  } catch {}
+}
 return Astro.redirect(dest, 302);
 ---

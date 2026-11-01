@@ -70,6 +70,39 @@ const {
       </a>
     </div>
 
+    <!-- Family profile: the same fields as /onboarding, editable here -->
+    <section class="mt-6 rounded-2xl border border-stone-200 bg-[#fcfaf6] p-6 sm:p-8">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-extrabold text-stone-900">Family profile</h2>
+          <p class="text-xs text-stone-600 mt-0.5">
+            {parentOnboarding?.parent_name
+              ? <>Parent: <strong>{parentOnboarding.parent_name}</strong> · </>
+              : null}
+            {kidProfiles.length === 0
+              ? "No child readers yet"
+              : <>{kidProfiles.length} reader{kidProfiles.length === 1 ? "" : "s"}: <strong>{kidProfiles.map((k) => k.name).join(", ")}</strong></>}
+            {" · "}
+            {onboardingChecklist.isComplete ? "Setup complete" : `Setup ${onboardingChecklist.percent}% complete`}
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a
+            href="/onboarding"
+            class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500"
+          >
+            Edit family setup →
+          </a>
+          <a
+            href="/account/kids"
+            class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500"
+          >
+            Readers &amp; limits →
+          </a>
+        </div>
+      </div>
+    </section>
+
     <!-- Account Identity & @username -->
     <section class="mt-6 rounded-2xl border border-stone-200 bg-[#fcfaf6] p-6 sm:p-8">
       <div class="flex flex-wrap items-center justify-between gap-4">
@@ -83,7 +116,7 @@ const {
           </p>
         </div>
         <a
-          href="/account/onboarding"
+          href="/onboarding"
           class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500"
         >
           Update @username or Parent PIN →

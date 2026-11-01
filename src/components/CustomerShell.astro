@@ -67,7 +67,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Family",
     items: [
       { id: "kids", href: "/account/kids", label: "Kids & Sleep Limits", icon: "kids", badge: kidProfiles.length > 0 ? String(kidProfiles.length) : undefined, parentOnly: true },
-      { id: "onboarding", href: "/account/onboarding", label: "Family Setup", icon: "sparkles", badge: onboardingComplete ? undefined : "1 min", parentOnly: true },
+      { id: "onboarding", href: "/onboarding", label: "Family Setup", icon: "sparkles", badge: onboardingComplete ? undefined : "1 min", parentOnly: true },
       { id: "referrals", href: "/account/referrals", label: "Give $10, Get $10", icon: "gift", badge: "$10", parentOnly: true },
     ],
   },
@@ -451,7 +451,7 @@ const ICONS: Record<string, string> = {
     </select>
     {kidProfiles.length === 0 && (
       <a
-        href="/account/onboarding"
+        href="/onboarding"
         data-parent-only="true"
         class="mt-1.5 inline-block text-[11px] font-bold text-orange-700 hover:underline"
       >

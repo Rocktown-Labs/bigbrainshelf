@@ -393,7 +393,7 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
 
     const referralsSrc = readFileSync(resolve(root, "src/pages/account/referrals.astro"), "utf8");
     expect(referralsSrc).toContain('id="referrals"');
-    const onboardingSrc = readFileSync(resolve(root, "src/pages/account/onboarding.astro"), "utf8");
+    const onboardingSrc = readFileSync(resolve(root, "src/pages/onboarding.astro"), "utf8");
     expect(onboardingSrc).toContain('name="future_topics"');
     expect(onboardingSrc).toContain('name="tos_accepted"');
     expect(onboardingSrc).toContain('name="marketing_opt_in"');
@@ -473,7 +473,7 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     expect(signupSrc).toContain("/api/auth/is-username-available");
     expect(signupSrc).toContain('id="username"');
 
-    const accountSrc = readFileSync(resolve(root, "src/pages/account/onboarding.astro"), "utf8");
+    const accountSrc = readFileSync(resolve(root, "src/pages/onboarding.astro"), "utf8");
     expect(accountSrc).toContain('id="ob-username"');
     expect(accountSrc).toContain("/api/auth/is-username-available");
     expect(accountSrc).toContain("/api/auth/update-user");

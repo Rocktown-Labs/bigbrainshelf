@@ -70,7 +70,7 @@ const {
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <a
-          href="/account/onboarding"
+          href="/onboarding"
           class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500"
         >
           Edit Family Preferences
@@ -102,6 +102,15 @@ const {
             name="name"
             required
             placeholder="e.g., Leo"
+            class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-semibold"
+          />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-stone-700">@handle (optional)</label>
+          <input
+            type="text"
+            name="handle"
+            placeholder="e.g., @rubyjoyhs"
             class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-semibold"
           />
         </div>
@@ -296,6 +305,7 @@ const {
               body: JSON.stringify({
                 action: "upsert_kid",
                 name: String(fd.get("name") || ""),
+                handle: String(fd.get("handle") || "") || null,
                 birth_date: String(fd.get("birth_date") || ""),
                 age_group: String(fd.get("age_group") || "4-8"),
                 avatar_key: String(fd.get("avatar_key") || "mira"),

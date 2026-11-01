@@ -150,6 +150,7 @@ export interface KidProfileRecord {
   id: string;
   user_id: string;
   name: string;
+  handle: string | null;
   birth_date: string | null;
   birthday_gift_sent_year: number | null;
   age: number;
@@ -268,6 +269,7 @@ const PARENT_ONBOARDING_ADDITIVE_COLS: Record<string, string> = {
 const KID_PROFILES_ADDITIVE_COLS: Record<string, string> = {
   birth_date: "TEXT",
   birthday_gift_sent_year: "INTEGER",
+  handle: "TEXT",
 };
 
 export async function ensureFamilyTables(db: DBLike): Promise<void> {
@@ -432,6 +434,7 @@ function hydrateKidProfile(row: any, today: string): KidProfileRecord {
     id: String(row.id),
     user_id: String(row.user_id),
     name: String(row.name || "Reader"),
+    handle: row.handle ? String(row.handle) : null,
     birth_date: birthDate,
     birthday_gift_sent_year: row.birthday_gift_sent_year
       ? Number(row.birthday_gift_sent_year)
@@ -879,6 +882,7 @@ export async function listKidProfiles(
 export interface UpsertKidProfileInput {
   id?: string;
   name: string;
+  handle?: string | null;
   birth_date?: string | null;
   age?: number;
   age_group?: AgeGroup;
@@ -906,6 +910,16 @@ export async function upsertKidProfile(
   const current = existingProfiles.find((p) => p.id === id) || null;
 
   const cleanName = String(input.name || current?.name || "Reader").trim().slice(0, 40) || "Reader";
+  // Optional public handle for the child (CG's onboarding model:
+  // @rubyjoyhs). Same format rules as account usernames; an invalid
+  // or empty value clears to null rather than failing the save.
+  const handle =
+    input.handle !== undefined
+      ? (() => {
+          const h = String(input.handle || "").trim().replace(/^@+/, "").toLowerCase();
+          return /^[a-z0-9_.]{3,30}$/.test(h) ? h : null;
+        })()
+      : (current?.handle ?? null);
   const birthDate =
     input.birth_date !== undefined
       ? (input.birth_date ? String(input.birth_date).trim().slice(0, 16) : null)
@@ -974,10 +988,11 @@ export async function upsertKidProfile(
   await db
     .prepare(
       `INSERT INTO kid_profiles
-         (id, user_id, name, birth_date, birthday_gift_sent_year, age, age_group, avatar_key, favorite_themes, daily_limit_minutes, default_sleep_timer_minutes, bedtime_cutoff, allow_audio_autoplay, allowed_book_slugs, daily_minutes_used, daily_minutes_date, is_default, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         (id, user_id, name, handle, birth_date, birthday_gift_sent_year, age, age_group, avatar_key, favorite_themes, daily_limit_minutes, default_sleep_timer_minutes, bedtime_cutoff, allow_audio_autoplay, allowed_book_slugs, daily_minutes_used, daily_minutes_date, is_default, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
+         handle = excluded.handle,
          birth_date = excluded.birth_date,
          age = excluded.age,
          age_group = excluded.age_group,
@@ -995,6 +1010,7 @@ export async function upsertKidProfile(
       id,
       userId,
       cleanName,
+      handle,
       birthDate,
       current?.birthday_gift_sent_year ?? null,
       age,

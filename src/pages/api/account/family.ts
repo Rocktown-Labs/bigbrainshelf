@@ -148,6 +148,7 @@ export const POST: APIRoute = async ({ request, url, locals }) => {
       savedKid = await upsertKidProfile(db, userId, {
         id: body.kid_profile.id,
         name: String(body.kid_profile.name),
+        handle: body.kid_profile.handle ? String(body.kid_profile.handle) : null,
         birth_date: body.kid_profile.birth_date || null,
         age: Number(body.kid_profile.age || 6),
         age_group: body.kid_profile.age_group,

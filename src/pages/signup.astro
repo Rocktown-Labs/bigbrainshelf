@@ -214,7 +214,7 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
           throw new Error(data.message || "Could not create the account.");
         }
         if (window.bbsTraks) window.bbsTraks("account_signup", { method: "email" });
-        window.location.href = next && next.startsWith("/") && !next.startsWith("/admin") ? next : "/account";
+        window.location.href = next && next.startsWith("/") && !next.startsWith("/admin") ? next : "/auth/land";
       } catch (ex) {
         err.textContent = ex.message;
         err.classList.remove("hidden");
