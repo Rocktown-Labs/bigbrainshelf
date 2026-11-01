@@ -18,7 +18,8 @@ export type FamilySyncBackendMode = "durable_object" | "d1_polling_scaffolding";
 
 export interface FamilySyncState {
   familyUserId: string;
-  activeKidId: number | null;
+  /** The active kid profile id (a UUID string). */
+  activeKidId: string | null;
   activeBookSlug: string | null;
   activeFormat: "story" | "read_along" | "audio";
   chapterIndex: number;
@@ -35,7 +36,7 @@ export interface FamilySyncState {
 }
 
 export interface FamilySyncUpdateInput {
-  activeKidId?: number | null;
+  activeKidId?: string | null;
   activeBookSlug?: string | null;
   activeFormat?: "story" | "read_along" | "audio";
   chapterIndex?: number;
@@ -122,7 +123,7 @@ export async function ensureFamilySyncSchema(db?: D1Database): Promise<void> {
     .prepare(
       `CREATE TABLE IF NOT EXISTS family_sync_rooms (
         family_user_id TEXT PRIMARY KEY,
-        active_kid_id INTEGER,
+        active_kid_id TEXT,
         active_book_slug TEXT,
         active_format TEXT NOT NULL DEFAULT 'story',
         chapter_index INTEGER NOT NULL DEFAULT 0,
@@ -250,19 +251,45 @@ export async function updateFamilySyncState(
   const now = new Date().toISOString();
   const today = todayUtcDate();
 
+  const nextActiveKidId =
+    patch.activeKidId !== undefined
+      ? patch.activeKidId === null
+        ? null
+        : String(patch.activeKidId)
+      : current.activeKidId;
+
+  let nextLimit =
+    patch.dailyLimitMinutes !== undefined
+      ? Math.max(5, Math.min(240, Number(patch.dailyLimitMinutes)))
+      : current.dailyLimitMinutes;
+  // N2 (2026-10-31): the room's daily limit is the parent's setting,
+  // not the client's. The 5-240 clamp above only bounds the raw value;
+  // this also caps it at the active kid profile's saved limit, so a kid
+  // (or any client) cannot widen their own screen-time budget through
+  // the sync route. No profile row (or a broken query) keeps the
+  // clamped value — never the client's raw number unchecked.
+  if (patch.dailyLimitMinutes !== undefined && db && nextActiveKidId) {
+    try {
+      const kid = await db
+        .prepare("SELECT daily_limit_minutes FROM kid_profiles WHERE id = ? AND user_id = ? LIMIT 1")
+        .bind(String(nextActiveKidId), familyUserId)
+        .first<Record<string, any>>();
+      if (kid && Number.isFinite(Number(kid.daily_limit_minutes))) {
+        nextLimit = Math.min(nextLimit, Math.max(0, Number(kid.daily_limit_minutes)));
+      }
+    } catch {
+      /* kid_profiles may not exist yet: keep the clamped value */
+    }
+  }
   const nextMinutes = Math.max(
     0,
     current.minutesUsedToday + Number(patch.elapsedMinutesDelta || 0)
   );
-  const nextLimit =
-    patch.dailyLimitMinutes !== undefined
-      ? Math.max(5, Math.min(240, Number(patch.dailyLimitMinutes)))
-      : current.dailyLimitMinutes;
   const isBedtimeLocked = nextLimit > 0 && nextMinutes >= nextLimit;
 
   const updated: FamilySyncState = {
     familyUserId,
-    activeKidId: patch.activeKidId !== undefined ? patch.activeKidId : current.activeKidId,
+    activeKidId: nextActiveKidId,
     activeBookSlug:
       patch.activeBookSlug !== undefined ? patch.activeBookSlug : current.activeBookSlug,
     activeFormat: patch.activeFormat || current.activeFormat,

@@ -137,8 +137,9 @@ const {
               type="password"
               inputmode="numeric"
               maxlength="8"
-              value={parentOnboarding?.parent_pin || ""}
-              placeholder="e.g., 1234"
+              data-pin-set={Boolean(parentOnboarding?.parent_pin) ? "1" : undefined}
+              value=""
+              placeholder={parentOnboarding?.parent_pin ? "Leave blank to keep your current PIN" : "e.g., 1234"}
               class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm font-semibold focus:border-orange-500 focus:outline-none"
             />
           </div>
@@ -622,11 +623,20 @@ const {
               if (yrs >= 1 && yrs <= 18) kidAge = yrs;
             }
           }
+          var pinValue = String(fd.get("parent_pin") || "");
+          // The form no longer echoes the stored PIN (it is a secret —
+          // now a hash server-side, F9). A blank field means "keep the
+          // current PIN" when one exists, and "no PIN" otherwise.
+          var pinEl = document.getElementById("ob-parent-pin");
+          var pinPayload =
+            pinValue || !(pinEl && pinEl.dataset.pinSet)
+              ? pinValue
+              : undefined;
           var payload = {
             action: "save_onboarding",
             parent_name: String(fd.get("parent_name") || ""),
             reading_goal: String(fd.get("reading_goal") || "bedtime_calm"),
-            parent_pin: String(fd.get("parent_pin") || ""),
+            parent_pin: pinPayload,
             tos_accepted: fd.get("tos_accepted") !== null,
             marketing_opt_in: fd.get("marketing_opt_in") !== null,
             favorite_topics: favTopics,

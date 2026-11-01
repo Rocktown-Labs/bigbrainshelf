@@ -43,7 +43,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     e.DB,
     userId,
     {
-      activeKidId: body.activeKidId !== undefined ? Number(body.activeKidId) : undefined,
+      activeKidId: body.activeKidId !== undefined && body.activeKidId !== null
+        ? String(body.activeKidId)
+        : body.activeKidId === null
+          ? null
+          : undefined,
       activeBookSlug: body.activeBookSlug,
       activeFormat: body.activeFormat,
       chapterIndex: body.chapterIndex,

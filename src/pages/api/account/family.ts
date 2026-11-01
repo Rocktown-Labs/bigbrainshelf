@@ -223,13 +223,31 @@ export const POST: APIRoute = async ({ request, url, locals }) => {
 
   if (action === "upsert_kid") {
     const existingOnboarding = await getParentOnboarding(db, userId);
-    if (existingOnboarding?.parent_pin && body.require_pin) {
+    const profileInput = body.profile || body;
+    // F9: the PIN requirement is derived SERVER-SIDE. A kid using the
+    // parent's session used to skip it by omitting require_pin; now any
+    // change to the protected fields (limits, sleep timer, bedtime,
+    // allowed books) demands the PIN whenever one is set — the client
+    // flag only ADDS the requirement (the parent's own PIN modal),
+    // never removes it.
+    const PROTECTED_KID_FIELDS = [
+      "daily_limit_minutes",
+      "default_sleep_timer_minutes",
+      "bedtime_cutoff",
+      "allowed_book_slugs",
+    ];
+    const touchesProtected = Boolean(
+      profileInput &&
+        PROTECTED_KID_FIELDS.some(
+          (f) => profileInput[f] !== undefined && profileInput[f] !== null
+        )
+    );
+    if (existingOnboarding?.parent_pin && (body.require_pin || touchesProtected)) {
       const pinOk = await verifyParentPin(db, userId, String(body.pin || ""));
       if (!pinOk) {
         return json({ error: "Parent PIN required to change profile limits" }, 403);
       }
     }
-    const profileInput = body.profile || body;
     if (!profileInput?.name) {
       return json({ error: "Child name is required" }, 400);
     }
@@ -286,7 +304,14 @@ export const DELETE: APIRoute = async ({ request, url, locals }) => {
   }
   const pin = url.searchParams.get("pin") || "";
   const existing = await getParentOnboarding(db, userId);
-  if (existing?.parent_pin && pin) {
+  // F9: deleting a profile is a PIN-protected action. The old check
+  // only ran when a pin param was PRESENT, so omitting it skipped
+  // verification entirely — a kid on the parent's session could remove
+  // a sibling's profile without the PIN.
+  if (existing?.parent_pin) {
+    if (!pin) {
+      return json({ error: "Parent PIN required" }, 403);
+    }
     const ok = await verifyParentPin(db, userId, pin);
     if (!ok) return json({ error: "Invalid Parent PIN" }, 403);
   }

@@ -211,7 +211,10 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
       "https://bigbrainshelf.com"
     );
     expect(ob.parent_name).toBe("Alex");
-    expect(ob.parent_pin).toBe("4321");
+    // F9 (2026-10-31): PINs hash at rest. The stored value is never
+    // the plaintext, and the verifier still accepts the real PIN.
+    expect(ob.parent_pin).not.toBe("4321");
+    expect(ob.parent_pin?.startsWith("pbkdf2$")).toBe(true);
     expect(ob.completed_at).toBeGreaterThan(0);
 
     // Verify PIN gate
