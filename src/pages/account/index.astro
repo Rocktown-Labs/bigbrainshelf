@@ -1613,7 +1613,7 @@ if (showSuccess) {
               btn.textContent = "🎂 Gift Queued!";
               try {
                 if (typeof window.bbsTraks === "function") {
-                  window.bbsTraks("birthday_gift_requested", { kid_id: kidId });
+                  window.bbsTraks("birthday_gift_requested", { trigger: "account_dashboard" });
                 }
               } catch {}
             } else {
@@ -1640,7 +1640,7 @@ if (showSuccess) {
               copyRefMsg.classList.remove("hidden");
             }
             if (typeof window.bbsTraks === "function") {
-              window.bbsTraks("referral_link_shared", { channel: "clipboard", code: code });
+              window.bbsTraks("referral_link_shared", { channel: "clipboard" });
             }
           } catch {}
         });

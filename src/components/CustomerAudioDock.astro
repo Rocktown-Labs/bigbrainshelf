@@ -1075,6 +1075,11 @@ const audioBooks = books.filter((b) => Boolean(b.audiobook_key));
             syncEditionButtons();
             renderStage();
           }
+          try {
+            if (typeof window.bbsTraks === "function") {
+              window.bbsTraks("read_along_started", { edition: state.edition, auto_flip: Boolean(state.autoFlipEnabled) });
+            }
+          } catch {}
           togglePlay();
         });
       }
