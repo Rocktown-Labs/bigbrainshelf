@@ -1,0 +1,373 @@
+---
+import { env } from "cloudflare:workers";
+import "../../styles/global.css";
+import AdminShell from "../../components/AdminShell.astro";
+import { getRevOpsDashboardMetrics } from "../../lib/revops";
+import { clusterParentTopicDemand, getGenerationCostSummary } from "../../lib/braintrust";
+import { getFulfillmentRouterSummary } from "../../lib/fulfillment-router";
+import { getReadingTelemetrySummary } from "../../lib/telemetry";
+
+export const prerender = false;
+
+const db = (env as any).DB;
+
+const [revops, demand, cogs, fulfillment, telemetry, booksRes] = await Promise.all([
+  getRevOpsDashboardMetrics(db),
+  clusterParentTopicDemand(db),
+  getGenerationCostSummary(db),
+  getFulfillmentRouterSummary(db),
+  getReadingTelemetrySummary(db),
+  db
+    .prepare("SELECT slug, title, status FROM books ORDER BY title ASC")
+    .all()
+    .catch(() => ({ results: [] })),
+]);
+
+const books = ((booksRes as any).results || (booksRes as any).rows || []) as any[];
+const fmtMoney = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RevOps, Braintrust &amp; Supply Chain — Big Brain Shelf Admin</title>
+</head>
+<body class="bg-stone-50 text-stone-900 min-h-screen">
+  <AdminShell current="/admin/revops">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span class="inline-flex items-center rounded-full bg-orange-100 text-orange-800 px-3 py-0.5 text-xs font-extrabold uppercase tracking-wider">
+            Transmedia Command Center
+          </span>
+          <h1 class="mt-2 text-2xl sm:text-3xl font-extrabold text-[#1a3454]">
+            RevOps, Pixar Braintrust &amp; Supply Chain
+          </h1>
+          <p class="mt-1 text-sm text-stone-600">
+            Live ARR/MRR across The Book Club ($60/qtr · $199/yr) &amp; The Audio Club ($5.99/mo · $49/yr), Vectorize Canon/Curriculum search, HyperFrames YouTube builder, and 3PL/POD fulfillment routing.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            id="reindex-vectors-btn"
+            class="rounded-full bg-[#1a3454] text-white px-4 py-2 text-xs font-extrabold hover:bg-[#132741]"
+          >
+            ↻ Re-Index Canon &amp; Curriculum Vectors
+          </button>
+          <span id="reindex-vectors-msg" class="text-xs font-bold text-stone-600 self-center"></span>
+        </div>
+      </div>
+
+      {/* Tier 1: Executive RevOps & Offer Ladder KPIs */}
+      <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="rounded-2xl border border-stone-200 bg-white p-5">
+          <p class="text-xs font-bold uppercase tracking-wider text-stone-500">Club Annualized Run Rate (ARR)</p>
+          <p class="mt-2 text-2xl font-extrabold text-[#1a3454]">{fmtMoney(revops.clubMetrics.estimatedArrCents)}</p>
+          <p class="mt-1 text-xs text-stone-500">
+            MRR Eq: <strong>{fmtMoney(revops.clubMetrics.estimatedMrrCents)}/mo</strong>
+          </p>
+        </div>
+
+        <div class="rounded-2xl border border-stone-200 bg-white p-5">
+          <p class="text-xs font-bold uppercase tracking-wider text-stone-500">Active Club Memberships</p>
+          <p class="mt-2 text-2xl font-extrabold text-stone-900">
+            {revops.clubMetrics.physicalQuarterlyActive + revops.clubMetrics.physicalAnnualActive + revops.clubMetrics.audioMonthlyActive + revops.clubMetrics.audioAnnualActive}
+          </p>
+          <p class="mt-1 text-xs text-stone-500">
+            Book ($60/qtr · $199/yr): <strong>{revops.clubMetrics.physicalQuarterlyActive + revops.clubMetrics.physicalAnnualActive}</strong> · Audio ($5.99/mo · $49/yr): <strong>{revops.clubMetrics.audioMonthlyActive + revops.clubMetrics.audioAnnualActive}</strong>
+          </p>
+        </div>
+
+        <div class="rounded-2xl border border-stone-200 bg-white p-5">
+          <p class="text-xs font-bold uppercase tracking-wider text-stone-500">Storefront Order Revenue</p>
+          <p class="mt-2 text-2xl font-extrabold text-stone-900">{fmtMoney(revops.orderRevenueCents)}</p>
+          <p class="mt-1 text-xs text-stone-500">
+            {revops.completedOrdersCount} completed orders · $1.99 Audio / $8.99 Bundle / $20 Print / $25 Gift Set
+          </p>
+        </div>
+
+        <div class="rounded-2xl border border-stone-200 bg-white p-5">
+          <p class="text-xs font-bold uppercase tracking-wider text-stone-500">AI Factory COGS Ledger</p>
+          <p class="mt-2 text-2xl font-extrabold text-orange-700">{fmtMoney(cogs.totalCents)}</p>
+          <p class="mt-1 text-xs text-stone-500">
+            Vercel AI GW + Gemini Direct + HyperFrames Renders
+          </p>
+        </div>
+      </div>
+
+      {/* Pillar 1: "The Pixar Braintrust" Semantic Search & Curriculum Demand */}
+      <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section class="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
+          <h2 class="text-base font-extrabold text-[#1a3454]">
+            🧠 "Ask the Shelf" Semantic Curriculum &amp; Canon Tester
+          </h2>
+          <p class="mt-1 text-xs text-stone-500">
+            Test natural-language parent queries (e.g., <em>"my 6-year-old gets frustrated when losing games"</em> or <em>"how compound interest works"</em>) against the Vectorize / D1 concept index.
+          </p>
+          <form id="admin-braintrust-form" class="mt-3 flex gap-2">
+            <input
+              type="text"
+              id="admin-braintrust-q"
+              placeholder="e.g., frustrated losing board games, saving acorns..."
+              class="flex-1 rounded-xl border border-stone-300 px-3.5 py-2 text-sm"
+            />
+            <button
+              type="submit"
+              class="rounded-xl bg-orange-600 text-white px-4 py-2 text-xs font-extrabold hover:bg-orange-700"
+            >
+              Search Vectors
+            </button>
+          </form>
+          <div id="admin-braintrust-results" class="mt-4 space-y-2 text-xs text-stone-700"></div>
+        </section>
+
+        <section class="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
+          <h2 class="text-base font-extrabold text-[#1a3454]">
+            📈 Parent Curriculum Demand Queue ({demand.totalFamiliesSurveyed} families surveyed)
+          </h2>
+          <p class="mt-1 text-xs text-stone-500">
+            Aggregated from Family Onboarding <code>favorite_topics</code> (1x weight) + <code>future_topics</code> (2x weight) + custom topic requests.
+          </p>
+          {demand.rankedTopics.length === 0 ? (
+            <p class="mt-4 text-xs text-stone-400">No onboarding topic votes recorded yet.</p>
+          ) : (
+            <div class="mt-4 flex flex-wrap gap-2">
+              {demand.rankedTopics.map((t) => (
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-stone-100 border border-stone-200 px-3 py-1 text-xs font-bold text-stone-800">
+                  <span class="capitalize">{t.topic}</span>
+                  <span class="rounded-full bg-[#1a3454] text-white px-2 py-0.2 text-[10px]">{t.count}</span>
+                </span>
+              ))}
+            </div>
+          )}
+          {demand.customRequests.length > 0 && (
+            <div class="mt-4 border-t border-stone-100 pt-3">
+              <p class="text-xs font-extrabold text-stone-700">Recent Parent Custom Story Requests:</p>
+              <ul class="mt-1.5 space-y-1 text-xs text-stone-600">
+                {demand.customRequests.slice(0, 5).map((cr) => (
+                  <li>• "{cr.request}" → <span class="font-bold text-orange-700">{cr.matchedAxis}</span></li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Pillar 2 & 4: HyperFrames Book-to-YouTube Builder & Supply Chain / Phygital Router */}
+      <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <section class="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
+          <h2 class="text-base font-extrabold text-[#1a3454]">
+            🎬 HyperFrames Book-to-YouTube Composition Builder
+          </h2>
+          <p class="mt-1 text-xs text-stone-500">
+            Generates a deterministic seek-safe HyperFrames HTML/GSAP composition with 2D parallax camera moves, character cutouts, and synced Read-Along captions in R2.
+          </p>
+          <form id="admin-hyperframes-form" class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <select id="hf-book-slug" class="rounded-xl border border-stone-300 px-3 py-2 text-xs font-bold bg-white">
+              {books.map((b) => (
+                <option value={b.slug}>{b.title || b.slug} ({b.status})</option>
+              ))}
+            </select>
+            <select id="hf-aspect" class="rounded-xl border border-stone-300 px-3 py-2 text-xs font-bold bg-white">
+              <option value="16:9">16:9 YouTube Full Episode (1920×1080)</option>
+              <option value="9:16">9:16 YouTube Short / Reel (1080×1920)</option>
+            </select>
+            <button
+              type="submit"
+              class="rounded-xl bg-[#1a3454] text-white px-4 py-2 text-xs font-extrabold hover:bg-[#132741]"
+            >
+              Build HyperFrames Video
+            </button>
+          </form>
+          <div id="hf-build-msg" class="mt-3 text-xs font-semibold text-stone-700"></div>
+        </section>
+
+        <section class="rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
+          <h2 class="text-base font-extrabold text-[#1a3454]">
+            📦 Smart Fulfillment Router &amp; Phygital QR/NFC Minter
+          </h2>
+          <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+            <div class="rounded-xl bg-stone-50 border border-stone-200 p-2.5">
+              <p class="text-[11px] font-bold text-stone-500">Mode A · Home Shippo</p>
+              <p class="text-lg font-extrabold text-stone-900">{fulfillment.byMode.mode_a_home_shippo.count}</p>
+            </div>
+            <div class="rounded-xl bg-stone-50 border border-stone-200 p-2.5">
+              <p class="text-[11px] font-bold text-stone-500">Mode B · Global POD</p>
+              <p class="text-lg font-extrabold text-stone-900">{fulfillment.byMode.mode_b_pod.count}</p>
+            </div>
+            <div class="rounded-xl bg-stone-50 border border-stone-200 p-2.5">
+              <p class="text-[11px] font-bold text-stone-500">Mode C · 3PL Boxes/Toys</p>
+              <p class="text-lg font-extrabold text-stone-900">{fulfillment.byMode.mode_c_3pl.count}</p>
+            </div>
+          </div>
+
+          <form id="admin-mint-claim-form" class="mt-4 pt-3 border-t border-stone-100 flex flex-wrap gap-2">
+            <select id="claim-book-slug" class="rounded-xl border border-stone-300 px-3 py-2 text-xs font-bold bg-white">
+              {books.map((b) => (
+                <option value={b.slug}>{b.title || b.slug}</option>
+              ))}
+            </select>
+            <select id="claim-sku-type" class="rounded-xl border border-stone-300 px-3 py-2 text-xs font-bold bg-white">
+              <option value="giftset">$25 Gift Set QR Tag</option>
+              <option value="printed">$20 Printed Book QR Tag</option>
+              <option value="plush_toy">Character Plush NFC Tag</option>
+              <option value="club_box">$60 Quarterly Club Box Tag</option>
+            </select>
+            <button
+              type="submit"
+              class="rounded-xl bg-orange-600 text-white px-4 py-2 text-xs font-extrabold hover:bg-orange-700"
+            >
+              + Mint QR/NFC Claim Link
+            </button>
+          </form>
+          <div id="claim-mint-msg" class="mt-2 text-xs font-bold text-green-700"></div>
+        </section>
+      </div>
+
+      {/* Pillar 5: High-Cardinality Reading Telemetry & Read-Along Lift */}
+      <section class="mt-8 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="text-base font-extrabold text-[#1a3454]">
+              📊 High-Cardinality Reading &amp; Audiobook Telemetry (Workers Analytics Engine + D1 Rollups)
+            </h2>
+            <p class="text-xs text-stone-500">
+              Tracks chapter completion, max page reached, and Read-Along Auto-Flip share without adding PII to Traks.
+            </p>
+          </div>
+          <div class="flex gap-4 text-xs font-bold text-stone-700">
+            <span>Heartbeats: <strong>{telemetry.totalHeartbeats}</strong></span>
+            <span>80%+ Completions: <strong>{telemetry.totalCompletions}</strong></span>
+            <span>Read-Along Share: <strong class="text-orange-700">{telemetry.readAlongSharePct}%</strong></span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </AdminShell>
+
+  <script is:inline>
+    (function () {
+      var reindexBtn = document.getElementById("reindex-vectors-btn");
+      var reindexMsg = document.getElementById("reindex-vectors-msg");
+      if (reindexBtn) {
+        reindexBtn.addEventListener("click", async function () {
+          reindexBtn.disabled = true;
+          if (reindexMsg) reindexMsg.textContent = "Indexing books, chapters, characters & bibles...";
+          try {
+            var r = await fetch("/api/braintrust", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "reindex" }),
+            });
+            var d = await r.json().catch(function () { return {}; });
+            if (r.ok && d.ok) {
+              if (reindexMsg) reindexMsg.textContent = "✓ Indexed " + d.indexed + " vectors (" + d.canonCount + " canon, " + d.curriculumCount + " curriculum)";
+            } else {
+              if (reindexMsg) reindexMsg.textContent = "Could not index vectors.";
+            }
+          } catch {
+            if (reindexMsg) reindexMsg.textContent = "Network error.";
+          }
+          reindexBtn.disabled = false;
+        });
+      }
+
+      var btForm = document.getElementById("admin-braintrust-form");
+      var btInput = document.getElementById("admin-braintrust-q");
+      var btResults = document.getElementById("admin-braintrust-results");
+      if (btForm && btInput && btResults) {
+        btForm.addEventListener("submit", async function (ev) {
+          ev.preventDefault();
+          var q = btInput.value.trim();
+          if (!q) return;
+          btResults.innerHTML = "<p class='text-stone-400'>Searching semantic concept vectors...</p>";
+          var r = await fetch("/api/braintrust?q=" + encodeURIComponent(q));
+          var d = await r.json().catch(function () { return {}; });
+          var matches = (d && d.matches) || [];
+          if (!matches.length) {
+            btResults.innerHTML = "<p class='text-stone-400'>No semantic matches found.</p>";
+            return;
+          }
+          btResults.innerHTML = matches
+            .map(function (m) {
+              return (
+                "<div class='rounded-xl border border-stone-200 bg-stone-50 p-3 flex items-center justify-between gap-2'>" +
+                "<div><p class='font-extrabold text-stone-900'>" +
+                m.title +
+                " <span class='text-[10px] uppercase text-orange-700'>(" +
+                m.entityType +
+                ")</span></p><p class='text-stone-500'>" +
+                m.whyItMatches +
+                "</p></div>" +
+                "<span class='font-mono font-bold text-[#1a3454]'>" +
+                Math.round(m.score * 100) +
+                "%</span></div>"
+              );
+            })
+            .join("");
+        });
+      }
+
+      var hfForm = document.getElementById("admin-hyperframes-form");
+      var hfMsg = document.getElementById("hf-build-msg");
+      if (hfForm && hfMsg) {
+        hfForm.addEventListener("submit", async function (ev) {
+          ev.preventDefault();
+          var slug = document.getElementById("hf-book-slug").value;
+          var aspect = document.getElementById("hf-aspect").value;
+          hfMsg.textContent = "Compiling HyperFrames composition & queueing render...";
+          var r = await fetch("/api/video/build", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug: slug, aspect: aspect }),
+          });
+          var d = await r.json().catch(function () { return {}; });
+          if (r.ok && d.ok) {
+            var comp = d.composition || {};
+            hfMsg.textContent =
+              "✓ HyperFrames " +
+              (comp.aspect || aspect) +
+              " composition built (" +
+              (comp.sceneCount || 0) +
+              " scenes, " +
+              (comp.totalDurationSec || 0) +
+              "s) · Job: " +
+              (d.job && d.job.id);
+          } else {
+            hfMsg.textContent = (d && d.error) || "Could not build composition.";
+          }
+        });
+      }
+
+      var claimForm = document.getElementById("admin-mint-claim-form");
+      var claimMsg = document.getElementById("claim-mint-msg");
+      if (claimForm && claimMsg) {
+        claimForm.addEventListener("submit", async function (ev) {
+          ev.preventDefault();
+          var slug = document.getElementById("claim-book-slug").value;
+          var sku = document.getElementById("claim-sku-type").value;
+          var r = await fetch("/api/claim", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "mint", book_slug: slug, sku_type: sku }),
+          });
+          var d = await r.json().catch(function () { return {}; });
+          if (r.ok && d.claim) {
+            claimMsg.innerHTML =
+              "✓ Minted QR/NFC Link: <a class='underline' href='/claim/" +
+              d.claim.token +
+              "'>/claim/" +
+              d.claim.token +
+              "</a>";
+          } else {
+            claimMsg.textContent = (d && d.error) || "Could not mint token.";
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

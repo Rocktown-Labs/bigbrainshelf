@@ -24,6 +24,7 @@ import { setPhysicalStatus } from "./orders";
 import { flushOutbox } from "./email";
 import { runClubCycleScheduler, type ClubSchedulerSummary } from "./club-cycles";
 import { ensureOrderTrackingColumns, getShippoTracking, shippoConfigured } from "./shippo";
+import { runBirthdayGiftScheduler, type RevOpsBirthdayCronSummary } from "./revops";
 
 export type OutboxFlushSummary = Awaited<ReturnType<typeof flushOutbox>>;
 
@@ -104,6 +105,7 @@ export interface ScheduledWorkSummary {
   flushedBefore: OutboxFlushSummary;
   club: ClubSchedulerSummary;
   tracking: TrackingPollSummary;
+  birthdays?: RevOpsBirthdayCronSummary;
   flushedAfter: OutboxFlushSummary;
 }
 
@@ -127,11 +129,17 @@ export async function runScheduledWork(
   } catch (err: any) {
     console.error("scheduled tracking poll failed", err?.message || err);
   }
+  let birthdays: RevOpsBirthdayCronSummary = { checked: 0, sent: 0, skipped: 0 };
+  try {
+    birthdays = await runBirthdayGiftScheduler(db, site, opts.now);
+  } catch (err: any) {
+    console.error("scheduled birthday gift pass failed", err?.message || err);
+  }
   let flushedAfter = emptyFlush();
   try {
     flushedAfter = await flushOutbox(db, env, batch, site);
   } catch (err: any) {
     console.error("scheduled outbox flush (after) failed", err?.message || err);
   }
-  return { flushedBefore, club, tracking, flushedAfter };
+  return { flushedBefore, club, tracking, birthdays, flushedAfter };
 }

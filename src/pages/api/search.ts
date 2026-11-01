@@ -10,6 +10,7 @@ import {
   type SearchCandidate,
 } from "../../lib/search";
 import { ensurePublicSlugColumn } from "../../lib/public-slugs";
+import { semanticAskTheShelf } from "../../lib/braintrust";
 
 // GET /api/search?q=
 //
@@ -141,6 +142,27 @@ export const GET: APIRoute = async ({ url }) => {
   } catch { /* books unavailable: whatever sections loaded still answer */ }
 
   const sections = searchCatalog({ books: bookCands, cast: castCands, audio: audioCands }, q);
+
+  // Semantic Braintrust fallback: if keyword AND-matching returned 0 sections for a
+  // natural-language parent query (e.g., "frustrated losing board games"), query the
+  // curriculum vector index and surface matching published books.
+  if (sections.length === 0 && q.trim().split(/\s+/).length >= 2) {
+    try {
+      const semanticHits = await semanticAskTheShelf(db, e, q, {
+        namespace: "curriculum",
+        onlyPublished: true,
+        limit: 4,
+      });
+      const matchedSlugs = new Set(semanticHits.map((h) => h.bookSlug));
+      const matchedItems = bookCands
+        .filter((c) => matchedSlugs.has(c.item.meta.slug))
+        .map((c) => c.item);
+      if (matchedItems.length > 0) {
+        sections.push({ type: "books", items: matchedItems });
+      }
+    } catch {}
+  }
+
   return Response.json(
     { query: q, sections },
     { headers: { "Cache-Control": "public, max-age=30, s-maxage=60" } }

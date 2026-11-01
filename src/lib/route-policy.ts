@@ -24,6 +24,9 @@ export const CUSTOMER_SELF_AUTH_API_ROUTES: ReadonlySet<string> = new Set([
   "/api/club-signup",
   "/api/club/checkout",
   "/api/club/selection",
+  "/api/club/retention",
+  "/api/claim",
+  "/api/braintrust",
   "/api/reviews",
   "/api/checkout",
   "/api/download",
@@ -31,6 +34,8 @@ export const CUSTOMER_SELF_AUTH_API_ROUTES: ReadonlySet<string> = new Set([
   "/api/account/progress",
   "/api/account/book-pages",
   "/api/account/me",
+  "/api/account/sync",
+  "/api/account/cast-chat",
 ]);
 
 export const CUSTOMER_SELF_AUTH_PREFIXES: readonly string[] = [

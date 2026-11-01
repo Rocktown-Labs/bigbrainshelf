@@ -1189,6 +1189,43 @@ if (showSuccess) {
             <p class="text-white/80 text-sm leading-relaxed mt-3">Your next box will appear here with its book choices as its due date approaches.</p>
           )
         )}
+
+        {/* Self-Serve Club Retention & Plan Flexibility (Grounded in offers.ts) */}
+        <div class="mt-5 pt-4 border-t border-white/15 flex flex-wrap items-center justify-between gap-3">
+          <p class="text-xs text-white/75">
+            Need a breather or want to adjust your plan?
+          </p>
+          <div class="flex flex-wrap gap-2">
+            {memberPlan === "physical" && (
+              <>
+                <button
+                  type="button"
+                  data-club-retention="skip_next_box"
+                  class="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-white/20"
+                >
+                  Skip Next Quarterly Box
+                </button>
+                <button
+                  type="button"
+                  data-club-retention="switch_to_audio_club"
+                  class="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-xs font-bold text-orange-200 hover:bg-white/20"
+                >
+                  Switch to The Audio Club ($5.99/mo)
+                </button>
+              </>
+            )}
+            {clubSignup?.plan !== "annual" && (
+              <button
+                type="button"
+                data-club-retention="upgrade_to_annual"
+                class="rounded-full bg-orange-500 text-[#1a3454] px-3.5 py-1.5 text-xs font-extrabold hover:bg-orange-400"
+              >
+                {memberPlan === "audio" ? "Upgrade to Annual ($49/yr)" : "Upgrade to Annual ($199/yr · Save ~17%)"}
+              </button>
+            )}
+          </div>
+          <p id="club-retention-msg" class="w-full text-xs font-bold text-orange-200 hidden" role="status"></p>
+        </div>
         </>
       ) : clubSignup?.status === "canceled" ? (
         <p class="text-white/80 text-sm leading-relaxed mt-2">
@@ -1206,6 +1243,65 @@ if (showSuccess) {
           <a href="/clubs" class="ml-1 font-semibold text-orange-300 hover:text-orange-200">Join the Book Club</a>
         </p>
       )}
+    </section>
+
+    {/* "Talk to the Cast" Guardrailed Story Companion & Comprehension Badges */}
+    <section
+      id="cast-companion"
+      class="mt-14 rounded-2xl border border-stone-200 bg-white p-6 sm:p-8 scroll-mt-20"
+      aria-labelledby="cast-companion-heading"
+    >
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <span class="inline-block rounded-full bg-blue-50 border border-blue-200 text-[#1a3454] px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+            ✨ Safe Story Companion · Powered by Canon Braintrust
+          </span>
+          <h2 id="cast-companion-heading" class="text-xl font-extrabold tracking-tight text-stone-900 mt-2">
+            Ask the Cast a Story Question
+          </h2>
+          <p class="text-sm text-stone-600 mt-1">
+            Pick a character buddy below to chat about the big ideas in their book and earn comprehension badges for your profile!
+          </p>
+        </div>
+        <div id="cast-badges-strip" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <form id="cast-companion-form" class="mt-4 grid grid-cols-1 sm:grid-cols-12 gap-3">
+        <div class="sm:col-span-4">
+          <label for="cast-char-select" class="sr-only">Choose Character</label>
+          <select
+            id="cast-char-select"
+            class="w-full rounded-xl border border-stone-300 bg-stone-50 px-3.5 py-2.5 text-sm font-bold text-stone-900"
+          >
+            <option value="mira">🦩 Mira the Heron (Patience &amp; Mastery)</option>
+            <option value="fern">🦊 Fern the Fox (Algorithms &amp; Steps)</option>
+            <option value="penny">🐿️ Penny the Squirrel (Saving &amp; Orchards)</option>
+            <option value="basil">🦫 Basil the Beaver (Design Patterns)</option>
+          </select>
+        </div>
+        <div class="sm:col-span-6">
+          <label for="cast-question-input" class="sr-only">Your Question</label>
+          <input
+            id="cast-question-input"
+            type="text"
+            placeholder="e.g., What should I do when practicing feels frustrating?"
+            class="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-sm text-stone-900"
+          />
+        </div>
+        <div class="sm:col-span-2">
+          <button
+            type="submit"
+            class="w-full min-h-[42px] rounded-xl bg-[#1a3454] text-white px-4 py-2.5 text-xs font-extrabold hover:bg-[#132741]"
+          >
+            Ask Buddy →
+          </button>
+        </div>
+      </form>
+
+      <div
+        id="cast-companion-reply"
+        class="hidden mt-4 rounded-xl bg-amber-50/70 border border-amber-200 p-4 text-sm text-stone-800"
+      ></div>
     </section>
 
     {/* Family Referral Program ("Give $10, Get $10" double-sided reward) */}
@@ -1657,6 +1753,92 @@ if (showSuccess) {
           if (r.ok) window.location.reload();
         });
       });
+
+      // Self-Serve Club Retention & Upgrade buttons
+      document.querySelectorAll("[data-club-retention]").forEach(function (btn) {
+        if (btn.__bound) return;
+        btn.__bound = true;
+        btn.addEventListener("click", async function () {
+          var action = btn.getAttribute("data-club-retention");
+          var msgEl = document.getElementById("club-retention-msg");
+          if (!action) return;
+          btn.disabled = true;
+          if (msgEl) {
+            msgEl.textContent = "Updating your Club membership...";
+            msgEl.classList.remove("hidden");
+          }
+          try {
+            var r = await fetch("/api/club/retention", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: action }),
+            });
+            var d = await r.json().catch(function () { return {}; });
+            if (r.ok && d.ok) {
+              if (msgEl) msgEl.textContent = d.message || "Membership updated!";
+            } else {
+              if (msgEl) msgEl.textContent = d.error || "Could not update membership.";
+            }
+          } catch {
+            if (msgEl) msgEl.textContent = "Network error updating membership.";
+          }
+          btn.disabled = false;
+        });
+      });
+
+      // Ask the Cast Story Companion
+      var castForm = document.getElementById("cast-companion-form");
+      var castSelect = document.getElementById("cast-char-select");
+      var castInput = document.getElementById("cast-question-input");
+      var castReply = document.getElementById("cast-companion-reply");
+      var castBadges = document.getElementById("cast-badges-strip");
+      if (castForm && !castForm.__bound) {
+        castForm.__bound = true;
+        castForm.addEventListener("submit", async function (ev) {
+          ev.preventDefault();
+          var charSlug = castSelect ? castSelect.value : "mira";
+          var q = castInput ? castInput.value.trim() : "";
+          if (castReply) {
+            castReply.classList.remove("hidden");
+            castReply.textContent = "Thinking by the river...";
+          }
+          try {
+            var r = await fetch("/api/account/cast-chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                character_slug: charSlug,
+                question: q,
+                profile_id: currentActiveProfile || "default",
+              }),
+            });
+            var d = await r.json().catch(function () { return {}; });
+            if (r.ok && d.ok && castReply) {
+              castReply.innerHTML =
+                "<p class='font-extrabold text-[#1a3454]'>" +
+                (d.character && d.character.name ? d.character.name : "Cast Buddy") +
+                " says:</p><p class='mt-1 leading-relaxed'>" +
+                d.answer +
+                "</p><p class='mt-2 text-xs font-extrabold text-orange-700'>Earned: " +
+                (d.badgeAwarded || "") +
+                "</p>";
+              if (castBadges && Array.isArray(d.badges)) {
+                castBadges.innerHTML = d.badges
+                  .map(function (b) {
+                    return (
+                      "<span class='rounded-full bg-amber-100 border border-amber-300 px-3 py-1 text-xs font-extrabold text-amber-900'>" +
+                      b.badge +
+                      "</span>"
+                    );
+                  })
+                  .join("");
+              }
+            }
+          } catch {
+            if (castReply) castReply.textContent = "Could not reach your character buddy right now.";
+          }
+        });
+      }
 
       // Switch between Parent View and Kid View (with Parent PIN gate when exiting Kid View)
       var profileSelect = document.getElementById("active-profile-select");

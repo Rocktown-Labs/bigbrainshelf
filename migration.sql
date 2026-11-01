@@ -529,3 +529,132 @@ ALTER TABLE "user" ADD COLUMN banReason TEXT;
 ALTER TABLE "user" ADD COLUMN banExpires INTEGER;
 CREATE UNIQUE INDEX IF NOT EXISTS user_username_idx ON "user"(username) WHERE username IS NOT NULL;
 
+-- Transmedia Scale Pillars 1-6: Braintrust Vectors, AI COGS, Family Sync,
+-- Fulfillment Router, Phygital Claims, Reading Telemetry & RevOps Lifecycle
+CREATE TABLE IF NOT EXISTS vector_embeddings (
+  id TEXT PRIMARY KEY,
+  namespace TEXT NOT NULL DEFAULT 'curriculum',
+  entity_type TEXT NOT NULL,
+  book_slug TEXT NOT NULL,
+  title TEXT NOT NULL,
+  subtitle TEXT,
+  topic TEXT,
+  age_group TEXT DEFAULT '4-8',
+  content_text TEXT NOT NULL,
+  embedding_json TEXT NOT NULL,
+  metadata_json TEXT DEFAULT '{}',
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS vector_embeddings_ns_idx ON vector_embeddings(namespace, book_slug);
+
+CREATE TABLE IF NOT EXISTS generation_cost_ledger (
+  id TEXT PRIMARY KEY,
+  book_slug TEXT NOT NULL,
+  gateway TEXT NOT NULL DEFAULT 'vercel-ai-gateway',
+  stage TEXT NOT NULL,
+  model TEXT NOT NULL,
+  units INTEGER NOT NULL DEFAULT 1,
+  cost_cents INTEGER NOT NULL DEFAULT 0,
+  metadata_json TEXT DEFAULT '{}',
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS generation_cost_book_idx ON generation_cost_ledger(book_slug, created_at);
+
+CREATE TABLE IF NOT EXISTS family_sync_rooms (
+  user_id TEXT PRIMARY KEY,
+  active_profile_id TEXT NOT NULL DEFAULT 'default',
+  active_book_slug TEXT,
+  chapter_num INTEGER NOT NULL DEFAULT 1,
+  page_index INTEGER NOT NULL DEFAULT 0,
+  view_edition TEXT NOT NULL DEFAULT 'readalong',
+  audio_track_id TEXT NOT NULL DEFAULT 'ch1',
+  audio_position_sec INTEGER NOT NULL DEFAULT 0,
+  is_playing INTEGER NOT NULL DEFAULT 0,
+  sleep_remaining_sec INTEGER NOT NULL DEFAULT 3600,
+  daily_limit_reached INTEGER NOT NULL DEFAULT 0,
+  connected_devices_json TEXT DEFAULT '[]',
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cast_companion_sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  profile_id TEXT NOT NULL DEFAULT 'default',
+  character_slug TEXT NOT NULL,
+  book_slug TEXT NOT NULL,
+  question_text TEXT NOT NULL,
+  answer_text TEXT NOT NULL,
+  badge_awarded TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cast_companion_user_idx ON cast_companion_sessions(user_id, profile_id, created_at);
+
+CREATE TABLE IF NOT EXISTS fulfillment_routes (
+  order_id TEXT PRIMARY KEY,
+  mode TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  country_code TEXT DEFAULT 'US',
+  sku_summary TEXT NOT NULL,
+  estimated_cogs_cents INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'routed',
+  external_reference TEXT,
+  payload_json TEXT DEFAULT '{}',
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS fulfillment_routes_mode_idx ON fulfillment_routes(mode, status);
+
+CREATE TABLE IF NOT EXISTS phygital_claims (
+  token TEXT PRIMARY KEY,
+  sku_type TEXT NOT NULL DEFAULT 'giftset',
+  book_slug TEXT NOT NULL,
+  character_slug TEXT,
+  bonus_title TEXT NOT NULL,
+  claimed_by_user_id TEXT,
+  claimed_by_email TEXT,
+  claimed_at INTEGER,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS phygital_claims_book_idx ON phygital_claims(book_slug);
+CREATE INDEX IF NOT EXISTS phygital_claims_user_idx ON phygital_claims(claimed_by_user_id);
+
+CREATE TABLE IF NOT EXISTS reading_telemetry_rollups (
+  id TEXT PRIMARY KEY,
+  book_slug TEXT NOT NULL,
+  chapter_num INTEGER NOT NULL DEFAULT 1,
+  edition TEXT NOT NULL DEFAULT 'story',
+  age_group TEXT NOT NULL DEFAULT '4-8',
+  heartbeats INTEGER NOT NULL DEFAULT 0,
+  completions INTEGER NOT NULL DEFAULT 0,
+  total_listen_sec INTEGER NOT NULL DEFAULT 0,
+  max_page_reached INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS reading_telemetry_book_idx ON reading_telemetry_rollups(book_slug);
+
+CREATE TABLE IF NOT EXISTS basin_event_log (
+  id TEXT PRIMARY KEY,
+  table_target TEXT NOT NULL,
+  event_name TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  synced_to_basin INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS basin_event_synced_idx ON basin_event_log(synced_to_basin, created_at);
+
+CREATE TABLE IF NOT EXISTS revops_lifecycle_events (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  email TEXT NOT NULL,
+  event_kind TEXT NOT NULL,
+  dedupe_key TEXT NOT NULL UNIQUE,
+  fit_score INTEGER NOT NULL DEFAULT 0,
+  engagement_score INTEGER NOT NULL DEFAULT 0,
+  lifecycle_stage TEXT NOT NULL DEFAULT 'activated',
+  metadata_json TEXT DEFAULT '{}',
+  created_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS revops_dedupe_idx ON revops_lifecycle_events(dedupe_key);
+CREATE INDEX IF NOT EXISTS revops_email_kind_idx ON revops_lifecycle_events(email, event_kind);
+
+

@@ -15,6 +15,8 @@ import {
 } from "../../../lib/club";
 import { enqueueClubFollowup } from "../../../lib/marketing";
 import { flushOutbox } from "../../../lib/email";
+import { routePhysicalOrderFulfillment } from "../../../lib/fulfillment-router";
+import { streamToBasinPipeline } from "../../../lib/telemetry";
 
 // POST /api/stripe/webhook — Stripe calls this after checkout.
 // Signature-verified; reachable without a session (see middleware).
@@ -69,6 +71,22 @@ export const POST: APIRoute = async ({ request }) => {
           } catch (err: any) {
             console.error("club followup enqueue failed", err?.message || err);
           }
+          try {
+            await routePhysicalOrderFulfillment(e.DB, order as any);
+          } catch (err: any) {
+            console.error("fulfillment router failed", err?.message || err);
+          }
+          try {
+            await streamToBasinPipeline(e.DB, e, {
+              tableTarget: "orders_iceberg",
+              eventName: "order_completed",
+              payload: {
+                orderId: (order as any).id,
+                amountCents: (order as any).amount,
+                bookSlugs: (order as any).book_slugs,
+              },
+            });
+          } catch {}
         }
         // Best effort: email delivery must never fail the webhook. If the
         // send cannot happen (no email transport configured yet), rows

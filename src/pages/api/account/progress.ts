@@ -6,6 +6,9 @@ import {
   listReadingProgress,
   saveReadingProgress,
 } from "../../../lib/family";
+import { updateFamilySyncState } from "../../../lib/family-sync";
+import { recordReadingTelemetry } from "../../../lib/telemetry";
+import { checkAndEnqueueCompletionUpsell } from "../../../lib/revops";
 
 export const prerender = false;
 
@@ -67,8 +70,47 @@ export const POST: APIRoute = async ({ request, locals }) => {
     elapsed_minutes_delta: body.elapsed_minutes_delta,
   });
 
+  // Update real-time cross-device Family Sync state & high-cardinality telemetry
+  let completionPct = 0;
+  try {
+    await updateFamilySyncState(db, userId, {
+      active_profile_id: String(body.profile_id || "default"),
+      active_book_slug: String(body.book_slug),
+      chapter_num: Number(body.chapter_num || 1),
+      page_index: Number(body.page_index || 0),
+      view_edition: String(body.view_edition || "story"),
+      audio_track_id: String(body.audio_track_id || "ch1"),
+      audio_position_sec: Number(body.audio_position_sec || 0),
+      is_playing: Boolean(body.is_playing),
+      daily_limit_reached: Boolean(result.limitReached),
+      device_id: body.device_id ? String(body.device_id) : undefined,
+      device_label: body.device_label ? String(body.device_label) : undefined,
+    });
+    const tel = await recordReadingTelemetry(db, env as any, {
+      bookSlug: String(body.book_slug),
+      chapterNum: Number(body.chapter_num || 1),
+      pageIndex: Number(body.page_index || 0),
+      edition: String(body.view_edition || "story"),
+      audioPositionSec: Number(body.audio_position_sec || 0),
+      audioDurationSec: Number(body.audio_duration_sec || 0),
+      listenDeltaSec: Number(body.elapsed_minutes_delta || 0) * 60 || 15,
+    });
+    completionPct = tel.completionPct;
+    if (tel.isCompleted80 && session.user.email) {
+      const site = (env as any)?.BETTER_AUTH_URL || "https://bigbrainshelf.com";
+      await checkAndEnqueueCompletionUpsell(db, site, {
+        userId,
+        userEmail: String(session.user.email),
+        userName: session.user.name ? String(session.user.name) : null,
+        bookSlug: String(body.book_slug),
+        completionPct,
+      });
+    }
+  } catch {}
+
   return json({
     ok: true,
+    completionPct,
     ...result,
   });
 };

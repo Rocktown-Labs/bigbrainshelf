@@ -541,3 +541,169 @@ export const authVerifications = sqliteTable(
   (table) => [index("verification_identifier_idx").on(table.identifier)]
 );
 
+// ---------------------------------------------------------------------------
+// Transmedia Scale Pillars 1-6: Braintrust Vectors, AI COGS, Family Sync,
+// Fulfillment Router, Phygital Claims, Reading Telemetry & RevOps Lifecycle
+// ---------------------------------------------------------------------------
+
+export const vectorEmbeddings = sqliteTable(
+  "vector_embeddings",
+  {
+    id: text("id").primaryKey(),
+    namespace: text("namespace").notNull().default("curriculum"), // "canon" | "curriculum"
+    entityType: text("entity_type").notNull(), // "book" | "chapter" | "character" | "bible"
+    bookSlug: text("book_slug").notNull(),
+    title: text("title").notNull(),
+    subtitle: text("subtitle"),
+    topic: text("topic"),
+    ageGroup: text("age_group").default("4-8"),
+    contentText: text("content_text").notNull(),
+    embeddingJson: text("embedding_json").notNull(),
+    metadataJson: text("metadata_json").default("{}"),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("vector_embeddings_ns_idx").on(table.namespace, table.bookSlug),
+  ]
+);
+
+export const generationCostLedger = sqliteTable(
+  "generation_cost_ledger",
+  {
+    id: text("id").primaryKey(),
+    bookSlug: text("book_slug").notNull(),
+    gateway: text("gateway").notNull().default("vercel-ai-gateway"), // "vercel-ai-gateway" | "gemini-direct" | "hyperframes"
+    stage: text("stage").notNull(), // "bible" | "script" | "illustration" | "tts" | "video_hyperframes" | "lift"
+    model: text("model").notNull(),
+    units: integer("units").notNull().default(1),
+    costCents: integer("cost_cents").notNull().default(0),
+    metadataJson: text("metadata_json").default("{}"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    index("generation_cost_book_idx").on(table.bookSlug, table.createdAt),
+  ]
+);
+
+export const familySyncRooms = sqliteTable("family_sync_rooms", {
+  userId: text("user_id").primaryKey(),
+  activeProfileId: text("active_profile_id").notNull().default("default"),
+  activeBookSlug: text("active_book_slug"),
+  chapterNum: integer("chapter_num").notNull().default(1),
+  pageIndex: integer("page_index").notNull().default(0),
+  viewEdition: text("view_edition").notNull().default("readalong"),
+  audioTrackId: text("audio_track_id").notNull().default("ch1"),
+  audioPositionSec: integer("audio_position_sec").notNull().default(0),
+  isPlaying: integer("is_playing").notNull().default(0),
+  sleepRemainingSec: integer("sleep_remaining_sec").notNull().default(3600),
+  dailyLimitReached: integer("daily_limit_reached").notNull().default(0),
+  connectedDevicesJson: text("connected_devices_json").default("[]"),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export const castCompanionSessions = sqliteTable(
+  "cast_companion_sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    profileId: text("profile_id").notNull().default("default"),
+    characterSlug: text("character_slug").notNull(),
+    bookSlug: text("book_slug").notNull(),
+    questionText: text("question_text").notNull(),
+    answerText: text("answer_text").notNull(),
+    badgeAwarded: text("badge_awarded"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    index("cast_companion_user_idx").on(table.userId, table.profileId, table.createdAt),
+  ]
+);
+
+export const fulfillmentRoutes = sqliteTable(
+  "fulfillment_routes",
+  {
+    orderId: text("order_id").primaryKey(),
+    mode: text("mode").notNull(), // "mode_a_home_shippo" | "mode_b_pod" | "mode_c_3pl"
+    provider: text("provider").notNull(), // "shippo" | "lulu_pod" | "gelato_pod" | "shipbob_3pl"
+    countryCode: text("country_code").default("US"),
+    skuSummary: text("sku_summary").notNull(),
+    estimatedCogsCents: integer("estimated_cogs_cents").notNull().default(0),
+    status: text("status").notNull().default("routed"), // "routed" | "submitted" | "shipped" | "delivered"
+    externalReference: text("external_reference"),
+    payloadJson: text("payload_json").default("{}"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [index("fulfillment_routes_mode_idx").on(table.mode, table.status)]
+);
+
+export const phygitalClaims = sqliteTable(
+  "phygital_claims",
+  {
+    token: text("token").primaryKey(),
+    skuType: text("sku_type").notNull().default("giftset"), // "printed" | "giftset" | "plush_toy" | "club_box"
+    bookSlug: text("book_slug").notNull(),
+    characterSlug: text("character_slug"),
+    bonusTitle: text("bonus_title").notNull(),
+    claimedByUserId: text("claimed_by_user_id"),
+    claimedByEmail: text("claimed_by_email"),
+    claimedAt: integer("claimed_at"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    index("phygital_claims_book_idx").on(table.bookSlug),
+    index("phygital_claims_user_idx").on(table.claimedByUserId),
+  ]
+);
+
+export const readingTelemetryRollups = sqliteTable(
+  "reading_telemetry_rollups",
+  {
+    id: text("id").primaryKey(), // `${bookSlug}:${chapterNum}:${edition}`
+    bookSlug: text("book_slug").notNull(),
+    chapterNum: integer("chapter_num").notNull().default(1),
+    edition: text("edition").notNull().default("story"),
+    ageGroup: text("age_group").notNull().default("4-8"),
+    heartbeats: integer("heartbeats").notNull().default(0),
+    completions: integer("completions").notNull().default(0),
+    totalListenSec: integer("total_listen_sec").notNull().default(0),
+    maxPageReached: integer("max_page_reached").notNull().default(0),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [index("reading_telemetry_book_idx").on(table.bookSlug)]
+);
+
+export const basinEventLog = sqliteTable(
+  "basin_event_log",
+  {
+    id: text("id").primaryKey(),
+    tableTarget: text("table_target").notNull(), // "orders_iceberg" | "reading_iceberg" | "club_iceberg"
+    eventName: text("event_name").notNull(),
+    payloadJson: text("payload_json").notNull(),
+    syncedToBasin: integer("synced_to_basin").notNull().default(0),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [index("basin_event_synced_idx").on(table.syncedToBasin, table.createdAt)]
+);
+
+export const revopsLifecycleEvents = sqliteTable(
+  "revops_lifecycle_events",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id"),
+    email: text("email").notNull(),
+    eventKind: text("event_kind").notNull(), // "bday10_sent" | "completion_80_upsell" | "club_skip_box" | "club_switch_audio" | "club_upgrade_annual" | "b2b_school_lead"
+    dedupeKey: text("dedupe_key").notNull().unique(),
+    fitScore: integer("fit_score").notNull().default(0),
+    engagementScore: integer("engagement_score").notNull().default(0),
+    lifecycleStage: text("lifecycle_stage").notNull().default("activated"), // "subscriber" | "activated" | "customer" | "club_member" | "evangelist" | "b2b_mql"
+    metadataJson: text("metadata_json").default("{}"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("revops_dedupe_idx").on(table.dedupeKey),
+    index("revops_email_kind_idx").on(table.email, table.eventKind),
+  ]
+);
+
+
