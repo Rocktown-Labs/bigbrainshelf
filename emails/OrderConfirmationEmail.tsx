@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, Link, Section, Text } from "@react-email/components";
+import { Button, Column, Link, Row, Section, Text } from "@react-email/components";
 import { BRAND, EmailLayout, styles } from "./EmailLayout";
 import type { ConfirmationEmailModel } from "../src/lib/orders";
 
@@ -19,29 +19,89 @@ export default function OrderConfirmationEmail({
       <Text style={styles.paragraph}>
         Thank you for your order from Big Brain Shelf. Here is what you got:
       </Text>
-      {model.items.map((item) => (
-        <Text key={item.title} style={styles.listItem}>
-          {"• "}
-          {item.title}{" "}
-          <span style={{ color: BRAND.muted }}>({item.formatLabel})</span>
-          {item.qty > 1 ? <span style={{ fontWeight: 700 }}> ×{item.qty}</span> : null}
-        </Text>
-      ))}
-      {model.shipping && (
-        <Text style={styles.listItem}>
-          {"• "}
-          Shipping{" "}
-          <span style={{ color: BRAND.muted }}>
-            ({[model.shipping.carrier, model.shipping.service].filter(Boolean).join(" ")})
-          </span>
-          : ${(model.shipping.cents / 100).toFixed(2)}
-        </Text>
-      )}
-      {model.totalCents > 0 && (
-        <Text style={styles.paragraph}>
-          Total charged: ${(model.totalCents / 100).toFixed(2)}
-        </Text>
-      )}
+      {/* Itemized receipt: every line priced in its own right-aligned
+          table cell (never floated, email clients drop floats onto the
+          wrong row), so the lines visibly add up to the total. */}
+      <Section style={{ margin: "4px 0 12px" }}>
+        {model.items.map((item) => (
+          <Row key={item.title + item.formatLabel}>
+            <Column style={{ verticalAlign: "top", padding: "4px 12px 2px 0" }}>
+              <Text style={{ ...styles.listItem, margin: 0 }}>
+                {item.title}{" "}
+                <span style={{ color: BRAND.muted }}>({item.formatLabel})</span>
+                {item.qty > 1 ? <span style={{ fontWeight: 700 }}> ×{item.qty}</span> : null}
+              </Text>
+            </Column>
+            <Column
+              style={{
+                verticalAlign: "top",
+                textAlign: "right",
+                whiteSpace: "nowrap",
+                width: "96px",
+                padding: "4px 0 2px",
+              }}
+            >
+              <Text style={{ ...styles.listItem, margin: 0 }}>
+                {`$${(item.lineTotalCents / 100).toFixed(2)}`}
+              </Text>
+            </Column>
+          </Row>
+        ))}
+        {model.shipping && (
+          <Row>
+            <Column style={{ verticalAlign: "top", padding: "4px 12px 2px 0" }}>
+              <Text style={{ ...styles.listItem, margin: 0 }}>
+                Shipping{" "}
+                <span style={{ color: BRAND.muted }}>
+                  ({[model.shipping.carrier, model.shipping.service].filter(Boolean).join(" ")})
+                </span>
+              </Text>
+            </Column>
+            <Column
+              style={{
+                verticalAlign: "top",
+                textAlign: "right",
+                whiteSpace: "nowrap",
+                width: "96px",
+                padding: "4px 0 2px",
+              }}
+            >
+              <Text style={{ ...styles.listItem, margin: 0 }}>
+                {`$${(model.shipping.cents / 100).toFixed(2)}`}
+              </Text>
+            </Column>
+          </Row>
+        )}
+        {model.totalCents > 0 && (
+          <Row>
+            <Column
+              style={{
+                verticalAlign: "top",
+                padding: "8px 12px 0 0",
+                borderTop: `1px solid ${BRAND.line}`,
+              }}
+            >
+              <Text style={{ ...styles.listItem, margin: 0, fontWeight: 700 }}>
+                Total charged
+              </Text>
+            </Column>
+            <Column
+              style={{
+                verticalAlign: "top",
+                textAlign: "right",
+                whiteSpace: "nowrap",
+                width: "96px",
+                padding: "8px 0 0",
+                borderTop: `1px solid ${BRAND.line}`,
+              }}
+            >
+              <Text style={{ ...styles.listItem, margin: 0, fontWeight: 700 }}>
+                {`$${(model.totalCents / 100).toFixed(2)}`}
+              </Text>
+            </Column>
+          </Row>
+        )}
+      </Section>
 
       <Text style={styles.sectionHeading}>Your download links</Text>
       {model.downloads.map((book) => (

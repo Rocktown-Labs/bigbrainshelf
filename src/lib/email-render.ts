@@ -13,18 +13,12 @@ import {
   buildConfirmationEmailModel,
   buildPhysicalUpdateEmailModel,
   loadBooksForOrder,
-  orderFormatLabel,
   parseItems,
   itemQty,
+  pricedOrderLines,
   resolveClubBlock,
   type DBLike,
 } from "./orders";
-import {
-  AUDIO_PRICE_CENTS,
-  GIFT_SET_PRICE_CENTS,
-  STANDARD_DIGITAL_PRICE_CENTS,
-  STANDARD_PRINT_PRICE_CENTS,
-} from "./offers";
 import {
   buildClubFollowupModel,
   getOrCreateUnsubscribeToken,
@@ -194,15 +188,10 @@ export async function renderOutboxEmailHtml(
 
   if (row.kind === "owner_new_order") {
     // The owner's order summary (CG, 2026-10-31: itemized and
-    // styled, not bare text). Prices are the catalog prices by
-    // format, the same ones checkout charges.
+    // styled, not bare text). Line prices come from pricedOrderLines,
+    // the same numbers the buyer's receipt shows (quantities and the
+    // audio-upgrade credit included).
     const money = (c: number) => `$${(Number(c || 0) / 100).toFixed(2)}`;
-    const priceFor = (format: string) =>
-      format === "printed" ? STANDARD_PRINT_PRICE_CENTS
-      : format === "giftset" ? GIFT_SET_PRICE_CENTS
-      : format === "audio" ? AUDIO_PRICE_CENTS
-      : STANDARD_DIGITAL_PRICE_CENTS;
-    const titleBySlug = new Map(books.map((b: any) => [b.slug, b.title]));
     const items = parseItems(order);
     let shipAddress: string | null = null;
     try {
@@ -216,10 +205,10 @@ export async function renderOutboxEmailHtml(
       orderShortId: String(order.id || "").slice(0, 8).toUpperCase(),
       total: money(order.amount),
       itemCount: items.reduce((sum, it) => sum + itemQty(it), 0),
-      lines: items.map((it) => ({
-        title: titleBySlug.get(it.slug) || "Book",
-        formatLabel: orderFormatLabel(it.format) + (itemQty(it) > 1 ? ` ×${itemQty(it)}` : ""),
-        price: money(priceFor(it.format) * itemQty(it)),
+      lines: pricedOrderLines(order, books).map((l) => ({
+        title: l.title,
+        formatLabel: l.formatLabel + (l.qty > 1 ? ` ×${l.qty}` : ""),
+        price: money(l.lineTotalCents),
       })),
       shipping: Number(order.shipping_cents || 0) > 0 ? money(order.shipping_cents) : null,
       buyerEmail: String(order.email || ""),

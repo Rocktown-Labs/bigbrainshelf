@@ -387,6 +387,8 @@ export async function expireOrderBySession(db: DBLike, sessionId: string): Promi
 export interface BookFiles {
   slug: string;
   title: string;
+  price?: number | null;
+  price_print?: number | null;
   picture_book_key?: string | null;
   coloring_book_key?: string | null;
   epub_key?: string | null;
@@ -398,12 +400,26 @@ export async function loadBooksForOrder(db: DBLike, order: any): Promise<BookFil
   const slugs = [...new Set(parseItems(order).map((i) => i.slug))];
   const books: BookFiles[] = [];
   for (const slug of slugs) {
-    const b = await db
-      .prepare(
-        "SELECT slug, title, picture_book_key, coloring_book_key, epub_key, color_book_key, audiobook_key FROM books WHERE slug = ?"
-      )
-      .bind(slug)
-      .first();
+    // Price columns feed pricedOrderLines; an older schema without
+    // them falls back to the bare file columns and the pricing
+    // helper uses the catalog constants, so a schema skew can never
+    // break the confirmation path.
+    let b: any = null;
+    try {
+      b = await db
+        .prepare(
+          "SELECT slug, title, price, price_print, picture_book_key, coloring_book_key, epub_key, color_book_key, audiobook_key FROM books WHERE slug = ?"
+        )
+        .bind(slug)
+        .first();
+    } catch {
+      b = await db
+        .prepare(
+          "SELECT slug, title, picture_book_key, coloring_book_key, epub_key, color_book_key, audiobook_key FROM books WHERE slug = ?"
+        )
+        .bind(slug)
+        .first();
+    }
     if (b) books.push(b as BookFiles);
   }
   return books;
@@ -643,9 +659,62 @@ export async function orderPickList(
 // Structured content for the order confirmation. The plain-text builder
 // below and the React Email template (emails/) both render from this
 // one model, so the words and the facts can never drift apart.
+export interface PricedOrderLine {
+  title: string;
+  format: string;
+  formatLabel: string;
+  qty: number;
+  unitCents: number;
+  lineTotalCents: number;
+}
+
+// The one place an order's lines get display prices (the account
+// receipt and both order emails read these same numbers). Rules
+// mirror checkoutItemPrice and receipt.astro: per-book price columns
+// win for digital and printed, gift set and audio are the catalog
+// constants, quantities multiply, and an audio-upgrade digital line
+// is credited the audio price its buyer already paid. Lines group by
+// slug + format + credit, the way the confirmation has always grouped.
+export function pricedOrderLines(order: any, books: BookFiles[]): PricedOrderLine[] {
+  const bookBySlug = new Map(books.map((b) => [b.slug, b]));
+  const unitFor = (item: { slug: string; format: string; upgrade?: string }): number => {
+    const b = bookBySlug.get(item.slug);
+    const digital = Math.round(Number(b?.price || 0)) || STANDARD_DIGITAL_PRICE_CENTS;
+    if (item.upgrade === "audio-upgrade") return Math.max(0, digital - AUDIO_PRICE_CENTS);
+    if (item.format === "printed")
+      return Math.round(Number(b?.price_print || 0)) || STANDARD_PRINT_PRICE_CENTS;
+    if (item.format === "giftset") return GIFT_SET_PRICE_CENTS;
+    if (item.format === "audio") return AUDIO_PRICE_CENTS;
+    return digital;
+  };
+  const grouped = new Map<string, PricedOrderLine>();
+  for (const i of parseItems(order)) {
+    const key = `${i.slug}|${i.format}|${i.upgrade || ""}`;
+    const found = grouped.get(key);
+    if (found) {
+      found.qty += itemQty(i);
+      found.lineTotalCents = found.unitCents * found.qty;
+      continue;
+    }
+    const unitCents = unitFor(i);
+    const qty = itemQty(i);
+    grouped.set(key, {
+      title: bookBySlug.get(i.slug)?.title || i.slug,
+      format: i.format,
+      formatLabel:
+        orderFormatLabel(i.format) +
+        (i.upgrade === "audio-upgrade" ? " · audiobook credit applied" : ""),
+      qty,
+      unitCents,
+      lineTotalCents: unitCents * qty,
+    });
+  }
+  return [...grouped.values()];
+}
+
 export interface ConfirmationEmailModel {
   subject: string;
-  items: { title: string; formatLabel: string; qty: number }[];
+  items: { title: string; formatLabel: string; qty: number; lineTotalCents: number }[];
   downloads: { title: string; links: { label: string; url: string }[] }[];
   libraryUrl: string;
   // Pass-through shipping summary for physical orders: the carrier and
@@ -737,30 +806,7 @@ export function buildConfirmationEmailModel(
     // found for each book, so a mixed order (digital x2 + printed x1
     // of the same book) rendered as a single digital line and the
     // printed book vanished from the confirmation entirely.
-    items: (() => {
-      const byKey = new Map<string, ConfirmationEmailModel["items"][number]>();
-      for (const i of items) {
-        const key = `${i.slug}|${i.format}`;
-        const found = byKey.get(key);
-        if (found) {
-          found.qty += itemQty(i);
-          continue;
-        }
-        byKey.set(key, {
-          title: books.find((b) => b.slug === i.slug)?.title || i.slug,
-          qty: itemQty(i),
-          formatLabel:
-            i.format === "printed"
-              ? "full color printed book, digital files included"
-              : i.format === "giftset"
-                ? "gift set: printed storybook and coloring book, digital files included"
-                : i.format === "audio"
-                  ? "audiobook only"
-                  : "digital",
-        });
-      }
-      return [...byKey.values()];
-    })(),
+    items: pricedOrderLines(order, books),
     downloads,
     libraryUrl: `${site}/account`,
     shipping:
@@ -794,7 +840,9 @@ export function buildConfirmationEmail(
   lines.push("");
   lines.push("Here is what you got:");
   for (const item of model.items) {
-    lines.push(`- ${item.title} (${item.formatLabel})${item.qty > 1 ? ` ×${item.qty}` : ""}`);
+    lines.push(
+      `- ${item.title} (${item.formatLabel})${item.qty > 1 ? ` ×${item.qty}` : ""}: $${(item.lineTotalCents / 100).toFixed(2)}`
+    );
   }
   if (model.shipping) {
     const via = [model.shipping.carrier, model.shipping.service].filter(Boolean).join(" ");
@@ -1032,21 +1080,16 @@ export async function enqueueOwnerOrderNotice(db: DBLike, site: string, order: a
   // quantities included). Zipping books[i] against formats[i] broke
   // the moment one book was bought in two formats: the second line
   // silently disappeared from the notice.
-  const orderItems = parseItems(order);
-  const titleFor = (slug: string) => books.find((b: any) => b.slug === slug)?.title || slug;
-  const priceFor = (f: string) =>
-    f === "printed" ? STANDARD_PRINT_PRICE_CENTS
-    : f === "giftset" ? GIFT_SET_PRICE_CENTS
-    : f === "audio" ? AUDIO_PRICE_CENTS
-    : STANDARD_DIGITAL_PRICE_CENTS;
   const money = (c: number) => `$${(Number(c || 0) / 100).toFixed(2)}`;
-  const lines = orderItems.map((i) => {
-    const f = i.format;
-    const q = itemQty(i);
-    const label = f === "printed" ? "Printed book" : f === "giftset" ? "Gift set" : f === "audio" ? "Audiobook" : "Digital bundle";
-    return q > 1
-      ? `${titleFor(i.slug)} (${label}) ×${q} - ${money(priceFor(f) * q)}`
-      : `${titleFor(i.slug)} (${label}) - ${money(priceFor(f))}`;
+  const lines = pricedOrderLines(order, books).map((l) => {
+    const label =
+      l.format === "printed" ? "Printed book"
+      : l.format === "giftset" ? "Gift set"
+      : l.format === "audio" ? "Audiobook"
+      : "Digital bundle";
+    return l.qty > 1
+      ? `${l.title} (${label}) ×${l.qty} - ${money(l.lineTotalCents)}`
+      : `${l.title} (${label}) - ${money(l.lineTotalCents)}`;
   });
   const short = String(order.id || "").slice(0, 8).toUpperCase();
   const total = money(order.amount);

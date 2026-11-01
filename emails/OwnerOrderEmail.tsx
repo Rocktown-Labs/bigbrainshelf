@@ -1,6 +1,12 @@
 import React from "react";
-import { Button, Section, Text } from "@react-email/components";
+import { Button, Column, Row, Section, Text } from "@react-email/components";
 import { BRAND, EmailLayout, styles } from "./EmailLayout";
+
+// Prices sit in their own right-aligned table cell. The old layout
+// floated the price inside the item paragraph, and email clients
+// dropped it onto the next line (or against the wrong row) whenever
+// the title wrapped: CG's screenshots, 2026-10-31. Tables are the
+// only layout email clients align reliably.
 
 // The owner's new-order email (CG, 2026-10-31: the old one was
 // unstyled plain text and said nothing clean about the order).
@@ -30,30 +36,71 @@ export default function OwnerOrderEmail({ model }: { model: OwnerOrderEmailModel
 
       <Section style={{ borderTop: `1px solid ${BRAND.line}`, marginTop: "8px" }}>
         {model.lines.map((l, i) => (
-          <Text key={i} style={{ ...styles.listItem, margin: "10px 0 2px" }}>
-            <strong>{l.title}</strong>
-            <span style={{ color: BRAND.muted }}> · {l.formatLabel}</span>
-            <span style={{ float: "right" }}>{l.price}</span>
-          </Text>
+          <Row key={i}>
+            <Column style={{ verticalAlign: "top", padding: "8px 12px 2px 0" }}>
+              <Text style={{ ...styles.listItem, margin: 0 }}>
+                <strong>{l.title}</strong>
+                <span style={{ color: BRAND.muted }}> · {l.formatLabel}</span>
+              </Text>
+            </Column>
+            <Column
+              style={{
+                verticalAlign: "top",
+                textAlign: "right",
+                whiteSpace: "nowrap",
+                width: "96px",
+                padding: "8px 0 2px",
+              }}
+            >
+              <Text style={{ ...styles.listItem, margin: 0 }}>{l.price}</Text>
+            </Column>
+          </Row>
         ))}
         {model.shipping && (
-          <Text style={{ ...styles.listItem, margin: "10px 0 2px" }}>
-            Shipping
-            <span style={{ float: "right" }}>{model.shipping}</span>
-          </Text>
+          <Row>
+            <Column style={{ verticalAlign: "top", padding: "8px 12px 2px 0" }}>
+              <Text style={{ ...styles.listItem, margin: 0 }}>Shipping</Text>
+            </Column>
+            <Column
+              style={{
+                verticalAlign: "top",
+                textAlign: "right",
+                whiteSpace: "nowrap",
+                width: "96px",
+                padding: "8px 0 2px",
+              }}
+            >
+              <Text style={{ ...styles.listItem, margin: 0 }}>{model.shipping}</Text>
+            </Column>
+          </Row>
         )}
-        <Text
-          style={{
-            ...styles.listItem,
-            borderTop: `1px solid ${BRAND.line}`,
-            paddingTop: "10px",
-            margin: "10px 0 2px",
-            fontWeight: 700,
-          }}
-        >
-          Total charged
-          <span style={{ float: "right" }}>{model.total}</span>
-        </Text>
+        <Row>
+          <Column
+            style={{
+              verticalAlign: "top",
+              padding: "10px 12px 2px 0",
+              borderTop: `1px solid ${BRAND.line}`,
+            }}
+          >
+            <Text style={{ ...styles.listItem, margin: 0, fontWeight: 700 }}>
+              Total charged
+            </Text>
+          </Column>
+          <Column
+            style={{
+              verticalAlign: "top",
+              textAlign: "right",
+              whiteSpace: "nowrap",
+              width: "96px",
+              padding: "10px 0 2px",
+              borderTop: `1px solid ${BRAND.line}`,
+            }}
+          >
+            <Text style={{ ...styles.listItem, margin: 0, fontWeight: 700 }}>
+              {model.total}
+            </Text>
+          </Column>
+        </Row>
       </Section>
 
       <Text style={styles.sectionHeading}>Buyer</Text>
