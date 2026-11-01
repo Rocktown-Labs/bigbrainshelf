@@ -43,6 +43,16 @@ export interface PdfStampInfo {
    * Null/absent stamps exactly as before.
    */
   childName?: string | null;
+  /** The book's public title, printed on the dedication page. */
+  bookTitle?: string | null;
+  /**
+   * Preformatted production date for the dedication page ("November
+   * 1, 2026"): the purchase date of the granting order or box when
+   * the caller knows it. Null omits the line.
+   */
+  producedOn?: string | null;
+  /** Stacked brand logo PNG bytes for the dedication page, if loadable. */
+  logoPng?: Uint8Array | null;
   /** "#A1B2C3D4" display form of the order id, or null for club-box grants. */
   shortId: string | null;
   /**
@@ -84,33 +94,109 @@ export function dedicationName(info: PdfStampInfo): string | null {
 const NAVY = rgb(0.102, 0.204, 0.329);
 const ORANGE = rgb(0.93, 0.35, 0.05);
 const INK = rgb(0.28, 0.25, 0.23);
+const FOOT_GRAY = rgb(0.45, 0.42, 0.4);
+
+/** The dedication blurb (CG picked A, 2026-11-01). */
+export const DEDICATION_BLURB =
+  "To a curious reader: every big idea starts as a small question. May you ask a thousand more.";
+
+/** Greedy word wrap against a font metric; returns display lines. */
+function wrapLines(text: string, font: any, size: number, maxWidth: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let cur = "";
+  for (const w of words) {
+    const next = cur ? `${cur} ${w}` : w;
+    if (cur && font.widthOfTextAtSize(next, size) > maxWidth) {
+      lines.push(cur);
+      cur = w;
+    } else {
+      cur = next;
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
 
 /**
- * Insert the dedication page after the front cover. The page takes
- * the cover's size so it sits naturally in the book, and it carries
- * no licensed footer: it is front matter, like a gift inscription.
+ * Insert the dedication page after the front cover (v2 design, CG
+ * approved 2026-11-01 with his fixes: the line under the logo is
+ * just "Presents", the child's name is orange, the footer is two
+ * plain lines with no heart, and the page carries the production
+ * date, which is the purchase date). The page takes the cover's
+ * size so it sits naturally in the book, and it carries no licensed
+ * footer: it is front matter, like a gift inscription.
  */
-async function insertDedicationPage(doc: PDFDocument, name: string): Promise<void> {
+async function insertDedicationPage(doc: PDFDocument, name: string, info: PdfStampInfo): Promise<void> {
   const pages = doc.getPages();
   if (pages.length <= 2) return;
   const { width, height } = pages[0].getSize();
   const page = doc.insertPage(1, [width, height]);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const regular = await doc.embedFont(StandardFonts.Helvetica);
-  const center = (text: string, font: any, size: number) =>
+  const oblique = await doc.embedFont(StandardFonts.HelveticaOblique);
+  const centerX = (text: string, font: any, size: number) =>
     Math.max(0, (width - font.widthOfTextAtSize(text, size)) / 2);
 
-  const brand = "B I G  B R A I N  S H E L F";
-  page.drawText(brand, { x: center(brand, regular, 11), y: height * 0.74, size: 11, font: regular, color: INK });
+  // Double frame: navy outer, thin orange inner.
+  page.drawRectangle({ x: 26, y: 26, width: width - 52, height: height - 52, borderWidth: 2.5, borderColor: NAVY });
+  page.drawRectangle({ x: 33, y: 33, width: width - 66, height: height - 66, borderWidth: 1, borderColor: ORANGE });
+
+  // Brand: the stacked logo when the caller could load it, else the
+  // text wordmark. Brand rule (CG): in typeset "Big Brain Shelf",
+  // the word Brain is always orange. Layout chains downward from
+  // the header so the stack can never collide, whatever the logo's
+  // aspect or the page size.
+  let cursor = height * 0.855;
+  let logoDrawn = false;
+  if (info.logoPng) {
+    try {
+      const img = await doc.embedPng(info.logoPng);
+      const targetW = Math.min(148, width * 0.32);
+      const targetH = (img.height / img.width) * targetW;
+      page.drawImage(img, { x: (width - targetW) / 2, y: cursor - targetH, width: targetW, height: targetH });
+      cursor -= targetH;
+      logoDrawn = true;
+    } catch {
+      logoDrawn = false;
+    }
+  }
+  if (!logoDrawn) {
+    const parts: Array<[string, any]> = [["BIG ", INK], ["BRAIN", ORANGE], [" SHELF", INK]];
+    const size = 17;
+    const total = parts.reduce((acc, [t]) => acc + bold.widthOfTextAtSize(t, size), 0);
+    let x = Math.max(0, (width - total) / 2);
+    for (const [t, color] of parts) {
+      page.drawText(t, { x, y: cursor - size, size, font: bold, color });
+      x += bold.widthOfTextAtSize(t, size);
+    }
+    cursor -= size;
+  }
+
+  cursor -= 24;
+  const presents = "P R E S E N T S";
+  page.drawText(presents, { x: centerX(presents, regular, 11), y: cursor, size: 11, font: regular, color: INK });
+
+  // Title, wrapped to two lines at most.
+  const title = cleanText(info.bookTitle || "").toUpperCase();
+  if (title) {
+    const lines = wrapLines(title, bold, 15, width * 0.78).slice(0, 2);
+    lines.forEach((line, i) => {
+      page.drawText(line, { x: centerX(line, bold, 15), y: cursor - 36 - i * 20, size: 15, font: bold, color: NAVY });
+    });
+    cursor = cursor - 36 - (lines.length - 1) * 20 - 14;
+    const ruleW = 54;
+    page.drawRectangle({ x: (width - ruleW) / 2, y: cursor, width: ruleW, height: 2.5, color: ORANGE });
+  }
 
   const belongs = "This book belongs to";
-  page.drawText(belongs, { x: center(belongs, regular, 16), y: height * 0.615, size: 16, font: regular, color: INK });
+  page.drawText(belongs, { x: centerX(belongs, regular, 16), y: cursor - 44, size: 16, font: regular, color: INK });
 
   let nameSize = 46;
   while (nameSize > 18 && bold.widthOfTextAtSize(name, nameSize) > width * 0.82) nameSize -= 2;
   const nameW = bold.widthOfTextAtSize(name, nameSize);
-  const nameY = height * 0.545;
-  page.drawText(name, { x: Math.max(0, (width - nameW) / 2), y: nameY, size: nameSize, font: bold, color: NAVY });
+  const nameY = cursor - 44 - 52;
+  page.drawText(name, { x: Math.max(0, (width - nameW) / 2), y: nameY, size: nameSize, font: bold, color: ORANGE });
   page.drawRectangle({
     x: Math.max(0, (width - nameW) / 2),
     y: nameY - 16,
@@ -119,8 +205,33 @@ async function insertDedicationPage(doc: PDFDocument, name: string): Promise<voi
     color: ORANGE,
   });
 
+  const blurbLines = wrapLines(DEDICATION_BLURB, oblique, 13.5, width * 0.68);
+  blurbLines.forEach((line, i) => {
+    page.drawText(line, { x: centerX(line, oblique, 13.5), y: nameY - 62 - i * 19, size: 13.5, font: oblique, color: INK });
+  });
+
   const happy = "Happy reading!";
-  page.drawText(happy, { x: center(happy, regular, 13), y: height * 0.44, size: 13, font: regular, color: INK });
+  page.drawText(happy, {
+    x: centerX(happy, regular, 13),
+    y: nameY - 62 - blurbLines.length * 19 - 14,
+    size: 13,
+    font: regular,
+    color: INK,
+  });
+
+  // Footer: production date, then the two made-in lines.
+  const foot: string[] = [];
+  if (info.producedOn) foot.push(`Produced on ${cleanText(info.producedOn)}`);
+  foot.push("Made in the USA", "Designed, assembled and packaged in Arkansas");
+  foot.forEach((line, i) => {
+    page.drawText(line, {
+      x: centerX(line, regular, 9.5),
+      y: height * 0.115 - i * 14,
+      size: 9.5,
+      font: regular,
+      color: FOOT_GRAY,
+    });
+  });
 }
 
 export async function stampPdfForBuyer(
@@ -174,7 +285,7 @@ export async function stampPdfForBuyer(
   const name = dedicationName(info);
   if (name) {
     try {
-      await insertDedicationPage(doc, name);
+      await insertDedicationPage(doc, name, info);
     } catch {
       // A dedication must never break the stamp; the licensed copy
       // still ships without it.

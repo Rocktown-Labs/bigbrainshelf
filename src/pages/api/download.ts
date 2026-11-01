@@ -104,6 +104,45 @@ export const GET: APIRoute = async ({ request, url }) => {
       const def = kids.find((k) => k.is_default) || kids[0];
       childName = def?.name ? String(def.name) : null;
     } catch { /* dedication is a delight, never a blocker */ }
+    // Dedication extras (v2): the book's title, the logo, and the
+    // production date, which is the purchase date of the granting
+    // order (or the box's creation for club grants; today as the
+    // last resort). All best effort: a miss just omits a line.
+    let producedOn: string | null = null;
+    let logoPng: Uint8Array | null = null;
+    if (childName) {
+      try {
+        let ts: number | null = null;
+        if (grant.orderId) {
+          const row: any = await e.DB.prepare("SELECT created_at FROM orders WHERE id = ?")
+            .bind(grant.orderId)
+            .first();
+          if (row?.created_at != null) ts = Number(row.created_at);
+        } else if (grant.marker.startsWith("club-box:")) {
+          const row: any = await e.DB.prepare("SELECT created_at FROM club_cycle_boxes WHERE id = ?")
+            .bind(grant.marker.slice("club-box:".length))
+            .first()
+            .catch(() => null);
+          const rawTs = row?.created_at;
+          if (typeof rawTs === "number") ts = rawTs;
+          else if (typeof rawTs === "string") {
+            const parsed = Date.parse(rawTs);
+            if (!Number.isNaN(parsed)) ts = Math.floor(parsed / 1000);
+          }
+        }
+        const when = ts && ts > 0 ? new Date(ts * 1000) : new Date();
+        producedOn = new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/Chicago",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        }).format(when);
+      } catch { /* the date line is optional */ }
+      try {
+        const res = await e.ASSETS.fetch(new URL("/logo-stacked.png", url.origin));
+        if (res.ok) logoPng = new Uint8Array(await res.arrayBuffer());
+      } catch { /* the stamp falls back to the text wordmark */ }
+    }
     try {
       body = await stampPdfForBuyer(raw, {
         email: grant.buyerEmail,
@@ -111,6 +150,9 @@ export const GET: APIRoute = async ({ request, url }) => {
         marker: grant.marker,
         markerIsOrder: grant.markerIsOrder,
         childName,
+        bookTitle: book?.title ? String(book.title) : null,
+        producedOn,
+        logoPng,
       });
     } catch (err) {
       console.error("pdf stamp failed, serving original", (err as any)?.message || err);

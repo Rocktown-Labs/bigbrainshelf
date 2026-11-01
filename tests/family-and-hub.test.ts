@@ -530,6 +530,35 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
       expect(exported.has(id)).toBe(true);
     }
     expect(overviewSrc).not.toContain("STANDARD_STANDARD");
+    // The audio-only state keeps print buyable in place: the $7
+    // unlock card plus printed and gift set cards (2026-11-01
+    // signed-in verification found only the unlock, no print path).
+    const audioOnlySection = overviewSrc.slice(overviewSrc.indexOf("{audioOnly &&"));
+    expect(audioOnlySection).toContain('format: "printed"');
+    expect(audioOnlySection).toContain('format: "giftset"');
+  });
+
+  test("Dedication page v2 carries CG's fixes (2026-11-01)", () => {
+    const stampSrc = readFileSync(resolve(root, "src/lib/pdf-stamp.ts"), "utf8");
+    // Just "Presents" under the logo, never the doubled name line.
+    expect(stampSrc).toContain("P R E S E N T S");
+    expect(stampSrc).not.toContain("BIG BRAIN SHELF PRESENTS");
+    // Blurb A, word for word.
+    expect(stampSrc).toContain(
+      "To a curious reader: every big idea starts as a small question. May you ask a thousand more."
+    );
+    // Production date line plus the two made-in lines, no heart.
+    expect(stampSrc).toContain("Produced on");
+    expect(stampSrc).toContain("Made in the USA");
+    expect(stampSrc).toContain("Designed, assembled and packaged in Arkansas");
+    expect(stampSrc).not.toContain("❤");
+    // Text wordmark fallback keeps Brain orange.
+    expect(stampSrc).toContain('["BRAIN", ORANGE]');
+    // The download route feeds title, logo, and purchase date in.
+    const dlSrc = readFileSync(resolve(root, "src/pages/api/download.ts"), "utf8");
+    expect(dlSrc).toContain("bookTitle");
+    expect(dlSrc).toContain("producedOn");
+    expect(dlSrc).toContain("logo-stacked.png");
   });
 
   test("Hub simplification surfaces stay wired (2026-11-01 pass 2)", () => {
