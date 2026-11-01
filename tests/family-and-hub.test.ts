@@ -493,7 +493,9 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
 
     const adminShellSrc = readFileSync(resolve(root, "src/components/AdminShell.astro"), "utf8");
     expect(adminShellSrc).toContain("bbs-admin-user-popover");
-    expect(adminShellSrc).toContain('href="/accounts"');
+    expect(adminShellSrc).toContain('href="/account"');
+    expect(adminShellSrc).not.toContain('href="/accounts"');
+    expect(adminShellSrc).not.toContain('#qc-viewer');
 
     const custShellSrc = readFileSync(resolve(root, "src/components/CustomerShell.astro"), "utf8");
     // DESIGN.md chrome (2026-11-01): no sidebar; the store top bar

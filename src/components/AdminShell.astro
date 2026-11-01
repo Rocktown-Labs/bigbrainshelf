@@ -213,13 +213,13 @@ const icon = (name: string) =>
         <div style="font-size:0.75rem;font-weight:800;color:#1c1917;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="bbs-admin-user-label">{adminUserEmail}</div>
         <div style="font-size:0.65rem;font-weight:700;color:#ea580c;text-transform:uppercase;letter-spacing:0.08em">Owner &amp; Admin</div>
       </div>
-      <a class="bbs-item" href="/accounts" role="menuitem" data-label="Customer Hub (/accounts)">
+      <a class="bbs-item" href="/account" role="menuitem" data-label="Customer Hub">
         <Fragment set:html={icon("characters")} />
-        <span class="bbs-item-label">Customer Hub (/accounts)</span>
+        <span class="bbs-item-label">Customer Hub</span>
       </a>
-      <a class="bbs-item" href="/account#qc-viewer" role="menuitem" data-label="Book Viewer & Audio">
+      <a class="bbs-item" href="/account/club" role="menuitem" data-label="Book & Audio Club">
         <Fragment set:html={icon("book")} />
-        <span class="bbs-item-label">Book Viewer &amp; Audio</span>
+        <span class="bbs-item-label">Book &amp; Audio Club</span>
       </a>
       <a class="bbs-item" href="/admin" role="menuitem" data-label="Admin Dashboard">
         <Fragment set:html={icon("dashboard")} />
