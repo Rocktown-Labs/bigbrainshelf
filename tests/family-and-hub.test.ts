@@ -566,17 +566,24 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
       "To a curious reader: every big idea starts as a small question. May you ask a thousand more."
     );
     // Production date line plus the two made-in lines, no heart.
+    // The Arkansas line names the town (CG: "say Searcy, Arkansas").
     expect(stampSrc).toContain("Produced on");
     expect(stampSrc).toContain("Made in the USA");
-    expect(stampSrc).toContain("Designed, assembled and packaged in Arkansas");
+    expect(stampSrc).toContain("Designed, assembled and packaged in Searcy, Arkansas");
     expect(stampSrc).not.toContain("❤");
     // Text wordmark fallback keeps Brain orange.
     expect(stampSrc).toContain('["BRAIN", ORANGE]');
-    // The download route feeds title, logo, and purchase date in.
+    // The logo art is bundled into the stamp (always accessible at
+    // assembly), and the page prints even with no reader name.
+    expect(stampSrc).toContain("logoStackedPngBytes");
+    expect(stampSrc).not.toContain("if (name) {\n    try {\n      await insertDedicationPage");
+    // The download route feeds title and purchase date in.
     const dlSrc = readFileSync(resolve(root, "src/pages/api/download.ts"), "utf8");
     expect(dlSrc).toContain("bookTitle");
     expect(dlSrc).toContain("producedOn");
-    expect(dlSrc).toContain("logo-stacked.png");
+    // The site footer carries the same Searcy line.
+    const footerSrc = readFileSync(resolve(root, "src/components/SiteFooter.astro"), "utf8");
+    expect(footerSrc).toContain("Designed, assembled and packaged in Searcy, Arkansas");
   });
 
   test("Hub simplification surfaces stay wired (2026-11-01 pass 2)", () => {

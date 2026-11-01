@@ -32,15 +32,17 @@
 // an orange rule. Personal to the family, generated per download,
 // never stored.
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { logoStackedPngBytes } from "./logo-art";
 
 export interface PdfStampInfo {
   /** The buyer's email, printed on their own copy (the deterrent). */
   email: string;
   /**
    * The child's first name for the dedication page (CG's queued
-   * delight, 2026-11-01): when set, a page reading "This book
-   * belongs to {name}" is inserted right after the front cover.
-   * Null/absent stamps exactly as before.
+   * delight, 2026-11-01): the page is inserted right after the
+   * front cover on every stamped PDF; when a name is set it reads
+   * "This book belongs to {name}", and with no name the line stays
+   * blank for the family to fill in by hand.
    */
   childName?: string | null;
   /** The book's public title, printed on the dedication page. */
@@ -127,7 +129,7 @@ function wrapLines(text: string, font: any, size: number, maxWidth: number): str
  * size so it sits naturally in the book, and it carries no licensed
  * footer: it is front matter, like a gift inscription.
  */
-async function insertDedicationPage(doc: PDFDocument, name: string, info: PdfStampInfo): Promise<void> {
+async function insertDedicationPage(doc: PDFDocument, name: string | null, info: PdfStampInfo): Promise<void> {
   const pages = doc.getPages();
   if (pages.length <= 2) return;
   const { width, height } = pages[0].getSize();
@@ -149,9 +151,12 @@ async function insertDedicationPage(doc: PDFDocument, name: string, info: PdfSta
   // aspect or the page size.
   let cursor = height * 0.855;
   let logoDrawn = false;
-  if (info.logoPng) {
+  // The caller's bytes win; otherwise the bundled art (always
+  // available at assembly time, per CG 2026-11-01).
+  const logoBytes = info.logoPng || logoStackedPngBytes();
+  if (logoBytes) {
     try {
-      const img = await doc.embedPng(info.logoPng);
+      const img = await doc.embedPng(logoBytes);
       const targetW = Math.min(148, width * 0.32);
       const targetH = (img.height / img.width) * targetW;
       page.drawImage(img, { x: (width - targetW) / 2, y: cursor - targetH, width: targetW, height: targetH });
@@ -192,18 +197,26 @@ async function insertDedicationPage(doc: PDFDocument, name: string, info: PdfSta
   const belongs = "This book belongs to";
   page.drawText(belongs, { x: centerX(belongs, regular, 16), y: cursor - 44, size: 16, font: regular, color: INK });
 
-  let nameSize = 46;
-  while (nameSize > 18 && bold.widthOfTextAtSize(name, nameSize) > width * 0.82) nameSize -= 2;
-  const nameW = bold.widthOfTextAtSize(name, nameSize);
+  // The name, or a blank write-in line when the family has no
+  // reader profile yet: the page always prints (CG, 2026-11-01),
+  // and a blank line invites them to write the name in by hand.
   const nameY = cursor - 44 - 52;
-  page.drawText(name, { x: Math.max(0, (width - nameW) / 2), y: nameY, size: nameSize, font: bold, color: ORANGE });
-  page.drawRectangle({
-    x: Math.max(0, (width - nameW) / 2),
-    y: nameY - 16,
-    width: nameW,
-    height: 3,
-    color: ORANGE,
-  });
+  if (name) {
+    let nameSize = 46;
+    while (nameSize > 18 && bold.widthOfTextAtSize(name, nameSize) > width * 0.82) nameSize -= 2;
+    const nameW = bold.widthOfTextAtSize(name, nameSize);
+    page.drawText(name, { x: Math.max(0, (width - nameW) / 2), y: nameY, size: nameSize, font: bold, color: ORANGE });
+    page.drawRectangle({
+      x: Math.max(0, (width - nameW) / 2),
+      y: nameY - 16,
+      width: nameW,
+      height: 3,
+      color: ORANGE,
+    });
+  } else {
+    const lineW = width * 0.52;
+    page.drawRectangle({ x: (width - lineW) / 2, y: nameY - 4, width: lineW, height: 2.5, color: ORANGE });
+  }
 
   const blurbLines = wrapLines(DEDICATION_BLURB, oblique, 13.5, width * 0.68);
   blurbLines.forEach((line, i) => {
@@ -222,7 +235,7 @@ async function insertDedicationPage(doc: PDFDocument, name: string, info: PdfSta
   // Footer: production date, then the two made-in lines.
   const foot: string[] = [];
   if (info.producedOn) foot.push(`Produced on ${cleanText(info.producedOn)}`);
-  foot.push("Made in the USA", "Designed, assembled and packaged in Arkansas");
+  foot.push("Made in the USA", "Designed, assembled and packaged in Searcy, Arkansas");
   foot.forEach((line, i) => {
     page.drawText(line, {
       x: centerX(line, regular, 9.5),
@@ -281,15 +294,15 @@ export async function stampPdfForBuyer(
     }
   }
   // The dedication page goes in after the footer pass so it stays
-  // clean front matter (inserted before save, at index 1).
+  // clean front matter (inserted before save, at index 1). It
+  // always prints: with no reader name on file the name line stays
+  // blank for the family to fill in (CG, 2026-11-01).
   const name = dedicationName(info);
-  if (name) {
-    try {
-      await insertDedicationPage(doc, name, info);
-    } catch {
-      // A dedication must never break the stamp; the licensed copy
-      // still ships without it.
-    }
+  try {
+    await insertDedicationPage(doc, name, info);
+  } catch {
+    // A dedication must never break the stamp; the licensed copy
+    // still ships without it.
   }
   return doc.save();
 }
