@@ -501,7 +501,7 @@ const coverOf = (slug: string | null) => clubGridOptions.find((o: any) => o.slug
 
   {/* The Shelf picker sheet: one tap from the CTA, selections, save. */}
   {clubSignup?.status === "paid" && clubPlan === "physical" && clubBox && clubTiming && !picksLocked && !boxShipped && !clubBillingPaused && (
-    <div class="club-sheet-root" data-club-sheet data-ship-date={clubBox.ship_date} data-pick-1={clubBox.selected_book_slug || "surprise"} data-pick-2={clubBox.second_selected_book_slug || "surprise"}>
+    <div class="club-sheet-root" data-club-sheet hidden data-ship-date={clubBox.ship_date} data-pick-1={clubBox.selected_book_slug || "surprise"} data-pick-2={clubBox.second_selected_book_slug || "surprise"}>
       <div class="club-sheet-scrim" data-close-sheet></div>
       <div class="club-sheet-panel" role="dialog" aria-modal="true" aria-label="Choose your books">
         <div class="club-sheet-grab"></div>
@@ -738,6 +738,7 @@ const coverOf = (slug: string | null) => clubGridOptions.find((o: any) => o.slug
       // Reveal the (off-screen) sheet only once it is painted in its
       // translated state, so a first-paint frame can never flash its
       // navy edge at the bottom of the viewport.
+      root.removeAttribute("hidden");
       requestAnimationFrame(function () {
         requestAnimationFrame(function () { root.classList.add("ready"); });
       });
