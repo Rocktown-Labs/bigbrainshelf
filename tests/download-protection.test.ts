@@ -86,19 +86,23 @@ const pages = stampedDoc.getPages();
 const runsOf = (idx: number) => pageTextRuns(stampedDoc, pages[idx]);
 assert(!runsOf(0).some((r) => r.includes("Licensed to")), "front cover carries no stamp");
 assert(!runsOf(pages.length - 1).some((r) => r.includes("Licensed to")), "back cover carries no stamp");
-assert(runsOf(1).some((r) => r === licensedLine(info)), "first interior page carries the licensed line");
-assert(runsOf(8).some((r) => r === licensedLine(info)), "a middle interior page carries the licensed line");
-// Interior page 7 is page index 7 (the first interior page is index 1).
-assert(runsOf(7).some((r) => r === microtextCode(info)), "7th interior page carries the standalone microtext code");
-assert(!runsOf(6).some((r) => r === microtextCode(info)), "6th interior page has no microtext code");
-assert(runsOf(14).some((r) => r === microtextCode(info)), "14th interior page carries the microtext code");
+// The dedication page always sits at index 1 (CG, 2026-11-01: it
+// prints with or without a reader name), so the book's interior
+// pages shift one index later than their interior numbering.
+assert(!runsOf(1).some((r) => r.includes("Licensed to")), "dedication page carries no licensed line");
+assert(runsOf(2).some((r) => r === licensedLine(info)), "first interior page carries the licensed line");
+assert(runsOf(9).some((r) => r === licensedLine(info)), "a middle interior page carries the licensed line");
+// Interior page 7 is page index 8 (index 1 is the dedication).
+assert(runsOf(8).some((r) => r === microtextCode(info)), "7th interior page carries the standalone microtext code");
+assert(!runsOf(7).some((r) => r === microtextCode(info)), "6th interior page has no microtext code");
+assert(runsOf(15).some((r) => r === microtextCode(info)), "14th interior page carries the microtext code");
 
 // The dedication page (CG's queued delight, 2026-11-01): with a
 // child name the stamp inserts one page after the cover carrying
 // the inscription, and the rest of the book is untouched.
 assert(dedicationName({ ...info, childName: "Ruby Joy" }) === "Ruby", "dedication name is the first name only");
-assert(dedicationName({ ...info, childName: null }) === null, "no child name, no dedication");
-assert(dedicationName({ ...info }) === null, "absent child name, no dedication");
+assert(dedicationName({ ...info, childName: null }) === null, "no child name, no name for the page");
+assert(dedicationName({ ...info }) === null, "absent child name, no name for the page");
 const dedicated = await PDFDocument.load(
   await stampPdfForBuyer(await samplePdf(6), { ...info, childName: "Ruby" })
 );
@@ -110,7 +114,10 @@ assert(dRuns.some((r) => r === "Ruby"), "dedication page carries the child's fir
 assert(!dRuns.some((r) => r.includes("Licensed to")), "dedication page carries no licensed footer");
 assert(pageTextRuns(dedicated, dPages[2]).some((r) => r.includes("Story page 2")), "the story's second page follows the dedication");
 const undedicated = await PDFDocument.load(await stampPdfForBuyer(await samplePdf(6), info));
-assert(undedicated.getPages().length === 6, "without a child name the page count is unchanged");
+assert(undedicated.getPages().length === 7, "without a child name the dedication page still prints");
+const uRuns = pageTextRuns(undedicated, undedicated.getPages()[1]);
+assert(uRuns.some((r) => r.includes("This book belongs to")), "blank dedication still carries the inscription line");
+assert(!uRuns.some((r) => r === "Ruby"), "blank dedication carries no name");
 
 // Club-box grants stamp without an order reference.
 const boxInfo = { email: "member@example.com", shortId: null, marker: "club-box:box-9", markerIsOrder: false };
