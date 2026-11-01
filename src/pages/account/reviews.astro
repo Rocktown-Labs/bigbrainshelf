@@ -1,0 +1,141 @@
+---
+import "../../styles/global.css";
+import { env } from "cloudflare:workers";
+import Tracking from "../../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../../components/TransitionHooks.astro";
+import CustomerShell from "../../components/CustomerShell.astro";
+import { loadCustomerHubContext } from "../../lib/account-data";
+import { ensureReviewsTable, REVIEW_STATUS_LABELS } from "../../lib/reviews";
+import { ensurePublicSlugColumn, publicSlugFor } from "../../lib/public-slugs";
+
+const e = env as any;
+const hub = await loadCustomerHubContext(Astro.request, Astro.locals, e.DB, Astro.url.origin);
+if (!hub) {
+  return Astro.redirect("/login?next=/account/reviews");
+}
+
+const {
+  session,
+  books,
+  audioBooksCount,
+  parentOnboarding,
+  kidProfiles,
+  onboardingChecklist,
+} = hub;
+
+await ensureReviewsTable(e.DB);
+await ensurePublicSlugColumn(e.DB).catch(() => {});
+const myReviews = ((
+  await e.DB.prepare(
+    "SELECT r.*, b.title AS book_title, b.public_slug AS book_public_slug FROM reviews r LEFT JOIN books b ON b.slug = r.book_slug WHERE r.user_id = ? ORDER BY r.created_at DESC"
+  )
+    .bind(session.user.id)
+    .all()
+).results || []) as any[];
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Reviews · Big Brain Shelf</title>
+  <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased pb-28">
+  <CustomerShell
+    currentSection="reviews"
+    userEmail={String(session.user.email || "")}
+    username={session.user.displayUsername || session.user.username}
+    displayName={parentOnboarding?.parent_name || session.user.name}
+    isAdmin={session.user.isAdmin}
+    kidProfiles={kidProfiles}
+    hasParentPin={Boolean(parentOnboarding?.parent_pin)}
+    bookCount={books.length}
+    audioCount={audioBooksCount}
+    onboardingComplete={onboardingChecklist.isComplete}
+  />
+
+  <main class="max-w-4xl mx-auto px-4 py-7 sm:py-10">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="rounded-full bg-orange-100 text-orange-800 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+          Reader Notes
+        </span>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900 mt-1.5">
+          My Reviews
+        </h1>
+        <p class="text-sm text-stone-600 mt-1">
+          Reviews help other parents pick the right story for their children. Every review is checked by a person before going live.
+        </p>
+      </div>
+      <a
+        href="/account"
+        class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500"
+      >
+        ← Back to My Shelf
+      </a>
+    </div>
+
+    {myReviews.length === 0 ? (
+      <div class="mt-6 rounded-3xl border border-dashed border-stone-300 bg-[#fcfaf6] p-8 text-center">
+        <p class="text-base font-extrabold text-stone-900">You have not reviewed any books yet</p>
+        <p class="mt-1 text-xs text-stone-600 max-w-md mx-auto">
+          Visit any book page after reading with your child to share what they thought.
+        </p>
+        <a
+          href="/books"
+          class="cust-pressable mt-4 inline-block rounded-full bg-orange-600 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-700"
+        >
+          Browse Books →
+        </a>
+      </div>
+    ) : (
+      <div class="mt-6 space-y-3">
+        {myReviews.map((r) => (
+          <div class="rounded-2xl border border-stone-200 bg-[#fcfaf6] p-5 text-sm">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <a
+                  href={"/books/" + publicSlugFor({ slug: r.book_slug, public_slug: r.book_public_slug, title: r.book_title })}
+                  class="font-extrabold text-stone-900 hover:text-orange-600"
+                >
+                  {r.book_title || "Big Brain Shelf book"}
+                </a>
+                <span class="text-orange-500">
+                  {"★".repeat(Number(r.rating) || 0)}
+                  {"☆".repeat(5 - (Number(r.rating) || 0))}
+                </span>
+              </div>
+              <div class="flex items-center gap-3 text-xs">
+                <span
+                  class:list={[
+                    "rounded-full px-2.5 py-0.5 font-semibold",
+                    r.status === "approved"
+                      ? "bg-green-50 text-green-800 border border-green-200"
+                      : r.status === "rejected"
+                        ? "bg-stone-100 text-stone-600 border border-stone-200"
+                        : "bg-orange-50 text-orange-800 border border-orange-200",
+                  ]}
+                >
+                  {REVIEW_STATUS_LABELS[String(r.status)] || r.status}
+                </span>
+                <span class="text-stone-400">
+                  {new Date(Number(r.created_at) * 1000).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+            {r.title && <p class="mt-2 font-bold text-stone-900">{r.title}</p>}
+            <p class="mt-1 text-stone-700 whitespace-pre-line">{r.body}</p>
+          </div>
+        ))}
+      </div>
+    )}
+  </main>
+</body>
+</html>

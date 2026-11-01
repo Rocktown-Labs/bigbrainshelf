@@ -1,0 +1,414 @@
+---
+import "../../styles/global.css";
+import { env } from "cloudflare:workers";
+import Tracking from "../../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../../components/TransitionHooks.astro";
+import CustomerShell from "../../components/CustomerShell.astro";
+import { loadCustomerHubContext } from "../../lib/account-data";
+import {
+  clubPriceLabel,
+  CLUB_ANNUAL_PRICE_CENTS,
+  AUDIO_CLUB_PRICE_CENTS,
+  AUDIO_CLUB_ANNUAL_PRICE_CENTS,
+} from "../../lib/offers";
+import { ensureClubTable, shelfLabel, clubPlanOf } from "../../lib/club";
+import {
+  ensureClubCycleTables,
+  generateUpcomingCyclesForMember,
+  getNextClubBox,
+  getClubSelectionOptions,
+} from "../../lib/club-cycles";
+import { boxCreatedDateString, clubCycleTiming, formatClubDate } from "../../lib/club-cycle-dates";
+
+const e = env as any;
+const hub = await loadCustomerHubContext(Astro.request, Astro.locals, e.DB, Astro.url.origin);
+if (!hub) {
+  return Astro.redirect("/login?next=/account/club");
+}
+
+const {
+  session,
+  books,
+  audioBooksCount,
+  parentOnboarding,
+  kidProfiles,
+  onboardingChecklist,
+} = hub;
+
+const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
+
+await ensureClubTable(e.DB);
+const clubSignup = (await e.DB.prepare("SELECT * FROM club_signups WHERE email = ?")
+  .bind(String(session.user.email || "").toLowerCase())
+  .first()) as any;
+const clubPlan = clubSignup ? clubPlanOf(clubSignup) : null;
+
+let clubBox: any = null;
+let clubTiming: any = null;
+let clubPickOptions: any[] = [];
+let clubPickOptions2: any[] = [];
+let clubCurrentTitle: string | null = null;
+let clubSecondTitle: string | null = null;
+let clubBillingPaused = false;
+
+if (clubSignup?.status === "paid") {
+  clubBillingPaused = ["past_due", "paused"].includes(String(clubSignup.subscription_status || ""));
+  try {
+    await ensureClubCycleTables(e.DB);
+    await generateUpcomingCyclesForMember(e.DB, clubSignup);
+    clubBox = await getNextClubBox(e.DB, clubSignup.id);
+    if (clubBox) {
+      clubTiming = clubCycleTiming(String(clubBox.ship_date), boxCreatedDateString(clubBox.created_at));
+      const opts = await getClubSelectionOptions(e.DB, clubSignup, clubBox);
+      const slot1Slug = clubBox.resolved_book_slug || clubBox.selected_book_slug;
+      const slot2Slug = clubBox.second_resolved_book_slug || clubBox.second_selected_book_slug;
+      const toOptions = (otherSlug: any) =>
+        opts.books.map((b: any) => ({
+          slug: b.slug,
+          title: b.title,
+          blocked: opts.owned.has(b.slug) || opts.committed.has(b.slug) || b.slug === otherSlug,
+          reason:
+            b.slug === otherSlug
+              ? "Already in this box"
+              : opts.owned.has(b.slug)
+                ? "Already in your library"
+                : "Already coming in a club box",
+        }));
+      clubPickOptions = toOptions(slot2Slug);
+      clubPickOptions2 = toOptions(slot1Slug);
+      clubCurrentTitle = clubPickOptions.find((o: any) => o.slug === slot1Slug)?.title || null;
+      clubSecondTitle = clubPickOptions2.find((o: any) => o.slug === slot2Slug)?.title || null;
+    }
+  } catch (err) {
+    console.error("account club cycle load failed", err);
+    clubBox = null;
+  }
+}
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Book &amp; Audio Club · Big Brain Shelf</title>
+  <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased pb-28">
+  <CustomerShell
+    currentSection="club"
+    userEmail={String(session.user.email || "")}
+    username={session.user.displayUsername || session.user.username}
+    displayName={parentOnboarding?.parent_name || session.user.name}
+    isAdmin={session.user.isAdmin}
+    kidProfiles={kidProfiles}
+    hasParentPin={Boolean(parentOnboarding?.parent_pin)}
+    bookCount={books.length}
+    audioCount={audioBooksCount}
+    onboardingComplete={onboardingChecklist.isComplete}
+  />
+
+  <main class="max-w-4xl mx-auto px-4 py-7 sm:py-10">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="rounded-full bg-orange-100 text-orange-800 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+          Club Membership
+        </span>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900 mt-1.5">
+          {clubPlan === "audio" ? "The Audio Club" : "Book & Audio Club"}
+        </h1>
+        <p class="text-sm text-stone-600 mt-1">
+          Manage your quarterly printed Book Club boxes, monthly Audio Club stories, and upcoming book picks.
+        </p>
+      </div>
+      <a
+        href="/clubs"
+        class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500"
+      >
+        Compare Club Plans →
+      </a>
+    </div>
+
+    <section class="mt-6 rounded-3xl bg-[#1a3454] text-white p-6 sm:p-8 shadow-md">
+      {clubSignup?.status === "paid" && clubPlan === "audio" ? (
+        <>
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <p class="text-white/90 text-sm leading-relaxed max-w-xl">
+              You are a member of <strong class="text-white">The Audio Club</strong> ({clubSignup.interval === "annual" ? money(AUDIO_CLUB_ANNUAL_PRICE_CENTS) + "/year" : money(AUDIO_CLUB_PRICE_CENTS) + "/month"}) on the <strong class="text-white">{shelfLabel(clubSignup.shelf)}</strong> shelf. Every audiobook on the shelf is unlocked in your library while your membership is active.
+            </p>
+            {clubSignup.stripe_customer_id && (
+              <form method="post" action="/api/club/portal">
+                <button
+                  type="submit"
+                  class="cust-pressable rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 cursor-pointer"
+                >
+                  Manage billing
+                </button>
+              </form>
+            )}
+          </div>
+          {clubBillingPaused && (
+            <p class="mt-4 rounded-xl bg-orange-400/20 border border-orange-300/40 px-4 py-3 text-sm text-orange-100">
+              Your membership billing needs attention. Use <strong>Manage billing</strong> above to update your payment method.
+            </p>
+          )}
+        </>
+      ) : clubSignup?.status === "paid" ? (
+        <>
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <p class="text-white/90 text-sm leading-relaxed max-w-xl">
+              You are a member of the Book Club ({clubSignup.interval === "annual" ? money(CLUB_ANNUAL_PRICE_CENTS) + "/year" : clubPriceLabel() + "/quarter"}) with the <strong class="text-white">{shelfLabel(clubSignup.shelf)}</strong> shelf. Your digital books and audiobooks live on <a href="/account" class="underline font-bold text-orange-300">My Shelf</a>.
+            </p>
+            {clubSignup.stripe_customer_id && (
+              <form method="post" action="/api/club/portal">
+                <button
+                  type="submit"
+                  class="cust-pressable rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 cursor-pointer"
+                >
+                  Manage billing
+                </button>
+              </form>
+            )}
+          </div>
+          {clubBillingPaused && (
+            <p class="mt-4 rounded-xl bg-orange-400/20 border border-orange-300/40 px-4 py-3 text-sm text-orange-100">
+              Your membership billing needs attention, so new cycle boxes are paused. Use <strong>Manage billing</strong> above to update your payment method.
+            </p>
+          )}
+          {!clubBillingPaused && clubBox && clubTiming ? (
+            <div class="mt-6 rounded-2xl bg-white/10 p-5">
+              <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 class="text-base font-bold">
+                  Your next box · ships {formatClubDate(String(clubBox.ship_date))}
+                </h2>
+                <span class="text-xs font-semibold text-orange-300">
+                  {clubBox.status === "shipped"
+                    ? "Shipped"
+                    : clubBox.status === "locked" || clubTiming.isLocked
+                      ? `Locked ${formatClubDate(clubTiming.lockDate)}`
+                      : `Choose by ${formatClubDate(clubTiming.lockDate)}`}
+                </span>
+              </div>
+              {clubBox.status === "shipped" ? (
+                <p class="text-sm text-white/80 mt-2">
+                  Your box is on its way:{" "}
+                  <strong class="text-white">
+                    {[clubCurrentTitle, clubSecondTitle].filter(Boolean).join(" + ") || "your two shelf books"}
+                  </strong>
+                  {clubBox.tracking_number
+                    ? ` · ${clubBox.carrier ? clubBox.carrier + " " : ""}tracking ${clubBox.tracking_number}`
+                    : ""}.
+                </p>
+              ) : clubBox.status === "locked" || clubTiming.isLocked ? (
+                <p class="text-sm text-white/80 mt-2">
+                  This box is locked for packing:{" "}
+                  <strong class="text-white">
+                    {[clubCurrentTitle, clubSecondTitle].filter(Boolean).join(" + ") || "two surprise picks from your shelf"}
+                  </strong>.
+                </p>
+              ) : (
+                <form id="club-pick-form" class="mt-3" data-ship-date={clubBox.ship_date}>
+                  <p class="text-xs text-white/70">
+                    Each box ships two printed books plus their coloring books. Pick either or both below, or leave a slot on surprise.
+                  </p>
+                  <p class="mt-3 text-xs font-bold uppercase tracking-wider text-orange-300">First book</p>
+                  <div class="mt-1.5 space-y-2 text-sm">
+                    <label class="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="club-pick"
+                        value="surprise"
+                        checked={!clubBox.selected_book_slug}
+                        class="mt-1"
+                      />
+                      <span>
+                        <strong class="text-white">Surprise me from my {shelfLabel(clubSignup.shelf)} shelf</strong>
+                      </span>
+                    </label>
+                    {clubPickOptions.map((o: any) => {
+                      const isSelected = clubBox.selected_book_slug === o.slug;
+                      const disableInput = o.blocked && !isSelected && !clubBox.allow_repeat;
+                      return (
+                        <label class="flex items-start gap-2.5 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="club-pick"
+                            value={o.slug}
+                            checked={isSelected}
+                            disabled={disableInput}
+                            data-blocked={o.blocked ? "1" : "0"}
+                            class="mt-1"
+                          />
+                          <span class={o.blocked ? "text-white/60" : "text-white"}>
+                            {o.title}
+                            {o.blocked && <span class="ml-1.5 text-xs text-orange-200">({o.reason})</span>}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p class="mt-4 text-xs font-bold uppercase tracking-wider text-orange-300">Second book</p>
+                  <div class="mt-1.5 space-y-2 text-sm">
+                    <label class="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="club-pick-2"
+                        value="surprise"
+                        checked={!clubBox.second_selected_book_slug}
+                        class="mt-1"
+                      />
+                      <span>
+                        <strong class="text-white">Surprise me for the second book</strong>
+                      </span>
+                    </label>
+                    {clubPickOptions2.map((o: any) => {
+                      const isSelected = clubBox.second_selected_book_slug === o.slug;
+                      const disableInput = o.blocked && !isSelected && !clubBox.allow_repeat;
+                      return (
+                        <label class="flex items-start gap-2.5 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="club-pick-2"
+                            value={o.slug}
+                            checked={isSelected}
+                            disabled={disableInput}
+                            data-blocked={o.blocked ? "1" : "0"}
+                            class="mt-1"
+                          />
+                          <span class={o.blocked ? "text-white/60" : "text-white"}>
+                            {o.title}
+                            {o.blocked && <span class="ml-1.5 text-xs text-orange-200">({o.reason})</span>}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <label class="mt-3 flex items-start gap-2 text-xs text-white/75 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id="club-allow-repeat"
+                      checked={clubBox.allow_repeat === 1}
+                      class="mt-1"
+                    />
+                    <span>I am choosing a repeat on purpose (a second copy, or a gift).</span>
+                  </label>
+                  <div class="mt-4 flex items-center gap-3">
+                    <button
+                      type="submit"
+                      class="cust-pressable rounded-full bg-orange-400 px-5 py-2 text-xs font-extrabold text-[#1a3454] hover:bg-orange-300 cursor-pointer"
+                    >
+                      Save my picks
+                    </button>
+                    <p id="club-pick-msg" class="text-xs text-white/80" role="status"></p>
+                  </div>
+                </form>
+              )}
+            </div>
+          ) : (
+            !clubBillingPaused && (
+              <p class="text-white/80 text-sm leading-relaxed mt-3">
+                Your next box will appear here with its book choices as its ship date approaches.
+              </p>
+            )
+          )}
+        </>
+      ) : clubSignup?.status === "canceled" ? (
+        <div>
+          <h2 class="text-lg font-extrabold">Your Book Club membership is paused/canceled</h2>
+          <p class="text-white/80 text-sm leading-relaxed mt-1.5">
+            No further sets will ship unless you rejoin. All digital books you already unlocked stay on your shelf forever.
+          </p>
+          <a
+            href="/clubs"
+            class="cust-pressable mt-4 inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600"
+          >
+            Rejoin the Club →
+          </a>
+        </div>
+      ) : clubSignup ? (
+        <div>
+          <h2 class="text-lg font-extrabold">
+            Spot reserved on the {shelfLabel(clubSignup.shelf)} shelf
+          </h2>
+          <p class="text-white/80 text-sm leading-relaxed mt-1.5">
+            Membership is open to join, and joining activates your reservation with instant digital &amp; audiobook access.
+          </p>
+          <a
+            href="/clubs"
+            class="cust-pressable mt-4 inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600"
+          >
+            Activate Membership →
+          </a>
+        </div>
+      ) : (
+        <div>
+          <h2 class="text-lg font-extrabold">Join The Book Club or The Audio Club</h2>
+          <p class="text-white/80 text-sm leading-relaxed mt-1.5 max-w-xl">
+            Get a quarterly box of two printed books + coloring books ({clubPriceLabel()}/quarter or {money(CLUB_ANNUAL_PRICE_CENTS)}/year), or unlock every audiobook and Read-Along story with The Audio Club ({money(AUDIO_CLUB_PRICE_CENTS)}/month or {money(AUDIO_CLUB_ANNUAL_PRICE_CENTS)}/year).
+          </p>
+          <a
+            href="/clubs"
+            class="cust-pressable mt-4 inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600"
+          >
+            See Club Options →
+          </a>
+        </div>
+      )}
+    </section>
+  </main>
+
+  <script is:inline>
+    function initClubPick() {
+      var form = document.getElementById("club-pick-form");
+      if (!form || form.__clubPickBound) return;
+      form.__clubPickBound = true;
+      var repeat = document.getElementById("club-allow-repeat");
+      var msg = document.getElementById("club-pick-msg");
+      function syncBlocked() {
+        var on = !!(repeat && repeat.checked);
+        form.querySelectorAll("input[data-blocked='1']").forEach(function (r) {
+          if (!r.checked) r.disabled = !on;
+        });
+      }
+      if (repeat) repeat.addEventListener("change", syncBlocked);
+      syncBlocked();
+      form.addEventListener("submit", async function (ev) {
+        ev.preventDefault();
+        var sel = form.querySelector("input[name='club-pick']:checked");
+        var sel2 = form.querySelector("input[name='club-pick-2']:checked");
+        if (msg) msg.textContent = "Saving...";
+        try {
+          var r = await fetch("/api/club/selection", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ship_date: form.getAttribute("data-ship-date"),
+              selection: sel ? sel.value : "surprise",
+              selection_2: sel2 ? sel2.value : "surprise",
+              allow_repeat: !!(repeat && repeat.checked),
+            }),
+          });
+          var data = await r.json().catch(function () {
+            return {};
+          });
+          if (!r.ok) {
+            if (msg) msg.textContent = data.error || "Could not save your pick.";
+            return;
+          }
+          if (msg) msg.textContent = "Saved!";
+          window.location.reload();
+        } catch {
+          if (msg) msg.textContent = "Could not save your pick. Please try again.";
+        }
+      });
+    }
+    initClubPick();
+    document.addEventListener("astro:page-load", initClubPick);
+  </script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+---
+import "../../styles/global.css";
+import { env } from "cloudflare:workers";
+import Tracking from "../../components/Tracking.astro";
+import { ClientRouter } from "astro:transitions";
+import TransitionHooks from "../../components/TransitionHooks.astro";
+import FormatChip from "../../components/FormatChip.astro";
+import CustomerShell from "../../components/CustomerShell.astro";
+import { loadCustomerHubContext } from "../../lib/account-data";
+import { parseItems, itemQty, shortOrderId } from "../../lib/orders";
+import { publicSlugFor } from "../../lib/public-slugs";
+import { coverDerivative } from "../../lib/derivatives";
+import { GIFT_SET_PRICE_CENTS, AUDIO_PRICE_CENTS, formatLabel } from "../../lib/offers";
+
+const e = env as any;
+const hub = await loadCustomerHubContext(Astro.request, Astro.locals, e.DB, Astro.url.origin);
+if (!hub) {
+  return Astro.redirect("/login?next=/account/orders");
+}
+
+const {
+  session,
+  books,
+  audioBooksCount,
+  parentOnboarding,
+  kidProfiles,
+  onboardingChecklist,
+} = hub;
+
+const R2 = "https://media.bigbrainshelf.com/";
+const orders = await e.DB.prepare(
+  "SELECT * FROM orders WHERE user_id = ? AND status = 'complete' ORDER BY created_at DESC"
+)
+  .bind(session.user.id)
+  .all();
+const orderRows = (orders.rows || orders.results || []) as any[];
+
+const bookBySlug: Record<string, any> = {};
+for (const b of books) bookBySlug[b.slug] = b;
+
+const priceFor = (slug: string, format: string): number => {
+  const b = bookBySlug[slug];
+  if (!b) return 0;
+  if (format === "printed") return Math.round(Number(b.price_print || 0));
+  if (format === "giftset") return GIFT_SET_PRICE_CENTS;
+  if (format === "audio") return AUDIO_PRICE_CENTS;
+  return Math.round(Number(b.price || 0));
+};
+const unlockPriceFor = (b: any): number =>
+  Math.max(0, Math.round(Number(b?.price || 0)) - AUDIO_PRICE_CENTS);
+const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
+
+const PHYSICAL_LABELS: Record<string, string> = {
+  preorder_received: "Printed order received",
+  in_print: "Being printed",
+  packed: "Packed",
+  shipped: "Shipped",
+  delivered: "Delivered",
+};
+
+const orderBookRows = new Map<string, any>();
+{
+  const slugs = [...new Set(orderRows.flatMap((o) => parseItems(o).map((i) => i.slug)))];
+  if (slugs.length) {
+    const ph = slugs.map(() => "?").join(",");
+    const rows = await e.DB.prepare(
+      `SELECT slug, title, cover_key, public_slug FROM books WHERE slug IN (${ph})`
+    )
+      .bind(...slugs)
+      .all();
+    for (const r of (rows.results || rows.rows || []) as any[]) orderBookRows.set(String(r.slug), r);
+  }
+}
+
+const orderViews = orderRows.map((o) => {
+  const grouped = new Map<string, any>();
+  for (const it of parseItems(o)) {
+    const key = it.slug + "|" + it.format;
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.count += itemQty(it);
+      continue;
+    }
+    const ob = orderBookRows.get(it.slug);
+    grouped.set(key, {
+      slug: it.slug,
+      publicSlug: bookBySlug[it.slug]
+        ? publicSlugFor(bookBySlug[it.slug])
+        : ob
+          ? publicSlugFor(ob)
+          : it.slug,
+      title: bookBySlug[it.slug]?.title || ob?.title || "Big Brain Shelf book",
+      format: it.format,
+      count: itemQty(it),
+      cover: ob
+        ? coverDerivative(it.slug, "card", ob.cover_key) || (ob.cover_key ? R2 + ob.cover_key : null)
+        : null,
+      price:
+        it.upgrade === "audio-upgrade"
+          ? unlockPriceFor(bookBySlug[it.slug])
+          : priceFor(it.slug, it.format),
+      creditNote: it.upgrade === "audio-upgrade",
+      hasAudio: !!bookBySlug[it.slug]?.audiobook_key,
+    });
+  }
+  return {
+    order: o,
+    items: [...grouped.values()],
+    dateLong: new Date(Number(o.created_at) * 1000).toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }),
+    shortId: shortOrderId(o.id),
+    physicalLabel: o.physical_status
+      ? PHYSICAL_LABELS[o.physical_status] || o.physical_status
+      : null,
+    trackingLine: o.tracking_number
+      ? [o.carrier ? o.carrier + " · " : "", "Tracking ", o.tracking_number].join("")
+      : null,
+  };
+});
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Orders &amp; Receipts · Big Brain Shelf</title>
+  <ClientRouter />
+  <TransitionHooks />
+  <Tracking />
+</head>
+<body class="bg-white text-stone-900 antialiased pb-28">
+  <CustomerShell
+    currentSection="orders"
+    userEmail={String(session.user.email || "")}
+    username={session.user.displayUsername || session.user.username}
+    displayName={parentOnboarding?.parent_name || session.user.name}
+    isAdmin={session.user.isAdmin}
+    kidProfiles={kidProfiles}
+    hasParentPin={Boolean(parentOnboarding?.parent_pin)}
+    bookCount={books.length}
+    audioCount={audioBooksCount}
+    onboardingComplete={onboardingChecklist.isComplete}
+  />
+
+  <main class="max-w-5xl mx-auto px-4 py-7 sm:py-10">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <span class="rounded-full bg-orange-100 text-orange-800 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+          Order History
+        </span>
+        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900 mt-1.5">
+          Orders &amp; Receipts
+        </h1>
+        <p class="text-sm text-stone-600 mt-1">
+          View receipts, download files, and check shipping status for printed editions and Gift Sets.
+        </p>
+      </div>
+      <a
+        href="/account"
+        class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500"
+      >
+        ← Back to My Shelf
+      </a>
+    </div>
+
+    {orderViews.length === 0 ? (
+      <div class="mt-6 rounded-3xl border border-dashed border-stone-300 bg-[#fcfaf6] p-8 text-center">
+        <p class="text-base font-extrabold text-stone-900">No orders yet</p>
+        <p class="mt-1 text-xs text-stone-600">
+          When you buy a Digital Bundle ($8.99), Audiobook ($1.99), or Printed Gift Set ($25), your receipt and tracking info will appear here.
+        </p>
+        <a
+          href="/books"
+          class="cust-pressable mt-4 inline-block rounded-full bg-orange-600 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-700"
+        >
+          Browse Books →
+        </a>
+      </div>
+    ) : (
+      <div class="mt-6 space-y-6">
+        {orderViews.map((v) => (
+          <section class="rounded-2xl border border-stone-200 overflow-hidden bg-white">
+            <div class="bg-[#faf6ef] border-b border-stone-200 px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4 text-sm">
+              <dl class="grid grid-cols-2 sm:flex sm:items-center gap-x-8 gap-y-2">
+                <div>
+                  <dt class="text-xs font-semibold uppercase tracking-wider text-stone-500">Date placed</dt>
+                  <dd class="mt-0.5 font-semibold text-stone-900">{v.dateLong}</dd>
+                </div>
+                <div>
+                  <dt class="text-xs font-semibold uppercase tracking-wider text-stone-500">Order number</dt>
+                  <dd class="mt-0.5 font-mono text-xs font-semibold text-stone-900">#{v.shortId}</dd>
+                </div>
+                <div>
+                  <dt class="text-xs font-semibold uppercase tracking-wider text-stone-500">Total amount</dt>
+                  <dd class="mt-0.5 font-bold text-stone-900">{money(v.order.amount)}</dd>
+                </div>
+              </dl>
+              {v.physicalLabel && (
+                <div class="text-xs">
+                  <span class="rounded-full bg-[#1a3454] text-white px-3 py-1 font-bold">
+                    {v.physicalLabel}
+                  </span>
+                  {v.trackingLine && (
+                    <span class="ml-2 text-stone-600 font-mono">{v.trackingLine}</span>
+                  )}
+                </div>
+              )}
+            </div>
+            <div class="divide-y divide-stone-100">
+              {v.items.map((it: any) => (
+                <div class="px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4 text-sm">
+                  <div class="flex items-center gap-3.5 min-w-0">
+                    {it.cover ? (
+                      <img
+                        src={it.cover}
+                        alt=""
+                        class="w-12 h-16 object-cover rounded-lg bg-stone-100 border border-stone-200 shrink-0"
+                      />
+                    ) : (
+                      <div class="w-12 h-16 rounded-lg bg-stone-100 shrink-0" />
+                    )}
+                    <div class="min-w-0">
+                      <p class="font-bold text-stone-900 truncate">{it.title}</p>
+                      <div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-stone-500">
+                        <FormatChip format={it.format} />
+                        <span>{formatLabel(it.format)}</span>
+                        {it.count > 1 && <span>· ×{it.count}</span>}
+                        {it.creditNote && <span>· audio credit applied</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-4">
+                    <span class="font-semibold text-stone-700">
+                      {it.price ? money(it.price * it.count) : "—"}
+                    </span>
+                    <a
+                      href={"/books/" + it.publicSlug}
+                      class="font-bold text-orange-600 hover:text-orange-700 text-xs"
+                    >
+                      View book →
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    )}
+  </main>
+</body>
+</html>

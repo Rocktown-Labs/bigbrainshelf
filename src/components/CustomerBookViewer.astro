@@ -1,308 +1,1111 @@
 ---
-import { publicSlugFor } from "../lib/public-slugs";
-
-interface Props {
-  books: any[];
+interface BookItem {
+  slug: string;
+  public_slug?: string;
+  title: string;
+  topic?: string;
+  cover_key?: string;
+  picture_book_key?: string;
+  coloring_book_key?: string;
+  color_book_key?: string;
+  epub_key?: string;
+  audiobook_key?: string;
+  digital?: boolean;
+  audio?: boolean;
+  audioOnly?: boolean;
 }
 
-const { books = [] } = Astro.props;
-const readableBooks = books.filter((b) => !b.audioOnly);
+interface Props {
+  books: BookItem[];
+  defaultSleepMinutes?: number;
+}
+
+const { books = [], defaultSleepMinutes = 60 } = Astro.props;
+const readableBooks = books.filter((b) => b.digital || b.audio);
+const initialBook = readableBooks[0] || null;
 ---
 
 <section
-  id="qc-viewer"
-  class="mt-12 rounded-2xl border border-stone-200 bg-stone-50/70 p-4 sm:p-6 scroll-mt-20"
-  aria-labelledby="qc-viewer-heading"
+  id="shelf-stage"
+  class="mt-8 rounded-3xl border border-stone-200 bg-[#fcfaf6] p-4 sm:p-6 shadow-sm"
+  aria-labelledby="shelf-stage-heading"
 >
-  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 pb-4">
-    <div>
-      <div class="flex items-center gap-2">
-        <span class="rounded-full bg-[#1a3454] text-white px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
-          Digital Bundle Viewer
-        </span>
-        <span class="text-xs font-semibold text-stone-500" id="qc-sync-indicator">
-          Synced with Audiobook Player
-        </span>
-      </div>
-      <h2 id="qc-viewer-heading" class="text-xl font-extrabold tracking-tight text-stone-900 mt-1">
-        Book Viewer &amp; Edition Inspector
-      </h2>
-      <p class="text-xs text-stone-500 mt-0.5">
-        Inspect every page of your digital bundle (Storybook, Coloring Book, Full Color, and Cover/TOC) while listening along.
-      </p>
-    </div>
-
-    {readableBooks.length > 0 && (
-      <div class="flex flex-wrap items-center gap-2">
-        <label class="text-xs font-bold text-stone-600 flex items-center gap-2">
-          <span>Book:</span>
-          <select
-            id="qc-book-select"
-            aria-label="Select book to open in viewer"
-            class="rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-bold text-stone-900 focus:border-orange-600 focus:outline-none"
-          >
-            {readableBooks.map((b, idx) => (
-              <option
-                value={b.slug}
-                data-public-slug={publicSlugFor(b)}
-                data-title={b.title}
-                selected={idx === 0}
-              >
-                {b.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <a
-          id="qc-fullscreen-link"
-          href={readableBooks[0] ? `/read/${publicSlugFor(readableBooks[0])}` : "#"}
-          class="inline-flex items-center gap-1 rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-bold text-stone-700 hover:border-stone-500"
-        >
-          Full-screen Reader ↗
-        </a>
-      </div>
-    )}
-  </div>
-
   {readableBooks.length === 0 ? (
-    <div class="py-12 text-center text-stone-500">
-      <p class="font-semibold text-stone-800">No digital storybook editions in your shelf yet.</p>
-      <p class="text-xs mt-1">
-        When you purchase a digital bundle, gift set, or Book Club box, every page loads right here.
+    <div class="rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center">
+      <p class="text-base font-extrabold text-stone-800">Select any book on your shelf to start reading or listening</p>
+      <p class="mt-1 text-xs text-stone-500">
+        Your Read-Along story viewer, audiobook player, and printable coloring pages will open right here.
       </p>
     </div>
   ) : (
-    <div class="mt-4">
-      {/* Edition + Mode + Sync Controls Bar */}
-      <div class="flex flex-wrap items-center gap-2.5 bg-white rounded-xl border border-stone-200 p-2.5">
-        <div
-          class="inline-flex flex-wrap rounded-xl bg-stone-100 p-1 gap-0.5"
-          role="tablist"
-          aria-label="Book edition view"
-        >
-          <button
-            type="button"
-            role="tab"
-            data-qc-edition="readalong"
-            aria-selected="false"
-            class="qc-edition-btn rounded-lg text-orange-800 bg-orange-100/80 px-3 py-1.5 text-xs font-extrabold transition"
+    <div>
+      <!-- Stage Header: Active Book & Simple Mode Tabs -->
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200/80 pb-4">
+        <div class="flex items-center gap-3 min-w-0">
+          <span
+            id="stage-active-badge"
+            class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-100 text-lg"
+            aria-hidden="true"
           >
-            ✨ Read-Along (Auto-Flip)
-          </button>
-          <button
-            type="button"
-            role="tab"
-            data-qc-edition="story"
-            aria-selected="true"
-            class="qc-edition-btn rounded-lg bg-[#1a3454] text-white px-3 py-1.5 text-xs font-bold transition"
-          >
-            Story Book
-          </button>
-          <button
-            type="button"
-            role="tab"
-            data-qc-edition="coloring"
-            aria-selected="false"
-            class="qc-edition-btn rounded-lg text-stone-700 px-3 py-1.5 text-xs font-bold transition"
-          >
-            Coloring Book
-          </button>
-          <button
-            type="button"
-            role="tab"
-            data-qc-edition="fullcolor"
-            aria-selected="false"
-            class="qc-edition-btn rounded-lg text-stone-700 px-3 py-1.5 text-xs font-bold transition"
-          >
-            Full Color
-          </button>
-          <button
-            type="button"
-            role="tab"
-            data-qc-edition="cover"
-            aria-selected="false"
-            class="qc-edition-btn rounded-lg text-stone-700 px-3 py-1.5 text-xs font-bold transition"
-          >
-            Cover &amp; TOC
-          </button>
+            📖
+          </span>
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="text-[11px] font-extrabold uppercase tracking-wider text-orange-700">
+                Now Open on Your Shelf
+              </p>
+              <span
+                id="stage-sleep-pill"
+                class="rounded-full bg-[#1a3454]/10 text-[#1a3454] px-2.5 py-0.5 text-[11px] font-bold"
+              >
+                🌙 Sleep timer: <span id="stage-sleep-countdown">60:00</span>
+              </span>
+            </div>
+            <div class="flex items-center gap-2 mt-0.5">
+              {readableBooks.length > 1 ? (
+                <select
+                  id="qc-book-select"
+                  aria-label="Choose book to open"
+                  class="rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-sm font-extrabold text-stone-900 focus:border-orange-500 focus:outline-none"
+                >
+                  {readableBooks.map((b, idx) => (
+                    <option value={b.slug} selected={idx === 0}>
+                      {b.title}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <h2 id="shelf-stage-heading" class="text-lg sm:text-xl font-extrabold tracking-tight text-stone-900 truncate">
+                  {initialBook?.title}
+                </h2>
+              )}
+              {readableBooks.length === 1 && (
+                <select id="qc-book-select" class="hidden" aria-hidden="true">
+                  <option value={initialBook?.slug} selected>{initialBook?.title}</option>
+                </select>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div
-          class="inline-flex rounded-xl bg-stone-100 p-1"
-          role="group"
-          aria-label="Page layout mode"
-        >
-          <button
-            type="button"
-            data-qc-mode="flip"
-            class="qc-mode-btn rounded-lg bg-orange-600 text-white px-3 py-1.5 text-xs font-bold transition"
+        <div class="flex items-center gap-2">
+          <a
+            id="qc-open-full-reader"
+            href={initialBook ? `/read/${initialBook.slug}` : "#"}
+            class="cust-pressable rounded-full border border-stone-300 bg-white px-3.5 py-1.5 text-xs font-extrabold text-stone-700 hover:border-stone-500"
           >
-            Flip Pages
-          </button>
-          <button
-            type="button"
-            data-qc-mode="scroll"
-            class="qc-mode-btn rounded-lg text-stone-700 px-3 py-1.5 text-xs font-bold transition"
-          >
-            Scroll All
-          </button>
-        </div>
-
-        <div class="inline-flex items-center gap-1 rounded-xl border border-stone-200 px-2 py-1 text-xs font-bold text-stone-600">
-          <span>Text</span>
-          <button
-            type="button"
-            id="qc-font-smaller"
-            class="w-7 h-7 rounded-lg hover:bg-stone-100 font-extrabold"
-            aria-label="Smaller story text"
-          >
-            A-
-          </button>
-          <button
-            type="button"
-            id="qc-font-larger"
-            class="w-7 h-7 rounded-lg hover:bg-stone-100 font-extrabold"
-            aria-label="Larger story text"
-          >
-            A+
-          </button>
-        </div>
-
-        <div class="ml-auto flex flex-wrap items-center gap-2.5">
-          <label class="inline-flex items-center gap-1.5 text-xs font-bold text-stone-700 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              id="qc-audio-sync-check"
-              checked
-              class="rounded border-stone-300 text-orange-600 focus:ring-orange-500 w-4 h-4"
-            />
-            <span>Sync with Audio</span>
-          </label>
-          <label class="inline-flex items-center gap-1.5 text-xs font-bold text-orange-800 bg-orange-50 border border-orange-200 rounded-lg px-2.5 py-1 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              id="qc-auto-flip-check"
-              checked
-              class="rounded border-orange-300 text-orange-600 focus:ring-orange-500 w-4 h-4"
-            />
-            <span>Auto-Flip Pages</span>
-          </label>
-          <button
-            type="button"
-            id="qc-listen-chapter-btn"
-            class="inline-flex items-center gap-1.5 rounded-full bg-orange-600 text-white px-3.5 py-1.5 text-xs font-bold hover:bg-orange-700 active:scale-[0.97] transition"
-          >
-            <span>▶ Read &amp; Flip Ch</span>
-          </button>
+            Full-Screen Reader ↗
+          </a>
         </div>
       </div>
 
-      {/* Main QC Viewer Split: Left Page/Chapter Rail + Right Page Canvas */}
-      <div class="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-        {/* Left Thumbnail / Chapter Rail */}
-        <aside
-          class="lg:col-span-3 rounded-xl border border-stone-200 bg-white p-3 max-h-[560px] overflow-y-auto"
-          aria-label="Chapters and page thumbnails"
-        >
-          <div class="flex items-center justify-between mb-2">
+      <!-- Simple 4-Tab Mode Bar: Playable Modes + Printable Bundle Files -->
+      <div
+        class="mt-4 flex flex-wrap items-center justify-between gap-3"
+        role="tablist"
+        aria-label="Choose how to enjoy this book"
+      >
+        <div class="inline-flex flex-wrap items-center gap-1.5 rounded-2xl bg-stone-200/70 p-1.5">
+          <button
+            type="button"
+            role="tab"
+            data-stage-tab="readalong"
+            aria-selected="true"
+            class="stage-tab-btn cust-pressable rounded-xl px-3.5 py-2 text-xs font-extrabold transition bg-orange-600 text-white shadow-xs"
+          >
+            ✨ Read-Along (Story + Audio)
+          </button>
+          <button
+            type="button"
+            role="tab"
+            data-stage-tab="storybook"
+            aria-selected="false"
+            class="stage-tab-btn cust-pressable rounded-xl px-3.5 py-2 text-xs font-extrabold transition text-stone-700 hover:text-stone-900"
+          >
+            📖 Read Storybook
+          </button>
+          <button
+            type="button"
+            role="tab"
+            data-stage-tab="listen"
+            aria-selected="false"
+            class="stage-tab-btn cust-pressable rounded-xl px-3.5 py-2 text-xs font-extrabold transition text-stone-700 hover:text-stone-900"
+          >
+            🎧 Listen (Audiobook)
+          </button>
+          <button
+            type="button"
+            role="tab"
+            data-stage-tab="printables"
+            aria-selected="false"
+            class="stage-tab-btn cust-pressable rounded-xl px-3.5 py-2 text-xs font-extrabold transition text-stone-700 hover:text-stone-900"
+            data-parent-only="true"
+          >
+            🖨️ Printables &amp; Downloads
+          </button>
+        </div>
+
+        <!-- Secondary Reader Controls (shown in Read-Along & Storybook tabs) -->
+        <div id="stage-reader-tools" class="flex flex-wrap items-center gap-2">
+          <!-- Art style pill (Full Color vs Line-Art Coloring preview) -->
+          <div class="inline-flex rounded-xl border border-stone-200 bg-white p-0.5" role="group" aria-label="Illustration style">
+            <button
+              type="button"
+              data-qc-edition="color"
+              class="qc-edition-btn cust-pressable rounded-lg px-2.5 py-1 text-[11px] font-extrabold bg-[#1a3454] text-white"
+            >
+              🎨 Full Color
+            </button>
+            <button
+              type="button"
+              data-qc-edition="coloring"
+              class="qc-edition-btn cust-pressable rounded-lg px-2.5 py-1 text-[11px] font-bold text-stone-600 hover:text-stone-900"
+            >
+              🖍️ Coloring Art
+            </button>
+          </div>
+
+          <!-- Flip vs Scroll -->
+          <div class="inline-flex rounded-xl border border-stone-200 bg-white p-0.5" role="group" aria-label="Page layout">
+            <button
+              type="button"
+              id="qc-mode-flip"
+              class="cust-pressable rounded-lg px-2.5 py-1 text-[11px] font-extrabold bg-stone-900 text-white"
+            >
+              Flip Pages
+            </button>
+            <button
+              type="button"
+              id="qc-mode-scroll"
+              class="cust-pressable rounded-lg px-2.5 py-1 text-[11px] font-bold text-stone-600 hover:text-stone-900"
+            >
+              Scroll All
+            </button>
+          </div>
+
+          <!-- Font Size -->
+          <div class="inline-flex items-center gap-1 rounded-xl border border-stone-200 bg-white px-2 py-0.5">
+            <span class="text-[10px] font-bold text-stone-400">Text</span>
+            <button
+              type="button"
+              id="qc-font-dec"
+              class="cust-pressable px-1.5 py-0.5 text-xs font-extrabold text-stone-700 hover:text-stone-900"
+              aria-label="Smaller story text"
+            >
+              A-
+            </button>
+            <button
+              type="button"
+              id="qc-font-inc"
+              class="cust-pressable px-1.5 py-0.5 text-xs font-extrabold text-stone-700 hover:text-stone-900"
+              aria-label="Larger story text"
+            >
+              A+
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 1 & 2: STORY STAGE (Read-Along & Storybook) -->
+      <div id="stage-panel-reader" class="mt-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <!-- Left Chapter / Page Jump Sidebar -->
+        <aside class="lg:col-span-3 rounded-2xl border border-stone-200 bg-white p-3 max-h-[540px] overflow-y-auto">
+          <div class="flex items-center justify-between px-1 pb-2 border-b border-stone-100">
             <span class="text-[11px] font-extrabold uppercase tracking-wider text-stone-400">
-              Pages &amp; Chapters
+              Chapters &amp; Pages
             </span>
-            <span id="qc-total-pages-badge" class="text-[11px] font-bold text-stone-500">
-              Loading...
+            <span id="qc-page-count-badge" class="text-[11px] font-bold text-stone-500">
+              Loading…
             </span>
           </div>
-          <div id="qc-thumb-rail" class="flex lg:flex-col gap-1.5 overflow-x-auto lg:overflow-x-visible pb-1">
-            <p class="text-xs text-stone-400 py-4 text-center">Loading book pages...</p>
+          <div id="qc-thumb-list" class="mt-2 space-y-1">
+            <p class="text-xs text-stone-400 py-4 text-center">Loading story pages…</p>
           </div>
         </aside>
 
-        {/* Right Page Stage */}
-        <div class="lg:col-span-9 rounded-2xl border border-stone-200 bg-white p-4 sm:p-6 min-h-[460px] flex flex-col justify-between">
-          {/* Top Page Status & Kid-Friendly Flip Bar */}
-          <div
-            id="qc-flip-controls"
-            class="flex items-center justify-between gap-2 pb-3 mb-4 border-b border-stone-100"
-          >
+        <!-- Center Story Canvas + Integrated Read-Along Player Bar Below -->
+        <div class="lg:col-span-9 rounded-2xl border border-stone-200 bg-white p-4 sm:p-6 flex flex-col justify-between min-h-[480px]">
+          <!-- Top Page Flip Bar -->
+          <div class="flex items-center justify-between gap-2 pb-3 border-b border-stone-100">
             <button
               type="button"
               id="qc-prev-page"
-              class="min-h-[44px] px-4 rounded-full border border-stone-300 bg-white text-xs sm:text-sm font-bold text-stone-800 hover:border-stone-500 disabled:opacity-40 active:scale-[0.97] transition"
+              class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-1.5 text-xs font-extrabold text-stone-700 hover:border-stone-500 disabled:opacity-40"
             >
-              ← Prev Page
+              ← Back
             </button>
-            <div class="text-center min-w-0">
-              <p id="qc-page-chapter-label" class="text-xs font-extrabold uppercase tracking-wider text-orange-700 truncate">
-                Chapter 1
+            <div class="text-center">
+              <p id="qc-current-chapter" class="text-xs font-extrabold uppercase tracking-wider text-orange-700">
+                Story Reader
               </p>
-              <p id="qc-page-counter-label" class="text-xs text-stone-500 font-semibold mt-0.5">
+              <p id="qc-page-indicator" class="text-xs font-semibold text-stone-500">
                 Page 1
               </p>
             </div>
             <button
               type="button"
               id="qc-next-page"
-              class="min-h-[44px] px-4 rounded-full bg-[#1a3454] text-white text-xs sm:text-sm font-bold hover:bg-[#132741] disabled:opacity-40 active:scale-[0.97] transition"
+              class="cust-pressable rounded-full bg-[#1a3454] px-4 py-1.5 text-xs font-extrabold text-white hover:bg-[#132741] disabled:opacity-40"
             >
               Next Page →
             </button>
           </div>
 
-          {/* Dynamic Stage Content: [ Story ] on top */}
-          <div id="qc-stage-body" class="my-auto">
-            <div class="py-16 text-center text-stone-400 text-sm">
-              Loading your digital book...
+          <!-- Story Page Canvas ([ Story Above ]) -->
+          <div id="qc-canvas" class="my-4 flex-1 flex flex-col items-center justify-center">
+            <div class="text-center py-12 text-stone-400 text-sm">
+              Opening your book…
             </div>
           </div>
 
-          {/* Inline Player & Controls Deck right below the story: [ Player and Controls ] */}
+          <!-- [ Player & Controls Below ] — Integrated Read-Along Bar -->
           <div
-            id="qc-inline-theater-player"
-            class="mt-4 rounded-2xl bg-[#1a3454] text-white p-3.5 sm:p-4 shadow-md"
-            role="region"
-            aria-label="Story Read-Along Player and Controls"
+            id="qc-readalong-bar"
+            class="mt-2 rounded-2xl bg-[#1a3454] text-white px-4 py-3.5 flex flex-wrap items-center justify-between gap-3 shadow-md"
           >
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <div class="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  id="theater-play-btn"
-                  aria-label="Play or pause Read-Along story"
-                  class="w-11 h-11 rounded-full bg-orange-500 hover:bg-orange-400 text-[#1a3454] font-extrabold flex items-center justify-center shrink-0 active:scale-[0.95] transition"
-                >
-                  <span id="theater-play-icon">▶</span>
-                </button>
-                <div class="min-w-0">
-                  <p class="text-[11px] font-extrabold uppercase tracking-wider text-orange-300">
-                    Read-Along Player · Full Color + Auto-Flip
-                  </p>
-                  <p id="theater-now-playing" class="text-xs sm:text-sm font-bold text-white truncate">
-                    Press Play and the pages turn automatically as the narrator reads
-                  </p>
+            <div class="flex items-center gap-3 min-w-0">
+              <button
+                type="button"
+                id="qc-readalong-toggle"
+                class="cust-pressable w-11 h-11 rounded-full bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center font-extrabold text-sm shadow-sm shrink-0 cursor-pointer"
+                aria-label="Play or pause Read-Along narrator"
+              >
+                ▶
+              </button>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-extrabold uppercase tracking-wider text-orange-300">
+                    Read-Along Narrator
+                  </span>
+                  <label class="inline-flex items-center gap-1 text-[11px] font-bold text-stone-200 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id="qc-auto-flip-Audio"
+                      checked
+                      class="rounded border-stone-400 text-orange-500 focus:ring-orange-500"
+                    />
+                    <span>Auto-flip pages</span>
+                  </label>
                 </div>
+                <p id="qc-readalong-status" class="text-xs font-bold text-white truncate mt-0.5">
+                  Press play to listen and have pages turn automatically
+                </p>
               </div>
+            </div>
 
-              <div class="flex items-center gap-3 ml-auto">
-                <span id="theater-time-pill" class="text-xs font-bold tabular-nums text-white/85">
-                  0:00 / 0:00
-                </span>
-                <span
-                  id="theater-sleep-pill"
-                  class="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold text-orange-200 tabular-nums"
-                >
-                  ⏱ 60m sleep stop
-                </span>
-              </div>
+            <div class="flex items-center gap-2">
+              <span id="qc-readalong-time" class="text-xs font-mono text-stone-200">0:00 / 0:00</span>
+              <input type="checkbox" id="qc-sync-audio" checked class="hidden" aria-hidden="true" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: COZY AUDIOBOOK PLAYER STAGE -->
+      <div id="stage-panel-listen" class="hidden mt-4 rounded-2xl bg-[#1a3454] text-white p-5 sm:p-7 shadow-md">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <span class="rounded-full bg-orange-500/20 border border-orange-400/40 text-orange-200 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+              Cozy Audiobook Mode
+            </span>
+            <h3 id="listen-stage-title" class="text-xl font-extrabold tracking-tight mt-2">
+              {initialBook?.title || "Audiobook Player"}
+            </h3>
+            <p id="listen-stage-chapter" class="text-xs text-stone-300 mt-0.5">
+              Choose a chapter below or press play to start listening
+            </p>
+          </div>
+
+          <!-- Sleep Timer Picker right in Listen Mode -->
+          <div class="flex flex-wrap items-center gap-2 rounded-2xl bg-white/10 p-2.5 border border-white/15">
+            <label for="listen-sleep-select" class="text-xs font-extrabold text-orange-200">
+              🌙 Bedtime Sleep Timer:
+            </label>
+            <select
+              id="listen-sleep-select"
+              class="rounded-xl bg-[#11243b] border border-white/20 px-3 py-1.5 text-xs font-bold text-white"
+            >
+              <option value="15" selected={defaultSleepMinutes === 15}>15 minutes</option>
+              <option value="30" selected={defaultSleepMinutes === 30}>30 minutes</option>
+              <option value="45" selected={defaultSleepMinutes === 45}>45 minutes</option>
+              <option value="60" selected={defaultSleepMinutes === 60 || !defaultSleepMinutes}>60 minutes</option>
+              <option value="90" selected={defaultSleepMinutes === 90}>90 minutes</option>
+              <option value="chapter">End of chapter</option>
+              <option value="0">No timer</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Transport Controls -->
+        <div class="mt-6 rounded-2xl bg-white/10 p-4 sm:p-5 border border-white/10">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                id="listen-Back-15"
+                class="cust-pressable rounded-full bg-white/10 hover:bg-white/20 px-3.5 py-2 text-xs font-extrabold text-white"
+              >
+                -15s
+              </button>
+              <button
+                type="button"
+                id="listen-main-play"
+                class="cust-pressable w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center text-lg font-extrabold shadow-lg cursor-pointer"
+                aria-label="Play or pause audiobook"
+              >
+                ▶
+              </button>
+              <button
+                type="button"
+                id="listen-fwd-15"
+                class="cust-pressable rounded-full bg-white/10 hover:bg-white/20 px-3.5 py-2 text-xs font-extrabold text-white"
+              >
+                +15s
+              </button>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <label for="listen-speed-select" class="text-xs font-bold text-stone-300">Narration Speed</label>
+              <select
+                id="listen-speed-select"
+                class="rounded-xl bg-[#11243b] border border-white/20 px-2.5 py-1.5 text-xs font-bold text-white"
+              >
+                <option value="0.85">0.85× (Gentle)</option>
+                <option value="0.95">0.95×</option>
+                <option value="1" selected>1.0× (Normal)</option>
+                <option value="1.15">1.15×</option>
+              </select>
             </div>
           </div>
 
-          {/* Bottom Quick Download & Resume Footnote */}
-          <div class="mt-6 pt-3 border-t border-stone-100 flex flex-wrap items-center justify-between gap-2 text-xs text-stone-500">
-            <span id="qc-saved-progress-note">Progress saves automatically for the active reader profile.</span>
-            <div id="qc-bundle-downloads" class="flex flex-wrap items-center gap-1.5"></div>
+          <!-- Chapter Pills -->
+          <div id="listen-chapter-pills" class="mt-4 flex flex-wrap gap-1.5 pt-3 border-t border-white/10">
+            <span class="text-xs text-stone-300">Loading audio chapters…</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: PRINTABLES & DIGITAL BUNDLE DOWNLOADS -->
+      <div
+        id="stage-panel-printables"
+        class="hidden mt-4 rounded-2xl border border-stone-200 bg-white p-5 sm:p-6"
+      >
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <span class="rounded-full bg-orange-100 text-orange-800 px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
+              Included in Your Bundle
+            </span>
+            <h3 class="text-lg font-extrabold text-stone-900 mt-1">
+              Print at home or download for offline trips
+            </h3>
+            <p class="text-xs text-stone-600 mt-0.5 max-w-2xl">
+              Every Digital Bundle ($8.99) and Gift Set ($25) includes both interactive playable modes above and print-ready PDFs for crayons, markers, eReaders, and car rides.
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          <!-- Printable Coloring Book PDF -->
+          <div class="rounded-2xl border border-orange-200 bg-orange-50/50 p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xl" aria-hidden="true">🖍️</span>
+                <span class="rounded-full bg-orange-100 text-orange-800 px-2.5 py-0.5 text-[10px] font-extrabold uppercase">
+                  Most Popular Printable
+                </span>
+              </div>
+              <h4 class="text-sm font-extrabold text-stone-900 mt-2">Printable Coloring Book (PDF)</h4>
+              <p class="text-xs text-stone-600 mt-1">
+                Every scene in crisp black-and-white line art. Print single pages or the whole book for crayons and markers while listening along.
+              </p>
+            </div>
+            <a
+              id="qc-dl-coloring"
+              href="#"
+              class="cust-pressable mt-4 inline-flex items-center justify-center rounded-xl bg-orange-600 px-3.5 py-2 text-xs font-extrabold text-white hover:bg-orange-700"
+            >
+              Download Coloring PDF ↓
+            </a>
+          </div>
+
+          <!-- Printable Illustrated Storybook PDF -->
+          <div class="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 flex flex-col justify-between">
+            <div>
+              <span class="text-xl" aria-hidden="true">📘</span>
+              <h4 class="text-sm font-extrabold text-stone-900 mt-2">Illustrated Storybook (PDF)</h4>
+              <p class="text-xs text-stone-600 mt-1">
+                The complete print-layout storybook with illustrations and large, early-reader typography.
+              </p>
+            </div>
+            <a
+              id="qc-dl-picture"
+              href="#"
+              class="cust-pressable mt-4 inline-flex items-center justify-center rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-extrabold text-stone-800 hover:border-stone-500"
+            >
+              Download Storybook PDF ↓
+            </a>
+          </div>
+
+          <!-- Full-Color Collector PDF -->
+          <div class="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 flex flex-col justify-between">
+            <div>
+              <span class="text-xl" aria-hidden="true">🎨</span>
+              <h4 class="text-sm font-extrabold text-stone-900 mt-2">Full-Color Edition (PDF)</h4>
+              <p class="text-xs text-stone-600 mt-1">
+                Full-color painted scenes on every page, ready for iPads, tablets, or color printing.
+              </p>
+            </div>
+            <a
+              id="qc-dl-color"
+              href="#"
+              class="cust-pressable mt-4 inline-flex items-center justify-center rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-extrabold text-stone-800 hover:border-stone-500"
+            >
+              Download Full-Color PDF ↓
+            </a>
+          </div>
+
+          <!-- EPUB eReader file -->
+          <div class="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 flex flex-col justify-between">
+            <div>
+              <span class="text-xl" aria-hidden="true">📱</span>
+              <h4 class="text-sm font-extrabold text-stone-900 mt-2">Apple Books &amp; Kindle (EPUB)</h4>
+              <p class="text-xs text-stone-600 mt-1">
+                Standard reflowable EPUB file for Apple Books, Kindle, Kobo, and Nook.
+              </p>
+            </div>
+            <a
+              id="qc-dl-epub"
+              href="#"
+              class="cust-pressable mt-4 inline-flex items-center justify-center rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-extrabold text-stone-800 hover:border-stone-500"
+            >
+              Download EPUB ↓
+            </a>
+          </div>
+
+          <!-- M4B Audiobook file -->
+          <div class="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 flex flex-col justify-between">
+            <div>
+              <span class="text-xl" aria-hidden="true">🎧</span>
+              <h4 class="text-sm font-extrabold text-stone-900 mt-2">Offline Audiobook (M4B)</h4>
+              <p class="text-xs text-stone-600 mt-1">
+                Chapter-indexed M4B audiobook file for Yoto cards, road trips, or offline listening on flights.
+              </p>
+            </div>
+            <a
+              id="qc-dl-audio"
+              href="#"
+              class="cust-pressable mt-4 inline-flex items-center justify-center rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-extrabold text-stone-800 hover:border-stone-500"
+            >
+              Download M4B Audiobook ↓
+            </a>
           </div>
         </div>
       </div>
     </div>
   )}
 </section>
+
+<script
+  is:inline
+  define:vars={{
+    bookMetaList: readableBooks.map((b) => ({
+      slug: b.slug,
+      title: b.title,
+      hasPicture: Boolean(b.picture_book_key),
+      hasColoring: Boolean(b.coloring_book_key),
+      hasColor: Boolean(b.color_book_key),
+      hasEpub: Boolean(b.epub_key),
+      hasAudio: Boolean(b.audiobook_key),
+      audioOnly: Boolean(b.audioOnly),
+    })),
+  }}
+>
+  (function () {
+    function initShelfStage() {
+      var selectEl = document.getElementById("qc-book-select");
+      var canvasEl = document.getElementById("qc-canvas");
+      var thumbListEl = document.getElementById("qc-thumb-list");
+      var pageCountBadge = document.getElementById("qc-page-count-badge");
+      var currentChapterEl = document.getElementById("qc-current-chapter");
+      var pageIndicatorEl = document.getElementById("qc-page-indicator");
+      var prevBtn = document.getElementById("qc-prev-page");
+      var nextBtn = document.getElementById("qc-next-page");
+      var modeFlipBtn = document.getElementById("qc-mode-flip");
+      var modeScrollBtn = document.getElementById("qc-mode-scroll");
+      var fontDecBtn = document.getElementById("qc-font-dec");
+      var fontIncBtn = document.getElementById("qc-font-inc");
+      var syncAudioInput = document.getElementById("qc-sync-audio");
+      var autoFlipAudioInput = document.getElementById("qc-auto-flip-Audio");
+      var readAlongBar = document.getElementById("qc-readalong-bar");
+      var readAlongToggleBtn = document.getElementById("qc-readalong-toggle");
+      var readAlongStatusEl = document.getElementById("qc-readalong-status");
+      var readAlongTimeEl = document.getElementById("qc-readalong-time");
+      var openFullReader = document.getElementById("qc-open-full-reader");
+
+      var panelReader = document.getElementById("stage-panel-reader");
+      var panelListen = document.getElementById("stage-panel-listen");
+      var panelPrintables = document.getElementById("stage-panel-printables");
+      var readerTools = document.getElementById("stage-reader-tools");
+      var listenTitle = document.getElementById("listen-stage-title");
+      var listenChapter = document.getElementById("listen-stage-chapter");
+      var listenPills = document.getElementById("listen-chapter-pills");
+      var listenPlayBtn = document.getElementById("listen-main-play");
+      var listenBack15 = document.getElementById("listen-Back-15");
+      var listenFwd15 = document.getElementById("listen-fwd-15");
+      var listenSpeedSelect = document.getElementById("listen-speed-select");
+      var listenSleepSelect = document.getElementById("listen-sleep-select");
+
+      var dlPicture = document.getElementById("qc-dl-picture");
+      var dlColoring = document.getElementById("qc-dl-coloring");
+      var dlColor = document.getElementById("qc-dl-color");
+      var dlEpub = document.getElementById("qc-dl-epub");
+      var dlAudio = document.getElementById("qc-dl-audio");
+
+      if (!selectEl || !canvasEl || !bookMetaList || !bookMetaList.length) return;
+      if (selectEl.dataset.boundStage === "1") return;
+      selectEl.dataset.boundStage = "1";
+
+      var state = {
+        slug: selectEl.value || bookMetaList[0].slug,
+        stageTab: "readalong", // "readalong" | "storybook" | "listen" | "printables"
+        edition: "color", // "color" | "coloring"
+        mode: "flip", // "flip" | "scroll"
+        fontScale: 1,
+        pageIndex: 0,
+        data: null,
+        cache: {},
+      };
+
+      function fmtTime(sec) {
+        if (!sec || !isFinite(sec) || sec < 0) return "0:00";
+        var s = Math.floor(sec);
+        var m = Math.floor(s / 60);
+        var r = s % 60;
+        return m + ":" + (r < 10 ? "0" : "") + r;
+      }
+
+      function getMeta(slug) {
+        return (
+          bookMetaList.find(function (m) {
+            return m.slug === slug;
+          }) || bookMetaList[0]
+        );
+      }
+
+      function applyStageTab(tab) {
+        state.stageTab = tab;
+        var tabBtns = document.querySelectorAll(".stage-tab-btn");
+        tabBtns.forEach(function (btn) {
+          var isSelected = btn.getAttribute("data-stage-tab") === tab;
+          btn.setAttribute("aria-selected", isSelected ? "true" : "false");
+          if (isSelected) {
+            btn.classList.add("bg-orange-600", "text-white", "shadow-xs");
+            btn.classList.remove("text-stone-700");
+          } else {
+            btn.classList.remove("bg-orange-600", "text-white", "shadow-xs");
+            btn.classList.add("text-stone-700");
+          }
+        });
+
+        var isReaderTab = tab === "readalong" || tab === "storybook";
+        if (panelReader) panelReader.classList.toggle("hidden", !isReaderTab);
+        if (readerTools) readerTools.classList.toggle("hidden", !isReaderTab);
+        if (panelListen) panelListen.classList.toggle("hidden", tab !== "listen");
+        if (panelPrintables) panelPrintables.classList.toggle("hidden", tab !== "printables");
+
+        if (readAlongBar) {
+          readAlongBar.classList.toggle("hidden", tab !== "readalong");
+        }
+        if (tab === "readalong") {
+          state.edition = "color";
+          state.mode = "flip";
+          if (autoFlipAudioInput) autoFlipAudioInput.checked = true;
+          if (syncAudioInput) syncAudioInput.checked = true;
+          updateEditionButtons();
+          renderViewer();
+        } else if (tab === "storybook") {
+          renderViewer();
+        }
+      }
+
+      function updateEditionButtons() {
+        document.querySelectorAll(".qc-edition-btn").forEach(function (b) {
+          var active = b.getAttribute("data-qc-edition") === state.edition;
+          if (active) {
+            b.classList.add("bg-[#1a3454]", "text-white", "font-extrabold");
+            b.classList.remove("text-stone-600", "font-bold");
+          } else {
+            b.classList.remove("bg-[#1a3454]", "text-white", "font-extrabold");
+            b.classList.add("text-stone-600", "font-bold");
+          }
+        });
+      }
+
+      function updateDownloadLinks(slug) {
+        var meta = getMeta(slug);
+        if (openFullReader) openFullReader.href = "/read/" + encodeURIComponent(slug);
+        if (listenTitle && meta) listenTitle.textContent = meta.title;
+
+        function bindDl(el, format, enabled) {
+          if (!el) return;
+          if (enabled) {
+            el.href = "/api/download?slug=" + encodeURIComponent(slug) + "&format=" + format;
+            el.classList.remove("opacity-40", "pointer-events-none");
+          } else {
+            el.href = "#";
+            el.classList.add("opacity-40", "pointer-events-none");
+          }
+        }
+        bindDl(dlPicture, "picture", meta.hasPicture);
+        bindDl(dlColoring, "coloring", meta.hasColoring);
+        bindDl(dlColor, "color", meta.hasColor);
+        bindDl(dlEpub, "epub", meta.hasEpub);
+        bindDl(dlAudio, "audio", meta.hasAudio);
+      }
+
+      function saveProgressDebounced() {
+        if (!state.data || !state.data.pages) return;
+        var total = state.data.pages.length || 1;
+        var page = state.data.pages[state.pageIndex] || {};
+        var kidId = document.body.getAttribute("data-active-kid-id") || null;
+        clearTimeout(state._saveTimer);
+        state._saveTimer = setTimeout(function () {
+          fetch("/api/account/family", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "save_progress",
+              book_slug: state.slug,
+              kid_profile_id: kidId || null,
+              edition: state.edition,
+              current_page: state.pageIndex + 1,
+              total_pages: total,
+              chapter_index: typeof page.chapterIndex === "number" ? page.chapterIndex : 0,
+            }),
+          }).catch(function () {});
+        }, 1000);
+      }
+
+      function renderListenPills() {
+        if (!listenPills || !state.data) return;
+        var tracks = state.data.audioTracks || [];
+        if (!tracks.length) {
+          listenPills.innerHTML =
+            '<span class="text-xs text-stone-300">No chapter audio tracks available for this title.</span>';
+          return;
+        }
+        listenPills.innerHTML = tracks
+          .map(function (t, i) {
+            return (
+              '<button type="button" data-listen-idx="' +
+              i +
+              '" class="cust-pressable rounded-full px-3.5 py-1.5 text-xs font-extrabold transition bg-white/10 text-stone-100 hover:bg-orange-500 hover:text-white">' +
+              t.label +
+              "</button>"
+            );
+          })
+          .join("");
+        listenPills.querySelectorAll("[data-listen-idx]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var idx = Number(btn.getAttribute("data-listen-idx") || "0");
+            var tr = tracks[idx];
+            if (tr && listenChapter) {
+              listenChapter.textContent = "Now playing: " + tr.label + (tr.title ? " — " + tr.title : "");
+            }
+            window.dispatchEvent(
+              new CustomEvent("bbs:audio-play-chapter", {
+                detail: { slug: state.slug, chapterNum: tr ? tr.num : idx, autoPlay: true },
+              })
+            );
+          });
+        });
+      }
+
+      function renderThumbnails() {
+        if (!state.data || !state.data.pages) return;
+        var pages = state.data.pages;
+        if (pageCountBadge) {
+          pageCountBadge.textContent = pages.length + " pages";
+        }
+        var html = "";
+        var lastCh = -1;
+        pages.forEach(function (p, idx) {
+          if (p.chapterIndex !== lastCh) {
+            lastCh = p.chapterIndex;
+            html +=
+              '<div class="pt-2 pb-1 px-1.5 text-[10px] font-extrabold uppercase tracking-wider text-stone-400">' +
+              "Ch " +
+              p.chapterIndex +
+              ": " +
+              (p.chapterTitle || "") +
+              "</div>";
+          }
+          var isActive = idx === state.pageIndex;
+          html +=
+            '<button type="button" data-page-idx="' +
+            idx +
+            '" class="w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 transition ' +
+            (isActive
+              ? "bg-orange-600 text-white font-extrabold"
+              : "text-stone-700 hover:bg-stone-100") +
+            '">' +
+            "<span>Page " +
+            p.pageNumber +
+            "</span>" +
+            '<span class="text-[10px] opacity-75">Ch ' +
+            p.chapterIndex +
+            "</span>" +
+            "</button>";
+        });
+        thumbListEl.innerHTML = html;
+        thumbListEl.querySelectorAll("[data-page-idx]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var nextIdx = Number(btn.getAttribute("data-page-idx") || "0");
+            goToPage(nextIdx, true);
+          });
+        });
+      }
+
+      function renderPageCard(p) {
+        var isColoring = state.edition === "coloring";
+        var imgUrl = isColoring ? p.lineartUrl || p.colorUrl : p.colorUrl || p.lineartUrl;
+        var fontSizeRem = (1.08 * state.fontScale).toFixed(2) + "rem";
+
+        var imgFilterClass = isColoring && !p.lineartUrl ? "grayscale contrast-150 brightness-110" : "";
+        var badgeLabel = isColoring ? "🖍️ Coloring Art" : "🎨 Story Page " + p.pageNumber;
+
+        return (
+          '<article class="w-full max-w-2xl mx-auto rounded-2xl border border-stone-200 bg-[#fffdf9] p-4 sm:p-6 shadow-xs">' +
+          '<div class="flex items-center justify-between text-[11px] font-bold text-stone-400 mb-3">' +
+          "<span>" +
+          badgeLabel +
+          "</span>" +
+          "<span>Chapter " +
+          p.chapterIndex +
+          (p.chapterTitle ? " · " + p.chapterTitle : "") +
+          "</span>" +
+          "</div>" +
+          (imgUrl
+            ? '<div class="overflow-hidden rounded-xl border border-stone-200/80 bg-white mb-4 flex items-center justify-center">' +
+              '<img src="' +
+              imgUrl +
+              '" alt="Illustration for page ' +
+              p.pageNumber +
+              '" loading="lazy" class="max-h-[380px] w-auto object-contain ' +
+              imgFilterClass +
+              '" />' +
+              "</div>"
+            : "") +
+          '<div class="font-serif text-stone-800 leading-relaxed whitespace-pre-line" style="font-size:' +
+          fontSizeRem +
+          '">' +
+          (p.text || "") +
+          "</div>" +
+          "</article>"
+        );
+      }
+
+      function renderViewer() {
+        if (!state.data) return;
+        var pages = state.data.pages || [];
+        if (!pages.length) {
+          canvasEl.innerHTML =
+            '<div class="text-center py-12 text-stone-500 text-sm">This title is an audiobook-only edition. Switch to the <strong>🎧 Listen</strong> tab above to play!</div>';
+          return;
+        }
+        if (state.pageIndex >= pages.length) state.pageIndex = pages.length - 1;
+        if (state.pageIndex < 0) state.pageIndex = 0;
+
+        var cur = pages[state.pageIndex];
+        if (currentChapterEl) {
+          currentChapterEl.textContent = "Chapter " + cur.chapterIndex + ": " + (cur.chapterTitle || "");
+        }
+        if (pageIndicatorEl) {
+          pageIndicatorEl.textContent = "Page " + (state.pageIndex + 1) + " of " + pages.length;
+        }
+        if (prevBtn) prevBtn.disabled = state.pageIndex <= 0 || state.mode === "scroll";
+        if (nextBtn) nextBtn.disabled = state.pageIndex >= pages.length - 1 || state.mode === "scroll";
+
+        if (state.mode === "scroll") {
+          canvasEl.innerHTML =
+            '<div class="w-full space-y-6 max-h-[600px] overflow-y-auto pr-1">' +
+            pages.map(renderPageCard).join("") +
+            "</div>";
+        } else {
+          canvasEl.innerHTML = renderPageCard(cur);
+        }
+
+        renderThumbnails();
+        saveProgressDebounced();
+      }
+
+      function goToPage(idx, notifyAudio) {
+        if (!state.data || !state.data.pages) return;
+        var pages = state.data.pages;
+        var clamped = Math.max(0, Math.min(pages.length - 1, idx));
+        var prevCh = pages[state.pageIndex] ? pages[state.pageIndex].chapterIndex : -1;
+        state.pageIndex = clamped;
+        var nextCh = pages[clamped] ? pages[clamped].chapterIndex : -1;
+        renderViewer();
+
+        if (notifyAudio && syncAudioInput && syncAudioInput.checked && nextCh > 0 && nextCh !== prevCh) {
+          window.dispatchEvent(
+            new CustomEvent("bbs:viewer-chapter-select", {
+              detail: {
+                slug: state.slug,
+                chapterNum: nextCh,
+              },
+            })
+          );
+        }
+      }
+
+      function loadBook(slug) {
+        state.slug = slug;
+        state.pageIndex = 0;
+        if (selectEl.value !== slug) selectEl.value = slug;
+        updateDownloadLinks(slug);
+
+        var meta = getMeta(slug);
+        if (meta && meta.audioOnly) {
+          applyStageTab("listen");
+        }
+
+        if (state.cache[slug]) {
+          state.data = state.cache[slug];
+          renderViewer();
+          renderListenPills();
+          return;
+        }
+
+        canvasEl.innerHTML =
+          '<div class="text-center py-12 text-stone-400 text-sm">Opening ' +
+          (meta ? meta.title : "book") +
+          "…</div>";
+
+        fetch("/api/account/book-viewer?slug=" + encodeURIComponent(slug))
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (data) {
+            if (!data || !data.ok) {
+              canvasEl.innerHTML =
+                '<div class="text-center py-12 text-red-600 text-sm">Could not load book pages right now.</div>';
+              return;
+            }
+            state.cache[slug] = data;
+            state.data = data;
+            renderViewer();
+            renderListenPills();
+            window.dispatchEvent(
+              new CustomEvent("bbs:book-viewer-loaded", {
+                detail: { slug: slug, audioTracks: data.audioTracks || [], title: data.title },
+              })
+            );
+          })
+          .catch(function () {
+            canvasEl.innerHTML =
+              '<div class="text-center py-12 text-red-600 text-sm">Could not load book pages right now.</div>';
+          });
+      }
+
+      // Stage tab clicks
+      document.querySelectorAll(".stage-tab-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var tab = btn.getAttribute("data-stage-tab") || "readalong";
+          applyStageTab(tab);
+        });
+      });
+
+      // Edition switcher (Full Color vs Coloring Art)
+      document.querySelectorAll(".qc-edition-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          state.edition = btn.getAttribute("data-qc-edition") || "color";
+          updateEditionButtons();
+          renderViewer();
+        });
+      });
+
+      if (modeFlipBtn && modeScrollBtn) {
+        modeFlipBtn.addEventListener("click", function () {
+          state.mode = "flip";
+          modeFlipBtn.classList.add("bg-stone-900", "text-white", "font-extrabold");
+          modeScrollBtn.classList.remove("bg-stone-900", "text-white", "font-extrabold");
+          renderViewer();
+        });
+        modeScrollBtn.addEventListener("click", function () {
+          state.mode = "scroll";
+          modeScrollBtn.classList.add("bg-stone-900", "text-white", "font-extrabold");
+          modeFlipBtn.classList.remove("bg-stone-900", "text-white", "font-extrabold");
+          renderViewer();
+        });
+      }
+
+      if (fontDecBtn) {
+        fontDecBtn.addEventListener("click", function () {
+          state.fontScale = Math.max(0.85, Number((state.fontScale - 0.1).toFixed(2)));
+          renderViewer();
+        });
+      }
+      if (fontIncBtn) {
+        fontIncBtn.addEventListener("click", function () {
+          state.fontScale = Math.min(1.45, Number((state.fontScale + 0.1).toFixed(2)));
+          renderViewer();
+        });
+      }
+
+      if (prevBtn) {
+        prevBtn.addEventListener("click", function () {
+          goToPage(state.pageIndex - 1, true);
+        });
+      }
+      if (nextBtn) {
+        nextBtn.addEventListener("click", function () {
+          goToPage(state.pageIndex + 1, true);
+        });
+      }
+
+      if (readAlongToggleBtn) {
+        readAlongToggleBtn.addEventListener("click", function () {
+          var pages = (state.data && state.data.pages) || [];
+          var cur = pages[state.pageIndex] || pages[0];
+          var targetCh = cur && typeof cur.chapterIndex === "number" ? cur.chapterIndex : 1;
+          window.dispatchEvent(
+            new CustomEvent("bbs:readalong-toggle", {
+              detail: {
+                slug: state.slug,
+                chapterNum: targetCh,
+              },
+            })
+          );
+        });
+      }
+
+      // Listen tab controls delegate to the synced audio dock
+      if (listenPlayBtn) {
+        listenPlayBtn.addEventListener("click", function () {
+          window.dispatchEvent(
+            new CustomEvent("bbs:readalong-toggle", {
+              detail: { slug: state.slug, chapterNum: 1 },
+            })
+          );
+        });
+      }
+      if (listenBack15) {
+        listenBack15.addEventListener("click", function () {
+          var dockBack = document.getElementById("dock-prev-15");
+          if (dockBack) dockBack.click();
+        });
+      }
+      if (listenFwd15) {
+        listenFwd15.addEventListener("click", function () {
+          var dockFwd = document.getElementById("dock-next-15");
+          if (dockFwd) dockFwd.click();
+        });
+      }
+      if (listenSpeedSelect) {
+        listenSpeedSelect.addEventListener("change", function () {
+          var dockSpeed = document.getElementById("dock-speed-select");
+          if (dockSpeed) {
+            dockSpeed.value = listenSpeedSelect.value;
+            dockSpeed.dispatchEvent(new Event("change"));
+          }
+        });
+      }
+      if (listenSleepSelect) {
+        listenSleepSelect.addEventListener("change", function () {
+          var dockSleep = document.getElementById("dock-sleep-select");
+          if (dockSleep) {
+            dockSleep.value = listenSleepSelect.value;
+            dockSleep.dispatchEvent(new Event("change"));
+          }
+        });
+      }
+
+      selectEl.addEventListener("change", function () {
+        loadBook(selectEl.value);
+      });
+
+      // Shelf card buttons can open a specific book & mode directly
+      window.addEventListener("bbs:open-book-in-qc", function (ev) {
+        var detail = (ev && ev.detail) || {};
+        if (detail.tab) {
+          applyStageTab(detail.tab);
+        } else if (detail.edition === "readalong") {
+          applyStageTab("readalong");
+        } else if (detail.edition === "coloring") {
+          state.edition = "coloring";
+          updateEditionButtons();
+          applyStageTab("storybook");
+        }
+        if (detail.slug) {
+          loadBook(detail.slug);
+        }
+        var section = document.getElementById("shelf-stage");
+        if (section) section.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      // Audio chapter changes sync the current page
+      window.addEventListener("bbs:audio-chapter-active", function (ev) {
+        if (!syncAudioInput || !syncAudioInput.checked || !state.data || !state.data.pages) return;
+        var detail = (ev && ev.detail) || {};
+        if (detail.slug && detail.slug !== state.slug) return;
+        var chNum = detail.chapterNum;
+        var pages = state.data.pages;
+        var idx = pages.findIndex(function (p) {
+          return p.chapterIndex === chNum;
+        });
+        if (idx >= 0 && idx !== state.pageIndex) {
+          state.pageIndex = idx;
+          renderViewer();
+        }
+      });
+
+      // Audio timeprogress auto-flips pages within the active chapter
+      window.addEventListener("bbs:audio-timeupdate", function (ev) {
+        var d = (ev && ev.detail) || {};
+        if (d.slug && d.slug !== state.slug) return;
+
+        if (readAlongToggleBtn) {
+          readAlongToggleBtn.textContent = d.paused ? "▶" : "❚❚";
+        }
+        if (listenPlayBtn) {
+          listenPlayBtn.textContent = d.paused ? "▶" : "❚❚";
+        }
+        if (readAlongTimeEl && d.duration > 0) {
+          readAlongTimeEl.textContent = fmtTime(d.currentTime) + " / " + fmtTime(d.duration);
+        }
+        if (readAlongStatusEl && d.chapterLabel) {
+          readAlongStatusEl.textContent =
+            d.chapterLabel +
+            (d.paused ? " · Paused" : " · Turning pages automatically with narrator");
+        }
+
+        if (!autoFlipAudioInput || !autoFlipAudioInput.checked) return;
+        if (!state.data || !state.data.pages || !d.duration || d.duration <= 0) return;
+
+        var chNum = d.chapterNum;
+        var pages = state.data.pages;
+        var chapterPageIndices = [];
+        pages.forEach(function (p, idx) {
+          if (p.chapterIndex === chNum) chapterPageIndices.push(idx);
+        });
+        if (!chapterPageIndices.length) return;
+
+        var ratio = Math.max(0, Math.min(0.999, d.currentTime / d.duration));
+        var offset = Math.floor(ratio * chapterPageIndices.length);
+        var targetPageIdx = chapterPageIndices[offset];
+
+        if (typeof targetPageIdx === "number" && targetPageIdx !== state.pageIndex) {
+          state.pageIndex = targetPageIdx;
+          renderViewer();
+        }
+      });
+
+      loadBook(state.slug);
+    }
+
+    initShelfStage();
+    document.addEventListener("astro:page-load", initShelfStage);
+  })();
+</script>
