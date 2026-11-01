@@ -43,8 +43,8 @@ assert(
 );
 const signupSrc = await read("../src/pages/signup.astro");
 assert(
-  signupSrc.includes('safeNext(next, "/account", ["/admin", "/login"])'),
-  "signup success hop uses the guard (and still blocks /admin)"
+  signupSrc.includes('safeNext(next, "/auth/land", ["/admin", "/login"])'),
+  "signup success hop uses the guard (blocks /admin, routes through the isOnboarded gate)"
 );
 assert(
   !signupSrc.includes("window.location.href = next &&"),
