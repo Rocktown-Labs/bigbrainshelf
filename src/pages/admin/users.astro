@@ -1,11 +1,17 @@
 ---
 import "../../styles/global.css";
 import AdminShell from "../../components/AdminShell.astro";
+import { ADMIN_EMAILS } from "../../lib/admins";
 export const prerender = false;
-// User management (2026-10-31): every storefront account, its
-// better-auth role and ban state, and its Stripe customer. The
-// admin role is scoped to the owner's own addresses (the API
-// refuses anything wider). Data comes from /api/admin/users.
+// User management (route 2, 2026-10-31): this page runs entirely
+// on the better-auth admin plugin's own endpoints (list-users,
+// set-role, ban-user, unban-user, list-user-sessions,
+// revoke-user-session, impersonate-user). Owner sign-ins carry a
+// better-auth session (see createBridgeSessionCookie in lib/auth),
+// which is what authorizes those calls. The owner scoping stays:
+// the admin role is offered only for the owner's own addresses,
+// and owner accounts can never be banned or demoted from here.
+const ownersJson = JSON.stringify(ADMIN_EMAILS);
 ---
 <!doctype html>
 <html lang="en">
@@ -21,7 +27,7 @@ export const prerender = false;
 <AdminShell current="/admin/users" />
   <main class="px-4 py-5 sm:px-7 max-w-6xl mx-auto w-full">
     <h1 class="text-2xl font-extrabold tracking-tight">Users</h1>
-    <p class="text-sm text-stone-500 mt-1">Storefront accounts. Admin stays scoped to your own addresses.</p>
+    <p class="text-sm text-stone-500 mt-1">Storefront accounts. Admin stays scoped to your own addresses. Banning signs the user out everywhere.</p>
 
     <div class="mt-4 max-w-sm">
       <input id="user-search" type="search" placeholder="Search name or email" class="w-full border border-stone-300 rounded-lg px-3 py-2.5 text-sm bg-white" />
@@ -46,15 +52,27 @@ export const prerender = false;
     </div>
     <p id="user-count" class="mt-2 text-xs text-stone-400"></p>
   </main>
-<script is:inline>
+<script is:inline define:vars={{ ownersJson }}>
+  var OWNERS = JSON.parse(ownersJson);
   var esc = function (s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
   var users = [];
+  var selfId = null;
   var fmtDay = function (ts) {
     if (!ts) return "";
-    // Rows have carried both second and millisecond epochs.
-    var ms = typeof ts === "number" ? (ts > 4102444800 ? ts : ts * 1000) : ts;
-    return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    var d = new Date(ts);
+    return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
+  function isOwner(u) { return OWNERS.indexOf(String(u.email || "").toLowerCase()) !== -1; }
+
+  async function api(path, body) {
+    var opts = { headers: { "Content-Type": "application/json" } };
+    if (body !== undefined) { opts.method = "POST"; opts.body = JSON.stringify(body); }
+    var r = await fetch("/api/auth/admin/" + path, opts);
+    var d = await r.json().catch(function () { return null; });
+    if (!r.ok) { var err = new Error((d && d.message) || ("HTTP " + r.status)); err.status = r.status; throw err; }
+    return d;
+  }
+
   function render() {
     var q = (document.getElementById("user-search").value || "").toLowerCase();
     var rows = users.filter(function (u) {
@@ -65,23 +83,29 @@ export const prerender = false;
       tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-3 text-stone-400">No users match.</td></tr>';
     } else {
       tbody.innerHTML = rows.map(function (u) {
+        var owner = isOwner(u);
         var role = u.role === "admin"
           ? '<span class="uchip" style="background:#1c1917;color:#fff">Admin</span>'
           : '<span class="uchip" style="background:#f5f5f4;color:#57534e">User</span>';
         var status = u.banned
           ? '<span class="uchip" style="background:#fef2f2;color:#b91c1c">Banned</span>'
           : '<span class="uchip" style="background:#f0fdf4;color:#15803d">Active</span>';
+        var b = 'type="button" class="uact rounded-lg bg-white border border-stone-300 text-xs font-bold px-3 min-h-[34px]"';
         var actions = "";
-        if (u.banned) actions += '<button type="button" class="uact rounded-lg bg-white border border-stone-300 text-xs font-bold px-3 min-h-[34px]" data-act="unban" data-id="' + u.id + '">Unban</button> ';
-        else if (!u.can_admin) actions += '<button type="button" class="uact rounded-lg bg-white border border-red-200 text-red-700 text-xs font-bold px-3 min-h-[34px]" data-act="ban" data-id="' + u.id + '">Ban</button> ';
-        if (u.can_admin && u.role !== "admin") actions += '<button type="button" class="uact rounded-lg bg-stone-900 text-white text-xs font-bold px-3 min-h-[34px]" data-act="admin" data-id="' + u.id + '">Make admin</button>';
-        return '<tr class="border-b border-stone-100 last:border-0">' +
+        actions += '<button ' + b + ' data-act="sessions" data-id="' + u.id + '">Sessions</button> ';
+        if (u.banned) actions += '<button ' + b + ' data-act="unban" data-id="' + u.id + '">Unban</button> ';
+        else if (!owner) actions += '<button type="button" class="uact rounded-lg bg-white border border-red-200 text-red-700 text-xs font-bold px-3 min-h-[34px]" data-act="ban" data-id="' + u.id + '">Ban</button> ';
+        if (owner && u.role !== "admin") actions += '<button type="button" class="uact rounded-lg bg-stone-900 text-white text-xs font-bold px-3 min-h-[34px]" data-act="admin" data-id="' + u.id + '">Make admin</button> ';
+        if (!owner && u.role === "admin") actions += '<button ' + b + ' data-act="demote" data-id="' + u.id + '">Remove admin</button> ';
+        if (!u.banned && u.id !== selfId) actions += '<button ' + b + ' data-act="impersonate" data-id="' + u.id + '" data-email="' + esc(u.email) + '">Impersonate</button> ';
+        return '<tr class="border-b border-stone-100">' +
           '<td class="px-4 py-2.5"><span class="font-semibold">' + esc(u.name || u.email) + '</span>' + (u.name ? '<div class="text-xs text-stone-400">' + esc(u.email) + "</div>" : "") + "</td>" +
           '<td class="px-4 py-2.5">' + role + "</td>" +
           '<td class="px-4 py-2.5">' + status + "</td>" +
           '<td class="px-4 py-2.5 whitespace-nowrap text-stone-500">' + esc(fmtDay(u.createdAt)) + "</td>" +
           '<td class="px-4 py-2.5 text-xs text-stone-500">' + esc(u.stripe_customer_id || "No customer yet") + "</td>" +
-          '<td class="px-4 py-2.5 whitespace-nowrap">' + (actions || '<span class="text-stone-300">·</span>') + "</td></tr>";
+          '<td class="px-4 py-2.5 whitespace-nowrap">' + actions + "</td></tr>" +
+          '<tr class="sess-row hidden" id="sess-' + u.id + '"><td colspan="6" class="px-4 py-3 bg-stone-50 text-xs text-stone-600">Loading sessions...</td></tr>';
       }).join("");
     }
     document.getElementById("user-count").textContent = rows.length + " of " + users.length + " users";
@@ -89,21 +113,82 @@ export const prerender = false;
       btn.addEventListener("click", function () { act(btn); });
     });
   }
+
+  async function loadSessions(userId, cell) {
+    try {
+      var d = await api("list-user-sessions", { userId: userId });
+      var sessions = (d && d.sessions) || [];
+      if (!sessions.length) { cell.textContent = "No active sessions."; return; }
+      cell.innerHTML = sessions.map(function (s) {
+        var when = s.createdAt ? new Date(s.createdAt).toLocaleString() : "";
+        var ua = s.userAgent ? String(s.userAgent).slice(0, 70) : "Unknown device";
+        return '<div class="flex items-center justify-between gap-3 py-1">' +
+          '<span>' + esc(ua) + (s.ipAddress ? " · " + esc(s.ipAddress) : "") + (when ? " · since " + esc(when) : "") + "</span>" +
+          '<button type="button" class="revoke rounded-lg bg-white border border-red-200 text-red-700 font-bold px-2.5 py-1" data-token="' + esc(s.token) + '" data-user="' + userId + '">Sign out</button></div>';
+      }).join("");
+      cell.querySelectorAll(".revoke").forEach(function (btn) {
+        btn.addEventListener("click", async function () {
+          btn.disabled = true;
+          try { await api("revoke-user-session", { sessionToken: btn.getAttribute("data-token") }); } catch (ex) {}
+          loadSessions(userId, cell);
+        });
+      });
+    } catch (ex) {
+      cell.textContent = "Sessions could not load.";
+    }
+  }
+
   async function act(btn) {
-    btn.disabled = true;
     var a = btn.getAttribute("data-act");
-    var payload = a === "admin"
-      ? { action: "set_role", user_id: btn.getAttribute("data-id"), role: "admin" }
-      : { action: a, user_id: btn.getAttribute("data-id") };
-    var res = await fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(function (r) { return r.json(); }).catch(function () { return null; });
-    if (res && res.users) { users = res.users; }
+    var id = btn.getAttribute("data-id");
+    if (a === "sessions") {
+      var row = document.getElementById("sess-" + id);
+      if (!row) return;
+      var opening = row.classList.contains("hidden");
+      row.classList.toggle("hidden");
+      if (opening) loadSessions(id, row.firstChild);
+      return;
+    }
+    btn.disabled = true;
+    try {
+      if (a === "ban") {
+        if (!window.confirm("Ban this user? They are signed out everywhere and cannot sign in.")) { btn.disabled = false; return; }
+        await api("ban-user", { userId: id, banReason: "Banned by admin" });
+      } else if (a === "unban") {
+        await api("unban-user", { userId: id });
+      } else if (a === "admin") {
+        await api("set-role", { userId: id, role: "admin" });
+      } else if (a === "demote") {
+        if (!window.confirm("Remove the admin role from this user?")) { btn.disabled = false; return; }
+        await api("set-role", { userId: id, role: "user" });
+      } else if (a === "impersonate") {
+        if (!window.confirm("Impersonate " + btn.getAttribute("data-email") + "? You will see the store as they do. Sign out to return.")) { btn.disabled = false; return; }
+        await api("impersonate-user", { userId: id });
+        window.location.href = "/account";
+        return;
+      }
+      await load();
+    } catch (ex) {
+      window.alert("That did not work: " + ex.message);
+      btn.disabled = false;
+    }
+  }
+
+  async function load() {
+    var d = await api("list-users?limit=200&sortBy=createdAt&sortDirection=desc");
+    users = (d && d.users) || [];
     render();
   }
-  fetch("/api/admin/users").then(function (r) { return r.json(); }).then(function (d) {
-    users = d.users || [];
-    render();
-  }).catch(function () {
-    document.getElementById("user-rows").innerHTML = '<tr><td colspan="6" class="px-4 py-3 text-red-600">Could not load users.</td></tr>';
+
+  fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
+    if (s && s.user) selfId = s.user.id;
+  }).catch(function () {}).then(function () {
+    load().catch(function (ex) {
+      var msg = ex && ex.status === 401
+        ? 'User management needs a full account session. <a class="text-orange-700 font-medium" href="/login">Sign in</a> with Google or email using an admin address, then come back.'
+        : "Could not load users.";
+      document.getElementById("user-rows").innerHTML = '<tr><td colspan="6" class="px-4 py-3 text-stone-500">' + msg + "</td></tr>";
+    });
   });
   document.getElementById("user-search").addEventListener("input", render);
 </script>

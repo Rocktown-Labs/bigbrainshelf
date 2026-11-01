@@ -89,11 +89,12 @@ export const GET: APIRoute = async ({ request, url }) => {
   const session = await createSession(user.email.toLowerCase(), e.BETTER_AUTH_SECRET);
   // Response.redirect() returns immutable headers in Workers; build a fresh
   // Response so the session cookie can be attached.
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: `${origin}/admin`,
-      "Set-Cookie": `admin_session=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${7 * 24 * 3600}`,
-    },
-  });
+  const headers = new Headers({ Location: `${origin}/admin` });
+  headers.append("Set-Cookie", `admin_session=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${7 * 24 * 3600}`);
+  // Route 2 (2026-10-31): also mint a better-auth session so the
+  // admin plugin endpoints work from /admin for owner sign-ins.
+  const { createBridgeSessionCookie } = await import("../../../../lib/auth");
+  const bridge = await createBridgeSessionCookie(user.email, request);
+  if (bridge) headers.append("Set-Cookie", bridge);
+  return new Response(null, { status: 302, headers });
 };

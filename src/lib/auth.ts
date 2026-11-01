@@ -151,6 +151,14 @@ export function getAuth() {
       updateAge: 60 * 60 * 24, // refresh the session at most once a day
       cookieCache: { enabled: true, maxAge: 60 * 5 },
     },
+    // The Stripe customer id lives on the user row (written by the
+    // sign-up hook in orders/auth flows); declaring it lets the
+    // adapter + admin plugin return it (e.g. list-users in /admin).
+    user: {
+      additionalFields: {
+        stripe_customer_id: { type: "string", required: false, input: false },
+      },
+    },
     // Rate limiting (CG, 2026-10-31): database storage so limits hold
     // across Workers isolates (table self-heals via lib/auth-users).
     // Built-in strict rules cover the credential endpoints; the
@@ -245,4 +253,39 @@ export async function getEffectiveSession(
       return null;
     }
   });
+}
+
+/**
+ * Mints a real better-auth session for an owner sign-in (the
+ * admin password flow and the Google owner flow), so those
+ * sign-ins carry plugin access (/api/auth/admin/*) and not just
+ * the house admin_session cookie (route 2, CG 2026-10-31).
+ * Returns the Set-Cookie value for the session token cookie, or
+ * null when the email has no user row yet (the house cookie
+ * still applies; user management then asks for a /login sign-in).
+ * The cookie lives 7 days, matching the admin_session lifetime;
+ * the underlying session row follows the normal session config.
+ */
+export async function createBridgeSessionCookie(
+  email: string,
+  request?: Request
+): Promise<string | null> {
+  try {
+    const auth = getAuth();
+    const ctx = await auth.$context;
+    const user: any = await ctx.adapter.findOne({
+      model: "user",
+      where: [{ field: "email", value: email.toLowerCase() }],
+    });
+    if (!user?.id) return null;
+    const session: any = await ctx.internalAdapter.createSession(user.id, false, {
+      ipAddress: request?.headers.get("cf-connecting-ip") || "",
+      userAgent: request?.headers.get("user-agent") || "",
+    });
+    if (!session?.token) return null;
+    const name = ctx.authCookies.sessionToken.name;
+    return `${name}=${session.token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${7 * 24 * 3600}`;
+  } catch {
+    return null;
+  }
 }

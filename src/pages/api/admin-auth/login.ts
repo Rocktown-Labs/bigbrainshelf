@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 import { verifyPassword } from "../../../lib/adminpass";
 import { isAdminEmail } from "../../../lib/admins";
+import { createBridgeSessionCookie } from "../../../lib/auth";
 
 async function sign(data: string, secret: string): Promise<string> {
   const key = await crypto.subtle.importKey(
@@ -49,10 +50,11 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const session = await createSession(email.toLowerCase(), e.BETTER_AUTH_SECRET);
-  return new Response(JSON.stringify({ ok: true }), {
-    headers: {
-      "Content-Type": "application/json",
-      "Set-Cookie": `admin_session=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${7 * 24 * 3600}`,
-    },
-  });
+  const headers = new Headers({ "Content-Type": "application/json" });
+  headers.append("Set-Cookie", `admin_session=${session}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${7 * 24 * 3600}`);
+  // Route 2 (2026-10-31): owner sign-ins also carry a better-auth
+  // session so the admin plugin endpoints work from /admin.
+  const bridge = await createBridgeSessionCookie(email, request);
+  if (bridge) headers.append("Set-Cookie", bridge);
+  return new Response(JSON.stringify({ ok: true }), { headers });
 };
