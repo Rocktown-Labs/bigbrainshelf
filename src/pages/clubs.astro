@@ -100,7 +100,12 @@ const audioAnnualWholeLabel = wholeDollars(AUDIO_CLUB_ANNUAL_PRICE_CENTS);
 // claim a flat "$59.99 of owned value" that no combination of the
 // visible prices reproduces; the itemized sum is computed here so
 // the figure can never drift from the prices.
-const boxValueLabel = clubPriceLabel(GIFT_SET_PRICE_CENTS + STANDARD_PRINT_PRICE_CENTS + STANDARD_DIGITAL_PRICE_CENTS);
+// The box value claim is a flat $60 (CG, 2026-11-01): the real
+// total value of the box with shipping included, matching the
+// promo's "$60 in value, shipping included" line so the store and
+// the ads never read as a contradiction. (The itemized books-only
+// sum underneath it is about $54.)
+const boxValueLabel = "$60";
 const giftSetValueLabel = clubPriceLabel(GIFT_SET_PRICE_CENTS);
 const secondBookValueLabel = clubPriceLabel(STANDARD_PRINT_PRICE_CENTS);
 const secondDigitalValueLabel = clubPriceLabel(STANDARD_DIGITAL_PRICE_CENTS);
@@ -116,14 +121,9 @@ const audioAnnualMonthlyLabel = clubPriceLabel(Math.round(AUDIO_CLUB_ANNUAL_PRIC
 // Savings as percentages for the yearly badges, computed from the
 // same constants (2026-10-31): 17% on The Book Club, 32% on The
 // Audio Club at today's prices, and they move on their own if the
-// prices ever change. The box value claim is a flat $60 (CG,
-// 2026-11-01): the real total value of the box with shipping
-// included, matching the promo's "$60 in value, shipping included"
-// line so the store and the ads never read as a contradiction. (The
-// itemized books-only sum underneath it is about $54.)
+// prices ever change.
 const clubSavePct = Math.round((1 - CLUB_ANNUAL_PRICE_CENTS / (CLUB_PRICE_CENTS * 4)) * 100);
 const audioSavePct = Math.round((1 - AUDIO_CLUB_ANNUAL_PRICE_CENTS / (AUDIO_CLUB_PRICE_CENTS * 12)) * 100);
-const boxValueLabel = "$60";
 // The member's club plan (physical | audio) drives the member panel:
 // audio members see listening copy, never boxes or shelves.
 const memberPlan = member ? clubPlanOf(member) : null;

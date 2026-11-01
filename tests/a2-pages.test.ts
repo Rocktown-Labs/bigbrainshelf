@@ -93,9 +93,9 @@ assert(!accountPageSrc.includes("bonus back catalog coloring book"), "account pa
 assert(club.includes("{clubMonthlyEquivalentLabel} a month, billed every 3 months"), "clubs: monthly-equivalent framing from the price constants, with the billing rhythm spelled out (2026-10-30)");
 assert(club.includes("About {clubAnnualMonthlyLabel} a month, billed once a year"), "clubs: annual plan carries its own per-month equivalent");
 assert(club.includes("Save {clubSaveLabel}") && club.includes("Save {audioSaveLabel}"), "clubs: yearly options carry computed savings tags");
-assert(club.includes("About {boxAboutLabel} in books in every box") && club.includes("GIFT_SET_PRICE_CENTS + STANDARD_PRINT_PRICE_CENTS + STANDARD_DIGITAL_PRICE_CENTS"), "clubs: the card's value claim is the itemized sum of the price constants, rounded, never a typed figure");
+assert(club.includes("{boxValueLabel} in value in every box, shipping included") && club.includes("const boxValueLabel = \"$60\""), "clubs: the card's value claim is CG's flat $60 in value, shipping included (2026-11-01), matching the promo");
 assert(bookClubPage.includes("{boxTotalLabel}") && bookClubPage.includes("{giftSetLabel}") && bookClubPage.includes("{secondBookLabel}") && bookClubPage.includes("{secondDigitalLabel}"), "clubs/book-club: the learn-more page itemizes the box from the same constants");
-assert(club.includes("Shipping is on us."), "clubs: shipping line");
+assert(club.includes("{boxValueLabel} in value in every box, shipping included"), "clubs: shipping line (the $60 value claim carries shipping included, CG 2026-11-01)");
 assert(club.includes("The gift set: a printed storybook and a printed coloring book."), "clubs: short bullet 1 (the gift set)");
 assert(club.includes("A second printed book: your pick, or a surprise you do not own."), "clubs: short bullet 2 (second book)");
 assert(club.includes("First box guarantee: if it misses in 30 days, your first payment comes back."), "clubs: short bullet 3 (first box guarantee)");
