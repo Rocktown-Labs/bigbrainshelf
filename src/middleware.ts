@@ -249,9 +249,30 @@ async function withEdgeCache(context: any, runGate: () => Promise<Response>): Pr
 // middleware is reported to Sentry (only when SENTRY_DSN is set on
 // the worker) and then rethrown so Astro's own error handling, and
 // the response the visitor gets, stay exactly as they were.
+// Security headers for every response (F12, 2026-10-31): a strict
+// Referrer-Policy keeps URL-borne credentials (like the /order
+// delivery token) and full paths off third-party Referer headers;
+// nosniff stops content-type sniffing attacks on served files; the
+// Permissions-Policy disables capabilities this site never uses.
+// CSP is deliberately not attempted yet: nearly every page ships
+// inline + is:inline scripts, so a usable CSP needs a nonce/allowlist
+// pass over the templates first.
+function withSecurityHeaders(res: Response): Response {
+  try {
+    const headers = new Headers(res.headers);
+    headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+    headers.set("X-Content-Type-Options", "nosniff");
+    headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+  } catch {
+    return res;
+  }
+}
+
 export const onRequest = defineMiddleware(async (context, next) => {
   try {
-    return await withEdgeCache(context, () => gate(context, next));
+    const res = await withEdgeCache(context, () => gate(context, next));
+    return withSecurityHeaders(res);
   } catch (err) {
     const dsn = (env as any)?.SENTRY_DSN;
     if (dsn) {
