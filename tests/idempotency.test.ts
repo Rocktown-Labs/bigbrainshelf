@@ -87,11 +87,11 @@ assert(count("SELECT COUNT(*) n FROM orders WHERE stripe_session_id='cs_test_123
 const outbox1 = raw.query("SELECT * FROM email_outbox").all() as any[];
 assert(outbox1.length === 1 && outbox1[0].kind === "order_confirmation", "exactly one confirmation email enqueued");
 const body: string = outbox1[0].body_text;
-assert(body.includes("/api/order-download?token=" + order.delivery_token), "confirmation carries token download links");
-assert(body.includes("format=picture") && body.includes("format=coloring") && body.includes("format=epub"), "links for picture, coloring, epub");
-assert(!body.includes("format=audiobook"), "no audiobook link while the book has none");
+assert(!body.includes("/api/order-download"), "confirmation carries NO bearer download links (CG, 2026-10-31: auth-backed only)");
+assert(!body.includes(order.delivery_token), "the delivery token never appears in the email");
+assert(body.includes("Your books are in your library"), "confirmation names the library as the home of the files");
 assert(!body.includes("—") && !outbox1[0].subject.includes("—"), "no em dashes in confirmation copy");
-assert(body.includes("/account"), "confirmation points at the library as backup");
+assert(body.includes("/account"), "confirmation points at the library");
 
 // --- Replay after a crash (event recorded, never marked processed):
 // processing again must not duplicate the order or the email.

@@ -440,17 +440,11 @@ export async function loadBooksForOrder(db: DBLike, order: any): Promise<BookFil
   return books;
 }
 
-const FILE_LABELS: [keyof BookFiles, string, string][] = [
-  ["picture_book_key", "Story book (PDF)", "picture"],
-  ["coloring_book_key", "Coloring book (PDF)", "coloring"],
-  ["epub_key", "EPUB e-book", "epub"],
-  ["color_book_key", "Full color story book (PDF)", "color"],
-  ["audiobook_key", "Audiobook", "audiobook"],
-];
-
-export function downloadUrl(site: string, token: string, slug: string, format: string): string {
-  return `${site}/api/order-download?token=${encodeURIComponent(token)}&slug=${encodeURIComponent(slug)}&format=${format}`;
-}
+// (Removed 2026-10-31: the per-file bearer download URLs the
+// confirmation email used to carry. CG's ruling: emailed links are
+// auth-backed, pointing at the account library; the files are served
+// only by the signed-in /api/download route. /api/order-download now
+// just redirects legacy token links into the library.)
 
 // Short, stable display form of an order id for list rows: "#" plus
 // the first eight hex characters, uppercased ("#A1B2C3D4"). Derived
@@ -732,6 +726,11 @@ export interface ConfirmationEmailModel {
   items: { title: string; formatLabel: string; qty: number; lineTotalCents: number }[];
   downloads: { title: string; links: { label: string; url: string }[] }[];
   libraryUrl: string;
+  // True when the order has no account attached (guest checkout):
+  // the email then also points at the one-click sign-in link the
+  // guest flow sends separately, so the library is one tap away
+  // without a password.
+  guest: boolean;
   // Pass-through shipping summary for physical orders: the carrier and
   // service the buyer was quoted at checkout and the exact amount they
   // paid for shipping, plus the order total, so the confirmation shows
@@ -795,23 +794,17 @@ export function buildConfirmationEmailModel(
   const items = parseItems(order);
   const downloads: ConfirmationEmailModel["downloads"] = [];
   for (const b of books) {
-    // What the buyer may download for THIS book follows the format
-    // they bought for it: a digital-carrying format (digital, printed,
-    // gift set) unlocks every file, while an audiobook-only purchase
-    // unlocks the audiobook alone. No items recorded for the book
-    // (legacy rows) keeps the historical all-files behavior.
-    const mine = items.filter((i) => i.slug === b.slug);
-    const audioOnly =
-      mine.length > 0 &&
-      !mine.some((i) => i.format === "digital" || isPhysicalFormat(i.format)) &&
-      mine.some((i) => i.format === "audio");
-    const links = FILE_LABELS.filter(
-      ([key, , format]) => b[key] && (!audioOnly || format === "audiobook")
-    ).map(([, label, format]) => ({
-      label,
-      url: downloadUrl(site, order.delivery_token, b.slug, format),
-    }));
-    if (links.length) downloads.push({ title: b.title, links });
+    // The email names the book; the FILES live behind the account
+    // library (CG, 2026-10-31: emailed download links must be
+    // auth-backed, not bearer file URLs anyone holding the email can
+    // open forever). One library link per book that has files: the
+    // library serves exactly the formats the buyer owns, through the
+    // signed-in download route.
+    const hasFiles =
+      b.picture_book_key || b.coloring_book_key || b.epub_key || b.color_book_key || b.audiobook_key;
+    if (hasFiles) {
+      downloads.push({ title: b.title, links: [{ label: "Open in your library", url: `${site}/account` }] });
+    }
   }
   const physical = items.filter((i) => isPhysicalFormat(i.format));
   return {
@@ -824,6 +817,7 @@ export function buildConfirmationEmailModel(
     items: pricedOrderLines(order, books),
     downloads,
     libraryUrl: `${site}/account`,
+    guest: !order?.user_id || String(order.user_id).startsWith("guest:"),
     shipping:
       Number(order?.shipping_cents || 0) > 0
         ? {
@@ -840,9 +834,10 @@ export function buildConfirmationEmailModel(
   };
 }
 
-// The order confirmation. For digital and printed orders alike this is the
-// one email that carries the download links: a printed pre-order includes
-// the digital files today, plus a note about the physical copy.
+// The order confirmation. For digital and printed orders alike this is
+// the email that points the buyer at their library: a printed pre-order
+// includes the digital files today, plus a note about the physical
+// copy. It carries no file links (CG, 2026-10-31: auth-backed only).
 export function buildConfirmationEmail(
   site: string,
   order: any,
@@ -867,22 +862,24 @@ export function buildConfirmationEmail(
     lines.push(`Total charged: $${(model.totalCents / 100).toFixed(2)}`);
   }
   lines.push("");
-  lines.push("Your download links:");
+  lines.push("Your books are in your library:");
   for (const d of model.downloads) {
-    lines.push(`${d.title}:`);
-    for (const l of d.links) lines.push(`  ${l.label}: ${l.url}`);
+    lines.push(`- ${d.title}`);
   }
   lines.push("");
-  lines.push("These links are yours and they do not expire. You can also find your books any time in your library:");
+  lines.push("Sign in with the email address you used at checkout and they are waiting for you, on any device:");
   lines.push(model.libraryUrl);
+  if (model.guest) {
+    lines.push("We also sent you a one-click sign-in link in a separate email, so you do not need a password.");
+  }
   if (model.printed) {
     lines.push("");
     if (model.giftsetOnly) {
       lines.push("About your gift set:");
-      lines.push("Your gift set is being made: the printed storybook and the printed coloring book are prepared together. We will email you when it is being printed, when it is packed, when it ships, and when it is delivered. The digital files above are yours to enjoy right away.");
+      lines.push("Your gift set is being made: the printed storybook and the printed coloring book are prepared together. We will email you when it is being printed, when it is packed, when it ships, and when it is delivered. The digital files are yours to enjoy right away, in your library.");
     } else {
       lines.push("About your printed book:");
-      lines.push("Your printed book is being made. We will email you when it is being printed, when it is packed, when it ships, and when it is delivered. The digital files above are yours to enjoy right away.");
+      lines.push("Your printed book is being made. We will email you when it is being printed, when it is packed, when it ships, and when it is delivered. The digital files are yours to enjoy right away, in your library.");
     }
   }
   if (model.club) {
@@ -1149,7 +1146,7 @@ export async function processCheckoutCompleted(db: DBLike, site: string, session
         await getAuth().api.signInMagicLink({
           body: { email: String(order.email), callbackURL: "/account" },
         });
-      } catch { /* the confirmation email still carries the downloads */ }
+      } catch { /* the confirmation email still points at the library */ }
     }
   }
   return order;

@@ -7,11 +7,10 @@
 // The budget: DOWNLOAD_LIMIT downloads per purchase per file kind,
 // counted in the download_counts table (created here at runtime, the
 // same ensure-at-runtime pattern as the Shippo order columns, and
-// mirrored in migration.sql). The account route (/api/download) and
-// the guest token route (/api/order-download) share the budget by
-// keying both on the granting order's id: a guest who downloads three
-// times from the email link and twice from their library has used
-// five, not ten. A book that arrived in a shipped club box has no
+// mirrored in migration.sql). The account route (/api/download) is
+// the only file server now (emailed token links redirect into the
+// library since 2026-10-31) and it keys the budget on the granting
+// order's id. A book that arrived in a shipped club box has no
 // order row; its budget keys on the box ("club-box:{id}") instead.
 // Streaming, reader page views, and library playback never pass
 // through here and never count.

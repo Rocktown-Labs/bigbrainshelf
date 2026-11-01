@@ -173,8 +173,11 @@ assert(downloadSrc.includes("stampPdfForBuyer") && downloadSrc.includes("DOWNLOA
 
 const orderDownloadSrc = await read("../src/pages/api/order-download.ts");
 assert(orderDownloadSrc.includes("That book is not part of this order."), "guest route keeps its order-rights refusal");
-assert(orderDownloadSrc.includes("grantForOrder") && orderDownloadSrc.includes("consumeDownload"), "guest route counts against the token order's budget");
-assert(orderDownloadSrc.includes("stampPdfForBuyer"), "guest route stamps PDFs");
+// CG, 2026-10-31: emailed links are auth-backed. The legacy token
+// route serves nothing (no budget, no stamping); it redirects into
+// the library, where the account route's pins above apply.
+assert(orderDownloadSrc.includes('Location: "/account"'), "guest route redirects into the auth-backed library");
+assert(!orderDownloadSrc.includes("consumeDownload") && !orderDownloadSrc.includes("stampPdfForBuyer") && !orderDownloadSrc.includes("BOOKS.get"), "guest route serves no bytes, counts nothing, stamps nothing");
 
 const adminApiSrc = await read("../src/pages/api/admin/orders.ts");
 assert(adminApiSrc.includes('action === "reset_downloads"'), "admin API handles the downloads reset");

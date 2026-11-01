@@ -103,7 +103,7 @@ export default function OrderConfirmationEmail({
         )}
       </Section>
 
-      <Text style={styles.sectionHeading}>Your download links</Text>
+      <Text style={styles.sectionHeading}>Your books are in your library</Text>
       {model.downloads.map((book) => (
         <Section key={book.title} style={{ margin: "0 0 16px" }}>
           <Text
@@ -117,7 +117,7 @@ export default function OrderConfirmationEmail({
             {book.title}
           </Text>
           {book.links.map((link) => (
-            <Text key={link.url} style={{ margin: "0 0 6px" }}>
+            <Text key={link.label} style={{ margin: "0 0 6px" }}>
               <Link
                 href={link.url}
                 style={{
@@ -135,9 +135,15 @@ export default function OrderConfirmationEmail({
       ))}
 
       <Text style={styles.paragraph}>
-        These links are yours and they do not expire. You can also find your
-        books any time in your library:
+        Sign in with the email address you used at checkout and your books
+        are waiting for you, on any device:
       </Text>
+      {model.guest && (
+        <Text style={styles.paragraph}>
+          We also sent you a one-click sign-in link in a separate email, so
+          you do not need a password.
+        </Text>
+      )}
       <Section style={{ margin: "4px 0 20px" }}>
         <Button
           href={model.libraryUrl}

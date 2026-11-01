@@ -17,13 +17,15 @@ import FormatChip from "../components/FormatChip.astro";
 export const prerender = false;
 
 // Guest order page. A guest checkout's Stripe success URL lands here
-// with the order's delivery_token; the token is the credential (the
-// same trust model as the emailed download links), so no account is
-// needed. Signed-in buyers land in /account instead and never need
-// this page, though their token links work here too.
+// with the order's delivery_token; the token is the credential for
+// VIEWING this receipt, so no account is needed. The files
+// themselves are auth-backed (CG, 2026-10-31): the book section
+// below links into the signed-in library, never at file URLs.
+// Signed-in buyers land in /account instead and never need this
+// page, though their token links work here too.
 //
 // States: pending (payment still confirming; the page reloads itself
-// until the webhook lands), complete (items + download links +
+// until the webhook lands), complete (items + library links +
 // shipping summary), anything else (a plain not-ready message).
 const SITE = (env as any).BETTER_AUTH_URL || "https://bigbrainshelf.com";
 const token = String(Astro.url.searchParams.get("token") || "");
@@ -180,7 +182,7 @@ if (complete && order) {
     {!order && (
       <div class="text-center py-16">
         <h1 class="text-2xl font-bold tracking-tight">We could not find that order</h1>
-        <p class="text-stone-500 text-sm mt-3">The link may be incomplete. Your download links are also in your order email, and those links do not expire.</p>
+        <p class="text-stone-500 text-sm mt-3">The link may be incomplete. Your books are in your library when you sign in with your checkout email, and a copy of this receipt is in your order email.</p>
         <a href="/" class="inline-block mt-6 rounded-lg bg-orange-600 text-white text-sm font-semibold px-5 py-2.5 hover:bg-orange-700">Browse the shelf</a>
       </div>
     )}
@@ -188,7 +190,7 @@ if (complete && order) {
     {order && pending && (
       <div class="text-center py-16">
         <h1 class="text-2xl font-bold tracking-tight">Thank you. Your payment is being confirmed.</h1>
-        <p class="text-stone-500 text-sm mt-3">This page refreshes on its own. As soon as your payment lands, your download links appear here. They are also on their way to your email.</p>
+        <p class="text-stone-500 text-sm mt-3">This page refreshes on its own. As soon as your payment lands, your books appear in your library. A receipt is on its way to your email too.</p>
       </div>
     )}
 
@@ -202,7 +204,7 @@ if (complete && order) {
     {order && complete && model && (
       <div>
         <h1 class="text-2xl font-bold tracking-tight">Your order is ready</h1>
-        <p class="text-stone-500 text-sm mt-2">Thank you for your order from Big Brain Shelf. These links are yours and they do not expire. A copy is in your email too.</p>
+        <p class="text-stone-500 text-sm mt-2">Thank you for your order from Big Brain Shelf. Your books live in your library, and a copy of this receipt is in your email too.</p>
 
         <div class="orderband mt-6 flex flex-wrap items-center gap-x-8 gap-y-3">
           <dl class="grid grid-cols-3 gap-x-8 gap-y-2 flex-1 min-w-[240px]">
@@ -274,7 +276,7 @@ if (complete && order) {
 
         {model.downloads.length > 0 && (
           <div class="mt-8">
-            <h2 class="text-base font-bold tracking-tight">Your downloads</h2>
+            <h2 class="text-base font-bold tracking-tight">Your books</h2>
             {model.downloads.map((d) => (
               <div class="mt-4">
                 <p class="text-sm font-semibold">{d.title}</p>

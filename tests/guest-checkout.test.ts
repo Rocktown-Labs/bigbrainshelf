@@ -96,7 +96,9 @@ assert(done.email === "guest-buyer@example.com", "guest completion: Stripe's col
 assert(done.user_id === GUEST, "guest completion: the order stays keyed to the guest, not an account");
 const outbox = raw.query("SELECT to_email, body_text FROM email_outbox WHERE order_id = ? AND kind = 'order_confirmation'").get(g1.id) as any;
 assert(outbox?.to_email === "guest-buyer@example.com", "guest completion: the confirmation email is addressed to the guest's email");
-assert(outbox?.body_text?.includes(`/api/order-download?token=${g1.delivery_token}`), "guest completion: the confirmation carries the token download links");
+assert(!outbox?.body_text?.includes("/api/order-download"), "guest completion: the confirmation carries NO bearer download links (CG, 2026-10-31)");
+assert(!outbox?.body_text?.includes(g1.delivery_token), "guest completion: the delivery token never appears in the email");
+assert(outbox?.body_text?.includes("one-click sign-in link"), "guest completion: the confirmation points at the separate sign-in link email");
 
 // Guest physical order: fulfillment state + destination survive.
 const pcart = [{ slug: "mastery", format: "printed" }];
@@ -117,9 +119,10 @@ const pdone = await processCheckoutCompleted(db, SITE, {
 assert(pdone.physical_status === "preorder_received", "guest physical: completion starts the fulfillment pipeline");
 assert(JSON.parse(pdone.ship_address).line1 === "1 Main St", "guest physical: the destination survives completion");
 
-// --- The token download route is session-less by design ----------------------
+// --- Legacy token links route into the auth-backed library ------------------
 const dl = read("../src/pages/api/order-download.ts");
-assert(!dl.includes("getSession") && !dl.includes("getAuth") && !dl.includes("locals"), "order-download: no session anywhere; the delivery token is the only credential");
+assert(dl.includes('Location: "/account"') && dl.includes("302"), "order-download: a valid legacy token link redirects into the library");
+assert(!dl.includes("BOOKS.get") && !dl.includes("stampPdfForBuyer") && !dl.includes("serveStampedM4b"), "order-download: serves no file bytes to anyone");
 assert(dl.includes("delivery_token = ?") && dl.includes("status = 'complete'"), "order-download: token lookup only ever serves completed orders");
 
 // --- Checkout route source pins ----------------------------------------------

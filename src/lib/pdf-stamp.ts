@@ -1,7 +1,7 @@
 // Per-buyer PDF stamping at download time (owner-approved protection
 // plan, 2026-10-29): a file a buyer owns should be traceable back to
 // its purchase without annoying the family who paid for it. When
-// /api/download or /api/order-download serves a PDF, this pass adds:
+// /api/download serves a PDF, this pass adds:
 //
 //   - a visible footer line on interior pages, centered in the bottom
 //     margin: "Licensed to {buyer email} · Order {#SHORTID}". The
