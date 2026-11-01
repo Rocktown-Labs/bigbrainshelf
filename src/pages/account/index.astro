@@ -14,7 +14,7 @@ import { publicSlugFor } from "../../lib/public-slugs";
 import { coverDerivative } from "../../lib/derivatives";
 import { ensureClubTable, clubPlanOf } from "../../lib/club";
 import { getNextClubBox } from "../../lib/club-cycles";
-import { formatClubDate } from "../../lib/club-cycle-dates";
+import { formatClubDate, addDaysToDateString, CLUB_PROCESSING_DAYS } from "../../lib/club-cycle-dates";
 import CustomerShell from "../../components/CustomerShell.astro";
 import { loadCustomerHubContext } from "../../lib/account-data";
 
@@ -241,7 +241,7 @@ if (showSuccess) {
         <p class="text-lg font-extrabold text-stone-900 mt-1.5 leading-snug">{clubLabel}</p>
         <p class="text-xs text-stone-500 mt-0.5">
           {nextBox
-            ? `Next box ships ${formatClubDate(String(nextBox.ship_date))}`
+            ? `Next box ships by ${formatClubDate(addDaysToDateString(String(nextBox.ship_date), CLUB_PROCESSING_DAYS))}`
             : clubIsMember
               ? "Membership active"
               : "Printed boxes or the listening shelf"}
