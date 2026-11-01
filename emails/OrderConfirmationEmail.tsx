@@ -120,8 +120,8 @@ export default function OrderConfirmationEmail({
       ))}
 
       <Text style={styles.paragraph}>
-        Sign in with the email address you used at checkout and your books
-        are waiting for you, on any device:
+        Sign in with the email you used at checkout. Your books are
+        waiting for you on any device.
       </Text>
       {model.guest && (
         <Text style={styles.paragraph}>
@@ -152,9 +152,9 @@ export default function OrderConfirmationEmail({
           <Text style={styles.paragraph}>
             Your gift set is being made: the printed storybook and the
             printed coloring book are prepared together. We will email you
-            when it is being printed, when it ships, and when it is
-            delivered. The digital files above are yours to enjoy right
-            away.
+            when it is being printed, when it is packed, when it ships,
+            and when it is delivered. The digital files are yours to
+            enjoy right away, in your library.
           </Text>
         </>
       )}
@@ -164,8 +164,9 @@ export default function OrderConfirmationEmail({
           <Text style={styles.sectionHeading}>About your printed book</Text>
           <Text style={styles.paragraph}>
             Your printed book is being made. We will email you when it is
-            being printed, when it ships, and when it is delivered. The
-            digital files above are yours to enjoy right away.
+            being printed, when it is packed, when it ships, and when it
+            is delivered. The digital files are yours to enjoy right
+            away, in your library.
           </Text>
         </>
       )}
@@ -174,16 +175,15 @@ export default function OrderConfirmationEmail({
         <>
           <Text style={styles.sectionHeading}>About the Book Club</Text>
           <Text style={styles.paragraph}>
-            Members of the Big Brain Shelf Book Club get the club book
-            as a full gift set (the printed storybook plus its printed
-            coloring book) and a second printed book from the back catalog
-            in each box, plus a sticker sheet and a little extra from the
-            cast, and the digital editions in their library from day one.
-            Membership is {model.club.priceLabel} every 3 months, shipping
-            included, or {model.club.annualLabel} a year, with your price
-            locked while the membership stays active. Your first box
-            would be due the day you join, and a new box follows every 3
-            months from your join date.
+            Members get a full gift set in every box: the club book as a
+            printed storybook and printed coloring book, a second printed
+            book from the back catalog, a sticker sheet, and a little
+            extra from the cast. The digital editions are in their
+            library from day one. Membership is {model.club.priceLabel}{" "}
+            every 3 months, shipping included, or {model.club.annualLabel}{" "}
+            a year, and your price stays locked while your membership
+            stays active. Your first box is due the day you join, and a
+            new box follows every 3 months from your join date.
           </Text>
           <Text style={styles.paragraph}>
             Rather just listen? The Audio Club puts every Big Brain Shelf

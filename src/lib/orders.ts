@@ -867,7 +867,7 @@ export function buildConfirmationEmail(
     lines.push(`- ${d.title}`);
   }
   lines.push("");
-  lines.push("Sign in with the email address you used at checkout and they are waiting for you, on any device:");
+  lines.push("Sign in with the email you used at checkout. Your books are waiting for you on any device:");
   lines.push(model.libraryUrl);
   if (model.guest) {
     lines.push("We also sent you a one-click sign-in link in a separate email, so you do not need a password.");
@@ -886,7 +886,7 @@ export function buildConfirmationEmail(
     lines.push("");
     lines.push("About the Book Club:");
     lines.push(
-      `Members of the Big Brain Shelf Book Club get the club book as a full gift set (the printed storybook plus its printed coloring book) and a second printed book from the back catalog in each box, plus a sticker sheet and a little extra from the cast, and the digital editions in their library from day one. Membership is ${model.club.priceLabel} every 3 months, shipping included, or ${model.club.annualLabel} a year, with your price locked while the membership stays active. Your first box would be due the day you join, and a new box follows every 3 months from your join date.`
+      `Members get a full gift set in every box: the club book as a printed storybook and printed coloring book, a second printed book from the back catalog, a sticker sheet, and a little extra from the cast. The digital editions are in their library from day one. Membership is ${model.club.priceLabel} every 3 months, shipping included, or ${model.club.annualLabel} a year, and your price stays locked while your membership stays active. Your first box is due the day you join, and a new box follows every 3 months from your join date.`
     );
     lines.push(
       `Rather just listen? The Audio Club puts every Big Brain Shelf audiobook in your library for ${model.club.audioMonthlyLabel} a month, or ${model.club.audioAnnualLabel} a year, for as long as your membership is active. Listening only: nothing ships on that plan.`
