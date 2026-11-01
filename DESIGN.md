@@ -111,6 +111,12 @@ problem, its execution was. /account uses the same mechanics as
 
 - /account/club manages the membership: plan, next box, picks, upgrade
   or downgrade, billing portal. Plain language, no dark patterns.
+- Box picking is the Shelf: two box slots on top, a shelf of covers
+  on a wooden plank below. Tap a book and it goes in the box; tap a
+  filled slot to swap it back to Surprise. Books the family owns or
+  already has coming sit dimmed unless the second-copy toggle is on.
+  (CG picked Shelf from the HTML prototype over a cover grid,
+  2026-11-01.)
 - The Audio Club has its own home in the account: a condensed listening
   shelf of what the membership opens. Joining or activating lands THERE,
   never back on the public join page. Putting a club book on your shelf
