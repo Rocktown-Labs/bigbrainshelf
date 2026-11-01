@@ -163,9 +163,9 @@ assert(publishRoute.includes("ensureBookPublicSlug"), "publish path mints the pu
 const checkoutRoute = read("../src/pages/api/checkout.ts");
 assert(checkoutRoute.includes("resolveInternalSlug"), "checkout translates public slugs to internal at its boundary");
 
-const accountPage = read("../src/components/CustomerBookViewer.astro");
-assert(accountPage.includes('"/read/" + encodeURIComponent(meta.publicSlug || slug)') && accountPage.includes("publicSlug: b.public_slug || b.slug"), "My Shelf read links carry the public slug");
-assert(accountPage.includes('"/api/download?slug=" + encodeURIComponent(slug)'), "My Shelf download links keep keying on the internal slug");
+const accountPage = read("../src/pages/account/book/[slug].astro");
+assert(accountPage.includes("href={`/read/${pub}`}"), "book overview read links carry the public slug");
+assert(accountPage.includes("/api/download?slug=${encodeURIComponent(book.slug)}"), "book overview download links keep keying on the internal slug");
 
 const castIndex = read("../src/pages/meet-the-cast.astro");
 assert(castIndex.includes("/books/${g.bookPublicSlug}"), "Meet the Cast index book links carry the public slug");

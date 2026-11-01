@@ -137,7 +137,7 @@ for (let i = 0; i < books.length; i += 4) boards.push((books as any[]).slice(i, 
             {row.map((c) => (
               <a href={c.href} class="shelf-card group block" data-book-card-slug={c.b.slug}>
                 <div
-                  class="aspect-square rounded-xl bg-stone-100 overflow-hidden border border-stone-200 relative shadow-sm"
+                  class="aspect-[3/4] rounded-xl bg-stone-100 overflow-hidden border border-stone-200 relative shadow-sm"
                   transition:name={`book-cover-${c.b.slug}`}
                 >
                   {c.cover && (
@@ -145,7 +145,7 @@ for (let i = 0; i < books.length; i += 4) boards.push((books as any[]).slice(i, 
                       src={c.cover}
                       alt={c.b.title}
                       width="300"
-                      height="300"
+                      height="400"
                       loading="lazy"
                       decoding="async"
                       class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200"

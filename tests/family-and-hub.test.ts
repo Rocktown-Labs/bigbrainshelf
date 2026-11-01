@@ -278,26 +278,24 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     expect((await listKidProfiles(db, "user_2")).length).toBe(0);
   });
 
-  test("Customer Hub components (/account, /accounts, QC viewer, Audio Dock, /read/[slug]) include sleep timer and sync controls", () => {
+  test("Customer Hub surfaces (/account, /accounts, /read/[slug] QC reader) include sleep timer and sync controls", () => {
     expect(existsSync(resolve(root, "src/pages/accounts.astro"))).toBe(true);
     const accountsRedirect = readFileSync(resolve(root, "src/pages/accounts.astro"), "utf8");
     expect(accountsRedirect).toContain("/account");
 
-    const viewerSrc = readFileSync(
-      resolve(root, "src/components/CustomerBookViewer.astro"),
+    // The stage viewer and audio dock retired in the hub rebuild
+    // (CG, 2026-11-01): reading and listening live in the QC reader
+    // at /read/[slug], framed by the account sidebar.
+    const readerSrc = readFileSync(
+      resolve(root, "src/pages/read/[slug].astro"),
       "utf8"
     );
-    expect(viewerSrc).toContain('data-qc-edition="color"');
-    expect(viewerSrc).toContain('data-qc-edition="coloring"');
-    expect(viewerSrc).toContain("qc-sync-audio");
-
-    const audioDockSrc = readFileSync(
-      resolve(root, "src/components/CustomerAudioDock.astro"),
-      "utf8"
-    );
-    expect(audioDockSrc).toContain("dock-sleep-select");
-    expect(audioDockSrc).toContain("bbs:audio-timeupdate");
-    expect(audioDockSrc).toContain("/api/account/progress");
+    expect(readerSrc).toContain('id="art-color"');
+    expect(readerSrc).toContain('id="view-flip"');
+    expect(readerSrc).toContain("sleep-timer");
+    expect(readerSrc).toContain("/api/account/progress");
+    expect(existsSync(resolve(root, "src/components/CustomerBookViewer.astro"))).toBe(false);
+    expect(existsSync(resolve(root, "src/components/CustomerAudioDock.astro"))).toBe(false);
     expect(SLEEP_TIMER_PRESETS.some((p) => p.minutes === 60)).toBe(true);
     expect(KID_AVATARS.length).toBeGreaterThanOrEqual(5);
 
@@ -383,20 +381,15 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     expect(bdayHtml).toContain("Happy Birthday to Zoe");
     expect(bdayHtml).toContain("Open your birthday gift");
 
-    // Verify Read-Along Theater Mode & Referrals markup
-    const viewerSrc = readFileSync(
-      resolve(root, "src/components/CustomerBookViewer.astro"),
+    // Read-along lives in the QC reader now: scroll/flip views with
+    // chapter-synced audio (the retired stage's theater tabs are gone).
+    const readerSrc2 = readFileSync(
+      resolve(root, "src/pages/read/[slug].astro"),
       "utf8"
     );
-    expect(viewerSrc).toContain('data-stage-tab="readalong"');
-    expect(viewerSrc).toContain('data-stage-tab="listen"');
-    expect(viewerSrc).toContain("qc-auto-flip-Audio");
-
-    const audioDockSrc = readFileSync(
-      resolve(root, "src/components/CustomerAudioDock.astro"),
-      "utf8"
-    );
-    expect(audioDockSrc).toContain("bbs:audio-timeupdate");
+    expect(readerSrc2).toContain('id="view-scroll"');
+    expect(readerSrc2).toContain('id="view-flip"');
+    expect(readerSrc2).toContain("CustomerShell");
 
     const referralsSrc = readFileSync(resolve(root, "src/pages/account/referrals.astro"), "utf8");
     expect(referralsSrc).toContain('id="referrals"');
