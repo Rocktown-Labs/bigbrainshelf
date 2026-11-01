@@ -906,8 +906,20 @@ export async function upsertKidProfile(
   const today = chicagoDateString();
   const existingProfiles = await listKidProfiles(db, userId);
 
-  const id = input.id && String(input.id).trim() ? String(input.id).trim() : crypto.randomUUID();
-  const current = existingProfiles.find((p) => p.id === id) || null;
+  const suppliedId = input.id && String(input.id).trim() ? String(input.id).trim() : "";
+  const current = suppliedId ? existingProfiles.find((p) => p.id === suppliedId) || null : null;
+  // SECURITY (F4, 2026-10-31): the upsert conflicts on the profile's
+  // primary key, so a client-supplied id for ANOTHER family's profile
+  // would rewrite that family's child row (name, birth date, limits,
+  // bedtime, allowed books) while the row keeps the victim's user_id.
+  // Only ids already owned by this caller may update; any other
+  // supplied id is rejected — it must create nothing and change
+  // nothing. The DO UPDATE clause below also carries a user_id guard
+  // as defense in depth.
+  if (suppliedId && !current) {
+    throw new Error(`not_found: kid profile ${suppliedId} does not belong to this account`);
+  }
+  const id = suppliedId || crypto.randomUUID();
 
   const cleanName = String(input.name || current?.name || "Reader").trim().slice(0, 40) || "Reader";
   // Optional public handle for the child (CG's onboarding model:
@@ -1004,7 +1016,8 @@ export async function upsertKidProfile(
          allow_audio_autoplay = excluded.allow_audio_autoplay,
          allowed_book_slugs = excluded.allowed_book_slugs,
          is_default = excluded.is_default,
-         updated_at = excluded.updated_at`
+         updated_at = excluded.updated_at
+       WHERE kid_profiles.user_id = excluded.user_id`
     )
     .bind(
       id,
