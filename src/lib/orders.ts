@@ -1028,6 +1028,26 @@ export async function ensureOutboxColumns(db: DBLike): Promise<void> {
 // Enqueue an email. The unique (order_id, kind) index makes this a no-op
 // if the same kind was ever enqueued for the order before, which is what
 // guarantees exactly one confirmation and one update per status change.
+// Scoped sender identities (see the identity map in lib/email.ts; the
+// literals here mirror NOREPLY_EMAIL / HELLO_EMAIL there, duplicated
+// because email.ts imports from this module). Callers that pass an
+// explicit fromEmail (marketing sends from news@) always win; kinds not
+// listed here send from the orders@ default at flush time.
+const NOREPLY_KINDS = new Set(["magic_link", "password_reset", "contact_form"]);
+const HELLO_KINDS = new Set([
+  "family_onboarding",
+  "birthday_gift",
+  "club_welcome",
+  "club_cycle_locked",
+  "club_cycle_attention",
+]);
+
+export function senderForKind(kind: string): string | null {
+  if (NOREPLY_KINDS.has(kind)) return "noreply@bigbrainshelf.com";
+  if (HELLO_KINDS.has(kind)) return "hello@bigbrainshelf.com";
+  return null;
+}
+
 export async function enqueueEmail(
   db: DBLike,
   args: {
@@ -1059,7 +1079,7 @@ export async function enqueueEmail(
       args.text,
       now(),
       args.sendAfter ?? null,
-      args.fromEmail ?? null,
+      args.fromEmail ?? senderForKind(args.kind),
       args.dedupeKey ?? null,
       args.clubBoxId ?? null,
       args.replyTo ?? null

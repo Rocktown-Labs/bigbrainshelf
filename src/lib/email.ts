@@ -15,7 +15,8 @@
 // If neither transport is configured, sends are skipped and rows stay
 // pending. Nothing is ever dropped: a later webhook delivery or the admin
 // "retry emails" action calls flushOutbox again and pending rows go out
-// then. The from address is orders@bigbrainshelf.com either way.
+// then. The default from address is orders@bigbrainshelf.com; rows with
+// a scoped sender carry it in from_email (see the identity map below).
 //
 // The HTML part of each message is rendered at send time from the same
 // content models that produce the stored plain text (lib/email-render.ts
@@ -32,11 +33,22 @@ export const EMAIL_FROM_NAME = "Big Brain Shelf";
 // (in Resend today, and in Cloudflare Email Sending once the domain is
 // onboarded there), so any address on the domain can send once the domain
 // itself is verified; there is no per-address setup. The map:
-//   orders@    transactional mail (the outbox below). Live in code.
-//   support@   the human support identity. Transactional mail carries it
-//              as Reply-To so buyer replies land with support, and it is
-//              where CG answers from. Receiving runs through Cloudflare
-//              Email Routing on the domain.
+//   orders@    money and packages: order confirmations, shipping and
+//              delivery updates, club billing problems, and the owner's
+//              store alerts. The default sender (rows with no from_email).
+//   noreply@   sign-in links, password resets, and the contact-form
+//              forward. Nobody should reply to these; the address says
+//              so, and its mail carries itself as Reply-To (never
+//              support@). Rows get this sender from senderForKind in
+//              lib/orders.ts at enqueue time.
+//   hello@     the mail that should feel like a person wrote it: the
+//              family welcome, the birthday gift email, the club
+//              welcome, and club box state notes. Also assigned by
+//              senderForKind in lib/orders.ts.
+//   support@   the human support identity. orders@ and hello@ mail
+//              carries it as Reply-To so buyer replies land with
+//              support, and it is where CG answers from. Receiving runs
+//              through Cloudflare Email Routing on the domain.
 //   news@      Book Club / new-release sends. The day-3 post-purchase
 //              club follow-up sends from here (rows carry from_email;
 //              see lib/marketing.ts). When broadcast volume starts, this
@@ -45,6 +57,8 @@ export const EMAIL_FROM_NAME = "Big Brain Shelf";
 //   outreach@  partnerships, press, and bookstore outreach. Reserved.
 export const SUPPORT_EMAIL = "support@bigbrainshelf.com";
 export const NEWS_EMAIL = "news@bigbrainshelf.com";
+export const NOREPLY_EMAIL = "noreply@bigbrainshelf.com";
+export const HELLO_EMAIL = "hello@bigbrainshelf.com";
 export const OUTREACH_EMAIL = "outreach@bigbrainshelf.com";
 
 const MAX_ATTEMPTS = 5;
@@ -229,13 +243,17 @@ export async function flushOutbox(
       subject: row.subject,
       text: row.body_text,
       html,
-      // Order mail sends from orders@; marketing rows carry their own
-      // sender (news@) in from_email. Buyer replies go to the support
-      // identity either way, not back to the sending address. A row
-      // can carry its own reply_to (contact form forwards carry the
+      // Order mail sends from orders@; rows carry their scoped sender
+      // (noreply@, hello@, news@) in from_email when they have one.
+      // Buyer replies go to the support identity, not back to the
+      // sending address, EXCEPT noreply@ mail, which carries itself as
+      // Reply-To so nobody answers it expecting a person. A row can
+      // carry its own reply_to (contact form forwards carry the
       // sender's address so the owner can answer them directly).
       fromAddress: row.from_email || undefined,
-      replyTo: row.reply_to || SUPPORT_EMAIL,
+      replyTo:
+        row.reply_to ||
+        (row.from_email === NOREPLY_EMAIL ? NOREPLY_EMAIL : SUPPORT_EMAIL),
     });
     if (res.ok) {
       summary.sent += 1;
