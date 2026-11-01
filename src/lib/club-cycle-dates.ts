@@ -9,21 +9,26 @@
 // fall every 3 months from that join date for as long as the
 // membership stays active. There is no global ship calendar and no
 // launch-date floor anymore. Reminders land 14 and 3 calendar days
-// before a box's due date; selections lock 2 calendar days before it,
-// so the last-call reminder always leaves a full day to act. A box
-// created ON its due date (the normal case for a first box) instead
-// locks 2 days after creation, so a brand-new member still gets a
-// window to pick their book before the box resolves.
+// before a box's due date; selections lock ON the due date, when
+// packing starts, so the last-call reminder leaves 3 full days to
+// act. A box created ON its due date (the normal case for a first
+// box) instead locks CLUB_PICK_FLOOR_DAYS after creation, so a
+// brand-new member gets 5 full days to change picks before the box
+// resolves (CG, 2026-11-01: boxes ship on a 5 to 7 day turnaround,
+// so picks stay open through most of it).
 
 export const CLUB_REMINDER_14_DAYS = 14;
 export const CLUB_REMINDER_3_DAYS = 3;
-export const CLUB_LOCK_DAYS_BEFORE = 2;
-// Print-and-pack processing window (CG, 2026-10-31): the first box is
-// NOT promised for the join day. The cycle stays anchored to the join
-// date (picks open, digital lands day one), but the first box's
-// member-facing ship-by date is the anchor plus this many days. Later
-// boxes build the window in through the pick lock instead.
-export const CLUB_PROCESSING_DAYS = 3;
+export const CLUB_LOCK_DAYS_BEFORE = 0;
+// Pick window floor for a freshly created box: the lock lands this
+// many days after creation, which leaves 5 full changeable days
+// after the creation day itself.
+export const CLUB_PICK_FLOOR_DAYS = 6;
+// Print-and-pack turnaround (CG, 2026-11-01): boxes ship within 5
+// to 7 days of their due date. The cycle stays anchored to the join
+// date (picks open, digital lands day one), but the member-facing
+// ship-by date is the due date plus this many days, for every box.
+export const CLUB_PROCESSING_DAYS = 7;
 export const CLUB_CYCLE_HORIZON = 2;
 export const CLUB_CYCLE_MONTHS = 3;
 
@@ -76,14 +81,13 @@ export interface ClubCycleTiming {
 }
 
 // Timing for one box. `boxCreatedDateStr` is the Chicago date the box
-// row was created; when the box was created fewer than
-// CLUB_LOCK_DAYS_BEFORE days before its due date (a first box is
-// created on its due date), the lock moves to creation + the lock
-// window so the member still gets time to choose.
+// row was created; when the box was created close to its due date (a
+// first box is created on its due date), the lock moves to creation
+// + CLUB_PICK_FLOOR_DAYS so the member still gets time to choose.
 export function clubCycleTiming(shipDate: string, boxCreatedDateStr?: string | null): ClubCycleTiming {
   let lockDate = addDaysToDateString(shipDate, -CLUB_LOCK_DAYS_BEFORE);
   if (boxCreatedDateStr) {
-    const floor = addDaysToDateString(boxCreatedDateStr, CLUB_LOCK_DAYS_BEFORE);
+    const floor = addDaysToDateString(boxCreatedDateStr, CLUB_PICK_FLOOR_DAYS);
     if (floor > lockDate) lockDate = floor;
   }
   return {

@@ -11,6 +11,7 @@ import {
   CLUB_ANNUAL_PRICE_CENTS,
   AUDIO_CLUB_PRICE_CENTS,
   AUDIO_CLUB_ANNUAL_PRICE_CENTS,
+  chicagoDateString,
 } from "../../lib/offers";
 import { ensureClubTable, shelfLabel, clubPlanOf } from "../../lib/club";
 import {
@@ -47,17 +48,27 @@ const clubSignup = (await e.DB.prepare("SELECT * FROM club_signups WHERE email =
   .bind(String(session.user.email || "").toLowerCase())
   .first()) as any;
 const clubPlan = clubSignup ? clubPlanOf(clubSignup) : null;
+const isComp = clubSignup?.subscription_status === "comp";
+const compUntilLabel =
+  isComp && Number(clubSignup.comp_until || 0) > 0
+    ? new Date(Number(clubSignup.comp_until) * 1000).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+        timeZone: "America/Chicago",
+      })
+    : null;
 
 let clubBox: any = null;
 let clubTiming: any = null;
-let clubPickOptions: any[] = [];
-let clubPickOptions2: any[] = [];
 let clubGridOptions: any[] = [];
 let clubCurrentTitle: string | null = null;
 let clubSecondTitle: string | null = null;
+let clubSlot1Slug: string | null = null;
+let clubSlot2Slug: string | null = null;
 let clubBillingPaused = false;
 
-if (clubSignup?.status === "paid") {
+if (clubSignup?.status === "paid" && clubPlan === "physical") {
   clubBillingPaused = ["past_due", "paused"].includes(String(clubSignup.subscription_status || ""));
   try {
     await ensureClubCycleTables(e.DB);
@@ -66,34 +77,8 @@ if (clubSignup?.status === "paid") {
     if (clubBox) {
       clubTiming = clubCycleTiming(String(clubBox.ship_date), boxCreatedDateString(clubBox.created_at));
       const opts = await getClubSelectionOptions(e.DB, clubSignup, clubBox);
-      const slot1Slug = clubBox.resolved_book_slug || clubBox.selected_book_slug;
-      const slot2Slug = clubBox.second_resolved_book_slug || clubBox.second_selected_book_slug;
-      const toOptions = (otherSlug: any) =>
-        opts.books.map((b: any) => ({
-          slug: b.slug,
-          title: b.title,
-          cover: coverDerivative(b.slug, "card", b.cover_key) || (b.cover_key ? R2 + b.cover_key : null),
-          blocked: opts.owned.has(b.slug) || opts.committed.has(b.slug) || b.slug === otherSlug,
-          blockKind:
-            b.slug === otherSlug
-              ? "box"
-              : opts.owned.has(b.slug)
-                ? "owned"
-                : opts.committed.has(b.slug)
-                  ? "committed"
-                  : null,
-          reason:
-            b.slug === otherSlug
-              ? "Already in this box"
-              : opts.owned.has(b.slug)
-                ? "Already in your library"
-                : "Already coming in a club box",
-        }));
-      clubPickOptions = toOptions(slot2Slug);
-      clubPickOptions2 = toOptions(slot1Slug);
-      // One unified grid list for the cover selector: blocked only
-      // for books the family owns or already has coming. The two
-      // slots police each other in the picker script instead.
+      clubSlot1Slug = clubBox.resolved_book_slug || clubBox.selected_book_slug || null;
+      clubSlot2Slug = clubBox.second_resolved_book_slug || clubBox.second_selected_book_slug || null;
       clubGridOptions = opts.books.map((b: any) => ({
         slug: b.slug,
         title: b.title,
@@ -104,14 +89,28 @@ if (clubSignup?.status === "paid") {
             ? "committed"
             : null,
       }));
-      clubCurrentTitle = clubPickOptions.find((o: any) => o.slug === slot1Slug)?.title || null;
-      clubSecondTitle = clubPickOptions2.find((o: any) => o.slug === slot2Slug)?.title || null;
+      clubCurrentTitle = clubGridOptions.find((o: any) => o.slug === clubSlot1Slug)?.title || null;
+      clubSecondTitle = clubGridOptions.find((o: any) => o.slug === clubSlot2Slug)?.title || null;
     }
   } catch (err) {
     console.error("account club cycle load failed", err);
     clubBox = null;
   }
 }
+if (clubSignup?.status === "paid" && clubPlan === "audio") {
+  clubBillingPaused = ["past_due", "paused"].includes(String(clubSignup.subscription_status || ""));
+}
+
+// Box state for the Club home card: picks stay changeable until
+// packing starts (the lock date), and every box ships by its due
+// date plus the 5 to 7 day turnaround.
+const todayStr = chicagoDateString();
+const boxIsFirst = Boolean(clubBox) && String(clubBox.ship_date) === String(clubSignup?.first_ship_date || "");
+const picksLocked = Boolean(clubBox && clubTiming) && (clubBox.status === "locked" || todayStr >= clubTiming.lockDate);
+const boxShipped = clubBox?.status === "shipped";
+const shipsByLabel = clubBox ? formatClubDate(addDaysToDateString(String(clubBox.ship_date), CLUB_PROCESSING_DAYS)) : null;
+const changeUntilLabel = clubTiming ? formatClubDate(addDaysToDateString(String(clubTiming.lockDate), -1)) : null;
+const coverOf = (slug: string | null) => clubGridOptions.find((o: any) => o.slug === slug)?.cover || null;
 ---
 <!doctype html>
 <html lang="en">
@@ -127,11 +126,31 @@ if (clubSignup?.status === "paid") {
   <Tracking />
 
   <style is:global>
-    /* Box picker: the Shelf (CG picked it from the HTML prototype,
-       2026-11-01). Two box slots on top, a shelf of covers on a
-       plank below; tap a book and it goes in the box. */
+    /* Club home (CG picked it from the HTML prototype, 2026-11-01):
+       the page is club info and one CTA. The Shelf picker lives in
+       a sheet that slides up over the page; it is never exposed
+       inline. Styles are global because the picker script re-renders
+       slot and summary nodes. */
+    .club-slots { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+    .club-slot-tile { border: 1.5px dashed #d6d3d1; border-radius: .9rem; padding: .65rem .7rem; background: #fffdf9; min-height: 104px; }
+    .club-slot-label { display: block; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #a8a29e; margin-bottom: .4rem; }
+    .club-slot-body { display: flex; gap: .6rem; align-items: center; }
+    .club-slot-body img { width: 46px; aspect-ratio: 3/4; object-fit: cover; border-radius: .35rem; flex: none; box-shadow: 0 3px 8px rgba(0,0,0,.18); }
+    .club-slot-q { width: 46px; aspect-ratio: 3/4; border-radius: .35rem; flex: none; display: grid; place-items: center; font-size: 22px; font-weight: 800; background: #fff7ed; color: #ea580c; }
+    .club-slot-name { display: block; font-size: 13px; font-weight: 700; line-height: 1.3; color: #1c1917; }
+    .club-slot-sub { display: block; font-size: 11.5px; color: #78716c; margin-top: 1px; }
+
+    .club-sheet-root { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+    .club-sheet-scrim { position: absolute; inset: 0; background: rgba(20,16,12,.5); opacity: 0; transition: opacity .3s ease-out; }
+    .club-sheet-panel { position: absolute; left: 0; right: 0; bottom: 0; max-width: 720px; margin: 0 auto; background: #1a3454; color: #fff; border-radius: 1.4rem 1.4rem 0 0; padding: .6rem 1rem calc(1rem + env(safe-area-inset-bottom)); transform: translateY(103%); transition: transform .34s cubic-bezier(.23,1,.32,1); max-height: 92dvh; overflow-y: auto; overscroll-behavior: contain; box-shadow: 0 -18px 44px rgba(0,0,0,.35); }
+    @media (min-width: 640px) { .club-sheet-panel { bottom: 1.5rem; border-radius: 1.4rem; } }
+    .club-sheet-root.open { pointer-events: auto; }
+    .club-sheet-root.open .club-sheet-scrim { opacity: 1; }
+    .club-sheet-root.open .club-sheet-panel { transform: none; }
+    .club-sheet-grab { width: 40px; height: 5px; border-radius: 99px; background: rgba(255,255,255,.35); margin: 2px auto 10px; }
+
     .pick-boxslots { display: flex; gap: .6rem; margin-top: .9rem; }
-    .pick-boxslot { flex: 1; border: 1.5px dashed rgba(255,255,255,.35); border-radius: .9rem; min-height: 118px; padding: .5rem; background: rgba(255,255,255,.04); color: #fff; text-align: center; cursor: pointer; transition: border-color .15s, background .15s, transform .12s; }
+    .pick-boxslot { flex: 1; border: 1.5px dashed rgba(255,255,255,.35); border-radius: .9rem; min-height: 118px; padding: .5rem; background: rgba(255,255,255,.04); color: #fff; text-align: center; cursor: pointer; transition: border-color .15s, background .15s, transform .12s; font: inherit; }
     .pick-boxslot:active { transform: scale(.98); }
     .pick-boxslot.active { border-color: #fb923c; border-style: solid; background: rgba(251,146,60,.12); }
     .pick-boxslot-label { display: block; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.55); margin-bottom: .35rem; }
@@ -141,6 +160,7 @@ if (clubSignup?.status === "paid") {
     .pick-boxslot-emptytxt { display: block; font-size: 11.5px; color: rgba(255,255,255,.7); font-weight: 700; margin-top: .35rem; }
     .pick-shelfbooks { display: flex; gap: .6rem; overflow-x: auto; padding: .25rem .1rem 0; scrollbar-width: none; }
     .pick-shelfbooks::-webkit-scrollbar { display: none; }
+    @media (min-width: 640px) { .pick-shelfbooks { flex-wrap: wrap; overflow-x: visible; } }
     .pick-sbook { flex: none; width: 86px; background: none; border: 0; padding: 0; cursor: pointer; color: #fff; text-align: center; font: inherit; transition: transform .16s, opacity .16s; }
     .pick-sbook:active { transform: translateY(-4px); }
     .pick-sbook img { width: 86px; aspect-ratio: 3/4; object-fit: cover; border-radius: .45rem .45rem .2rem .2rem; display: block; box-shadow: 0 4px 10px rgba(0,0,0,.35); }
@@ -149,7 +169,12 @@ if (clubSignup?.status === "paid") {
     .pick-sbook-tag:empty { display: none; }
     .pick-sbook.inbox { opacity: .35; }
     .pick-sbook.is-blocked { opacity: .5; cursor: not-allowed; }
+    .pick-sbook.is-owned { display: none; }
+    [data-pick-shelf].show-owned .pick-sbook.is-owned { display: block; }
     .pick-plank { height: 12px; border-radius: 3px; background: linear-gradient(#b07a45, #8a5a2e); box-shadow: 0 6px 12px rgba(0,0,0,.35); margin-top: .5rem; }
+    @media (prefers-reduced-motion: reduce) {
+      .club-sheet-scrim, .club-sheet-panel, .pick-boxslot, .pick-sbook { transition: none; }
+    }
   </style>
 </head>
 <body class="bg-white text-stone-900 antialiased pb-28">
@@ -178,10 +203,10 @@ if (clubSignup?.status === "paid") {
           Club Membership
         </span>
         <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900 mt-1.5">
-          {clubPlan === "audio" ? "The Audio Club" : "Book & Audio Club"}
+          Book &amp; Audio Club
         </h1>
         <p class="text-sm text-stone-600 mt-1">
-          Manage your quarterly printed Book Club boxes, monthly Audio Club stories, and upcoming book picks.
+          Your clubs, your next box, and your picks, all in one place.
         </p>
       </div>
       <a
@@ -192,251 +217,249 @@ if (clubSignup?.status === "paid") {
       </a>
     </div>
 
-    <section class="mt-6 rounded-3xl bg-[#1a3454] text-white p-6 sm:p-8 shadow-md">
-      {clubSignup?.status === "paid" && clubPlan === "audio" ? (
+    {/* Your club: the membership you are in, whatever club that is. */}
+    <section class="mt-6 rounded-3xl border border-stone-200 bg-white p-5 sm:p-6 shadow-sm">
+      {clubSignup?.status === "paid" ? (
         <>
           <div class="flex flex-wrap items-start justify-between gap-4">
-            <p class="text-white/90 text-sm leading-relaxed max-w-xl">
-              You are a member of <strong class="text-white">The Audio Club</strong> ({clubSignup.plan === "annual" ? money(AUDIO_CLUB_ANNUAL_PRICE_CENTS) + "/year" : money(AUDIO_CLUB_PRICE_CENTS) + "/month"}) on the <strong class="text-white">{shelfLabel(clubSignup.shelf)}</strong> shelf. Every audiobook on the shelf is unlocked in your library while your membership is active.
-            </p>
-            {clubSignup.stripe_customer_id && (
+            <div class="flex items-start gap-3 min-w-0">
+              <span class="flex-none w-11 h-11 rounded-2xl bg-orange-50 text-orange-700 grid place-items-center">
+                {clubPlan === "audio" ? (
+                  <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2.5" y="14" width="4" height="6.5" rx="1.6"/><rect x="17.5" y="14" width="4" height="6.5" rx="1.6"/></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>
+                )}
+              </span>
+              <div class="min-w-0">
+                <p class="font-extrabold text-stone-900">
+                  {clubPlan === "audio" ? "The Audio Club" : "The Book Club"}
+                  {isComp ? (
+                    <span class="ml-2 align-middle rounded-full bg-amber-100 text-amber-800 px-2.5 py-0.5 text-[11px] font-extrabold">Free year</span>
+                  ) : (
+                    <span class="ml-2 align-middle rounded-full bg-green-100 text-green-800 px-2.5 py-0.5 text-[11px] font-extrabold">Active</span>
+                  )}
+                </p>
+                <p class="text-sm text-stone-600 mt-0.5">
+                  {shelfLabel(clubSignup.shelf)} shelf ·{" "}
+                  {clubPlan === "audio"
+                    ? clubSignup.plan === "annual"
+                      ? money(AUDIO_CLUB_ANNUAL_PRICE_CENTS) + " a year"
+                      : money(AUDIO_CLUB_PRICE_CENTS) + " a month"
+                    : clubSignup.plan === "annual"
+                      ? money(CLUB_ANNUAL_PRICE_CENTS) + " a year"
+                      : clubPriceLabel() + " every 3 months"}
+                </p>
+                <p class="text-sm text-stone-500 mt-1 leading-relaxed">
+                  {isComp
+                    ? `Your free year runs until ${compUntilLabel || "next year"}. No card is charged for it.`
+                    : clubPlan === "audio"
+                      ? "Every audiobook on the shelf is unlocked in your library while your membership is active."
+                      : "Your digital books and audiobooks live on My Library."}
+                </p>
+              </div>
+            </div>
+            {clubSignup.stripe_customer_id && !isComp && (
               <form method="post" action="/api/club/portal">
                 <button
                   type="submit"
-                  class="cust-pressable rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 cursor-pointer"
+                  class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-bold text-stone-700 hover:border-stone-500 cursor-pointer"
                 >
                   Manage billing
                 </button>
               </form>
             )}
           </div>
-          <div class="mt-5">
+          {clubBillingPaused && (
+            <p class="mt-4 rounded-xl bg-orange-50 border border-orange-200 px-4 py-3 text-sm text-orange-900">
+              Your membership billing needs attention{clubPlan === "physical" ? ", so new cycle boxes are paused" : ""}. Use <strong>Manage billing</strong> above to update your payment method.
+            </p>
+          )}
+          <div class="mt-4">
             <a href="/account/library" class="cust-pressable inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600">
               Browse My Library →
             </a>
           </div>
-          {clubBillingPaused && (
-            <p class="mt-4 rounded-xl bg-orange-400/20 border border-orange-300/40 px-4 py-3 text-sm text-orange-100">
-              Your membership billing needs attention. Use <strong>Manage billing</strong> above to update your payment method.
-            </p>
-          )}
-          <div class="mt-6 border-t border-white/15 pt-5">
-            <h3 class="font-bold">Want the printed books too?</h3>
-            <p class="text-white/80 text-sm leading-relaxed mt-1">
-              Upgrade to The Book Club: a printed gift set plus a second printed book every 3 months, the whole shelf in your library, and the club book yours to keep digitally. Your Audio Club subscription is cancelled the moment the upgrade lands, so you are never billed for both.
-            </p>
-            <div class="flex flex-wrap gap-3 mt-4">
-              <button type="button" data-club-upgrade="quarterly" class="rounded-full bg-orange-600 text-white text-sm font-semibold px-6 py-2.5 hover:bg-orange-700 transition">Upgrade · {clubPriceLabel()} every 3 months</button>
-              <button type="button" data-club-upgrade="annual" class="rounded-full bg-white text-[#1a3454] text-sm font-semibold px-6 py-2.5 hover:bg-orange-50 transition">Upgrade · {clubPriceLabel(CLUB_ANNUAL_PRICE_CENTS)} a year</button>
-            </div>
-            <p id="club-upgrade-msg" class="text-sm mt-3 hidden" role="status"></p>
-          </div>
         </>
-      ) : clubSignup?.status === "paid" ? (
-        <>
-          <div class="flex flex-wrap items-start justify-between gap-4">
-            <p class="text-white/90 text-sm leading-relaxed max-w-xl">
-              You are a member of the Book Club ({clubSignup.plan === "annual" ? money(CLUB_ANNUAL_PRICE_CENTS) + "/year" : clubPriceLabel() + "/quarter"}) with the <strong class="text-white">{shelfLabel(clubSignup.shelf)}</strong> shelf. Your digital books and audiobooks live on <a href="/account/library" class="underline font-bold text-orange-300">My Library</a>.
-            </p>
-            {clubSignup.stripe_customer_id && (
-              <form method="post" action="/api/club/portal">
-                <button
-                  type="submit"
-                  class="cust-pressable rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 cursor-pointer"
-                >
-                  Manage billing
-                </button>
-              </form>
-            )}
+      ) : clubSignup?.status === "canceled" && Number(clubSignup.downgrade_to_audio_at || 0) > 0 ? (
+        <div>
+          <h2 class="text-lg font-extrabold text-stone-900">Your Book Club ended. The Audio Club is ready when you are.</h2>
+          <p class="text-stone-600 text-sm leading-relaxed mt-1.5">
+            This is the switch you scheduled, not a cancellation surprise. Start The Audio Club below and every audiobook is back in your library today. Books you bought to own never left.
+          </p>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button type="button" data-club-join="audio:monthly" class="cust-pressable rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600 cursor-pointer">
+              Start The Audio Club · {money(AUDIO_CLUB_PRICE_CENTS)}/month
+            </button>
+            <button type="button" data-club-join="audio:annual" class="cust-pressable rounded-full border border-stone-300 bg-white px-5 py-2.5 text-xs font-extrabold text-stone-700 hover:border-stone-500 cursor-pointer">
+              {money(AUDIO_CLUB_ANNUAL_PRICE_CENTS)}/year
+            </button>
           </div>
-          <div class="mt-5">
-            <a href="/account/library" class="cust-pressable inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600">
-              Browse My Library →
-            </a>
-          </div>
-          {Number(clubSignup.downgrade_to_audio_at || 0) > 0 ? (
-            <div class="mt-5 rounded-2xl bg-white/10 p-5">
-              <h2 class="text-base font-bold">Switching to The Audio Club</h2>
-              <p class="text-sm text-white/85 mt-1 leading-relaxed">
-                Your Book Club stays fully active until {new Date(Number(clubSignup.downgrade_to_audio_at) * 1000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. On that day it ends, boxes stop, and we email you a one tap start for The Audio Club ({clubSignup.downgrade_audio_period === "annual" ? `${money(AUDIO_CLUB_ANNUAL_PRICE_CENTS)} a year` : `${money(AUDIO_CLUB_PRICE_CENTS)} a month`}). Books you bought to own stay yours.
-              </p>
-              <button type="button" data-club-downgrade-undo class="cust-pressable mt-3 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 cursor-pointer">
-                Keep The Book Club instead
-              </button>
-              <p class="club-downgrade-msg text-sm mt-3 hidden" role="status"></p>
-            </div>
-          ) : (
-            <div class="mt-5 rounded-2xl bg-white/5 border border-white/10 p-5">
-              <h2 class="text-base font-bold">Listening more than reading lately?</h2>
-              <p class="text-sm text-white/85 mt-1 leading-relaxed">
-                Switch to The Audio Club at the end of your paid period: every audiobook stays in your library, printed boxes stop, and nothing changes until the day you already paid for arrives.
-              </p>
-              <div class="mt-3 flex flex-wrap gap-2">
-                <button type="button" data-club-downgrade="monthly" class="cust-pressable rounded-full bg-white text-[#1a3454] text-sm font-semibold px-5 py-2.5 hover:bg-orange-50 transition">Switch · {money(AUDIO_CLUB_PRICE_CENTS)} a month</button>
-                <button type="button" data-club-downgrade="annual" class="cust-pressable rounded-full border border-white/30 bg-white/10 text-white text-sm font-semibold px-5 py-2.5 hover:bg-white/20 transition">Switch · {money(AUDIO_CLUB_ANNUAL_PRICE_CENTS)} a year</button>
-              </div>
-              <p class="club-downgrade-msg text-sm mt-3 hidden" role="status"></p>
-            </div>
-          )}
-          {clubBillingPaused && (
-            <p class="mt-4 rounded-xl bg-orange-400/20 border border-orange-300/40 px-4 py-3 text-sm text-orange-100">
-              Your membership billing needs attention, so new cycle boxes are paused. Use <strong>Manage billing</strong> above to update your payment method.
-            </p>
-          )}
-          {!clubBillingPaused && clubBox && clubTiming ? (
-            <div class="mt-6 rounded-2xl bg-white/10 p-5">
-              <div class="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 class="text-base font-bold">
-                  {String(clubBox.ship_date) === String(clubSignup.first_ship_date || "")
-                    ? `Your first box · ships by ${formatClubDate(addDaysToDateString(String(clubBox.ship_date), CLUB_PROCESSING_DAYS))}`
-                    : `Your next box · ships ${formatClubDate(String(clubBox.ship_date))}`}
-                </h2>
-                <span class="text-xs font-semibold text-orange-300">
-                  {clubBox.status === "shipped"
-                    ? "Shipped"
-                    : clubBox.status === "locked" || clubTiming.isLocked
-                      ? `Locked ${formatClubDate(clubTiming.lockDate)}`
-                      : `Choose by ${formatClubDate(clubTiming.lockDate)}`}
-                </span>
-              </div>
-              {clubBox.status === "shipped" ? (
-                <p class="text-sm text-white/80 mt-2">
-                  Your box is on its way:{" "}
-                  <strong class="text-white">
-                    {[clubCurrentTitle, clubSecondTitle].filter(Boolean).join(" + ") || "your two shelf books"}
-                  </strong>
-                  {clubBox.tracking_number
-                    ? ` · ${clubBox.carrier ? clubBox.carrier + " " : ""}tracking ${clubBox.tracking_number}`
-                    : ""}.
-                </p>
-              ) : clubBox.status === "locked" || clubTiming.isLocked ? (
-                <p class="text-sm text-white/80 mt-2">
-                  This box is locked for packing:{" "}
-                  <strong class="text-white">
-                    {[clubCurrentTitle, clubSecondTitle].filter(Boolean).join(" + ") || "two surprise picks from your shelf"}
-                  </strong>.
-                </p>
-              ) : (
-                <form id="club-pick-form" class="mt-3" data-ship-date={clubBox.ship_date} data-pick-1={clubBox.selected_book_slug || "surprise"} data-pick-2={clubBox.second_selected_book_slug || "surprise"}>
-                  <p class="text-xs text-white/70">
-                    Each box ships two printed books plus their coloring books. Tap a book on the shelf and it goes in the box. Tap a filled slot to swap it back to Surprise. Books already on your shelf sit dimmed, and a slot left on Surprise means we pick from your {shelfLabel(clubSignup.shelf)} shelf.
-                  </p>
-                  <div class="pick-boxslots">
-                    {[1, 2].map((slot) => (
-                      <button type="button" class="pick-boxslot" data-boxslot={slot}>
-                        <span class="pick-boxslot-label">Book {slot}<span data-picking /></span>
-                        <span class="pick-boxslot-body" />
-                      </button>
-                    ))}
-                  </div>
-                  <div class="mt-5" data-pick-shelf>
-                    <div class="pick-shelfbooks">
-                      {clubGridOptions.map((o: any) => (
-                        <button
-                          type="button"
-                          class="pick-sbook"
-                          data-book={o.slug}
-                          data-kind={o.blockKind || ""}
-                        >
-                          {o.cover && <img src={o.cover} alt="" loading="lazy" />}
-                          <span class="pick-sbook-title">{o.title}</span>
-                          <span class="pick-sbook-tag" data-label={o.blockKind === "owned" ? "On your shelf" : o.blockKind === "committed" ? "In another box" : ""} />
-                        </button>
-                      ))}
-                    </div>
-                    <div class="pick-plank" />
-                  </div>
-                  <label class="mt-4 flex items-start gap-2 text-xs text-white/75 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      id="club-allow-repeat"
-                      checked={clubBox.allow_repeat === 1}
-                      class="mt-0.5"
-                    />
-                    <span>Sending a second copy or a gift? Allow books already on your shelf.</span>
-                  </label>
-                  <div class="mt-4 flex items-center gap-3">
-                    <button
-                      type="submit"
-                      class="cust-pressable rounded-full bg-orange-400 px-5 py-2 text-xs font-extrabold text-[#1a3454] hover:bg-orange-300 cursor-pointer"
-                    >
-                      Save my picks
-                    </button>
-                    <p id="club-pick-msg" class="text-xs text-white/80" role="status"></p>
-                  </div>
-                </form>
-              )}
-            </div>
-          ) : (
-            !clubBillingPaused && (
-              <p class="text-white/80 text-sm leading-relaxed mt-3">
-                Your next box will appear here with its book choices as its ship date approaches.
-              </p>
-            )
-          )}
-        </>
+        </div>
       ) : clubSignup?.status === "canceled" ? (
         <div>
-          {Number(clubSignup.downgrade_to_audio_at || 0) > 0 ? (
-            <>
-              <h2 class="text-lg font-extrabold">Your Book Club ended. The Audio Club is ready when you are.</h2>
-              <p class="text-white/80 text-sm leading-relaxed mt-1.5">
-                This is the switch you scheduled, not a cancellation surprise. Start The Audio Club below and every audiobook is back in your library today. Books you bought to own never left.
-              </p>
-              <div class="mt-4 flex flex-wrap gap-2">
-                <button type="button" data-club-join="audio:monthly" class="cust-pressable rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600 cursor-pointer">
-                  Start The Audio Club · {money(AUDIO_CLUB_PRICE_CENTS)}/month
-                </button>
-                <button type="button" data-club-join="audio:annual" class="cust-pressable rounded-full border border-white/30 bg-white/10 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-white/20 cursor-pointer">
-                  {money(AUDIO_CLUB_ANNUAL_PRICE_CENTS)}/year
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <h2 class="text-lg font-extrabold">Your Book Club membership is paused/canceled</h2>
-              <p class="text-white/80 text-sm leading-relaxed mt-1.5">
-                No further sets will ship unless you rejoin. All digital books you already unlocked stay on your shelf forever.
-              </p>
-              <a
-                href="#join-club"
-                class="cust-pressable mt-4 inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600"
-              >
-                Rejoin the Club ↓
-              </a>
-            </>
-          )}
+          <h2 class="text-lg font-extrabold text-stone-900">Your Book Club membership is paused/canceled</h2>
+          <p class="text-stone-600 text-sm leading-relaxed mt-1.5">
+            No further sets will ship unless you rejoin. All digital books you already unlocked stay on your shelf forever.
+          </p>
+          <a href="#join-club" class="cust-pressable mt-4 inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600">
+            Rejoin the Club ↓
+          </a>
         </div>
       ) : clubSignup ? (
         <div>
-          <h2 class="text-lg font-extrabold">
+          <h2 class="text-lg font-extrabold text-stone-900">
             Spot reserved on the {shelfLabel(clubSignup.shelf)} shelf
           </h2>
-          <p class="text-white/80 text-sm leading-relaxed mt-1.5">
+          <p class="text-stone-600 text-sm leading-relaxed mt-1.5">
             Membership is open to join, and joining activates your reservation with instant digital &amp; audiobook access.
           </p>
-          <a
-            href="#join-club"
-            class="cust-pressable mt-4 inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600"
-          >
+          <a href="#join-club" class="cust-pressable mt-4 inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600">
             Activate Membership ↓
           </a>
         </div>
       ) : (
         <div>
-          <h2 class="text-lg font-extrabold">Join The Book Club or The Audio Club</h2>
-          <p class="text-white/80 text-sm leading-relaxed mt-1.5 max-w-xl">
-            Get a quarterly box of two printed books + coloring books ({clubPriceLabel()}/quarter or {money(CLUB_ANNUAL_PRICE_CENTS)}/year), or unlock every audiobook and Read-Along story with The Audio Club ({money(AUDIO_CLUB_PRICE_CENTS)}/month or {money(AUDIO_CLUB_ANNUAL_PRICE_CENTS)}/year).
+          <h2 class="text-lg font-extrabold text-stone-900">You are not in a club yet</h2>
+          <p class="text-stone-600 text-sm leading-relaxed mt-1.5 max-w-xl">
+            Get a quarterly box of two printed books + coloring books ({clubPriceLabel()}/quarter or {money(CLUB_ANNUAL_PRICE_CENTS)}/year), or unlock every audiobook with The Audio Club ({money(AUDIO_CLUB_PRICE_CENTS)}/month or {money(AUDIO_CLUB_ANNUAL_PRICE_CENTS)}/year).
           </p>
-          <a
-            href="#join-club"
-            class="cust-pressable mt-4 inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600"
-          >
+          <a href="#join-club" class="cust-pressable mt-4 inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600">
             See Club Options ↓
           </a>
         </div>
       )}
     </section>
+
+    {/* Next box: summary and one CTA. The picker itself is a sheet. */}
+    {clubSignup?.status === "paid" && clubPlan === "physical" && !clubBillingPaused && (
+      <section class="mt-5 rounded-3xl border border-stone-200 bg-white p-5 sm:p-6 shadow-sm">
+        {clubBox && clubTiming ? (
+          <>
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 class="text-base font-extrabold text-stone-900">
+                {boxIsFirst ? "Your first box" : "Your next box"}
+              </h2>
+              <span class="text-xs font-bold text-orange-700">
+                {boxShipped
+                  ? "Shipped"
+                  : picksLocked
+                    ? `Locked for packing ${formatClubDate(clubTiming.lockDate)}`
+                    : `Ships by ${shipsByLabel}`}
+              </span>
+            </div>
+            <div class="club-slots mt-4" data-summary-slots>
+              {[1, 2].map((slot) => {
+                const slug = slot === 1 ? clubSlot1Slug : clubSlot2Slug;
+                const title = slot === 1 ? clubCurrentTitle : clubSecondTitle;
+                const cover = coverOf(slug);
+                return (
+                  <div class="club-slot-tile">
+                    <span class="club-slot-label">Book {slot}</span>
+                    <span class="club-slot-body">
+                      {slug && title ? (
+                        <>
+                          {cover && <img src={cover} alt="" loading="lazy" />}
+                          <span>
+                            <span class="club-slot-name">{title}</span>
+                            <span class="club-slot-sub">Printed, in your box</span>
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span class="club-slot-q">?</span>
+                          <span>
+                            <span class="club-slot-name">Surprise me</span>
+                            <span class="club-slot-sub">We pick from your {shelfLabel(clubSignup.shelf)} shelf</span>
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {boxShipped ? (
+              <p class="text-sm text-stone-600 mt-4 leading-relaxed">
+                Your box is on its way
+                {clubBox.tracking_number
+                  ? ` · ${clubBox.carrier ? clubBox.carrier + " " : ""}tracking ${clubBox.tracking_number}`
+                  : ""}
+                .
+              </p>
+            ) : picksLocked ? (
+              <p class="text-sm text-stone-600 mt-4 leading-relaxed">
+                This box is locked for packing. It ships by {shipsByLabel}.
+              </p>
+            ) : (
+              <>
+                <div class="flex flex-wrap gap-x-8 gap-y-1 mt-4 text-sm text-stone-600">
+                  <span>Ships by <strong class="text-stone-900">{shipsByLabel}</strong></span>
+                  <span>Change picks until <strong class="text-stone-900">{changeUntilLabel}</strong></span>
+                </div>
+                <p class="hidden mt-3 rounded-xl bg-green-50 border border-green-200 px-4 py-2.5 text-sm font-semibold text-green-800" data-saved-note role="status"></p>
+                <button
+                  type="button"
+                  data-open-sheet
+                  class="cust-pressable mt-4 w-full sm:w-auto rounded-full bg-orange-500 px-6 py-3 text-sm font-extrabold text-white hover:bg-orange-600 cursor-pointer"
+                >
+                  Choose books for your next box
+                </button>
+                <p class="text-xs text-stone-500 mt-2.5">
+                  One tap opens the shelf. Nothing is final until you save, and you can change your picks until {changeUntilLabel}.
+                </p>
+              </>
+            )}
+          </>
+        ) : (
+          <p class="text-stone-600 text-sm leading-relaxed">
+            Your next box will appear here with its book choices as its ship date approaches.
+          </p>
+        )}
+      </section>
+    )}
+
+    {/* The other club: the upsell or the switch, whichever fits. */}
+    {clubSignup?.status === "paid" && clubPlan === "physical" && (
+      <section class="mt-5 rounded-3xl border border-stone-200 bg-white p-5 sm:p-6 shadow-sm">
+        {Number(clubSignup.downgrade_to_audio_at || 0) > 0 ? (
+          <>
+            <h2 class="text-base font-extrabold text-stone-900">Switching to The Audio Club</h2>
+            <p class="text-sm text-stone-600 mt-1 leading-relaxed">
+              Your Book Club stays fully active until {new Date(Number(clubSignup.downgrade_to_audio_at) * 1000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}. On that day it ends, boxes stop, and we email you a one tap start for The Audio Club ({clubSignup.downgrade_audio_period === "annual" ? `${money(AUDIO_CLUB_ANNUAL_PRICE_CENTS)} a year` : `${money(AUDIO_CLUB_PRICE_CENTS)} a month`}). Books you bought to own stay yours.
+            </p>
+            <button type="button" data-club-downgrade-undo class="cust-pressable mt-3 rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-bold text-stone-700 hover:border-stone-500 cursor-pointer">
+              Keep The Book Club instead
+            </button>
+            <p class="club-downgrade-msg text-sm mt-3 hidden" role="status"></p>
+          </>
+        ) : (
+          <>
+            <h2 class="text-base font-extrabold text-stone-900">Listening more than reading lately?</h2>
+            <p class="text-sm text-stone-600 mt-1 leading-relaxed">
+              Switch to The Audio Club at the end of your paid period: every audiobook stays in your library, printed boxes stop, and nothing changes until the day you already paid for arrives.
+            </p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button type="button" data-club-downgrade="monthly" class="cust-pressable rounded-full bg-[#1a3454] text-white text-sm font-semibold px-5 py-2.5 hover:bg-[#132741] transition cursor-pointer">Switch · {money(AUDIO_CLUB_PRICE_CENTS)} a month</button>
+              <button type="button" data-club-downgrade="annual" class="cust-pressable rounded-full border border-stone-300 bg-white text-stone-700 text-sm font-semibold px-5 py-2.5 hover:border-stone-500 transition cursor-pointer">Switch · {money(AUDIO_CLUB_ANNUAL_PRICE_CENTS)} a year</button>
+            </div>
+            <p class="club-downgrade-msg text-sm mt-3 hidden" role="status"></p>
+          </>
+        )}
+      </section>
+    )}
+    {clubSignup?.status === "paid" && clubPlan === "audio" && (
+      <section class="mt-5 rounded-3xl border border-stone-200 bg-white p-5 sm:p-6 shadow-sm">
+        <h2 class="text-base font-extrabold text-stone-900">Want the printed books too?</h2>
+        <p class="text-sm text-stone-600 mt-1 leading-relaxed">
+          Upgrade to The Book Club: a printed gift set plus a second printed book every 3 months, the whole shelf in your library, and the club book yours to keep digitally. Your Audio Club subscription is cancelled the moment the upgrade lands, so you are never billed for both.
+        </p>
+        <div class="flex flex-wrap gap-3 mt-4">
+          <button type="button" data-club-upgrade="quarterly" class="cust-pressable rounded-full bg-orange-600 text-white text-sm font-semibold px-6 py-2.5 hover:bg-orange-700 transition cursor-pointer">Upgrade · {clubPriceLabel()} every 3 months</button>
+          <button type="button" data-club-upgrade="annual" class="cust-pressable rounded-full border border-stone-300 bg-white text-[#1a3454] text-sm font-semibold px-6 py-2.5 hover:bg-orange-50 transition cursor-pointer">Upgrade · {clubPriceLabel(CLUB_ANNUAL_PRICE_CENTS)} a year</button>
+        </div>
+        <p id="club-upgrade-msg" class="text-sm mt-3 hidden" role="status"></p>
+      </section>
+    )}
 
     {clubSignup?.status !== "paid" && (
       <section id="join-club" class="mt-6 rounded-3xl border border-stone-200 bg-[#fcfaf6] p-6 sm:p-8" data-parent-only="true">
@@ -446,7 +469,7 @@ if (clubSignup?.status === "paid") {
         </p>
         <div class="mt-5 grid sm:grid-cols-2 gap-4">
           <div class="rounded-2xl border border-stone-200 bg-white p-5">
-            <p class="text-[11px] font-extrabold uppercase tracking-wider text-stone-500">🎧 The Audio Club</p>
+            <p class="text-[11px] font-extrabold uppercase tracking-wider text-stone-500">The Audio Club</p>
             <p class="text-sm text-stone-600 mt-1.5 leading-relaxed">Every audiobook and read-along in your library while you are a member.</p>
             <div class="mt-4 flex flex-wrap gap-2">
               <button type="button" data-club-join="audio:monthly" class="cust-pressable rounded-full bg-[#1a3454] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#132741] cursor-pointer">
@@ -458,7 +481,7 @@ if (clubSignup?.status === "paid") {
             </div>
           </div>
           <div class="rounded-2xl border border-stone-200 bg-white p-5">
-            <p class="text-[11px] font-extrabold uppercase tracking-wider text-stone-500">📦 The Book Club</p>
+            <p class="text-[11px] font-extrabold uppercase tracking-wider text-stone-500">The Book Club</p>
             <p class="text-sm text-stone-600 mt-1.5 leading-relaxed">A printed gift set plus a second printed book every 3 months, and the digital editions in your library from day one.</p>
             <div class="mt-4 flex flex-wrap gap-2">
               <button type="button" data-club-join="physical:quarterly" class="cust-pressable rounded-full bg-orange-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-orange-700 cursor-pointer">
@@ -475,29 +498,100 @@ if (clubSignup?.status === "paid") {
     )}
   </main>
 
+  {/* The Shelf picker sheet: one tap from the CTA, selections, save. */}
+  {clubSignup?.status === "paid" && clubPlan === "physical" && clubBox && clubTiming && !picksLocked && !boxShipped && !clubBillingPaused && (
+    <div class="club-sheet-root" data-club-sheet data-ship-date={clubBox.ship_date} data-pick-1={clubBox.selected_book_slug || "surprise"} data-pick-2={clubBox.second_selected_book_slug || "surprise"}>
+      <div class="club-sheet-scrim" data-close-sheet></div>
+      <div class="club-sheet-panel" role="dialog" aria-modal="true" aria-label="Choose your books">
+        <div class="club-sheet-grab"></div>
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-extrabold">Choose your books</h2>
+            <p class="text-[13px] text-white/75 leading-relaxed mt-1">
+              Tap a book on the shelf and it goes in the box. Tap a filled slot to swap it back to Surprise. You can change these until {changeUntilLabel}.
+            </p>
+          </div>
+          <button type="button" data-close-sheet aria-label="Close" class="cust-pressable flex-none w-11 h-11 rounded-xl bg-white/10 text-white grid place-items-center cursor-pointer">
+            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg>
+          </button>
+        </div>
+        <div class="pick-boxslots">
+          {[1, 2].map((slot) => (
+            <button type="button" class="pick-boxslot" data-boxslot={slot}>
+              <span class="pick-boxslot-label">Book {slot}<span data-picking /></span>
+              <span class="pick-boxslot-body" />
+            </button>
+          ))}
+        </div>
+        <div class="mt-5" data-pick-shelf>
+          <div class="pick-shelfbooks">
+            {clubGridOptions.map((o: any) => (
+              <button
+                type="button"
+                class:list={["pick-sbook", o.blockKind === "owned" && "is-owned"]}
+                data-book={o.slug}
+                data-kind={o.blockKind || ""}
+              >
+                {o.cover && <img src={o.cover} alt="" loading="lazy" />}
+                <span class="pick-sbook-title">{o.title}</span>
+                <span class="pick-sbook-tag" data-label={o.blockKind === "owned" ? "On your shelf" : o.blockKind === "committed" ? "In another box" : ""} />
+              </button>
+            ))}
+          </div>
+          <div class="pick-plank" />
+        </div>
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <button type="button" data-show-purchased aria-expanded="false" class="cust-pressable rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/20 cursor-pointer">
+            Show purchased books
+          </button>
+          <span class="text-xs text-white/65">Sending a second copy or a gift? Your purchased books live here.</span>
+        </div>
+        <div class="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            data-save-picks
+            class="cust-pressable rounded-full bg-orange-500 px-6 py-3 text-sm font-extrabold text-white hover:bg-orange-600 cursor-pointer"
+          >
+            Save my picks
+          </button>
+          <p class="text-xs text-white/80" data-pick-msg role="status"></p>
+        </div>
+        <p class="text-xs text-white/55 mt-3">
+          Your box ships by {shipsByLabel}. A slot left on Surprise means we pick from your {shelfLabel(clubSignup.shelf)} shelf.
+        </p>
+      </div>
+    </div>
+  )}
+
   <script is:inline define:vars={{ shelfBooks: clubGridOptions }}>
-    // The Shelf picker (CG's pick from the prototype, 2026-11-01):
-    // tap a book and it goes into the active box slot, tap a filled
-    // slot to swap it back to Surprise. Same save payload as the
-    // grid it replaced.
-    function initClubPick() {
-      var form = document.getElementById("club-pick-form");
-      if (!form || form.__clubPickBound) return;
-      form.__clubPickBound = true;
-      var repeat = document.getElementById("club-allow-repeat");
-      var msg = document.getElementById("club-pick-msg");
+    // The Shelf picker sheet (Club home, CG 2026-11-01): the page
+    // shows a summary and one CTA; this sheet is where picking
+    // happens. Tap a book and it goes into the active box slot, tap
+    // a filled slot to swap it back to Surprise. Purchased books sit
+    // behind the Show purchased toggle. Same save payload the
+    // inline picker used.
+    function initClubSheet() {
+      var root = document.querySelector("[data-club-sheet]");
+      if (!root || root.__clubSheetBound) return;
+      root.__clubSheetBound = true;
+      var shelf = root.querySelector("[data-pick-shelf]");
+      var msg = root.querySelector("[data-pick-msg]");
+      var showBtn = root.querySelector("[data-show-purchased]");
       var bySlug = {};
       (shelfBooks || []).forEach(function (b) { bySlug[b.slug] = b; });
       var picks = {
-        "1": form.getAttribute("data-pick-1") || "surprise",
-        "2": form.getAttribute("data-pick-2") || "surprise",
+        "1": root.getAttribute("data-pick-1") || "surprise",
+        "2": root.getAttribute("data-pick-2") || "surprise",
       };
       var activeSlot = picks["1"] === "surprise" ? "1" : picks["2"] === "surprise" ? "2" : "1";
       function esc(s) {
         return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
       }
+      function showOwned() {
+        return shelf && shelf.classList.contains("show-owned");
+      }
       function paint() {
-        form.querySelectorAll("[data-boxslot]").forEach(function (el) {
+        root.querySelectorAll("[data-boxslot]").forEach(function (el) {
           var slot = el.getAttribute("data-boxslot");
           el.classList.toggle("active", activeSlot === slot);
           var picking = el.querySelector("[data-picking]");
@@ -513,18 +607,38 @@ if (clubSignup?.status === "paid") {
               '<span class="pick-boxslot-title">' + esc(bySlug[v].title) + "</span>";
           }
         });
-        form.querySelectorAll(".pick-sbook").forEach(function (el) {
+        root.querySelectorAll(".pick-sbook").forEach(function (el) {
           var slug = el.getAttribute("data-book");
           var kind = el.getAttribute("data-kind") || "";
           var inBox = picks["1"] === slug || picks["2"] === slug;
-          var blocked = kind !== "" && !(repeat && repeat.checked) && !inBox;
+          var blocked = kind !== "" && !inBox && !(kind === "owned" && showOwned());
           el.classList.toggle("inbox", inBox);
           el.classList.toggle("is-blocked", blocked);
           var tag = el.querySelector(".pick-sbook-tag");
           if (tag) tag.textContent = inBox ? "In the box" : blocked ? tag.getAttribute("data-label") || "" : "";
         });
       }
-      form.querySelectorAll("[data-boxslot]").forEach(function (el) {
+      function openSheet() {
+        paint();
+        requestAnimationFrame(function () { root.classList.add("open"); });
+        document.body.style.overflow = "hidden";
+      }
+      function closeSheet() {
+        root.classList.remove("open");
+        document.body.style.overflow = "";
+      }
+      document.querySelectorAll("[data-open-sheet]").forEach(function (btn) {
+        if (btn.__sheetBound) return;
+        btn.__sheetBound = true;
+        btn.addEventListener("click", openSheet);
+      });
+      root.querySelectorAll("[data-close-sheet]").forEach(function (el) {
+        el.addEventListener("click", closeSheet);
+      });
+      document.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape" && root.classList.contains("open")) closeSheet();
+      });
+      root.querySelectorAll("[data-boxslot]").forEach(function (el) {
         el.addEventListener("click", function () {
           var slot = el.getAttribute("data-boxslot");
           if (activeSlot === slot && picks[slot] !== "surprise") {
@@ -535,12 +649,12 @@ if (clubSignup?.status === "paid") {
           paint();
         });
       });
-      form.querySelectorAll(".pick-sbook").forEach(function (el) {
+      root.querySelectorAll(".pick-sbook").forEach(function (el) {
         el.addEventListener("click", function () {
           var slug = el.getAttribute("data-book");
           var kind = el.getAttribute("data-kind") || "";
           if (picks["1"] === slug || picks["2"] === slug) return;
-          if (kind !== "" && !(repeat && repeat.checked)) return;
+          if (kind !== "" && !(kind === "owned" && showOwned())) return;
           picks[activeSlot] = slug;
           var other = activeSlot === "1" ? "2" : "1";
           if (picks[other] === slug) picks[other] = "surprise";
@@ -548,38 +662,79 @@ if (clubSignup?.status === "paid") {
           paint();
         });
       });
-      if (repeat) repeat.addEventListener("change", paint);
-      paint();
-      form.addEventListener("submit", async function (ev) {
-        ev.preventDefault();
-        if (msg) msg.textContent = "Saving...";
-        try {
-          var r = await fetch("/api/club/selection", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ship_date: form.getAttribute("data-ship-date"),
-              selection: picks["1"],
-              selection_2: picks["2"],
-              allow_repeat: !!(repeat && repeat.checked),
-            }),
-          });
-          var data = await r.json().catch(function () {
-            return {};
-          });
-          if (!r.ok) {
-            if (msg) msg.textContent = data.error || "Could not save your pick.";
-            return;
+      if (showBtn && shelf) {
+        showBtn.addEventListener("click", function () {
+          var on = shelf.classList.toggle("show-owned");
+          showBtn.setAttribute("aria-expanded", on ? "true" : "false");
+          showBtn.textContent = on ? "Hide purchased books" : "Show purchased books";
+          paint();
+        });
+      }
+      var saveBtn = root.querySelector("[data-save-picks]");
+      if (saveBtn) {
+        saveBtn.addEventListener("click", async function () {
+          if (msg) msg.textContent = "Saving...";
+          var allowRepeat =
+            (bySlug[picks["1"]] && bySlug[picks["1"]].blockKind === "owned") ||
+            (bySlug[picks["2"]] && bySlug[picks["2"]].blockKind === "owned");
+          try {
+            var r = await fetch("/api/club/selection", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ship_date: root.getAttribute("data-ship-date"),
+                selection: picks["1"],
+                selection_2: picks["2"],
+                allow_repeat: !!allowRepeat,
+              }),
+            });
+            var data = await r.json().catch(function () {
+              return {};
+            });
+            if (!r.ok) {
+              if (msg) msg.textContent = data.error || "Could not save your pick.";
+              return;
+            }
+            closeSheet();
+            paintSummary();
+            var note = document.querySelector("[data-saved-note]");
+            if (note) {
+              note.textContent = "Picks saved.";
+              note.classList.remove("hidden");
+            }
+          } catch {
+            if (msg) msg.textContent = "Could not save your pick. Please try again.";
           }
-          if (msg) msg.textContent = "Saved!";
-          window.location.reload();
-        } catch {
-          if (msg) msg.textContent = "Could not save your pick. Please try again.";
-        }
-      });
+        });
+      }
+      function paintSummary() {
+        var wrap = document.querySelector("[data-summary-slots]");
+        if (!wrap) return;
+        wrap.innerHTML = ["1", "2"].map(function (slot) {
+          var v = picks[slot];
+          var b = v !== "surprise" ? bySlug[v] : null;
+          var head = '<span class="club-slot-label">Book ' + slot + "</span>";
+          if (!b) {
+            return (
+              '<div class="club-slot-tile">' + head +
+              '<span class="club-slot-body"><span class="club-slot-q">?</span><span>' +
+              '<span class="club-slot-name">Surprise me</span>' +
+              '<span class="club-slot-sub">We pick from your shelf</span></span></span></div>'
+            );
+          }
+          return (
+            '<div class="club-slot-tile">' + head +
+            '<span class="club-slot-body">' +
+            (b.cover ? '<img src="' + esc(b.cover) + '" alt="">' : "") +
+            '<span><span class="club-slot-name">' + esc(b.title) + "</span>" +
+            '<span class="club-slot-sub">Printed, in your box</span></span></span></div>'
+          );
+        }).join("");
+      }
+      paint();
     }
-    initClubPick();
-    document.addEventListener("astro:page-load", initClubPick);
+    initClubSheet();
+    document.addEventListener("astro:page-load", initClubSheet);
   </script>
   <script is:inline>
     // Audio Club member upgrading to The Book Club: post the

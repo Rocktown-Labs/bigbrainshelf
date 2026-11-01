@@ -49,7 +49,7 @@ assert(club.includes('<SectionNav active="plans" />'), "clubs renders the routes
 assert(club.includes('subline="Two simple clubs: printed books by mail, or every audiobook on the shelf."'), "clubs hero carries the plans subline");
 assert(!club.includes("January"), "no January ship copy remains on the plans page");
 assert(!club.includes("First boxes ship"), "the first-boxes-ship line is gone");
-assert(club.includes("First box ships within a few days of joining, then every 3 months."), "the plans page states the first box ship window (processing time, CG 2026-10-31)");
+assert(club.includes("First box ships within 5 to 7 days of joining, then every 3 months."), "the plans page states the first box ship window (processing time, CG 2026-10-31)");
 assert(club.includes('id="plan-switch"'), "the mobile plan switch exists");
 assert(club.includes('data-plan-switch="physical"') && club.includes('data-plan-switch="audio"'), "the switch offers The Book Club and The Audio Club");
 assert(club.includes(">The Book Club</button>") && club.includes(">The Audio Club</button>"), "the mobile switch names the products with the The");

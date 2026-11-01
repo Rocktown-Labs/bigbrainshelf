@@ -144,7 +144,7 @@ export function buildClubFollowupEmail(
   );
   lines.push("");
   lines.push(
-    "Your first box ships within a few days of the day you join, and a new box follows every 3 months from your join date."
+    "Your first box ships within 5 to 7 days of the day you join, and a new box follows every 3 months from your join date."
   );
   lines.push("");
   lines.push(

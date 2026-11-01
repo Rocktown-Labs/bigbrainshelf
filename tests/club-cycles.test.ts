@@ -117,9 +117,9 @@ assert(memberCycleWindowDates("2026-10-28", "2027-02-01").join(",") === "2027-01
 assert(memberCycleWindowDates("2027-02-15", "2027-02-14").join(",") === "2027-02-15,2027-05-15", "a future anchor starts at the join date itself");
 assert(isMemberCycleDate("2026-10-28", "2027-04-28") && !isMemberCycleDate("2026-10-28", "2027-04-29") && !isMemberCycleDate("2026-10-28", "2026-10-27"), "member cycle date validation");
 const timing = clubCycleTiming("2027-01-28");
-assert(timing.reminder14Date === "2027-01-14" && timing.reminder3Date === "2027-01-25" && timing.lockDate === "2027-01-26", "reminder and lock dates sit 14, 3, and 2 days before the due date");
+assert(timing.reminder14Date === "2027-01-14" && timing.reminder3Date === "2027-01-25" && timing.lockDate === "2027-01-28", "reminders sit 14 and 3 days before the due date and selections lock on the due date itself");
 const firstBoxTiming = clubCycleTiming("2026-10-28", "2026-10-28");
-assert(firstBoxTiming.lockDate === "2026-10-30", "a box created on its due date locks 2 days after creation, not before it exists");
+assert(firstBoxTiming.lockDate === "2026-11-03", "a box created on its due date locks 6 days after creation, leaving 5 full days to change picks");
 
 await ensureClubCycleTables(db);
 
@@ -177,14 +177,14 @@ await runClubCycleScheduler(db, { site: SITE, now: at("2027-01-14") });
 assert(outboxCountForBox(m3Box2.id, "club_cycle_reminder_14") === 1, "repeat scheduler passes never re-send the 14-day reminder");
 await runClubCycleScheduler(db, { site: SITE, now: at("2027-01-25") });
 assert(outboxCountForBox(m3Box2.id, "club_cycle_reminder_3") === 1, "3-day last-call reminder enqueued");
-await runClubCycleScheduler(db, { site: SITE, now: at("2027-01-26"), rng: () => 0 });
+await runClubCycleScheduler(db, { site: SITE, now: at("2027-01-28"), rng: () => 0 });
 const m3Box2After = await getClubBoxForCycle(db, m3.id, "2027-01-28");
 assert(m3Box2After.status === "locked" && m3Box2After.resolved_book_slug === "alpha", "surprise locks to the first unowned, uncommitted title (rng 0)");
 assert(m3Box2After.second_resolved_book_slug === "harbor" && m3Box2After.second_resolved_book_slug !== m3Box2After.resolved_book_slug, "slot 2 surprise-fills with a different unowned title");
 assert(outboxCountForBox(m3Box2.id, "club_cycle_locked") === 1, "locked email enqueued once");
-await runClubCycleScheduler(db, { site: SITE, now: at("2027-01-26"), rng: () => 0 });
+await runClubCycleScheduler(db, { site: SITE, now: at("2027-01-28"), rng: () => 0 });
 assert(outboxCountForBox(m3Box2.id, "club_cycle_locked") === 1, "locked email never duplicates");
-const lockedSave = await saveClubSelection(db, { member: m3, shipDate: "2027-01-28", bookSlug: "beta", nowDate: "2027-01-26" });
+const lockedSave = await saveClubSelection(db, { member: m3, shipDate: "2027-01-28", bookSlug: "beta", nowDate: "2027-01-28" });
 assert(!lockedSave.ok, "a locked box refuses selection changes");
 const m2Box = await getClubBoxForCycle(db, m2.id, "2026-10-28");
 assert(m2Box.status === "locked" && m2Box.resolved_book_slug === "beta" && outboxCountForBox(m2Box.id, "club_cycle_reminder_14") === 0, "an explicit pick locks in and is never reminded");
@@ -198,7 +198,7 @@ raw.query(
 ).run(m4.id);
 await generateUpcomingCyclesForMember(db, m4, "2026-10-28");
 pinBoxCreation(m4.id, "2026-10-28");
-await runClubCycleScheduler(db, { site: SITE, now: at("2026-10-30"), rng: () => 0 });
+await runClubCycleScheduler(db, { site: SITE, now: at("2026-11-03"), rng: () => 0 });
 const m4Box = await getClubBoxForCycle(db, m4.id, "2026-10-28");
 assert(m4Box.status === "locked" && m4Box.resolved_book_slug === "gamma", "surprise skips owned books and prior club books");
 assert(m4Box.second_resolved_book_slug === "harbor", "slot 2 surprise excludes owned, prior boxes, and slot 1's pick");
@@ -208,17 +208,17 @@ const m5 = insertMember("m5@example.com");
 insertOrder(m5.user_id, m5.email, ["alpha", "beta", "gamma", "harbor", "island"]);
 await generateUpcomingCyclesForMember(db, m5, "2026-10-28");
 pinBoxCreation(m5.id, "2026-10-28");
-await runClubCycleScheduler(db, { site: SITE, now: at("2026-10-30"), rng: () => 0 });
+await runClubCycleScheduler(db, { site: SITE, now: at("2026-11-03"), rng: () => 0 });
 const m5Box = await getClubBoxForCycle(db, m5.id, "2026-10-28");
 assert(m5Box.status === "needs_attention" && !m5Box.resolved_book_slug && !m5Box.second_resolved_book_slug, "no silent duplicate: with nothing new for either slot, the box goes to needs_attention");
 assert(outboxCountForBox(m5Box.id, "club_cycle_attention") === 1, "action-needed email enqueued once");
-const noRepeat = await saveClubSelection(db, { member: m5, shipDate: "2026-10-28", bookSlug: "gamma", nowDate: "2026-10-30" });
+const noRepeat = await saveClubSelection(db, { member: m5, shipDate: "2026-10-28", bookSlug: "gamma", nowDate: "2026-11-03" });
 assert(!noRepeat.ok, "needs_attention still refuses a silent repeat");
-const giftPick = await saveClubSelection(db, { member: m5, shipDate: "2026-10-28", bookSlug: "gamma", allowRepeat: true, nowDate: "2026-10-30" });
+const giftPick = await saveClubSelection(db, { member: m5, shipDate: "2026-10-28", bookSlug: "gamma", allowRepeat: true, nowDate: "2026-11-03" });
 assert(giftPick.ok && giftPick.box.resolved_book_slug === "gamma" && giftPick.box.status === "needs_attention", "a gift pick fills slot 1, but the box waits while slot 2 is still open");
-const secondNoFlag = await saveClubSecondSelection(db, { member: m5, shipDate: "2026-10-28", bookSlug: "beta", nowDate: "2026-10-30" });
+const secondNoFlag = await saveClubSecondSelection(db, { member: m5, shipDate: "2026-10-28", bookSlug: "beta", nowDate: "2026-11-03" });
 assert(!secondNoFlag.ok, "slot 2 also refuses a silent repeat");
-const secondPick = await saveClubSecondSelection(db, { member: m5, shipDate: "2026-10-28", bookSlug: "beta", allowRepeat: true, nowDate: "2026-10-30" });
+const secondPick = await saveClubSecondSelection(db, { member: m5, shipDate: "2026-10-28", bookSlug: "beta", allowRepeat: true, nowDate: "2026-11-03" });
 assert(secondPick.ok && secondPick.box.status === "locked" && secondPick.box.second_resolved_book_slug === "beta", "an explicit second-slot pick completes and locks the box");
 
 // --- Two slots: no duplicate inside one box
@@ -231,7 +231,7 @@ const dupeAttempt = await saveClubSecondSelection(db, { member: mDual, shipDate:
 assert(!dupeAttempt.ok, "slot 2 refuses the same book as slot 1 without the repeat flag");
 const mDualSecond = await saveClubSecondSelection(db, { member: mDual, shipDate: "2026-10-28", bookSlug: "beta", nowDate: "2026-10-28" });
 assert(mDualSecond.ok && mDualSecond.box.second_resolved_book_slug === "beta", "mDual picks a different second book");
-await runClubCycleScheduler(db, { site: SITE, now: at("2026-10-30"), rng: () => 0 });
+await runClubCycleScheduler(db, { site: SITE, now: at("2026-11-03"), rng: () => 0 });
 const mDualBox = await getClubBoxForCycle(db, mDual.id, "2026-10-28");
 assert(mDualBox.status === "locked" && mDualBox.resolved_book_slug === "alpha" && mDualBox.second_resolved_book_slug === "beta", "the lock keeps both distinct picks");
 
@@ -244,7 +244,7 @@ const gGen = await generateUpcomingCyclesForMember(db, { ...mG, subscription_sta
 pinBoxCreation(mG.id, "2026-10-28");
 const gBox = gGen[0];
 await saveClubSelection(db, { member: { ...mG, subscription_status: "active" }, shipDate: "2026-10-28", bookSlug: "alpha", nowDate: "2026-10-28" });
-await runClubCycleScheduler(db, { site: SITE, now: at("2026-10-30"), rng: () => 0 });
+await runClubCycleScheduler(db, { site: SITE, now: at("2026-11-03"), rng: () => 0 });
 const gBoxLocked = await getClubBoxForCycle(db, mG.id, "2026-10-28");
 assert(gBoxLocked.status === "awaiting_selection", "a past-due member's box waits at the lock instead of resolving");
 const gMemberRow = raw.query("SELECT * FROM club_signups WHERE id = ?").get(mG.id);

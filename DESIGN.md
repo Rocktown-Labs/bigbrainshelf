@@ -111,19 +111,28 @@ problem, its execution was. /account uses the same mechanics as
 
 - /account/club manages the membership: plan, next box, picks, upgrade
   or downgrade, billing portal. Plain language, no dark patterns.
-- Box picking is the Shelf: two box slots on top, a shelf of covers
-  on a wooden plank below. Tap a book and it goes in the box; tap a
-  filled slot to swap it back to Surprise. Books the family owns or
-  already has coming sit dimmed unless the second-copy toggle is on.
-  (CG picked Shelf from the HTML prototype over a cover grid,
-  2026-11-01.)
+- The club page is Club home (CG picked it from the HTML prototype,
+  2026-11-01): a status card for whichever club the family is in, a
+  next-box card that shows the current picks WITH covers, and a card
+  for the other club (the upsell, or the switch). One CTA per card.
+- Box picking is the Shelf, but it is never exposed on the page: the
+  next-box CTA opens it as a sheet that slides up (a centered panel
+  on desktop). Two box slots on top, a shelf of covers on a wooden
+  plank below. Tap a book and it goes in the box; tap a filled slot
+  to swap it back to Surprise. Books the family already owns sit
+  behind a Show purchased button; opening that section of the shelf
+  is the second-copy consent. One tap, selections, save.
+- Picks stay changeable until packing starts: selections lock on
+  the box's due date, and a box created on its due date (every first
+  box) keeps 5 full days to change. Boxes ship within 5 to 7 days
+  of the due date; member-facing ship-by dates say so.
 - The Audio Club has its own home in the account: a condensed listening
   shelf of what the membership opens. Joining or activating lands THERE,
   never back on the public join page. Putting a club book on your shelf
   is one tap; membership gives reading and listening, downloads stay
   with books the family owns.
 - First box honesty: boxes are printed and packed to order. Public copy
-  promises the first box ships within a few days of joining (see
+  promises the first box ships within 5 to 7 days of joining (see
   CLUB_PROCESSING_DAYS), never the same day. The cycle and picks still
   anchor to the join date.
 
