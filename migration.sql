@@ -552,3 +552,113 @@ CREATE TABLE IF NOT EXISTS "rateLimit" (
   "count" INTEGER NOT NULL,
   "lastRequest" INTEGER NOT NULL
 );
+
+-- Transmedia & RevOps tables (2026-10)
+-- Note: D1 tables for vector_embeddings, family_sync_rooms, reading_telemetry_rollups,
+-- and basin_event_log act as local metadata / fallback scaffolding when Cloudflare Vectorize,
+-- FamilyRoomDurableObject, Workers Analytics Engine, or Basin bindings are not yet provisioned.
+CREATE TABLE IF NOT EXISTS vector_embeddings (
+  id TEXT PRIMARY KEY,
+  index_name TEXT NOT NULL,
+  book_slug TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  content_text TEXT NOT NULL,
+  age_band TEXT,
+  topic_tags_json TEXT NOT NULL DEFAULT '[]',
+  embedding_json TEXT NOT NULL DEFAULT '[]',
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS vector_embeddings_index_slug_idx ON vector_embeddings(index_name, book_slug);
+CREATE INDEX IF NOT EXISTS vector_embeddings_entity_idx ON vector_embeddings(entity_type, entity_id);
+
+CREATE TABLE IF NOT EXISTS generation_cost_ledger (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  book_slug TEXT NOT NULL,
+  stage TEXT NOT NULL,
+  provider TEXT NOT NULL DEFAULT 'vercel-ai-gateway',
+  model TEXT NOT NULL,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  estimated_cost_micros INTEGER NOT NULL DEFAULT 0,
+  gateway_cached INTEGER NOT NULL DEFAULT 0,
+  metadata_json TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS generation_cost_book_stage_idx ON generation_cost_ledger(book_slug, stage);
+CREATE INDEX IF NOT EXISTS generation_cost_created_idx ON generation_cost_ledger(created_at);
+
+CREATE TABLE IF NOT EXISTS family_sync_rooms (
+  family_user_id TEXT PRIMARY KEY,
+  active_kid_id INTEGER,
+  active_book_slug TEXT,
+  active_format TEXT NOT NULL DEFAULT 'story',
+  chapter_index INTEGER NOT NULL DEFAULT 0,
+  page_index INTEGER NOT NULL DEFAULT 0,
+  audio_position_sec REAL NOT NULL DEFAULT 0,
+  is_playing INTEGER NOT NULL DEFAULT 0,
+  auto_flip_enabled INTEGER NOT NULL DEFAULT 1,
+  daily_limit_minutes INTEGER NOT NULL DEFAULT 45,
+  minutes_used_today REAL NOT NULL DEFAULT 0,
+  last_activity_date TEXT,
+  active_device_id TEXT,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS family_sync_rooms_updated_idx ON family_sync_rooms(updated_at);
+
+CREATE TABLE IF NOT EXISTS cast_companion_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT NOT NULL,
+  kid_profile_id INTEGER,
+  book_slug TEXT NOT NULL,
+  character_name TEXT NOT NULL,
+  question_text TEXT NOT NULL,
+  response_text TEXT NOT NULL,
+  comprehension_badge TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS cast_companion_user_book_idx ON cast_companion_sessions(user_id, book_slug);
+
+CREATE TABLE IF NOT EXISTS reading_telemetry_rollups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  book_slug TEXT NOT NULL,
+  chapter_index INTEGER NOT NULL DEFAULT 0,
+  page_index INTEGER NOT NULL DEFAULT 0,
+  event_type TEXT NOT NULL,
+  total_events INTEGER NOT NULL DEFAULT 0,
+  avg_dwell_seconds REAL NOT NULL DEFAULT 0,
+  replay_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS reading_telemetry_unique_idx ON reading_telemetry_rollups(book_slug, chapter_index, page_index, event_type);
+
+CREATE TABLE IF NOT EXISTS basin_event_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stream_name TEXT NOT NULL,
+  event_name TEXT NOT NULL,
+  user_id TEXT,
+  book_slug TEXT,
+  revenue_cents INTEGER NOT NULL DEFAULT 0,
+  cogs_cents INTEGER NOT NULL DEFAULT 0,
+  payload_json TEXT NOT NULL DEFAULT '{}',
+  synced_to_basin INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS basin_event_stream_created_idx ON basin_event_log(stream_name, created_at);
+CREATE INDEX IF NOT EXISTS basin_event_book_idx ON basin_event_log(book_slug);
+
+CREATE TABLE IF NOT EXISTS revops_lifecycle_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id TEXT,
+  email TEXT NOT NULL,
+  play_type TEXT NOT NULL,
+  trigger_key TEXT NOT NULL UNIQUE,
+  book_slug TEXT,
+  kid_profile_id INTEGER,
+  offer_code TEXT,
+  status TEXT NOT NULL DEFAULT 'sent',
+  metadata_json TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS revops_lifecycle_email_idx ON revops_lifecycle_events(email, play_type);

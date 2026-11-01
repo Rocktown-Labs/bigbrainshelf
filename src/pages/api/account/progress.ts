@@ -6,6 +6,9 @@ import {
   listReadingProgress,
   saveReadingProgress,
 } from "../../../lib/family";
+import { updateFamilySyncState } from "../../../lib/family-sync";
+import { recordReadingTelemetry } from "../../../lib/telemetry";
+import { checkAndEnqueueCompletionUpsell } from "../../../lib/revops";
 
 export const prerender = false;
 
@@ -66,6 +69,54 @@ export const POST: APIRoute = async ({ request, locals }) => {
     sync_enabled: body.sync_enabled,
     elapsed_minutes_delta: body.elapsed_minutes_delta,
   });
+
+  // Sync cross-device FamilyRoom state, reading telemetry, and 80% completion upsell check
+  try {
+    await updateFamilySyncState(
+      db,
+      userId,
+      {
+        activeBookSlug: String(body.book_slug),
+        activeFormat: body.view_edition === "readalong" ? "read_along" : "story",
+        chapterIndex: Number(body.chapter_num || 0),
+        pageIndex: Number(body.page_index || 0),
+        audioPositionSec: Number(body.audio_position_sec || 0),
+        autoFlipEnabled: body.sync_enabled !== false,
+        elapsedMinutesDelta: Number(body.elapsed_minutes_delta || 0),
+      },
+      env as any
+    );
+
+    await recordReadingTelemetry(env as any, {
+      userId,
+      bookSlug: String(body.book_slug),
+      chapterIndex: Number(body.chapter_num || 0),
+      pageIndex: Number(body.page_index || 0),
+      eventType: body.view_edition === "readalong" ? "read_along_flip" : "page_view",
+      dwellSeconds: Number(body.elapsed_minutes_delta || 0) * 60,
+      format: body.view_edition === "readalong" ? "read_along" : "story",
+    });
+
+    const totalPages = Math.max(1, Number(body.total_pages || 24));
+    const pageIdx = Number(body.page_index || 0);
+    const audioDur = Number(body.audio_duration_sec || 0);
+    const audioPos = Number(body.audio_position_sec || 0);
+    const pctByPage = Math.round(((pageIdx + 1) / totalPages) * 100);
+    const pctByAudio = audioDur > 0 ? Math.round((audioPos / audioDur) * 100) : 0;
+    const percentComplete = Math.max(pctByPage, pctByAudio);
+
+    if (percentComplete >= 80 && session.user.email) {
+      await checkAndEnqueueCompletionUpsell({
+        db,
+        userId,
+        email: String(session.user.email),
+        bookSlug: String(body.book_slug),
+        percentComplete,
+      });
+    }
+  } catch {
+    // Telemetry & RevOps hooks are non-blocking
+  }
 
   return json({
     ok: true,

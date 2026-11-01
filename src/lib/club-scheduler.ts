@@ -24,6 +24,7 @@ import { setPhysicalStatus } from "./orders";
 import { flushOutbox } from "./email";
 import { runClubCycleScheduler, type ClubSchedulerSummary } from "./club-cycles";
 import { ensureOrderTrackingColumns, getShippoTracking, shippoConfigured } from "./shippo";
+import { runBirthdayGiftScheduler } from "./revops";
 
 export type OutboxFlushSummary = Awaited<ReturnType<typeof flushOutbox>>;
 
@@ -103,6 +104,7 @@ export function humanizeTrackingStatus(status: string): string {
 export interface ScheduledWorkSummary {
   flushedBefore: OutboxFlushSummary;
   club: ClubSchedulerSummary;
+  birthdayGifts?: { checkedKids: number; queuedBirthdayEmails: number };
   tracking: TrackingPollSummary;
   flushedAfter: OutboxFlushSummary;
 }
@@ -121,6 +123,12 @@ export async function runScheduledWork(
     console.error("scheduled outbox flush (before) failed", err?.message || err);
   }
   const club = await runClubCycleScheduler(db, { site, now: opts.now, batch });
+  let birthdayGifts = { checkedKids: 0, queuedBirthdayEmails: 0 };
+  try {
+    birthdayGifts = await runBirthdayGiftScheduler(db as any, site, opts.now || new Date());
+  } catch (err: any) {
+    console.error("scheduled birthday gift pass failed", err?.message || err);
+  }
   let tracking = emptyTracking();
   try {
     tracking = await pollShippedOrderTracking(db, env, site, 25);
@@ -133,5 +141,5 @@ export async function runScheduledWork(
   } catch (err: any) {
     console.error("scheduled outbox flush (after) failed", err?.message || err);
   }
-  return { flushedBefore, club, tracking, flushedAfter };
+  return { flushedBefore, club, birthdayGifts, tracking, flushedAfter };
 }

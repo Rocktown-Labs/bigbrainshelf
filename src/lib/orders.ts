@@ -1040,6 +1040,7 @@ const HELLO_KINDS = new Set([
   "club_welcome",
   "club_cycle_locked",
   "club_cycle_attention",
+  "completion_upsell",
 ]);
 
 export function senderForKind(kind: string): string | null {

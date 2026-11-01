@@ -44,5 +44,17 @@ export const POST: APIRoute = async ({ request }) => {
     )
     .bind(id, slug, now, now)
     .run();
-  return Response.json({ ok: true, job: { id, status: 'queued' } });
+  // Optional Cloudflare Queue dispatch for the external Remotion (`kidsbook-video`) consumer
+  // when `VIDEO_QUEUE` is bound; `video_jobs` in D1 remains the canonical record.
+  let queueDispatched = false;
+  try {
+    const q = (env as any).VIDEO_QUEUE;
+    if (q && typeof q.send === "function") {
+      await q.send({ jobId: id, bookSlug: slug, pipeline: "remotion-kidsbook-video", queuedAt: now });
+      queueDispatched = true;
+    }
+  } catch {
+    // D1 `video_jobs` remains queued for the VM runner
+  }
+  return Response.json({ ok: true, job: { id, status: 'queued', queueDispatched } });
 };
