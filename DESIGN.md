@@ -16,21 +16,40 @@ it breathe on desktop.
 
 - Every step is its own page, joined by Astro view transitions, the same
   way clicking a book on the storefront feels.
-- Shelf -> tap a book -> book overview -> tap Read / Listen / Print ->
-  the reader or a small chooser. Two taps from the shelf to reading.
-- A way back to the shelf is always one tap away.
+- Dashboard -> library -> tap a book -> book overview -> tap Read /
+  Listen / Print -> the reader or a small chooser.
+- A way back is always one tap away.
 - Do not stack the shelf, the reader, the player, and the settings into
   a single scrolling page. If a feature needs room, it gets a route.
 
-## The top bar never leaves
+## The frame: store top bar plus a sidebar, like /admin
 
-Inside /account the store's top bar stays: logo, search, and cart, plus
-the family switcher at the top left (who is reading: parent or a kid).
-Customers can search and buy without ever leaving the account area;
-buying from inside /account adds to the same cart and checks out the
-same way.
+(Corrected by CG 2026-11-01: the sidebar pattern was never the
+problem, its execution was. /account uses the same mechanics as
+/admin, in customer dress.)
 
-## The Shelf (/account)
+- The store top bar (logo, search, cart, account menu) renders above
+  everything inside /account, so search and the cart never leave.
+  Buying from inside /account adds to the same cart and checks out
+  the same way.
+- Under it, a fixed sidebar with the admin shell's mechanics: grouped
+  nav, the family switcher (who is reading: parent or a kid) inside
+  the sidebar, and the user popover in the foot. On phones the
+  sidebar becomes a drawer, and a bottom tab bar carries the main
+  sections.
+- The reader (/read/[slug]) renders inside the same frame.
+
+## The dashboard (/account)
+
+- /account is a dashboard, not the shelf: "Welcome, {first name}",
+  stat cards a parent acts on (books on the shelf, audiobooks, club
+  and its next box, readers), action buttons (Continue reading, make
+  your picks, browse, finish setup), a Continue Reading panel, and
+  a shelf preview.
+- The preview shows one board (4 books) and a View all that goes to
+  the library. The library is its own page, never the home.
+
+## The Library (/account/library)
 
 - It looks like a shelf: rows of book covers resting on shelf boards,
   the way the promo videos show it. Four covers per board, two boards

@@ -13,12 +13,15 @@ Manage the background server with `astro dev stop`, `astro dev status`, and `ast
 Read `DESIGN.md` before touching any customer-facing page, especially
 anything under `src/pages/account/`. The non-negotiables:
 
-- The account hub is pages joined by view transitions (shelf -> book
-  overview -> reader), never one stacked mega page.
+- The account hub is pages joined by view transitions (dashboard ->
+  library -> book overview -> reader), never one stacked mega page.
+- The frame is the store top bar plus a sidebar with the admin shell's
+  mechanics (grouped nav, family switcher inside, user popover in the
+  foot); /account is a dashboard (Welcome, stat cards, actions, shelf
+  preview) and the full shelf lives at /account/library.
 - The reader is the QC reader (`/read/[slug]` pattern): flip or scroll,
-  color default. Do not build a second reader or player.
-- The store top bar (search, cart) and the family switcher stay visible
-  inside /account.
+  color default, rendered inside the same sidebar frame. Do not build
+  a second reader or player.
 - Every list ships an empty state with one clear call to action.
 - Customer copy: no em dashes, public book titles only (never internal
   slugs), one call to action per email, and every email kind needs a
