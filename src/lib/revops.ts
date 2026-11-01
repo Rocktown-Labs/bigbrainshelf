@@ -327,22 +327,21 @@ export async function checkAndEnqueueCompletionUpsell(params: {
       ? `Your family finished ${titleRef}. Nice work.`
       : `Your family has read ${params.percentComplete}% of ${titleRef}. Nice work.`,
   ];
+  // Short on purpose (CG, 2026-11-01: the long version with a body
+  // link AND a button was ugly and redundant). One ask per email:
+  // the button below carries the action, the body carries no raw
+  // links and no price list.
   if (finished && !hasReviewed) {
     paragraphs.push(
-      `How was it? If ${titleRef} earned its place on your shelf, a short review helps other families find it. It takes about a minute.`,
-      `Write a review: ${siteUrl}/account/reviews`
+      `How was it? If ${titleRef} earned its place on your shelf, a short review helps other families find it. It takes about a minute.`
     );
   }
   if (!isMember) {
     paragraphs.push(
-      `When you are ready for the next book, the clubs keep the shelf full:`,
-      `- The Audio Club ($5.99/month or $49/year): every Big Brain Shelf audiobook in your library while your membership is active, with read-along.`,
-      `- The Book Club ($60/quarter or $199/year): a printed gift set box every 3 months with a second printed book from the back catalog, and the digital editions in your library from day one.`,
-      `- Or add single books anytime: digital bundle $8.99, printed book $20, complete gift set $25.`,
-      `See the clubs: ${siteUrl}/clubs`
+      `Ready for the next story? The clubs keep the shelf full, and single books start at $8.99.`
     );
-  } else {
-    paragraphs.push(`More books are waiting on your shelf: ${siteUrl}/account`);
+  } else if (!(finished && !hasReviewed)) {
+    paragraphs.push(`More books are waiting on your shelf.`);
   }
   const textBody = paragraphs.join("\n\n");
 
