@@ -6,8 +6,10 @@ name: OpenCodeReview
 # Required repository secret:
 #   CLOUDFLARE_WORKERS_AI_TOKEN  Cloudflare API token with "Workers AI: Read"
 #
-# Optional repository variables (defaults are inlined below):
+# Required repository variable:
 #   CLOUDFLARE_ACCOUNT_ID        Cloudflare account that owns Workers AI
+#
+# Optional repository variable (default inlined below):
 #   OCR_LLM_MODEL                Workers AI model id
 
 on:
@@ -46,9 +48,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Fork PRs under `pull_request` never receive repository secrets, so skip
-    # them instead of failing at authentication. Switch the trigger to
-    # `pull_request_target` if fork PRs must be reviewed (see the action docs
-    # for the trust boundary that implies).
+    # them instead of failing at authentication. The comment path resolves the
+    # head repo below, because an `issue_comment` run executes in the base
+    # repository with secrets in scope and must not follow a fork's head.
     if: |
       (github.event_name == 'pull_request'
         && github.event.pull_request.head.repo.full_name == github.repository)
@@ -75,12 +77,16 @@ jobs:
             })
             core.setOutput('base_ref', pr.base.ref)
             core.setOutput('head_sha', pr.head.sha)
+            core.setOutput('head_repo', pr.head.repo.full_name)
             core.setOutput('title', pr.title)
 
       - name: Review
+        # pull_request runs are already fork-filtered at job level; comment
+        # runs need the head repo resolved above before spending any quota.
+        if: github.event_name == 'pull_request' || steps.pr.outputs.head_repo == github.repository
         uses: alibaba/open-code-review@375f64cd6f67a48a135da83cfcf59c52669a09cb # v1.13.3
         with:
-          llm_url: https://api.cloudflare.com/client/v4/accounts/${{ vars.CLOUDFLARE_ACCOUNT_ID || '5af47adc047fa74dcfa59048858b486c' }}/ai/v1
+          llm_url: https://api.cloudflare.com/client/v4/accounts/${{ vars.CLOUDFLARE_ACCOUNT_ID }}/ai/v1
           llm_auth_token: ${{ secrets.CLOUDFLARE_WORKERS_AI_TOKEN }}
           llm_model: ${{ vars.OCR_LLM_MODEL || '@cf/moonshotai/kimi-k2.7-code' }}
           llm_use_anthropic: 'false'
