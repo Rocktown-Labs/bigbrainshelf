@@ -15,7 +15,8 @@ store's web app, dedicated API, and mobile app.
   email outbox, publish and delivery readiness, public slugs.
 - `emails/` — React Email templates for transactional mail.
 - `tests/` — plain bun test files, run per file:
-  `bun tests/<file>.test.ts`.
+  `bun tests/<file>.test.ts` (family-and-hub needs the runner instead:
+  `bun test tests/family-and-hub.test.ts`).
 
 ## Working in this repo
 
@@ -26,9 +27,13 @@ store's web app, dedicated API, and mobile app.
 - Secrets live in the worker's secret store (set through the
   Cloudflare API), never in this repo. `.env*` and `.dev.vars*`
   are gitignored; do not commit credentials.
-- Two standing baselines in `tests/` fail for pre-existing i18n
-  reasons (`cart-resolution`, `home-filters`); everything else
-  passes and must keep passing.
+- Two standing i18n baselines in `tests/` fail for pre-existing
+  reasons (`cart-resolution`, `home-filters`); a group of older
+  suites also fails on `main` independently of any recent work
+  (`cast-erase`, `cast-history`, `cast-lasso`, `cast-lift`,
+  `cast-sheet-shape`, `a2-pages`, `admin-operator`, `idempotency`,
+  `m4b-stamp`, `media-gating` — checked 2026-11-01). Everything
+  else passes and must keep passing.
 
 ## Direction
 

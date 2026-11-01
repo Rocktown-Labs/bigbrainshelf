@@ -1,4 +1,11 @@
 {
+  // N3 note (2026-10-31): src/lib/family-sync.ts exports a
+  // FamilyRoomDurableObject and /api/account/sync forwards to an
+  // env.FAMILY_ROOM_DO binding when it exists — but NO durable_objects
+  // binding is declared here, so the D1 polling scaffolding is what
+  // actually runs. If the binding is ever added, keep the DO scoped
+  // by idFromName(userId) (it already is, in the sync route) and keep
+  // the session check in the route before the stub call.
   "name": "bigbrainshelf",
   "compatibility_date": "2026-10-16",
   "compatibility_flags": ["nodejs_als"],

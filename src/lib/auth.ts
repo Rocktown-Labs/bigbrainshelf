@@ -146,11 +146,6 @@ export function getAuth() {
       ...(e.BETTER_AUTH_URL ? [String(e.BETTER_AUTH_URL)] : []),
     ],
     secret: e.BETTER_AUTH_SECRET,
-    user: {
-      changeEmail: {
-        enabled: true,
-      },
-    },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
@@ -222,7 +217,14 @@ export function getAuth() {
     // The Stripe customer id lives on the user row (written by the
     // sign-up hook in orders/auth flows); declaring it lets the
     // adapter + admin plugin return it (e.g. list-users in /admin).
+    // changeEmail shares this block: a duplicate `user` key above used
+    // to be silently dropped by the object literal (the compiler
+    // warned about it on the 2026-10-31 security pass), so email
+    // changes had effectively lost their intended config.
     user: {
+      changeEmail: {
+        enabled: true,
+      },
       additionalFields: {
         stripe_customer_id: { type: "string", required: false, input: false },
       },
