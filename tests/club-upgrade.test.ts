@@ -128,7 +128,11 @@ const res2 = await upsertClubReservation(db, {
 const fresh = await activateClubFromSession(db, {
   id: "cs_fresh", customer: "cus_fred", subscription: "sub_fred",
   metadata: { club: "1", club_signup_id: res2.id, club_plan: "physical", plan: "annual", email: "fred@example.com", name: "Fred Fresh", shelf: "tech", user_id: "user-fred" },
-  shipping_details: { name: "Fred Fresh", address: { line1: "9 Oak St", city: "Little Rock", state: "AR", postal_code: "72202", country: "US" } },
+  // Newer Stripe API versions nest the address under
+  // collected_information (the shape this account's webhooks carry;
+  // the first live upgrade stored nothing until activation read
+  // both, like orders.ts does).
+  collected_information: { shipping_details: { name: "Fred Fresh", address: { line1: "9 Oak St", city: "Little Rock", state: "AR", postal_code: "72202", country: "US" } } },
 }, fakeStripe);
 assert(fresh.ship_name === "Fred Fresh" && JSON.parse(fresh.ship_address).city === "Little Rock", "fresh physical join stores its ships-to");
 assert(cancelled.length === 1, "fresh join cancels nothing");

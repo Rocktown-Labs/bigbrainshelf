@@ -347,7 +347,8 @@ export async function activateClubFromSession(
   // shipping address in Stripe Checkout): stored in the same JSON
   // shape as orders.ship_address. Absent (audio plan, older
   // sessions) keeps whatever is already on the row.
-  const shipDetails = session?.shipping_details || null;
+  const shipDetails =
+    session?.shipping_details || session?.collected_information?.shipping_details || null;
   const shipName = shipDetails?.name ? String(shipDetails.name) : null;
   let shipAddress: string | null = null;
   if (shipDetails?.address) {
