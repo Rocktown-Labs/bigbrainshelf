@@ -105,7 +105,7 @@ export default function OrderConfirmationEmail({
 
       <Text style={styles.sectionHeading}>Your books are in your library</Text>
       {model.downloads.map((book) => (
-        <Section key={book.title} style={{ margin: "0 0 16px" }}>
+        <Section key={book.title} style={{ margin: "0 0 8px" }}>
           <Text
             style={{
               color: BRAND.ink,
@@ -116,21 +116,6 @@ export default function OrderConfirmationEmail({
           >
             {book.title}
           </Text>
-          {book.links.map((link) => (
-            <Text key={link.label} style={{ margin: "0 0 6px" }}>
-              <Link
-                href={link.url}
-                style={{
-                  color: BRAND.navy,
-                  fontSize: "15px",
-                  fontWeight: 600,
-                  textDecoration: "underline",
-                }}
-              >
-                {link.label}
-              </Link>
-            </Text>
-          ))}
         </Section>
       ))}
 

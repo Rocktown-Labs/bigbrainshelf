@@ -68,6 +68,10 @@ const html = await render(createElement(OrderConfirmationEmail, { model: gm, sit
 assert(html.includes("Your books are in your library"), "HTML names the library section");
 assert(!html.includes("SECRET_TOKEN_SHOULD_NEVER_SHIP") && !html.includes("/api/order-download"), "HTML carries no token and no bearer path");
 assert(html.includes("one-click sign-in link"), "guest HTML points at the sign-in link email");
+assert(
+  (html.match(new RegExp(`href="${SITE}/account"`, "g")) || []).length === 1,
+  "HTML has exactly ONE library call to action (the button, no duplicate text links)"
+);
 
 const route = readFileSync(new URL("../src/pages/api/order-download.ts", import.meta.url), "utf8");
 assert(route.includes('Location: "/account"'), "legacy route redirects to the library");
