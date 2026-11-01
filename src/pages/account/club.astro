@@ -37,6 +37,7 @@ const {
 } = hub;
 
 const money = (cents: number) => "$" + (Number(cents || 0) / 100).toFixed(2);
+const justJoined = Astro.url.searchParams.get("joined") === "1";
 
 await ensureClubTable(e.DB);
 const clubSignup = (await e.DB.prepare("SELECT * FROM club_signups WHERE email = ?")
@@ -114,6 +115,11 @@ if (clubSignup?.status === "paid") {
   />
 
   <main class="max-w-4xl mx-auto px-4 py-7 sm:py-10">
+    {justJoined && (
+      <div class="mb-6 rounded-2xl bg-green-50 border border-green-200 px-4 py-3 text-sm font-semibold text-green-800">
+        Welcome to the club. Your membership is active, and your library already reflects it.
+      </div>
+    )}
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div>
         <span class="rounded-full bg-orange-100 text-orange-800 px-3 py-0.5 text-[11px] font-extrabold uppercase tracking-wider">
@@ -127,10 +133,10 @@ if (clubSignup?.status === "paid") {
         </p>
       </div>
       <a
-        href="/clubs"
+        href="/account/listen"
         class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500"
       >
-        Compare Club Plans →
+        🎧 Listening Shelf →
       </a>
     </div>
 
@@ -151,6 +157,11 @@ if (clubSignup?.status === "paid") {
                 </button>
               </form>
             )}
+          </div>
+          <div class="mt-5">
+            <a href="/account/listen" class="cust-pressable inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600">
+              🎧 Browse the Listening Shelf →
+            </a>
           </div>
           {clubBillingPaused && (
             <p class="mt-4 rounded-xl bg-orange-400/20 border border-orange-300/40 px-4 py-3 text-sm text-orange-100">
@@ -185,6 +196,11 @@ if (clubSignup?.status === "paid") {
                 </button>
               </form>
             )}
+          </div>
+          <div class="mt-5">
+            <a href="/account/listen" class="cust-pressable inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600">
+              🎧 Browse the Listening Shelf →
+            </a>
           </div>
           {clubBillingPaused && (
             <p class="mt-4 rounded-xl bg-orange-400/20 border border-orange-300/40 px-4 py-3 text-sm text-orange-100">
@@ -337,10 +353,10 @@ if (clubSignup?.status === "paid") {
             No further sets will ship unless you rejoin. All digital books you already unlocked stay on your shelf forever.
           </p>
           <a
-            href="/clubs"
+            href="#join-club"
             class="cust-pressable mt-4 inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600"
           >
-            Rejoin the Club →
+            Rejoin the Club ↓
           </a>
         </div>
       ) : clubSignup ? (
@@ -352,10 +368,10 @@ if (clubSignup?.status === "paid") {
             Membership is open to join, and joining activates your reservation with instant digital &amp; audiobook access.
           </p>
           <a
-            href="/clubs"
+            href="#join-club"
             class="cust-pressable mt-4 inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600"
           >
-            Activate Membership →
+            Activate Membership ↓
           </a>
         </div>
       ) : (
@@ -365,14 +381,50 @@ if (clubSignup?.status === "paid") {
             Get a quarterly box of two printed books + coloring books ({clubPriceLabel()}/quarter or {money(CLUB_ANNUAL_PRICE_CENTS)}/year), or unlock every audiobook and Read-Along story with The Audio Club ({money(AUDIO_CLUB_PRICE_CENTS)}/month or {money(AUDIO_CLUB_ANNUAL_PRICE_CENTS)}/year).
           </p>
           <a
-            href="/clubs"
+            href="#join-club"
             class="cust-pressable mt-4 inline-block rounded-full bg-orange-500 px-5 py-2.5 text-xs font-extrabold text-white hover:bg-orange-600"
           >
-            See Club Options →
+            See Club Options ↓
           </a>
         </div>
       )}
     </section>
+
+    {clubSignup?.status !== "paid" && (
+      <section id="join-club" class="mt-6 rounded-3xl border border-stone-200 bg-[#fcfaf6] p-6 sm:p-8" data-parent-only="true">
+        <h2 class="text-lg font-extrabold text-stone-900">Join right here</h2>
+        <p class="text-sm text-stone-600 mt-1 max-w-xl leading-relaxed">
+          Pick a club and check out without leaving your account. Membership activates the moment payment lands.
+        </p>
+        <div class="mt-5 grid sm:grid-cols-2 gap-4">
+          <div class="rounded-2xl border border-stone-200 bg-white p-5">
+            <p class="text-[11px] font-extrabold uppercase tracking-wider text-stone-500">🎧 The Audio Club</p>
+            <p class="text-sm text-stone-600 mt-1.5 leading-relaxed">Every audiobook and read-along in your library while you are a member.</p>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button type="button" data-club-join="audio:monthly" class="cust-pressable rounded-full bg-[#1a3454] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#132741] cursor-pointer">
+                {money(AUDIO_CLUB_PRICE_CENTS)}/month
+              </button>
+              <button type="button" data-club-join="audio:annual" class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500 cursor-pointer">
+                {money(AUDIO_CLUB_ANNUAL_PRICE_CENTS)}/year
+              </button>
+            </div>
+          </div>
+          <div class="rounded-2xl border border-stone-200 bg-white p-5">
+            <p class="text-[11px] font-extrabold uppercase tracking-wider text-stone-500">📦 The Book Club</p>
+            <p class="text-sm text-stone-600 mt-1.5 leading-relaxed">A printed gift set plus a second printed book every 3 months, and the digital editions in your library from day one.</p>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <button type="button" data-club-join="physical:quarterly" class="cust-pressable rounded-full bg-orange-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-orange-700 cursor-pointer">
+                {clubPriceLabel()}/quarter
+              </button>
+              <button type="button" data-club-join="physical:annual" class="cust-pressable rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-extrabold text-stone-700 hover:border-stone-500 cursor-pointer">
+                {money(CLUB_ANNUAL_PRICE_CENTS)}/year
+              </button>
+            </div>
+          </div>
+        </div>
+        <p id="club-join-msg" class="hidden mt-4 text-xs font-bold text-red-700" role="status"></p>
+      </section>
+    )}
   </main>
 
   <script is:inline>
@@ -453,6 +505,39 @@ if (clubSignup?.status === "paid") {
     }
     initClubUpgrade();
     document.addEventListener("astro:page-load", initClubUpgrade);
+  </script>
+  <script is:inline>
+    // In-account join: same checkout endpoint as /clubs, with the
+    // account return path so Stripe lands back here, never on the
+    // public join page.
+    function initClubJoin() {
+      document.querySelectorAll("[data-club-join]").forEach(function (btn) {
+        if (btn.__joinBound) return;
+        btn.__joinBound = true;
+        btn.addEventListener("click", async function () {
+          var msg = document.getElementById("club-join-msg");
+          var parts = String(btn.getAttribute("data-club-join") || "").split(":");
+          btn.disabled = true;
+          try {
+            var r = await fetch("/api/club/checkout", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ club_plan: parts[0], plan: parts[1], return_to: "account" }),
+            });
+            var data = await r.json().catch(function () { return {}; });
+            if (r.ok && data.url) { window.location.href = data.url; return; }
+            if (data.alreadyMember) { window.location.reload(); return; }
+            btn.disabled = false;
+            if (msg) { msg.textContent = data.error || "Could not start checkout. Please try again."; msg.classList.remove("hidden"); }
+          } catch (err) {
+            btn.disabled = false;
+            if (msg) { msg.textContent = "Could not start checkout. Please try again."; msg.classList.remove("hidden"); }
+          }
+        });
+      });
+    }
+    initClubJoin();
+    document.addEventListener("astro:page-load", initClubJoin);
   </script>
 </body>
 </html>

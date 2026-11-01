@@ -171,8 +171,13 @@ export const POST: APIRoute = async ({ request }) => {
     ],
     metadata: meta,
     subscription_data: { metadata: meta },
-    success_url: `${SITE}/clubs?joined=1`,
-    cancel_url: `${SITE}/clubs?join=cancelled`,
+    // In-account joins (return_to: "account") come back to the club
+    // page inside the account, never the public join page (CG's hub
+    // brief, 2026-11-01). Public /clubs joins keep the public URLs.
+    success_url:
+      body?.return_to === "account" ? `${SITE}/account/club?joined=1` : `${SITE}/clubs?joined=1`,
+    cancel_url:
+      body?.return_to === "account" ? `${SITE}/account/club?join=cancelled` : `${SITE}/clubs?join=cancelled`,
   };
   if (taxEnabled) sessionParams.automatic_tax = { enabled: true };
   // The Book Club ships boxes from day one, so its checkout collects

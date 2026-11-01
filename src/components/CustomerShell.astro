@@ -61,6 +61,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "dashboard", href: "/account", label: "Dashboard", icon: "dashboard" },
       { id: "library", href: "/account/library", label: "My Library", icon: "shelf", badge: bookCount > 0 ? String(bookCount) : undefined },
+      { id: "listen", href: "/account/listen", label: "Listening Shelf", icon: "headphones", badge: audioCount > 0 ? String(audioCount) : undefined },
     ],
   },
   {
