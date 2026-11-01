@@ -12,10 +12,10 @@ import {
   USERNAME_REGEX,
 } from "./auth-client";
 
-// Admin addresses live in lib/admins. A better-auth user created
-// with an admin address gets the admin role automatically, and
-// /auth/land routes admins into /admin after any sign-in.
-import { isAdminEmail } from "./admins";
+// Admin addresses live in lib/admins. Admin identity requires a
+// VERIFIED session on an allowlisted address (F2, 2026-10-31); the
+// sign-up role hook is gone, and /auth/land + the middleware bridge
+// are the places a verified owner session becomes admin access.
 import {
   ensureAuthUserSchema,
   checkUsernameAvailabilityInDb,
@@ -220,12 +220,16 @@ export function getAuth() {
     databaseHooks: {
       user: {
         create: {
-          before: async (user) => {
-            if (isAdminEmail(user.email)) {
-              return { data: { ...user, role: "admin" } };
-            }
-            return { data: user };
-          },
+          // SECURITY (F2, 2026-10-31): the admin role is NEVER
+          // assigned at sign-up. A row created with an allowlisted
+          // address used to become role=admin here, from an email
+          // nobody had proven ownership of — so registering an owner
+          // address minted a full admin (list/ban/impersonate via the
+          // admin plugin). Admin recognition now requires a VERIFIED
+          // session everywhere it is granted (middleware bridge,
+          // /auth/land, lib/auth-users), and the role itself comes
+          // from the existing verified user row in D1.
+          before: async (user) => ({ data: user }),
           // Every new account gets its Stripe customer up front
           // (CG, 2026-10-31), so checkout, clubs, and the admin
           // never mint one ad hoc. Best effort by design: a Stripe

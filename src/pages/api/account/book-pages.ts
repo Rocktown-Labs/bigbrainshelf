@@ -48,7 +48,10 @@ export const GET: APIRoute = async ({ request, url, locals }) => {
   };
   const entitlements = await getDigitalEntitlements(e.DB, user);
   const entitlement = entitlements.get(slug);
-  const isAdmin = isAdminEmail(user.email);
+  // SECURITY (F2): admin bypass requires a verified session, exactly
+  // like the middleware bridge; an unverified session that registered
+  // an owner address gets no admin surfaces here.
+  const isAdmin = isAdminEmail(user.email) && session.user.emailVerified === true;
 
   if (!entitlement && !isAdmin) {
     return json({ error: "You do not have access to this book in your digital library" }, 403);

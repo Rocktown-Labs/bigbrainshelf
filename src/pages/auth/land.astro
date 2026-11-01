@@ -21,11 +21,16 @@ if (!session?.user) {
 
 const next = Astro.url.searchParams.get("next") || "";
 const email = (session.user.email || "").toLowerCase();
+const emailVerified = (session.user as any).emailVerified === true;
 let role = (session.user as any).role as string | undefined;
 
-// Self-heal: the owner address always carries the admin role, even if
-// the account predates the role hook.
-if (isAdminEmail(email) && role !== "admin") {
+// SECURITY (F2): the owner address carries the admin role only for a
+// VERIFIED session. Better Auth verifies magic-link and Google
+// sign-ins, so the real owners keep landing in /admin, while a
+// password account that merely registered an owner address (and
+// never clicked the verification email) signs in as a customer and
+// gets no admin cookie, no role, and no admin surfaces.
+if (emailVerified && isAdminEmail(email) && role !== "admin") {
   try {
     await e.DB.prepare('UPDATE "user" SET role=? WHERE lower(email)=?')
       .bind("admin", email)
@@ -34,7 +39,7 @@ if (isAdminEmail(email) && role !== "admin") {
   } catch {}
 }
 
-const isAdmin = role === "admin" || isAdminEmail(email);
+const isAdmin = emailVerified && (role === "admin" || isAdminEmail(email));
 const safePath = (p: string) =>
   p.startsWith("/") && !p.startsWith("//") && !p.startsWith("/login");
 

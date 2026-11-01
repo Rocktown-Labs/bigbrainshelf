@@ -79,11 +79,15 @@ const gate = async (context: any, next: any) => {
   let email = await verifySession(sessionCookie, secret);
 
   // Unified auth bridge: if no legacy admin_session cookie is present on an
-  // admin route, also accept a valid better-auth session for an admin email.
+  // admin route, also accept a valid better-auth session for an admin email —
+  // but only a VERIFIED one (F2): better-auth verifies magic-link and Google
+  // sessions, so the owners keep their sign-ins, while a password account
+  // that merely registered an owner address (and never clicked the
+  // verification email) stays a customer.
   if (!email && (pathname.startsWith("/admin") || pathname.startsWith("/api/")) && hasSessionCookie(context.request.headers.get("Cookie"))) {
     try {
       const s = await getAuth().api.getSession({ headers: context.request.headers });
-      if (s?.user?.email && isAdminEmail(s.user.email)) {
+      if (s?.user?.email && isAdminEmail(s.user.email) && (s.user as any).emailVerified === true) {
         email = s.user.email;
       }
     } catch {

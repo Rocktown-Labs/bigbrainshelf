@@ -81,8 +81,11 @@ export const GET: APIRoute = async ({ request, url }) => {
   }
   const user = await userRes.json() as any;
 
-  // Only an admin email is allowed.
-  if (!isAdminEmail(user.email)) {
+  // Only an admin email is allowed — and only a VERIFIED one (F2):
+  // the admin_session cookie must never be minted from an address the
+  // provider has not verified. Google marks its primary addresses
+  // verified_email, so the owners are unaffected.
+  if (!isAdminEmail(user.email) || user.verified_email !== true) {
     return Response.redirect(`${origin}/admin/login?error=not_admin`, 302);
   }
 

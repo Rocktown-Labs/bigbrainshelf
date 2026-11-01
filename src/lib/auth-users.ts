@@ -1,6 +1,6 @@
 import { ensureOnce } from "./schema-cache";
 import { validateUsernameFormat } from "./auth-client";
-import { isAdminEmail } from "./admins";
+import { isAdminEmail, ADMIN_EMAILS } from "./admins";
 
 // Database-side auth helpers, split out of lib/auth so they stay
 // importable outside the Workers runtime (lib/auth imports
@@ -115,6 +115,50 @@ export async function ensureAuthUserSchema(db: any): Promise<void> {
       )
       .bind()
       .run();
+  });
+
+  // SECURITY (F2, 2026-10-31): the admin allowlist is only as safe as
+  // the user rows behind it. Admin recognition requires a VERIFIED
+  // row for an allowlisted address, so an address with no row (or an
+  // unverified one) is an attack window: anyone could register it,
+  // and before the verification requirement a fresh row carried admin
+  // rights. Once per isolate, log any allowlisted address that would
+  // NOT count as a verified admin today so the missing/rollback rows
+  // are visible in `cf` logs. Run this against prod when the warning
+  // fires:
+  //   SELECT email, emailVerified, role, createdAt FROM "user"
+  //   WHERE lower(email) IN (...ADMIN_EMAILS...);
+  await ensureOnce(db, "admin_allowlist_health_v1", async () => {
+    try {
+      const ph = ADMIN_EMAILS.map(() => "?").join(",");
+      const { results } = await db
+        .prepare(
+          `SELECT lower(email) AS email, "emailVerified", role FROM "user" WHERE lower(email) IN (${ph})`
+        )
+        .bind(...ADMIN_EMAILS)
+        .all();
+      const byEmail = new Map(
+        ((results || []) as any[]).map((r) => [
+          String(r.email).toLowerCase(),
+          { verified: Number(r.emailVerified) === 1, role: String(r.role || "") },
+        ])
+      );
+      const problems: string[] = [];
+      for (const addr of ADMIN_EMAILS) {
+        const row = byEmail.get(addr);
+        if (!row) problems.push(`${addr}: no user row (claimable address)`);
+        else if (!row.verified) problems.push(`${addr}: emailVerified=0 (must verify before admin is recognized)`);
+        else if (row.role !== "admin") problems.push(`${addr}: role=${row.role} (self-heals on the next verified sign-in)`);
+      }
+      if (problems.length) {
+        console.error(
+          `[security] admin allowlist check: ${problems.join("; ")}. ` +
+            `Admin recognition requires a verified row; seed/verify these rows out of band.`
+        );
+      }
+    } catch {
+      // Schema still bootstrapping on a fresh isolate: skip silently.
+    }
   });
 }
 
@@ -261,7 +305,12 @@ export async function getEffectiveSessionWith(
       const u = s.user as any;
       const email = String(u.email || "").toLowerCase();
       const emailVerified = u.emailVerified === true || u.emailVerified === 1;
-      const adminFlag = isAdminEmail(email) || u.role === "admin";
+      // SECURITY (F2): admin recognition requires a VERIFIED session.
+      // The role alone is not enough either: rows minted by the old
+      // sign-up hook (removed 2026-10-31) could carry role=admin on an
+      // unverified email. Magic-link and Google sessions are verified
+      // by Better Auth, so the owners are unaffected.
+      const adminFlag = emailVerified && (isAdminEmail(email) || u.role === "admin");
       let usernameVal = u.username ? String(u.username) : null;
       let displayUsernameVal = u.displayUsername ? String(u.displayUsername) : null;
       if (!usernameVal && db) {
