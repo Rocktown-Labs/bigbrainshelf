@@ -1,5 +1,6 @@
 import { createAuthClient } from "better-auth/client";
-import { usernameClient } from "better-auth/client/plugins";
+import { lastLoginMethodClient, usernameClient } from "better-auth/client/plugins";
+import { passkeyClient } from "@better-auth/passkey/client";
 
 export const USERNAME_MIN_LENGTH = 3;
 export const USERNAME_MAX_LENGTH = 30;
@@ -48,5 +49,5 @@ export function validateUsernameFormat(raw: string): {
 }
 
 export const authClient = createAuthClient({
-  plugins: [usernameClient()],
+  plugins: [usernameClient(), lastLoginMethodClient(), passkeyClient()],
 });

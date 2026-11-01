@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { betterAuth } from "better-auth";
-import { admin, captcha, magicLink, username } from "better-auth/plugins";
+import { admin, captcha, lastLoginMethod, magicLink, username } from "better-auth/plugins";
+import { passkey } from "@better-auth/passkey";
 import { kyselyAdapter } from "@better-auth/kysely-adapter";
 import { Kysely } from "kysely";
 import { D1Dialect } from "kysely-d1";
@@ -40,6 +41,18 @@ export function getAuth() {
       minUsernameLength: USERNAME_MIN_LENGTH,
       maxUsernameLength: USERNAME_MAX_LENGTH,
       usernameValidator: (u) => USERNAME_REGEX.test(u),
+    }),
+    // Remembers how the user signed in last (cookie-based) so /login
+    // can badge the "Last used" method (CG, 2026-10-31).
+    lastLoginMethod(),
+    // Passkeys (CG, 2026-10-31): WebAuthn sign-in bound to the real
+    // domain; registration lives in the account hub's security
+    // section, sign-in on /login. Table self-heals via
+    // ensureAuthUserSchema (lib/auth-users).
+    passkey({
+      rpID: "bigbrainshelf.com",
+      rpName: "Big Brain Shelf",
+      origin: "https://bigbrainshelf.com",
     }),
   ];
   // Passwordless sign-in (CG, 2026-10-31): guest buyers never
@@ -90,6 +103,7 @@ export function getAuth() {
           "/sign-in/username",
           "/sign-up/email",
           "/request-password-reset",
+          "/sign-in/magic-link",
         ],
       })
     );
@@ -134,10 +148,31 @@ export function getAuth() {
     },
     session: {
       expiresIn: 60 * 60 * 24 * 30, // 30 days
+      updateAge: 60 * 60 * 24, // refresh the session at most once a day
       cookieCache: { enabled: true, maxAge: 60 * 5 },
+    },
+    // Rate limiting (CG, 2026-10-31): database storage so limits hold
+    // across Workers isolates (table self-heals via lib/auth-users).
+    // Built-in strict rules cover the credential endpoints; the
+    // custom rules below protect the passwordless + reset flows,
+    // which send real email and are the juiciest abuse targets.
+    rateLimit: {
+      enabled: true,
+      window: 60,
+      max: 100,
+      storage: "database",
+      customRules: {
+        "/sign-in/magic-link": { window: 60, max: 5 },
+        "/request-password-reset": { window: 60, max: 5 },
+      },
     },
     advanced: {
       cookiePrefix: "bbs",
+      ipAddress: {
+        // Behind Cloudflare, the client IP is cf-connecting-ip;
+        // without this the limiter keys on a shared proxy address.
+        ipAddressHeaders: ["cf-connecting-ip"],
+      },
     },
     plugins,
     databaseHooks: {

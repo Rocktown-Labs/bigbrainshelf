@@ -66,6 +66,56 @@ export async function ensureAuthUserSchema(db: any): Promise<void> {
       .run()
       .catch(() => {});
   });
+
+  // Passkey plugin table (added 2026-10-31 with the passkey plugin in
+  // lib/auth). Mirrors @better-auth/passkey's schema for this version:
+  // aaguid is the field name (not aauthGuid).
+  await ensureOnce(db, "better_auth_passkey_v1", async () => {
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS "passkey" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "name" TEXT,
+          "publicKey" TEXT NOT NULL,
+          "userId" TEXT NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
+          "credentialID" TEXT NOT NULL,
+          "counter" INTEGER NOT NULL,
+          "deviceType" TEXT NOT NULL,
+          "backedUp" INTEGER NOT NULL,
+          "transports" TEXT,
+          "createdAt" DATE,
+          "aaguid" TEXT
+        )`
+      )
+      .bind()
+      .run();
+    await db
+      .prepare('CREATE INDEX IF NOT EXISTS passkey_userId_idx ON "passkey"("userId")')
+      .bind()
+      .run()
+      .catch(() => {});
+    await db
+      .prepare('CREATE INDEX IF NOT EXISTS passkey_credentialID_idx ON "passkey"("credentialID")')
+      .bind()
+      .run()
+      .catch(() => {});
+  });
+
+  // Rate-limit table for better-auth's database storage (added
+  // 2026-10-31). Keys are endpoint + IP; lastRequest is epoch ms.
+  await ensureOnce(db, "better_auth_ratelimit_v1", async () => {
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS "rateLimit" (
+          "id" TEXT NOT NULL PRIMARY KEY,
+          "key" TEXT NOT NULL,
+          "count" INTEGER NOT NULL,
+          "lastRequest" INTEGER NOT NULL
+        )`
+      )
+      .bind()
+      .run();
+  });
 }
 
 export async function checkUsernameAvailabilityInDb(

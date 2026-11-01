@@ -45,12 +45,13 @@ if (Astro.locals.user) {
       <button id="google-btn" type="button" class="mt-6 flex w-full items-center justify-center gap-3 rounded-lg border border-stone-300 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50">
         <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3l5.7-5.7C34.5 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 8 3l5.7-5.7C34.5 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.1 5.6l6.2 5.2C36.9 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
         Continue with Google
+        <span data-last-used-badge="google" class="hidden rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-800">Last used</span>
       </button>
       <div class="mt-6 flex items-center gap-3 text-xs text-stone-400"><span class="h-px flex-1 bg-stone-200"></span>or sign in with email or username<span class="h-px flex-1 bg-stone-200"></span></div>
       <form id="form" class="mt-6 space-y-4">
         <div>
           <label class="block text-sm font-medium mb-1" for="email">Email or username</label>
-          <input id="email" type="text" required autocomplete="username" placeholder="you@example.com or username" class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-600" />
+          <input id="email" type="text" required autocomplete="username webauthn" placeholder="you@example.com or username" class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-600" />
         </div>
         <div>
           <label class="block text-sm font-medium mb-1" for="password">Password</label>
@@ -63,15 +64,17 @@ if (Astro.locals.user) {
           <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
         )}
         <p id="err" class="text-sm text-red-600 hidden"></p>
-        <button id="btn" class="w-full rounded-lg bg-orange-600 text-white text-sm font-semibold py-2.5 hover:bg-orange-700">Sign in</button>
+        <button id="btn" class="w-full rounded-lg bg-orange-600 text-white text-sm font-semibold py-2.5 hover:bg-orange-700"><span id="btn-label">Sign in</span> <span data-last-used-badge="email username" class="hidden rounded-full bg-white/25 px-2 py-0.5 text-[11px] font-semibold text-white">Last used</span></button>
         <div class="flex items-center gap-3 pt-1">
           <span class="h-px bg-stone-200 flex-1"></span>
           <span class="text-xs text-stone-400">or</span>
           <span class="h-px bg-stone-200 flex-1"></span>
         </div>
-        <button id="magic-btn" type="button" class="w-full rounded-lg bg-white border border-stone-300 text-sm font-semibold py-2.5 hover:border-stone-500">Email me a sign-in link</button>
+        <button id="magic-btn" type="button" class="w-full rounded-lg bg-white border border-stone-300 text-sm font-semibold py-2.5 hover:border-stone-500"><span id="magic-label">Email me a sign-in link</span> <span data-last-used-badge="magic-link" class="hidden rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-800">Last used</span></button>
         <p id="magic-note" class="text-sm text-green-700 hidden"></p>
         <p class="text-xs text-stone-400">Bought as a guest? Use the link: it signs you in with no password, and your books are already in your library.</p>
+        <button id="passkey-btn" type="button" class="w-full rounded-lg bg-white border border-stone-300 text-sm font-semibold py-2.5 hover:border-stone-500">Sign in with a passkey <span data-last-used-badge="passkey" class="hidden rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-800">Last used</span></button>
+        <p class="text-xs text-stone-400">Face ID, Touch ID, or a security key. Set one up in your account after signing in.</p>
       </form>
       <p class="text-sm text-stone-500 mt-6">New here? <a id="signup-link" href="/signup" class="text-orange-700 font-medium">Create an account</a></p>
     </div>
@@ -135,29 +138,43 @@ if (Astro.locals.user) {
         return;
       }
       magicBtn.disabled = true;
-      magicBtn.textContent = "Sending...";
+      document.getElementById("magic-label").textContent = "Sending...";
       try {
         var land = "/auth/land";
         if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login")) {
           land += "?next=" + encodeURIComponent(next);
         }
+        // The magic-link endpoint is Turnstile-gated too (it sends
+        // real email): share the credential form's widget token.
+        // captchaToken/resetCaptcha are declared below in this same
+        // scope and hoist, so they are callable from here.
+        var mToken = captchaToken();
+        if (mToken !== null && !mToken) {
+          throw new Error("Please complete the check above and try again.");
+        }
+        var mHeaders = { "Content-Type": "application/json" };
+        if (mToken) mHeaders["x-captcha-response"] = mToken;
         var r = await fetch("/api/auth/sign-in/magic-link", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: mHeaders,
           body: JSON.stringify({ email: email, callbackURL: land }),
         });
+        resetCaptcha();
         if (!r.ok) {
           var d = await r.json().catch(function () { return {}; });
+          if (d.code === "MISSING_RESPONSE" || d.code === "VERIFICATION_FAILED") {
+            throw new Error("Please complete the check above and try again.");
+          }
           throw new Error(d.message || "The link could not be sent. Try again in a moment.");
         }
         note.textContent = "Check your email: your sign-in link is on its way. It works once and expires in 15 minutes.";
         note.classList.remove("hidden");
-        magicBtn.textContent = "Link sent";
+        document.getElementById("magic-label").textContent = "Link sent";
       } catch (ex) {
         err.textContent = ex.message;
         err.classList.remove("hidden");
         magicBtn.disabled = false;
-        magicBtn.textContent = "Email me a sign-in link";
+        document.getElementById("magic-label").textContent = "Email me a sign-in link";
       }
     });
 
@@ -204,7 +221,7 @@ if (Astro.locals.user) {
         return;
       }
       btn.disabled = true;
-      btn.textContent = "Signing in...";
+      document.getElementById("btn-label").textContent = "Signing in...";
       err.classList.add("hidden");
       // 1) Owner sign-in (admin session cookie).
       try {
@@ -246,13 +263,67 @@ if (Astro.locals.user) {
         err.textContent = ex.message;
         err.classList.remove("hidden");
         btn.disabled = false;
-        btn.textContent = "Sign in";
+        document.getElementById("btn-label").textContent = "Sign in";
         resetCaptcha();
       }
     });
   }
   initLogin();
   document.addEventListener("astro:page-load", initLogin);
+</script>
+<script data-astro-rerun>
+  // Passkey sign-in + "Last used" badges (better-auth client).
+  // Bundled module (not inline) because it imports the auth client;
+  // data-astro-rerun keeps it live across view transitions.
+  import { authClient } from "../lib/auth-client";
+
+  if (window.location.pathname === "/login") {
+    try {
+      var last = authClient.getLastUsedLoginMethod();
+      if (last) {
+        document.querySelectorAll("[data-last-used-badge]").forEach(function (el) {
+          var methods = (el.getAttribute("data-last-used-badge") || "").split(" ");
+          if (methods.indexOf(last) !== -1) el.classList.remove("hidden");
+        });
+      }
+    } catch (ex) {}
+
+    var pkBtn = document.getElementById("passkey-btn");
+    if (pkBtn && !pkBtn.__pkBound) {
+      pkBtn.__pkBound = true;
+      pkBtn.addEventListener("click", async function () {
+        var err = document.getElementById("err");
+        err.classList.add("hidden");
+        pkBtn.disabled = true;
+        try {
+          var res = await authClient.signIn.passkey();
+          if (res && res.error) throw new Error(res.error.message || "Passkey sign-in was cancelled.");
+          var next = new URLSearchParams(window.location.search).get("next") || "";
+          var land = "/auth/land";
+          if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/login")) {
+            land += "?next=" + encodeURIComponent(next);
+          }
+          window.location.href = land;
+        } catch (ex) {
+          err.textContent = (ex && ex.message) || "Passkey sign-in did not work. Try another way in.";
+          err.classList.remove("hidden");
+          pkBtn.disabled = false;
+        }
+      });
+      // Conditional UI: if the browser has a passkey for this site,
+      // it offers it right in the email field's autofill.
+      try {
+        if (window.PublicKeyCredential && PublicKeyCredential.isConditionalMediationAvailable) {
+          var cm = await PublicKeyCredential.isConditionalMediationAvailable();
+          if (cm) {
+            authClient.signIn.passkey({ autoFill: true }).then(function (res) {
+              if (res && !res.error) window.location.href = "/auth/land";
+            }).catch(function () {});
+          }
+        }
+      } catch (ex) {}
+    }
+  }
 </script>
 </body>
 </html>

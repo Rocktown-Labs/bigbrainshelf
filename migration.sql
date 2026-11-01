@@ -529,3 +529,26 @@ ALTER TABLE "user" ADD COLUMN banReason TEXT;
 ALTER TABLE "user" ADD COLUMN banExpires INTEGER;
 CREATE UNIQUE INDEX IF NOT EXISTS user_username_idx ON "user"(username) WHERE username IS NOT NULL;
 
+-- Better Auth passkey plugin + rate-limit tables (2026-10-31).
+-- Both also self-heal at runtime via ensureAuthUserSchema.
+CREATE TABLE IF NOT EXISTS "passkey" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "name" TEXT,
+  "publicKey" TEXT NOT NULL,
+  "userId" TEXT NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
+  "credentialID" TEXT NOT NULL,
+  "counter" INTEGER NOT NULL,
+  "deviceType" TEXT NOT NULL,
+  "backedUp" INTEGER NOT NULL,
+  "transports" TEXT,
+  "createdAt" DATE,
+  "aaguid" TEXT
+);
+CREATE INDEX IF NOT EXISTS passkey_userId_idx ON "passkey"("userId");
+CREATE INDEX IF NOT EXISTS passkey_credentialID_idx ON "passkey"("credentialID");
+CREATE TABLE IF NOT EXISTS "rateLimit" (
+  "id" TEXT NOT NULL PRIMARY KEY,
+  "key" TEXT NOT NULL,
+  "count" INTEGER NOT NULL,
+  "lastRequest" INTEGER NOT NULL
+);
