@@ -332,24 +332,26 @@ if (showSuccess) {
                       class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200"
                     />
                   )}
-                  <div class="absolute left-2 top-2 z-10 flex items-center gap-1.5">
-                    {c.digital && (
-                      <span class="fcircle fmt-digital" style="box-shadow: 0 0 0 2px rgba(255,255,255,.9)" title="Digital edition">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.2C10.3 4.7 8.2 4.2 5 4.2v13.6c3.2 0 5.3.5 7 2 1.7-1.5 3.8-2 7-2V4.2c-3.2 0-5.3.5-7 2Z"/><path d="M12 6.2v13.6"/></svg>
-                      </span>
-                    )}
-                    {c.audio && (
-                      <span class="fcircle fmt-audio" style="box-shadow: 0 0 0 2px rgba(255,255,255,.9)" title="Audiobook">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2.5" y="14" width="4" height="6.5" rx="1.6"/><rect x="17.5" y="14" width="4" height="6.5" rx="1.6"/></svg>
-                      </span>
-                    )}
-                    {c.club && (
-                      <span class="fchip" style="background:#1a3454;color:#fff;box-shadow: 0 0 0 2px rgba(255,255,255,.9)">Club</span>
-                    )}
-                  </div>
                 </div>
                 <h3 class="font-extrabold text-xs sm:text-sm leading-snug text-stone-900 line-clamp-2 mt-2">{c.b.title}</h3>
-                <p class="text-[11px] text-stone-500 mt-0.5">{c.b.topic}</p>
+                {/* Format icons live on the topic line now, not
+                    over the cover art (CG, 2026-11-01). */}
+                <div class="flex items-center gap-1.5 mt-1">
+                  {c.digital && (
+                    <span class="fcircle fmt-digital" title="Digital edition">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.2C10.3 4.7 8.2 4.2 5 4.2v13.6c3.2 0 5.3.5 7 2 1.7-1.5 3.8-2 7-2V4.2c-3.2 0-5.3.5-7 2Z"/><path d="M12 6.2v13.6"/></svg>
+                    </span>
+                  )}
+                  {c.audio && (
+                    <span class="fcircle fmt-audio" title="Audiobook">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2.5" y="14" width="4" height="6.5" rx="1.6"/><rect x="17.5" y="14" width="4" height="6.5" rx="1.6"/></svg>
+                    </span>
+                  )}
+                  {c.club && (
+                    <span class="fchip" style="background:#1a3454;color:#fff">Club</span>
+                  )}
+                  <p class="text-[11px] text-stone-500">{c.b.topic}</p>
+                </div>
                 {c.pct > 0 && (
                   <div class="mt-1.5">
                     <div class="h-1 rounded-full bg-stone-200 overflow-hidden">

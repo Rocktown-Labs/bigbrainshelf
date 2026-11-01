@@ -538,6 +538,18 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     expect(audioOnlySection).toContain('format: "giftset"');
   });
 
+  test("Shelf format icons sit on the topic line, never over cover art", () => {
+    // CG, 2026-11-01: the circles covered the covers' title art.
+    // They belong on the meta line under the book (title, then
+    // icons + topic), on both shelf surfaces.
+    for (const rel of ["src/pages/account/library.astro", "src/pages/account/index.astro"]) {
+      const src = readFileSync(resolve(root, rel), "utf8");
+      expect(src).not.toContain("absolute left-2 top-2 z-10 flex items-center gap-1.5");
+      expect(src).toContain("fcircle fmt-digital");
+      expect(src).toContain("fcircle fmt-audio");
+    }
+  });
+
   test("No account surface links at the dead /books index", () => {
     // The catalog lives on / (SectionNav Books -> /); /books has no
     // index page, so account links there 404'd until 2026-11-01.
