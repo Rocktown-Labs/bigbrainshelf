@@ -41,3 +41,4 @@ Consult these guides before working on related tasks:
 - [Adding or managing content](https://docs.astro.build/en/guides/content-collections/)
 - [Adding styles or using Tailwind](https://docs.astro.build/en/guides/styling/)
 - [Supporting multiple languages](https://docs.astro.build/en/guides/internationalization/)
+- Astro build does NOT render auth-gated (prerender=false) pages, so a frontmatter ReferenceError in a shared component ships silently and blanks every signed-in page while signed-out checks (302s) and the build stay green (CustomerShell audioCount, 2026-11-01: ~10 min of blank account pages). After ANY CustomerShell/AdminShell change, a signed-in smoke check of a page that uses it is mandatory before calling it done, and nav/template identifiers must be pinned against the props destructure in tests.
