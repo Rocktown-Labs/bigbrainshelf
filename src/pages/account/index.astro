@@ -328,15 +328,9 @@ if (showSuccess) {
                       class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200"
                     />
                   )}
-                  {c.audioOnly && (
-                    <span class="absolute top-1.5 right-1.5 rounded-full bg-stone-900/75 text-white text-[10px] font-bold px-2 py-0.5">🎧 Audio</span>
-                  )}
-                  {!c.owned && (
-                    <span class="absolute top-1.5 left-1.5 rounded-full bg-[#1a3454]/85 text-white text-[10px] font-bold px-2 py-0.5">Club</span>
-                  )}
                 </div>
                 <h3 class="font-extrabold text-xs sm:text-sm leading-snug text-stone-900 line-clamp-2 mt-2">{c.b.title}</h3>
-                <p class="text-[11px] text-stone-500 mt-0.5">{c.b.topic}</p>
+                <p class="text-[11px] text-stone-500 mt-0.5">{c.b.topic}{c.audioOnly && <span class="font-bold text-stone-600"> · 🎧 Audio</span>}{!c.owned && <span class="font-bold text-[#1a3454]"> · Club</span>}</p>
                 {c.pct > 0 && (
                   <div class="mt-1.5">
                     <div class="h-1 rounded-full bg-stone-200 overflow-hidden">
