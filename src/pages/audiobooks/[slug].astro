@@ -358,6 +358,12 @@ const description = String(book.description || "").trim();
         paintProgress();
       }
       function select(i, autoplay) {
+        // This page's listeners live on the shared (persisted) audio
+        // element and survive navigation; once our DOM is gone we must
+        // not keep driving playback or clobber the global player's
+        // state (a stale 'ended' here rewrote bookUrl to the new
+        // page's path and broke the mini bar's return link).
+        if (!document.contains(toggle)) return;
         idx = i;
         if (window.BBSPlayer) { window.BBSPlayer.host({ slug: publicSlug, title: bookTitle, bookUrl: window.location.pathname }); window.BBSPlayer.notePlaylist(sample, idx, { slug: publicSlug, title: bookTitle, bookUrl: window.location.pathname }); }
         audio.src = sample[idx].url;

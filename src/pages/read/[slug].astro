@@ -517,6 +517,10 @@ if (entitlement.owned) {
         iconPause.classList.toggle("hidden", !playing);
       }
       function loadTrack(i, autoplay) {
+        // Stale-page guard: our listeners ride the persisted audio
+        // element across navigations; with our DOM gone, stay inert
+        // and let the global player advance the playlist itself.
+        if (!document.contains(statusEl)) return;
         var tracks = playlist();
         if (i < 0 || i >= tracks.length) return;
         index = i;
