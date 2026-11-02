@@ -188,4 +188,17 @@ assert.equal(audioCoverKind(fakeM4b(1050, 1400)), "composed");
 assert.equal(audioCoverKind(fakeM4b(1024, 1024)), "bare");
 assert.equal(audioCoverKind(new Uint8Array([1, 2, 3])), "unknown");
 
+// A stale book_qa measurement (assets rebuilt after it was taken)
+// counts as unmeasured, never as pass or fail, and says so.
+{
+  const r = computeDeliveryReadiness(facts({ qa: null, linePurity: null, qaStale: true }));
+  assert.equal(r.verdict, "unverified");
+  assert.equal(r.blockers.length, 0);
+  assert.ok(r.unknowns.includes("PDF content QA"));
+  assert.ok(r.unknowns.includes("Line art purity"));
+  const text = r.checks.map((c) => c.detail).join(" ");
+  assert.match(text, /stale and does not count/);
+  assert.match(text, /Re-measure before treating this as ready/);
+}
+
 console.log("delivery-readiness: all assertions passed");

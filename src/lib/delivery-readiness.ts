@@ -68,12 +68,19 @@ export interface DeliveryFacts {
   /** Production state from the generator's audiobook-meta stamp. */
   audioProduction: "full-cast" | "single-voice" | "none" | "unknown";
   audioVoiceName: string | null;
-  /** Assembly QA measurements; null = never measured. */
+  /** Assembly QA measurements; null = never measured (or stale). */
   qa: {
     coverTypeset: boolean;
     coloringCaptionsTruncated: number;
     backCoverTruncated: boolean;
   } | null;
+  /** True when a book_qa measurement exists but cannot be proven
+   *  to describe the current storybook/coloring files (the assets
+   *  are newer than the measurement, or freshness cannot be
+   *  established). Stale measurements are reported as unverified,
+   *  never as pass or fail. The guard is read-only: it never writes,
+   *  deletes, publishes, blocks a publish, or triggers a re-measure. */
+  qaStale?: boolean;
   /** Marketing assets (the LAST readiness step, CG 2026-10-31:
    *  everything else gets put together first, then marketing is
    *  made and can just run). Null = never measured. */
@@ -126,7 +133,9 @@ export function computeDeliveryReadiness(f: DeliveryFacts): DeliveryReadiness {
   checks.push(
     f.linePurity === null
       ? { id: "line-purity", label: "Line art purity", state: "unknown",
-          detail: "Line art purity: not measured yet. The base book is black-and-white line art only; colored line pages are a known defect class and readiness does not vouch for this until the factory audit measures it." }
+          detail: f.qaStale
+            ? "Line art purity: the last measurement predates the current book files, so it is stale and does not count. Re-measure before treating this as ready."
+            : "Line art purity: not measured yet. The base book is black-and-white line art only; colored line pages are a known defect class and readiness does not vouch for this until the factory audit measures it." }
       : f.linePurity
         ? { id: "line-purity", label: "Line art purity", state: "pass",
             detail: "Line art purity: measured, the line pages are black and white." }
@@ -183,7 +192,9 @@ export function computeDeliveryReadiness(f: DeliveryFacts): DeliveryReadiness {
 
   if (!f.qa) {
     checks.push({ id: "pdf-qa", label: "PDF content QA", state: "unknown",
-      detail: "PDF content QA: the PDFs have not been measured yet (covers, captions, back cover)." });
+      detail: f.qaStale
+        ? "PDF content QA: the last measurement predates the current storybook or coloring files, so it is stale and does not count. Re-measure before treating this as ready."
+        : "PDF content QA: the PDFs have not been measured yet (covers, captions, back cover)." });
   } else {
     const problems: string[] = [];
     if (f.qa.coverTypeset) problems.push("the PDF front covers are typeset, not the finished cover");
@@ -273,40 +284,104 @@ export async function ensureBookQaTable(db: any): Promise<void> {
   } catch { /* column already there */ }
 }
 
-/** Measured line purity from book_qa: 1 = pure, 0 = colored
- *  pages found, null = no row or never measured. */
-async function readLinePurity(db: any, slug: string): Promise<boolean | null> {
+function toSeconds(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (v instanceof Date) return Math.floor(v.getTime() / 1000);
+  if (typeof v === "number" && Number.isFinite(v)) return v > 1e12 ? Math.floor(v / 1000) : Math.floor(v);
+  if (typeof v === "string") {
+    const n = Number(v);
+    if (Number.isFinite(n) && n > 0) return n > 1e12 ? Math.floor(n / 1000) : Math.floor(n);
+    const t = Date.parse(v);
+    return Number.isFinite(t) ? Math.floor(t / 1000) : null;
+  }
+  return null;
+}
+
+async function headUploadedSec(books: any, key: string | null): Promise<number | null> {
+  if (!key || !books || typeof books.head !== "function") return null;
   try {
-    await ensureBookQaTable(db);
-    const row = await db
-      .prepare(`SELECT line_purity FROM book_qa WHERE slug = ?`)
-      .bind(slug)
-      .first();
-    if (!row || row.line_purity === null || row.line_purity === undefined) return null;
-    return Number(row.line_purity) === 1;
+    const h = await books.head(key);
+    return h ? toSeconds((h as any).uploaded) : null;
   } catch {
     return null;
   }
 }
 
-async function readQa(db: any, slug: string): Promise<DeliveryFacts["qa"]> {
+async function latestLineEditionSec(db: any, slug: string): Promise<number | null> {
+  try {
+    const row = await db
+      .prepare(
+        `SELECT MAX(created_at) AS latest FROM editions WHERE slug = ? AND edition != 'color'`
+      )
+      .bind(slug)
+      .first();
+    return row ? toSeconds((row as any).latest) : null;
+  } catch {
+    return null;
+  }
+}
+
+export interface BookQaFacts {
+  qa: DeliveryFacts["qa"];
+  linePurity: boolean | null;
+  stale: boolean;
+}
+
+// Freshness guard (CG, 2026-11-02): a book_qa measurement only
+// counts while it can be proven to describe the CURRENT storybook
+// and coloring files. The assets' last-change time is the latest of
+// the non-color edition manifests and the two PDFs' R2 upload
+// times. If the assets are newer than the measurement (beyond a
+// five-minute clock/ordering grace), or freshness cannot be
+// established at all, the measurement is stale: qa and line purity
+// come back null so the verdict reads unverified. The guard is
+// READ-ONLY and one-directional: it can only withhold a verdict,
+// never create one, and it never writes, deletes, publishes, or
+// triggers a re-measure (a re-measure happens only when the owner
+// explicitly asks for one).
+const QA_FRESHNESS_GRACE_SEC = 300;
+
+async function readBookQaFacts(db: any, books: any, book: any): Promise<BookQaFacts> {
   try {
     await ensureBookQaTable(db);
     const row = await db
       .prepare(
-        `SELECT cover_typeset, coloring_captions_truncated, back_cover_truncated
+        `SELECT cover_typeset, coloring_captions_truncated, back_cover_truncated, line_purity, measured_at
          FROM book_qa WHERE slug = ?`
       )
-      .bind(slug)
+      .bind(String(book.slug))
       .first();
-    if (!row) return null;
+    if (!row) return { qa: null, linePurity: null, stale: false };
+    const measuredAt = toSeconds((row as any).measured_at);
+    const assetSecs = (
+      await Promise.all([
+        latestLineEditionSec(db, String(book.slug)),
+        headUploadedSec(books, book.picture_book_key ? String(book.picture_book_key) : null),
+        headUploadedSec(books, book.coloring_book_key ? String(book.coloring_book_key) : null),
+      ])
+    ).filter((s): s is number => typeof s === "number");
+    const latestAsset = assetSecs.length ? Math.max(...assetSecs) : null;
+    const stale =
+      measuredAt === null || latestAsset === null
+        ? true
+        : latestAsset > measuredAt + QA_FRESHNESS_GRACE_SEC;
+    if (stale) return { qa: null, linePurity: null, stale: true };
     return {
-      coverTypeset: !!row.cover_typeset,
-      coloringCaptionsTruncated: Number(row.coloring_captions_truncated || 0),
-      backCoverTruncated: !!row.back_cover_truncated,
+      qa: {
+        coverTypeset: !!(row as any).cover_typeset,
+        coloringCaptionsTruncated: Number((row as any).coloring_captions_truncated || 0),
+        backCoverTruncated: !!(row as any).back_cover_truncated,
+      },
+      linePurity:
+        (row as any).line_purity === null || (row as any).line_purity === undefined
+          ? null
+          : Number((row as any).line_purity) === 1,
+      stale: false,
     };
   } catch {
-    return null;
+    // A row we cannot read proves nothing either way; report the
+    // checks as unmeasured rather than inventing a verdict.
+    return { qa: null, linePurity: null, stale: false };
   }
 }
 
@@ -537,7 +612,7 @@ export async function getDeliveryReadiness(
     }
   }
 
-  const qa = await readQa(db, slug);
+  const qaFacts = await readBookQaFacts(db, books, book);
   const marketing = await readMarketing(db, books, slug);
 
   return computeDeliveryReadiness({
@@ -546,12 +621,14 @@ export async function getDeliveryReadiness(
     files: { picture, coloring, epub, audiobook, color },
     audioCover,
     // Measured by the vision-QC pass into book_qa (Fern's colored
-    // line art is why this exists); unmeasured stays unknown.
-    linePurity: await readLinePurity(db, slug),
+    // line art is why this exists); unmeasured or stale stays
+    // unknown, never a verdict.
+    linePurity: qaFacts.linePurity,
     cast,
     audioProduction,
     audioVoiceName,
-    qa,
+    qa: qaFacts.qa,
+    qaStale: qaFacts.stale,
     marketing,
   });
 }
