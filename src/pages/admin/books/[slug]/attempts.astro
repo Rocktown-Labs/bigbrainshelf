@@ -129,6 +129,8 @@ const when = (ts: number) =>
       .chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
       .scores { font-size: 11px; color: #57534e; line-height: 1.5; }
       .reason { font-size: 11px; color: #991b1b; line-height: 1.45; }
+      .promote { margin-top: 8px; width: 100%; font-size: 12px; font-weight: 600; padding: 6px 8px; border-radius: 8px; border: 1px solid #166534; background: #f0fdf4; color: #166534; cursor: pointer; }
+      .promote:disabled { opacity: 0.6; cursor: default; }
     </style>
   </head>
   <body style="background:#fafaf9">
@@ -182,6 +184,9 @@ const when = (ts: number) =>
                   {r.reason && <p class="reason" style="margin:6px 0 0">{r.reason}</p>}
                   {scoreLine(r.scores) && <p class="scores" style="margin:6px 0 0">{scoreLine(r.scores)}</p>}
                   <p style="font-size:11px;color:#a8a29e;margin:6px 0 0">{when(r.created_at)}</p>
+                  {(r.kind === "line" || r.kind === "colorize") && r.image_key && r.outcome !== "accepted" && r.outcome !== "autofixed" && r.outcome !== "promoted" && (
+                    <button class="promote" data-attempt={r.id} type="button">Use this page</button>
+                  )}
                 </div>
               </div>
             ))}
@@ -189,5 +194,28 @@ const when = (ts: number) =>
         </section>
       ))}
     </div>
+    <script is:inline define:vars={{ adminSlug }}>
+      document.querySelectorAll("button.promote").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Make this archived roll the official page image? This replaces the current page and clears its held flag.")) return;
+          btn.disabled = true;
+          btn.textContent = "Promoting...";
+          try {
+            const res = await fetch("/api/admin/books/" + adminSlug + "/attempts-promote", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ attemptId: Number(btn.dataset.attempt) }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+            btn.textContent = "Promoted. Reload to see it live.";
+          } catch (err) {
+            btn.disabled = false;
+            btn.textContent = "Use this page";
+            alert("Promote failed: " + (err && err.message ? err.message : err));
+          }
+        });
+      });
+    </script>
   </body>
 </html>
