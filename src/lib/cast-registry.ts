@@ -41,7 +41,7 @@ export interface RegistryRow {
 // working casts of record (revisable from the casting page like any
 // other assignment); they seed the registry so it starts truthful.
 export const RECORDED_CASTS: { character: string; voiceId: string; bookSlug: string }[] = [
-  { character: "Mira", voiceId: "kore", bookSlug: "mastery" },
+  { character: "Mira", voiceId: "kore", bookSlug: "mira-the-heron-and-the-still-water" },
   { character: "Wally", voiceId: "riko", bookSlug: "docker" },
   { character: "Basil", voiceId: "enzo", bookSlug: "designpatterns" },
 ];
@@ -252,7 +252,7 @@ export async function lineSetForBook(
   title: string,
   characters: CastCharacter[]
 ): Promise<CastLine[]> {
-  if (slug === "mastery") {
+  if (slug === "mira-the-heron-and-the-still-water") {
     const mira: any = ((snippetsData as any).books || []).find((b: any) => b.id === "mira");
     if (mira) {
       return mira.snippets.map((s: any) => ({

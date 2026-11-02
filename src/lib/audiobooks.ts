@@ -39,7 +39,7 @@ export function audiobookMeta(slug: string): BookMeta {
   return DATA[slug] || {};
 }
 
-/** Directory part of an audiobook key: "books/mastery/audiobook.m4b" -> "books/mastery". */
+/** Directory part of an audiobook key: "books/mira-the-heron-and-the-still-water/audiobook.m4b" -> "books/mira-the-heron-and-the-still-water". */
 export function audiobookDir(audiobookKey: string): string {
   const i = audiobookKey.lastIndexOf("/");
   return i > 0 ? audiobookKey.slice(0, i) : "";

@@ -135,7 +135,7 @@ export const AUDIO_CLUB_ANNUAL_PRICE_CENTS = 4900;
 export const CLUB_FIRST_BOX_BOOK: Record<string, string> = {
   tech: "algorithms", // Fern the Fox and the Clever Trails
   money: "richdadpoordad", // Penny the Squirrel and the Acorn Orchard
-  courage: "mastery", // Mira the Heron and the Still Water
+  courage: "mira-the-heron-and-the-still-water", // Mira the Heron and the Still Water
 };
 
 export function clubPriceLabel(cents: number = CLUB_PRICE_CENTS): string {

@@ -169,7 +169,7 @@
   },
   "mira": {
    "name": "Mira",
-   "bookSlug": "mastery",
+   "bookSlug": "mira-the-heron-and-the-still-water",
    "sheetKey": "characters/mira.png",
    "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/mira/portrait.png",
    "poses": [
@@ -243,7 +243,7 @@
   },
   "ansel": {
    "name": "Ansel",
-   "bookSlug": "mastery",
+   "bookSlug": "mira-the-heron-and-the-still-water",
    "sheetKey": "characters/ansel.png",
    "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ansel/portrait.png",
    "poses": [
@@ -309,7 +309,7 @@
   },
   "dell": {
    "name": "Dell",
-   "bookSlug": "mastery",
+   "bookSlug": "mira-the-heron-and-the-still-water",
    "sheetKey": "characters/dell.png",
    "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/dell/portrait.png",
    "poses": [
@@ -1511,7 +1511,7 @@
   },
   "the-otter": {
    "name": "The Otter",
-   "bookSlug": "mastery",
+   "bookSlug": "mira-the-heron-and-the-still-water",
    "sheetKey": "characters/the-otter.png",
    "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/the-otter/portrait.png",
    "poses": [

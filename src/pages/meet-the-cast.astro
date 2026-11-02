@@ -56,7 +56,7 @@ const otter = members.find((m) => m.slug === "the-otter");
 // the Otter under Mira's book), so any future ALSO card excludes its
 // character from its book's rail the same way.
 const alsoByBook = new Map<string, Set<string>>();
-if (otter) alsoByBook.set("mastery", new Set([otter.slug]));
+if (otter) alsoByBook.set("mira-the-heron-and-the-still-water", new Set([otter.slug]));
 // The headline counts describe the STORE's cast (review fix,
 // 2026-10-31): books you can actually buy and the characters who
 // star in them. The workshop book and its cast are still shown and
@@ -209,7 +209,7 @@ if (workshopGroups.length) {
                   </a>
                 ))}
               </div>
-              {g.bookSlug === "mastery" && otter?.portrait && (
+              {g.bookSlug === "mira-the-heron-and-the-still-water" && otter?.portrait && (
                 <a href="/meet-the-cast/the-otter" class="group mt-6 flex flex-col sm:flex-row gap-4 rounded-3xl border border-dashed border-stone-300 bg-stone-50 p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_24px_-14px_rgba(26,52,84,0.35)]">
                   <div class="shrink-0 w-28 sm:w-36">
                     <div class="relative rounded-2xl overflow-hidden border border-stone-200 bg-[#faf6ee] aspect-[4/5]" role="img" aria-label="The Otter the otter">

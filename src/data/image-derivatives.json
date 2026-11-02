@@ -341,9 +341,9 @@
   }
  },
  "covers": {
-  "mastery": {
-   "card": "books/mastery/cover-w400.webp",
-   "hero": "books/mastery/cover-w960.webp",
+  "mira-the-heron-and-the-still-water": {
+   "card": "books/mira-the-heron-and-the-still-water/cover-w400.webp",
+   "hero": "books/mira-the-heron-and-the-still-water/cover-w960.webp",
    "sourceBytes": 469629,
    "cardBytes": 34298
   },

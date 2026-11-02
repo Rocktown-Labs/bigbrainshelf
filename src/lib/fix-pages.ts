@@ -10,7 +10,7 @@ export const FIX_LINE_PAGES: Record<string, string[]> = {
   "compoundeffect": ["S1p1", "S1 finale", "S2p2", "S2 finale", "S3p1", "S3 finale", "S4p3", "S4 finale", "S5 finale", "S6p3", "S6 finale", "S7p2", "S7p3", "S7 finale", "S8p1", "S8p3"],
   "designpatterns": ["S2p2", "S3p2", "S8p0"],
   "docker": ["S1p3", "S2p0", "S3p0", "S3p1", "S7p0", "S7p1", "S7p3", "S8p1", "S11p1", "S11p3", "S13p2", "S13p3", "S15p2"],
-  "mastery": ["S4p2", "S4p3", "S5p2"],
+  "mira-the-heron-and-the-still-water": ["S4p2", "S4p3", "S5p2"],
   "motivationmanifesto": ["S1p0", "S3p3", "S4p1", "S5p2", "S5 finale", "S6p0", "S7p1", "S7p2", "S7 finale", "S9p0", "S9p1", "S9p2", "S9 finale"],
   "richdadpoordad": ["S2p2", "S2p3", "S3p1", "S3p3", "S6p1", "S8p1"],
   "thewarofart": ["S1p2", "S2p2", "S5p1", "S5p3", "S6p1", "S7p0", "S7p1", "S7p3", "S8p1", "S8p2", "S8p3", "S8 finale"],

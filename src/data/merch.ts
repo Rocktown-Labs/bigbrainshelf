@@ -17,7 +17,7 @@ export interface MerchProduct {
 }
 
 export const MERCH_PRODUCTS: MerchProduct[] = [
-  { name: "Mira plush", bookSlug: "mastery", price: "$24", note: "Soft heron, stands 10 inches tall" },
+  { name: "Mira plush", bookSlug: "mira-the-heron-and-the-still-water", price: "$24", note: "Soft heron, stands 10 inches tall" },
   { name: "Fern trail tee, kids", bookSlug: "algorithms", price: "$18", note: "Fern the Fox, front print" },
   { name: "Wally harbor tee, kids", bookSlug: "docker", price: "$18", note: "Wally the Whale, front print" },
   { name: "Pattern Book tee, grown-ups", bookSlug: "designpatterns", price: "$22", note: "Basil the Beaver, front print" },

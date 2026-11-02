@@ -18,23 +18,23 @@ export interface CastOverview {
 }
 
 export const CAST_OVERVIEWS: Record<string, CastOverview> = {
-  // Mira the Heron and the Still Water (mastery)
-  "mastery:Mira": {
+  // Mira the Heron and the Still Water
+  "mira-the-heron-and-the-still-water:Mira": {
     role: "The Learner",
     blurb:
       "Mira is the one with the want: to fish the Still Pool like the masters in the old stories. She begins eager, grows frustrated when the fish will not come, and has to wrestle with her own pride before she settles into the work. She is every kid who has ever wanted to be good at something and learned that wanting is only the first step.",
   },
-  "mastery:Ansel": {
+  "mira-the-heron-and-the-still-water:Ansel": {
     role: "The Guide",
     blurb:
       "Ansel is the old master of the Still Pool, and the worn path along his bank is the record of a lifetime of mornings. He speaks rarely and slowly, often in a single word, and his patience never seems to run out. He never carries Mira past the hard parts. He shows her how to stand in them.",
   },
-  "mastery:Dell": {
+  "mira-the-heron-and-the-still-water:Dell": {
     role: "The Comfort Zone",
     blurb:
       "Dell is round, bouncy, and always off to try a brand new hobby, preferably one he can be great at by Friday. He loves Mira, cheers loudly for her, and now and then drops a piece of real wisdom entirely by accident. He stands for the easy, playful, unstructured life Mira is learning to leave behind, and he is never the villain of her story.",
   },
-  "mastery:The Otter": {
+  "mira-the-heron-and-the-still-water:The Otter": {
     role: "The Shortcut",
     blurb:
       "The Otter is charm with a plan. Slick, quick talking, and a little too eager to help, he talks Mira out of her good fishing spot with a story that is not true. He is the temptation of easy success, and the dry ditch at the end of it teaches Mira more than he ever meant to.",
@@ -186,7 +186,7 @@ export const STILL_POOL_NOTE = {
 // bible order. Drives the index grouping, castmate rows and prev/next
 // navigation on the character pages.
 export const BOOK_CAST_ORDER: Record<string, string[]> = {
-  mastery: ["Mira", "Ansel", "Dell", "The Otter"],
+  mira-the-heron-and-the-still-water: ["Mira", "Ansel", "Dell", "The Otter"],
   algorithms: ["Fern", "Moss", "Orin"],
   compoundeffect: ["Maisie", "Jasper", "Willa"],
   designpatterns: ["Basil", "Ada", "Nox"],
@@ -205,28 +205,28 @@ export interface CastBio {
 }
 
 export const CAST_BIOS: Record<string, CastBio> = {
-  "mastery:Mira": {
+  "mira-the-heron-and-the-still-water:Mira": {
     bio: [
       "Mira practices at the edge of the Still Pool every morning, long before the other animals are awake, because the masters in the old stories fished at dawn and she intends to be one of them. She already has a heron's whole toolkit: the stillness, the long legs, a strike quicker than a blink. What she is missing is the one tool that only practice can build.",
       "So she keeps a private score, strikes landed against strikes missed, and for a long while the misses win. Dell would happily call that a reason to go do something fun instead. Ansel just keeps fishing beside her, unhurried, which is its own lesson: the pool rewards the bird who stays. Mira's story is about the mornings after the exciting first morning, when showing up quietly becomes the skill itself.",
     ],
     fun: "Mira can stand so still that dragonflies land on her beak. She counts it as practice, not luck.",
   },
-  "mastery:Ansel": {
+  "mira-the-heron-and-the-still-water:Ansel": {
     bio: [
       "Ansel fishes the same stretch of bank he has fished since before the path along it was a path. The other animals plan their mornings around his silhouette: if Ansel is standing in the shallows, the pool is open for business. He greets Mira's questions the way he greets everything, slowly, and sometimes the whole answer is one word and a long look at the water.",
       "Young herons find him maddening right up until they need him. He will not demonstrate twice, he will not explain the trick of it, and he absolutely will not fish for you. What he offers instead is company at the exact moment the work gets lonely, and a living example of what a whole life of mornings can make out of an ordinary bird.",
     ],
     fun: "The fish of the Still Pool know Ansel's shadow by heart. He still outwaits every single one of them.",
   },
-  "mastery:Dell": {
+  "mira-the-heron-and-the-still-water:Dell": {
     bio: [
       "Dell keeps track of hobbies the way other ducks keep track of bread: enthusiastically, and with no system at all. This month alone there has been a drum phase, a kite phase, and a brief but passionate career in competitive splashing. Mira's fishing is, to Dell, simply her current hobby, and he supports it at maximum volume.",
       "That is what makes him such good company and such a gentle problem. Dell is not lazy, and he is not wrong about fun. He is a whole philosophy with feathers: the belief that a day is for enjoying right now. Mira's story never asks readers to stop liking him. It just shows the difference between a friend who cheers for your dream and a life that makes room for it.",
     ],
     fun: "Dell has started eleven hobbies this year. His personal record for finishing one is Friday.",
   },
-  "mastery:The Otter": {
+  "mira-the-heron-and-the-still-water:The Otter": {
     bio: [
       "The Otter dresses every suggestion like a favor. He drifts in with a compliment, agrees that Mira's spot is a fine spot, a lovely spot, and then mentions, almost as an afterthought, the place he would fish if he were serious about supper: a place that, strangely, he never fishes himself. His paws stay clean the whole conversation. That is the tell, if you know how to look for it.",
       "Around the pool he is known as the animal who has never once been seen doing the slow version of anything. He hands out shortcuts like gifts, especially to anyone young enough to still believe a gift can be free. Mira's story lets readers watch the sales pitch from the outside, so they can spot the shape of it the next time one swims up to them.",
@@ -403,7 +403,7 @@ export const CAST_BIOS: Record<string, CastBio> = {
   },
 };
 
-// The Otter's full detail-page copy (also keyed as "mastery:The Otter"
+// The Otter's full detail-page copy (also keyed as "mira-the-heron-and-the-still-water:The Otter"
 // in CAST_BIOS above; kept as a named export for reference).
 export const OTTER_BIO: CastBio = {
   bio: [
