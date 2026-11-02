@@ -11,6 +11,7 @@ import {
   type DownloadGrant,
 } from "../../lib/download-guard";
 import { stampPdfForBuyer } from "../../lib/pdf-stamp";
+import { emitStoreEvent } from "../../lib/metrics";
 import { listKidProfiles } from "../../lib/family";
 import { serveStampedM4b } from "../../lib/m4b-stamp";
 
@@ -77,6 +78,13 @@ export const GET: APIRoute = async ({ request, url }) => {
   if (!budget.ok) {
     return Response.json({ error: DOWNLOAD_LIMIT_MESSAGE }, { status: 403 });
   }
+  // Store metrics plane: the download is granted and counted at this
+  // point, whichever serve path below delivers the bytes.
+  emitStoreEvent("book_download", {
+    section: book?.public_slug || slug,
+    source: format,
+    index: book?.public_slug || slug,
+  });
 
   const isAudio = format === "audiobook";
   const ext = format === "epub" ? "epub" : isAudio ? (String(key).endsWith(".m4b") ? "m4b" : "mp3") : "pdf";

@@ -119,6 +119,7 @@ metadata = {
         {"type": "assets", "name": "ASSETS"},
         {"type": "ai", "name": "AI"},
         {"type": "send_email", "name": "EMAIL"},
+        {"type": "analytics_engine", "name": "ANALYTICS", "dataset": "store_events"},
     ],
     "compatibility_date": "2026-10-16",
     "compatibility_flags": ["nodejs_als"],

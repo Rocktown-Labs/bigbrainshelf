@@ -15,6 +15,7 @@ import {
 } from "../../../lib/club";
 import { enqueueClubFollowup } from "../../../lib/marketing";
 import { flushOutbox } from "../../../lib/email";
+import { emitStoreEvent } from "../../../lib/metrics";
 
 // POST /api/stripe/webhook — Stripe calls this after checkout.
 // Signature-verified; reachable without a session (see middleware).
@@ -53,6 +54,11 @@ export const POST: APIRoute = async ({ request }) => {
         if (s.payment_status === "paid") {
           await activateClubFromSession(e.DB, s, stripe);
           await markWebhookEventProcessed(e.DB, event.id, "club membership activated");
+          emitStoreEvent("club_subscription_created", {
+            section: "club",
+            source: "stripe_webhook",
+            amountUsd: (s.amount_total ?? 0) / 100,
+          });
         } else {
           await markWebhookEventProcessed(e.DB, event.id, `club ignored: payment_status=${s.payment_status}`);
         }
@@ -88,6 +94,11 @@ export const POST: APIRoute = async ({ request }) => {
         // stay pending in the outbox and go out on a later flush.
         await flushOutbox(e.DB, e, 10, SITE).catch(() => {});
         await markWebhookEventProcessed(e.DB, event.id, "order completed, confirmation enqueued");
+        emitStoreEvent("order_completed", {
+          section: "store",
+          source: "stripe_webhook",
+          amountUsd: (s.amount_total ?? 0) / 100,
+        });
       } else {
         await markWebhookEventProcessed(e.DB, event.id, `ignored: payment_status=${s.payment_status}`);
       }
@@ -156,6 +167,13 @@ export const POST: APIRoute = async ({ request }) => {
     } else if (event.type === "invoice.payment_succeeded" || event.type === "invoice.paid") {
       const invoice = event.data.object as Stripe.Invoice;
       const tracked = await recordClubInvoicePayment(e.DB, invoice, "paid");
+      if (tracked) {
+        emitStoreEvent("club_invoice_paid", {
+          section: "club",
+          source: "stripe_webhook",
+          amountUsd: (invoice.amount_paid ?? 0) / 100,
+        });
+      }
       await markWebhookEventProcessed(
         e.DB,
         event.id,

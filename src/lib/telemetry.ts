@@ -8,6 +8,8 @@
  *   so `/admin/revops` distinguishes live bindings from D1 local outbox/rollup scaffolding.
  */
 
+import { emitStoreEvent } from "./metrics";
+
 export interface AnalyticsEngineBinding {
   writeDataPoint(event: {
     indexes?: string[];
@@ -124,6 +126,16 @@ export async function recordReadingTelemetry(
       // non-fatal
     }
   }
+
+  // Store metrics plane (Analytics Engine `store_events`, lib/metrics):
+  // every accepted reading event also lands here under its event type,
+  // indexed by book slug. Separate from the READING_TELEMETRY binding
+  // above, which is the Argon-era per-page dataset and stays unbound.
+  emitStoreEvent(event.eventType, {
+    section: event.bookSlug,
+    source: "reading",
+    index: event.bookSlug,
+  });
 
   if (env?.DB) {
     await ensureTelemetrySchema(env.DB);
