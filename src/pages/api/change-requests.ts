@@ -17,14 +17,14 @@ export const GET: APIRoute = async ({ url }) => {
   return Response.json(results);
 };
 
-async function fireFactoryRedo(e: any, path: string, slug: string, chapterNum: number, pageIndex: number) {
+async function fireFactoryRedo(e: any, path: string, slug: string, chapterNum: number, pageIndex: number, extra: Record<string, any> = {}) {
   const cfg = await e.DB.prepare("SELECT value FROM settings WHERE key = 'factory_url'").first();
   const factoryUrl = ((cfg?.value as string) || "").replace(/\/+$/, "");
   if (!factoryUrl) throw new Error("factory_url not configured");
   const r = await fetch(`${factoryUrl}/book/${encodeURIComponent(slug)}/${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chapter: chapterNum, page: pageIndex }),
+    body: JSON.stringify({ chapter: chapterNum, page: pageIndex, ...extra }),
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || `factory ${path} failed`);
@@ -53,9 +53,17 @@ export const POST: APIRoute = async ({ request }) => {
   if (slug !== "docker" && chapterNum >= 1) {
     try {
       const outs: any[] = [];
-      if (kind === "art" || kind === "both") outs.push(await fireFactoryRedo(e, "redo-image", slug, chapterNum, pageIndex));
       if (kind === "text" || kind === "both") outs.push(await fireFactoryRedo(e, "redo-text", slug, chapterNum, pageIndex));
-      status = "done";
+      if (kind === "art" || kind === "both") {
+        // Per-page fix (CG, 2026-11-02): the note travels with the
+        // request and becomes art direction; the factory redoes this
+        // one page (line + color) in a workflow and writes the final
+        // status back into this row when it lands.
+        outs.push(await fireFactoryRedo(e, "page-fix", slug, chapterNum, pageIndex, { note, requestId: id }));
+        status = "in_progress";
+      } else {
+        status = "done";
+      }
       result = JSON.stringify(outs);
     } catch (err: any) {
       status = "queued";

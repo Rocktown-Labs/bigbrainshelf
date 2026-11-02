@@ -240,7 +240,10 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
     function reqStatusHtml(cn, pi) {
       var r = reqs[key(cn, pi)];
       if (!r) return "";
-      var label = r.status === "done" ? "Change applied" : "Change queued";
+      var label = r.status === "done" ? "Change applied"
+        : r.status === "in_progress" ? "Fix in progress"
+        : r.status === "failed" ? "Fix failed, page kept as-is"
+        : "Change queued";
       return '<p class="req-status">' + label + (r.note ? ": " + esc(r.note) : "") + "</p>";
     }
 
