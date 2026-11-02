@@ -1,0 +1,94 @@
+{
+ "videos": [
+  {
+   "slug": "audiobooks-style-a",
+   "title": "The Audio Books",
+   "product": "The Audio Books",
+   "style": "Style A \u00b7 house rebuild",
+   "attempt_id": "att-0009",
+   "duration_s": 79.067,
+   "lufs": -15.85,
+   "transcript": {
+    "ratio": null,
+    "state": "pass"
+   },
+   "verdict": "pending",
+   "safezone_fg_violations": 153,
+   "poster_key": "video-qc/audiobooks-style-a/scene-hook.jpg"
+  },
+  {
+   "slug": "audiobooks-style-b",
+   "title": "The Audio Books",
+   "product": "The Audio Books",
+   "style": "Style B \u00b7 DeepSeek original",
+   "attempt_id": "att-0038",
+   "duration_s": 60.1,
+   "lufs": -15.86,
+   "transcript": {
+    "ratio": 0.898,
+    "state": "measured"
+   },
+   "verdict": "pending",
+   "safezone_fg_violations": 121,
+   "poster_key": "video-qc/audiobooks-style-b/scene-hook.jpg"
+  },
+  {
+   "slug": "countdown-day-01",
+   "title": "Countdown Day 1",
+   "product": "Holiday 2026 \u00b7 12 Days",
+   "style": "Holiday \u00b7 Luna voice",
+   "attempt_id": "att-0032",
+   "duration_s": 11.0,
+   "lufs": -16.02,
+   "transcript": null,
+   "verdict": "pending",
+   "safezone_fg_violations": 14,
+   "poster_key": "video-qc/countdown-day-01/scene-countdown.jpg"
+  },
+  {
+   "slug": "deepseekv41flash-raw",
+   "title": "The Audio Club rebuild",
+   "product": "The Audio Club",
+   "style": "Bench \u00b7 DeepSeek V4.1 Flash \u00b7 Round 1 raw",
+   "attempt_id": "att-0039",
+   "duration_s": 68.83,
+   "lufs": -15.9,
+   "transcript": {
+    "ratio": 0.919,
+    "state": "measured"
+   },
+   "verdict": "pending",
+   "safezone_fg_violations": 106,
+   "poster_key": "video-qc/deepseekv41flash-raw/scene-hook.jpg"
+  },
+  {
+   "slug": "glm53-raw",
+   "title": "The Audio Club rebuild",
+   "product": "The Audio Club",
+   "style": "Bench \u00b7 GLM-5.3 \u00b7 Round 1 raw",
+   "attempt_id": "att-0018",
+   "duration_s": 68.83,
+   "lufs": -15.9,
+   "transcript": {
+    "ratio": 0.919,
+    "state": "measured"
+   },
+   "verdict": "pending",
+   "safezone_fg_violations": 232,
+   "poster_key": "video-qc/glm53-raw/scene-hook.jpg"
+  },
+  {
+   "slug": "thanksgiving-spot",
+   "title": "Thanksgiving spot",
+   "product": "Holiday 2026",
+   "style": "Holiday \u00b7 Luna voice",
+   "attempt_id": "att-0031",
+   "duration_s": 40.0,
+   "lufs": -15.9,
+   "transcript": null,
+   "verdict": "pending",
+   "safezone_fg_violations": 16,
+   "poster_key": "video-qc/thanksgiving-spot/scene-scene-pilgrim.jpg"
+  }
+ ]
+}

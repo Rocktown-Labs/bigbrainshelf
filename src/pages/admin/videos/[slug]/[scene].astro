@@ -1,0 +1,215 @@
+---
+import "../../../../styles/global.css";
+import AdminShell from "../../../../components/AdminShell.astro";
+import { getQcVideo, getQcScene, mediaUrl, fmtTime } from "../../../../lib/video-qc";
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+const video = getQcVideo(String(Astro.params.slug || ""));
+if (!video) {
+  return Astro.redirect("/admin/videos");
+}
+const scene = getQcScene(video, String(Astro.params.scene || ""));
+if (!scene) {
+  return Astro.redirect(`/admin/videos/${video.slug}`);
+}
+const pct = (v: number, basis: number) => `${((v / basis) * 100).toFixed(2)}%`;
+const boxed = scene.elements.filter((e) => e.box);
+const unboxed = scene.elements.filter((e) => !e.box);
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>{scene.name} · {video.title} ({video.style}) · Promo QC</title>
+  <style is:global>
+    body{font-family:ui-sans-serif,system-ui,sans-serif;background:#fafaf9;color:#1c1917;margin:0}
+    .wrap{max-width:72rem;margin:0 auto;padding:1.75rem 1rem 4rem}
+    h1{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 .25rem}
+    h2{font-size:1.15rem;font-weight:800;margin:1.5rem 0 .6rem}
+    .back{color:#c2410c;text-decoration:none;font-weight:600;font-size:.92rem}
+    .muted{color:#78716c;font-size:.88rem}
+    .line{font-size:1.05rem;background:#fff;border:1px solid #e7e5e4;border-left:4px solid #ea580c;border-radius:8px;padding:12px 14px;max-width:46rem}
+    .layout{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+    .stage{position:relative;width:min(430px,92vw);aspect-ratio:1080/1920;background:#1a3454;border-radius:12px;overflow:hidden;flex:none}
+    .stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+    .zonebox{position:absolute;border:1.5px dashed rgba(255,255,255,.55);border-radius:2px;pointer-events:none}
+    .elbox{position:absolute;border:2px solid #a8a29e;background:rgba(168,163,158,.10);border-radius:3px;cursor:pointer;padding:0}
+    .elbox.zin{border-color:#16a34a;background:rgba(22,163,74,.10)}
+    .elbox.zout{border-color:#dc2626;background:rgba(220,38,38,.12)}
+    .elbox.sel{border-width:3px;border-color:#ea580c;background:rgba(234,88,12,.16);z-index:5}
+    table.els{border-collapse:collapse;width:100%;background:#fff;border:1px solid #e7e5e4;border-radius:12px;overflow:hidden}
+    table.els th,table.els td{text-align:left;padding:8px 10px;border-top:1px solid #f0efed;font-size:.88rem;vertical-align:top}
+    table.els tr:first-child th{border-top:0;background:#f5f5f4}
+    table.els tbody tr{cursor:pointer}
+    table.els tbody tr:hover{background:#fff7ed}
+    table.els tbody tr.sel{background:#ffedd5}
+    .zin-t{color:#166534;font-weight:700}.zout-t{color:#b91c1c;font-weight:700}.zunk-t{color:#a8a29e}
+    .panel{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:16px;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .tagbtn{border:1px solid #d6d3d1;background:#fff;border-radius:999px;padding:7px 16px;font-weight:700;cursor:pointer;font-size:.88rem;margin:0 6px 6px 0}
+    .tagbtn.on-fix{background:#fee2e2;border-color:#b91c1c;color:#991b1b}
+    .tagbtn.on-steal{background:#fef3c7;border-color:#d97706;color:#92400e}
+    .tagbtn.on-keep{background:#dcfce7;border-color:#16a34a;color:#166534}
+    .tagbtn.on-question{background:#e0e7ff;border-color:#4f46e5;color:#3730a3}
+    .savebtn{background:#ea580c;color:#fff;border:0;border-radius:999px;padding:9px 20px;font-weight:700;cursor:pointer;font-size:.9rem}
+    .savebtn:disabled{opacity:.55}
+    .ghostbtn{background:#fff;color:#1c1917;border:1px solid #d6d3d1;padding:8px 16px;border-radius:999px;font-weight:600;cursor:pointer;font-size:.88rem}
+    textarea{width:100%;box-sizing:border-box;border:1px solid #d6d3d1;border-radius:8px;padding:8px 10px;font:inherit;font-size:.9rem;min-height:56px}
+    .tagrow{border-top:1px solid #f0efed;padding:8px 0;font-size:.88rem}
+    .tagrow .tg{font-weight:800;text-transform:uppercase;font-size:.72rem;letter-spacing:.06em}
+    .tg-fix{color:#b91c1c}.tg-steal{color:#d97706}.tg-keep{color:#16a34a}.tg-question{color:#4f46e5}
+    code{background:#f5f5f4;border-radius:4px;padding:0 4px;font-size:.82em}
+  </style>
+</head>
+<body>
+  <AdminShell current="/admin/videos" />
+  <main class="wrap">
+    <a class="back" href={`/admin/videos/${video.slug}`}>&larr; {video.title} ({video.style})</a>
+    <h1>{scene.name}</h1>
+    <p class="muted" style="margin:0 0 12px">
+      {fmtTime(scene.start_s)} to {fmtTime(scene.end_s)} · {fmtTime(scene.duration_s)} long ·
+      frame shown at {fmtTime(scene.frame_t_s)} ·
+      {scene.measured_fg_violations == null
+        ? "safe zone unmeasured on the pixels"
+        : scene.measured_fg_violations === 0
+          ? "0 measured foreground violations in this window"
+          : `${scene.measured_fg_violations} measured foreground violations in this window`}
+    </p>
+    {scene.line
+      ? <p class="line">&ldquo;{scene.line}&rdquo;</p>
+      : <p class="line">No spoken line in this scene.</p>}
+
+    <div class="layout" style="margin-top:18px">
+      <div>
+        <div class="stage" id="stage">
+          <img src={mediaUrl(scene.frame_key)} alt="" />
+          <div class="zonebox" style={`left:${pct(120, 1080)};top:${pct(380, 1920)};width:${pct(960 - 120, 1080)};height:${pct(1440 - 380, 1920)}`}></div>
+          {boxed.map((e) => (
+            <button
+              class={`elbox ${e.zone ? (e.zone.inside ? "zin" : "zout") : ""}`}
+              data-el={e.id}
+              title={`${e.name} (${e.id})`}
+              style={`left:${pct(e.box![0], 1080)};top:${pct(e.box![1], 1920)};width:${pct(e.box![2] - e.box![0], 1080)};height:${pct(e.box![3] - e.box![1], 1920)}`}
+            ></button>
+          ))}
+        </div>
+        <p class="muted" style="max-width:430px">Dashed outline is the safe zone (x 120-960, y 380-1440). Boxes are the elements' designed geometry from the composition code: green sits inside the zone, red breaches it. Tap a box or a row to tag that element.</p>
+      </div>
+
+      <div style="flex:1;min-width:320px">
+        <h2 style="margin-top:0">Elements</h2>
+        <table class="els">
+          <thead><tr><th>Element</th><th>Enters</th><th>Safe zone</th></tr></thead>
+          <tbody>
+            {scene.elements.map((e) => (
+              <tr data-el={e.id}>
+                <td>
+                  <b>{e.name}</b> <code>{e.id}</code>
+                  {e.text && <><br /><span class="muted">&ldquo;{e.text}&rdquo;</span></>}
+                  {!e.box && <><br /><span class="muted">no drawn box (geometry not in the composition CSS)</span></>}
+                </td>
+                <td>
+                  {e.entry_s != null ? <>{fmtTime(e.entry_s)}{e.trigger_word ? <><br />on the word <b>&ldquo;{e.trigger_word}&rdquo;</b></> : ""}</> : <span class="muted">not timed</span>}
+                </td>
+                <td>
+                  {e.zone == null
+                    ? <span class="zunk-t">not measured</span>
+                    : e.zone.inside
+                      ? <span class="zin-t">inside</span>
+                      : <span class="zout-t">out by {e.zone.breach_px}px</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {unboxed.length > 0 && <p class="muted">{unboxed.length} element(s) have no resolvable geometry and are listed without a box rather than given an invented one.</p>}
+
+        <div class="panel" style="margin-top:16px">
+          <h2 style="margin-top:0">Tag</h2>
+          <p class="muted" style="margin-top:0" id="scope">Tagging: this whole scene. Pick an element above to tag just that piece.</p>
+          <p style="margin:0 0 8px"><button class="ghostbtn" id="clearsel" style="display:none">Tag the scene instead</button></p>
+          <div id="tagbtns">
+            <button class="tagbtn" data-tag="fix">Fix</button>
+            <button class="tagbtn" data-tag="steal">Steal</button>
+            <button class="tagbtn" data-tag="keep">Keep</button>
+            <button class="tagbtn" data-tag="question">Question</button>
+          </div>
+          <textarea id="tagnote" placeholder="Note (optional)"></textarea>
+          <p style="margin:10px 0 0"><button class="savebtn" id="tagsave" disabled>Save tag</button> <span class="muted" id="tagmsg"></span></p>
+        </div>
+
+        <div class="panel" style="margin-top:14px">
+          <h2 style="margin-top:0">Tags on this scene</h2>
+          <div id="taglist"><p class="muted">Loading...</p></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script is:inline define:vars={{ slug: video.slug, sceneId: scene.id, sceneName: scene.name }}>
+    var chosen = "";
+    var selectedEl = "";
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+    function select(el) {
+      selectedEl = el || "";
+      document.querySelectorAll(".elbox").forEach(function (b) { b.classList.toggle("sel", b.getAttribute("data-el") === selectedEl); });
+      document.querySelectorAll("table.els tbody tr").forEach(function (r) { r.classList.toggle("sel", r.getAttribute("data-el") === selectedEl); });
+      document.getElementById("scope").textContent = selectedEl
+        ? "Tagging: element " + selectedEl + " in " + sceneName + "."
+        : "Tagging: this whole scene. Pick an element above to tag just that piece.";
+      document.getElementById("clearsel").style.display = selectedEl ? "" : "none";
+    }
+    document.querySelectorAll(".elbox").forEach(function (b) {
+      b.addEventListener("click", function () { select(b.getAttribute("data-el")); });
+    });
+    document.querySelectorAll("table.els tbody tr").forEach(function (r) {
+      r.addEventListener("click", function () { select(r.getAttribute("data-el")); });
+    });
+    document.getElementById("clearsel").addEventListener("click", function () { select(""); });
+    var btns = document.querySelectorAll("#tagbtns .tagbtn");
+    btns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        chosen = b.getAttribute("data-tag");
+        btns.forEach(function (x) { x.className = "tagbtn" + (x === b ? " on-" + chosen : ""); });
+        document.getElementById("tagsave").disabled = false;
+      });
+    });
+    document.getElementById("tagsave").addEventListener("click", function () {
+      if (!chosen) return;
+      var btn = this;
+      btn.disabled = true;
+      fetch("/api/admin/video-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ video_slug: slug, scene_id: sceneId, element_id: selectedEl, tag: chosen, note: document.getElementById("tagnote").value })
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        document.getElementById("tagmsg").textContent = d.ok ? "Saved." : ("Error: " + (d.error || "unknown"));
+        btn.disabled = false;
+        if (d.ok) { document.getElementById("tagnote").value = ""; loadTags(); }
+      }).catch(function () { document.getElementById("tagmsg").textContent = "Network error."; btn.disabled = false; });
+    });
+    function loadTags() {
+      fetch("/api/admin/video-feedback?video=" + encodeURIComponent(slug)).then(function (r) { return r.json(); }).then(function (d) {
+        var el = document.getElementById("taglist");
+        var rows = (d.feedback || []).filter(function (f) { return f.scene_id === sceneId; });
+        if (!rows.length) { el.innerHTML = '<p class="muted">No tags on this scene yet.</p>'; return; }
+        el.innerHTML = rows.map(function (f) {
+          return '<div class="tagrow"><span class="tg tg-' + esc(f.tag) + '">' + esc(f.tag) + '</span> · ' +
+            (f.element_id ? "element " + esc(f.element_id) : "whole scene") +
+            (f.note ? '<br>' + esc(f.note) : "") +
+            '<br><span class="muted">' + new Date(f.created_at * 1000).toLocaleString() + '</span></div>';
+        }).join("");
+      }).catch(function () { document.getElementById("taglist").innerHTML = '<p class="muted">Could not load tags.</p>'; });
+    }
+    loadTags();
+  </script>
+</body>
+</html>

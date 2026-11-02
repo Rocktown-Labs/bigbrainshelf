@@ -1,0 +1,1229 @@
+{
+ "slug": "glm53-raw",
+ "title": "The Audio Club rebuild",
+ "product": "The Audio Club",
+ "style": "Bench \u00b7 GLM-5.3 \u00b7 Round 1 raw",
+ "attempt_id": "att-0018",
+ "duration_s": 68.83,
+ "lufs": -15.9,
+ "true_peak_db": -1.32,
+ "transcript": {
+  "ratio": 0.919,
+  "state": "measured"
+ },
+ "verdict": "pending",
+ "defect_tags": [
+  "dead-space"
+ ],
+ "safezone_fg_violations": 232,
+ "safezone_elements_measured": 699,
+ "video_key": "video-qc/glm53-raw/video.mp4",
+ "poster_key": "video-qc/glm53-raw/scene-hook.jpg",
+ "scenes": [
+  {
+   "id": "hook",
+   "name": "Hook",
+   "start_s": 0.0,
+   "end_s": 4.93,
+   "duration_s": 4.93,
+   "line": "Follow every hero. Every night. One membership.",
+   "frame_key": "video-qc/glm53-raw/scene-hook.jpg",
+   "frame_t_s": 2.22,
+   "measured_fg_violations": 30,
+   "elements": [
+    {
+     "id": "comp-hook",
+     "name": "comp hook",
+     "text": "/* All rules are scoped under #comp-hook so this file can be mounted directly into the root document without style collisions. */ @font-face",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "hk-art-wrap",
+     "name": "hk art wrap",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "hk-art",
+     "name": "hk art",
+     "text": "(function () { 'use strict'; var SCENE = 'hook'; var COMP_ID = 'hook'; var ROOT = '#comp-hook'; var DURATION = 4.93; /* scene-local seconds:",
+     "box": null,
+     "entry_s": 0.0,
+     "entry_in_scene_s": 0.0,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "hk-scrim",
+     "name": "hk scrim",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "hk-vignette",
+     "name": "hk vignette",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "hk-line",
+     "name": "story line",
+     "text": "Follow every hero.",
+     "box": null,
+     "entry_s": 0.3,
+     "entry_in_scene_s": 0.3,
+     "trigger_word": "Follow",
+     "trigger_at_s": 0.3,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "presents",
+   "name": "Presents",
+   "start_s": 4.93,
+   "end_s": 8.97,
+   "duration_s": 4.04,
+   "line": "Big Brain Shelf presents: the Audio Club.",
+   "frame_key": "video-qc/glm53-raw/scene-presents.jpg",
+   "frame_t_s": 6.75,
+   "measured_fg_violations": 11,
+   "elements": [
+    {
+     "id": "comp-presents",
+     "name": "comp presents",
+     "text": "/* All rules are scoped under #comp-presents so this file can be mounted directly into the root document without style collisions. */ @font-",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pr-bg",
+     "name": "pr bg",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pr-shelf-group",
+     "name": "plank",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": 4.93,
+     "entry_in_scene_s": 0.0,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pr-shelf-row",
+     "name": "plank",
+     "text": "",
+     "box": [
+      100,
+      930,
+      980,
+      1230
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": false,
+      "breach_px": 20
+     }
+    },
+    {
+     "id": "pr-cover",
+     "name": "cover",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pr-plank",
+     "name": "plank",
+     "text": "",
+     "box": [
+      -14,
+      1894,
+      894,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": false,
+      "breach_px": 480
+     }
+    },
+    {
+     "id": "pr-logo-wrap",
+     "name": "logo",
+     "text": "",
+     "box": null,
+     "entry_s": 4.98,
+     "entry_in_scene_s": 0.05,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pr-logo",
+     "name": "logo",
+     "text": "(function () { 'use strict'; var SCENE = 'presents'; var COMP_ID = 'presents'; var ROOT = '#comp-presents'; var DURATION = 4.04; /* scene-lo",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pr-kicker",
+     "name": "pr kicker",
+     "text": "BIG BRAIN SHELF PRESENTS",
+     "box": null,
+     "entry_s": 5.23,
+     "entry_in_scene_s": 0.3,
+     "trigger_word": "Big",
+     "trigger_at_s": 5.23,
+     "zone": null
+    },
+    {
+     "id": "pr-title",
+     "name": "title",
+     "text": "THE AUDIO CLUB",
+     "box": null,
+     "entry_s": 6.83,
+     "entry_in_scene_s": 1.9,
+     "trigger_word": "the",
+     "trigger_at_s": 6.53,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "pitch",
+   "name": "Pitch",
+   "start_s": 8.97,
+   "end_s": 20.17,
+   "duration_s": 11.2,
+   "line": "The Audio Club is your pass to every Big Brain Shelf audiobook. Follow Mira at the still water, Fern down her clever trails, Wally across the great harbor, and every hero on the shelf.",
+   "frame_key": "video-qc/glm53-raw/scene-pitch.jpg",
+   "frame_t_s": 14.01,
+   "measured_fg_violations": 16,
+   "elements": [
+    {
+     "id": "comp-pitch",
+     "name": "comp pitch",
+     "text": "/* All rules are scoped under #comp-pitch so this file can be mounted directly into the root document without style collisions. */ @font-fac",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pt-bg",
+     "name": "pt bg",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pt-header",
+     "name": "title",
+     "text": "YOUR LIBRARY",
+     "box": null,
+     "entry_s": 8.97,
+     "entry_in_scene_s": 0.0,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pt-header-rule",
+     "name": "title",
+     "text": "",
+     "box": [
+      0,
+      286,
+      380,
+      298
+     ],
+     "entry_s": 9.07,
+     "entry_in_scene_s": 0.1,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": false,
+      "breach_px": 120
+     }
+    },
+    {
+     "id": "pt-shelf-group",
+     "name": "plank",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pt-shelf-row",
+     "name": "plank",
+     "text": "",
+     "box": [
+      64,
+      470,
+      1016,
+      789
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": false,
+      "breach_px": 56
+     }
+    },
+    {
+     "id": "pt-cover",
+     "name": "cover",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pt-plank",
+     "name": "plank",
+     "text": "",
+     "box": [
+      -14,
+      1894,
+      966,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": false,
+      "breach_px": 480
+     }
+    },
+    {
+     "id": "pt-caption",
+     "name": "caption",
+     "text": "The Audio Club is your pass to every Big Brain Shelf audiobook.",
+     "box": null,
+     "entry_s": 9.27,
+     "entry_in_scene_s": 0.3,
+     "trigger_word": "The",
+     "trigger_at_s": 9.27,
+     "zone": null
+    },
+    {
+     "id": "pt-caption-accent",
+     "name": "caption",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "grows",
+   "name": "Grows",
+   "start_s": 20.17,
+   "end_s": 28.7,
+   "duration_s": 8.53,
+   "line": "When a new book lands on the shelf, its audio book joins your library too. New heroes, new adventures, ready when you are.",
+   "frame_key": "video-qc/glm53-raw/scene-grows.jpg",
+   "frame_t_s": 24.01,
+   "measured_fg_violations": 31,
+   "elements": [
+    {
+     "id": "comp-grows",
+     "name": "comp grows",
+     "text": "/* All rules are scoped under #comp-grows so this file can be mounted directly into the root document without style collisions. */ @font-fac",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "gr-bg",
+     "name": "gr bg",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "gr-shelf-group",
+     "name": "plank",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "gr-shelf-row",
+     "name": "plank",
+     "text": "",
+     "box": [
+      64,
+      420,
+      1016,
+      739
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": false,
+      "breach_px": 56
+     }
+    },
+    {
+     "id": "gr-cover",
+     "name": "cover",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "gr-plank",
+     "name": "plank",
+     "text": "",
+     "box": [
+      -14,
+      1894,
+      966,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": false,
+      "breach_px": 480
+     }
+    },
+    {
+     "id": "gr-next-placeholder",
+     "name": "gr next placeholder",
+     "text": "THE NEXT BOOK",
+     "box": [
+      732,
+      1601,
+      952,
+      1894
+     ],
+     "entry_s": 20.72,
+     "entry_in_scene_s": 0.55,
+     "trigger_word": "When",
+     "trigger_at_s": 20.47,
+     "zone": {
+      "inside": false,
+      "breach_px": 454
+     }
+    },
+    {
+     "id": "gr-wren",
+     "name": "gr wren",
+     "text": "(function () { 'use strict'; var SCENE = 'grows'; var COMP_ID = 'grows'; var ROOT = '#comp-grows'; var DURATION = 8.53; /* scene-local secon",
+     "box": [
+      732,
+      1601,
+      952,
+      1894
+     ],
+     "entry_s": 26.32,
+     "entry_in_scene_s": 6.15,
+     "trigger_word": "new",
+     "trigger_at_s": 26.31,
+     "zone": {
+      "inside": false,
+      "breach_px": 454
+     }
+    },
+    {
+     "id": "gr-caption",
+     "name": "caption",
+     "text": "When a new book lands on the shelf, its audio book joins your library too.",
+     "box": null,
+     "entry_s": 20.47,
+     "entry_in_scene_s": 0.3,
+     "trigger_word": "When",
+     "trigger_at_s": 20.47,
+     "zone": null
+    },
+    {
+     "id": "gr-caption-accent",
+     "name": "caption",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "invite",
+   "name": "Invite",
+   "start_s": 28.7,
+   "end_s": 36.57,
+   "duration_s": 7.87,
+   "line": "Join Mira, Ansel, and Dell, Wally, Pip, and Skipper, and Fern, Moss, and Orin.",
+   "frame_key": "video-qc/glm53-raw/scene-invite.jpg",
+   "frame_t_s": 32.24,
+   "measured_fg_violations": 14,
+   "elements": [
+    {
+     "id": "comp-invite",
+     "name": "comp invite",
+     "text": "/* All rules are scoped under #comp-invite so this file can be mounted directly into the root document without style collisions. */ @font-fa",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "iv-bg",
+     "name": "iv bg",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "iv-captions",
+     "name": "caption",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      420
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": false,
+      "breach_px": 380
+     }
+    },
+    {
+     "id": "iv-covers",
+     "name": "cover",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": 35.9,
+     "entry_in_scene_s": 7.2,
+     "trigger_word": "Orin.",
+     "trigger_at_s": 35.36,
+     "zone": null
+    },
+    {
+     "id": "iv-chips",
+     "name": "badge",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "listening",
+   "name": "Listening",
+   "start_s": 36.57,
+   "end_s": 46.03,
+   "duration_s": 9.46,
+   "line": "Every story is ready when you are. Press play, and the stories begin. At home, in the car, anywhere the day takes you.",
+   "frame_key": "video-qc/glm53-raw/scene-listening.jpg",
+   "frame_t_s": 40.83,
+   "measured_fg_violations": 29,
+   "elements": [
+    {
+     "id": "comp-listening",
+     "name": "comp listening",
+     "text": "/* All rules are scoped under #comp-listening so this file can be mounted directly into the root document without style collisions. */ @font",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "ls-fill-wrap",
+     "name": "ls fill wrap",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "ls-fill",
+     "name": "ls fill",
+     "text": "",
+     "box": null,
+     "entry_s": 36.57,
+     "entry_in_scene_s": 0.0,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "ls-scrim",
+     "name": "ls scrim",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "ls-vignette",
+     "name": "ls vignette",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "ls-hero-wrap",
+     "name": "cast cards",
+     "text": "",
+     "box": [
+      210,
+      420,
+      870,
+      1300
+     ],
+     "entry_s": 36.62,
+     "entry_in_scene_s": 0.05,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": true,
+      "breach_px": 0
+     }
+    },
+    {
+     "id": "ls-hero",
+     "name": "cast cards",
+     "text": "(function () { 'use strict'; var SCENE = 'listening'; var COMP_ID = 'listening'; var ROOT = '#comp-listening'; var DURATION = 9.46; /* scene",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "ls-play",
+     "name": "ls play",
+     "text": "",
+     "box": [
+      255,
+      355,
+      405,
+      505
+     ],
+     "entry_s": 39.57,
+     "entry_in_scene_s": 3.0,
+     "trigger_word": "play",
+     "trigger_at_s": 39.55,
+     "zone": {
+      "inside": false,
+      "breach_px": 25
+     }
+    },
+    {
+     "id": "ls-caption",
+     "name": "caption",
+     "text": "Every story is ready when you are.",
+     "box": null,
+     "entry_s": 36.87,
+     "entry_in_scene_s": 0.3,
+     "trigger_word": "Every",
+     "trigger_at_s": 36.87,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "facts",
+   "name": "Facts",
+   "start_s": 46.03,
+   "end_s": 57.33,
+   "duration_s": 11.3,
+   "line": "Made for curious kids ages 4 to 8, and the grown-ups who press play. Listen anywhere: the car, the couch, the long drive home. Cancel anytime.",
+   "frame_key": "video-qc/glm53-raw/scene-facts.jpg",
+   "frame_t_s": 51.12,
+   "measured_fg_violations": 55,
+   "elements": [
+    {
+     "id": "comp-facts",
+     "name": "comp facts",
+     "text": "/* All rules are scoped under #comp-facts so this file can be mounted directly into the root document without style collisions. */ @font-fac",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "fc-bg",
+     "name": "fc bg",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "fc-logo-wrap",
+     "name": "logo",
+     "text": "",
+     "box": null,
+     "entry_s": 46.03,
+     "entry_in_scene_s": 0.0,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "fc-logo",
+     "name": "logo",
+     "text": "(function () { 'use strict'; var SCENE = 'facts'; var COMP_ID = 'facts'; var ROOT = '#comp-facts'; var DURATION = 11.30; /* scene-local seco",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "fc-header",
+     "name": "title",
+     "text": "MADE FOR LITTLE READERS",
+     "box": null,
+     "entry_s": 46.13,
+     "entry_in_scene_s": 0.1,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "fc-card",
+     "name": "card",
+     "text": "",
+     "box": [
+      90,
+      610,
+      990,
+      850
+     ],
+     "entry_s": 46.58,
+     "entry_in_scene_s": 0.55,
+     "trigger_word": "Made",
+     "trigger_at_s": 46.33,
+     "zone": {
+      "inside": false,
+      "breach_px": 30
+     }
+    },
+    {
+     "id": "fc-card-title",
+     "name": "card",
+     "text": "Ages 4 to 8",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "fc-card-sub",
+     "name": "card",
+     "text": "And the grown-ups who press play",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "fc-plank",
+     "name": "plank",
+     "text": "",
+     "box": [
+      62,
+      850,
+      1018,
+      876
+     ],
+     "entry_s": 46.53,
+     "entry_in_scene_s": 0.5,
+     "trigger_word": "Made",
+     "trigger_at_s": 46.33,
+     "zone": {
+      "inside": false,
+      "breach_px": 58
+     }
+    },
+    {
+     "id": "fc-caption",
+     "name": "caption",
+     "text": "Made for curious kids ages 4 to 8, and the grown-ups who press play.",
+     "box": null,
+     "entry_s": 46.33,
+     "entry_in_scene_s": 0.3,
+     "trigger_word": "Made",
+     "trigger_at_s": 46.33,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "end",
+   "name": "End card",
+   "start_s": 57.33,
+   "end_s": 68.83,
+   "duration_s": 11.5,
+   "line": "Join the Audio Club at bigbrainshelf.com. Five ninety-nine a month, or forty-nine dollars a year, and every adventure on the shelf is yours to follow.",
+   "frame_key": "video-qc/glm53-raw/scene-end.jpg",
+   "frame_t_s": 62.51,
+   "measured_fg_violations": 47,
+   "elements": [
+    {
+     "id": "comp-end",
+     "name": "comp end",
+     "text": "/* All rules are scoped under #comp-end so this file can be mounted directly into the root document without style collisions. */ @font-face ",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-bg",
+     "name": "nd bg",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-header",
+     "name": "title",
+     "text": "THE AUDIO CLUB",
+     "box": null,
+     "entry_s": 57.33,
+     "entry_in_scene_s": 0.0,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-fans",
+     "name": "boom spread",
+     "text": "",
+     "box": [
+      0,
+      0,
+      1080,
+      1920
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-hero-wrap",
+     "name": "cast cards",
+     "text": "",
+     "box": [
+      280,
+      300,
+      800,
+      993
+     ],
+     "entry_s": 57.48,
+     "entry_in_scene_s": 0.15,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": false,
+      "breach_px": 80
+     }
+    },
+    {
+     "id": "nd-hero-cover",
+     "name": "cover",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-price",
+     "name": "price pill",
+     "text": "",
+     "box": null,
+     "entry_s": 60.83,
+     "entry_in_scene_s": 3.5,
+     "trigger_word": ".com,",
+     "trigger_at_s": 60.07,
+     "zone": null
+    },
+    {
+     "id": "nd-price-big",
+     "name": "price pill",
+     "text": "$5.99/month",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-price-url",
+     "name": "price pill",
+     "text": "at bigbrainshelf.com/clubs",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-subline",
+     "name": "story line",
+     "text": "or $49 a year.",
+     "box": null,
+     "entry_s": 61.93,
+     "entry_in_scene_s": 4.6,
+     "trigger_word": "a",
+     "trigger_at_s": 61.95,
+     "zone": null
+    },
+    {
+     "id": "nd-includes-header",
+     "name": "title",
+     "text": "IN YOUR LIBRARY WHILE YOU ARE A MEMBER",
+     "box": null,
+     "entry_s": 64.03,
+     "entry_in_scene_s": 6.7,
+     "trigger_word": "year,",
+     "trigger_at_s": 63.93,
+     "zone": null
+    },
+    {
+     "id": "nd-includes",
+     "name": "nd includes",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-include",
+     "name": "nd include",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-include-dot",
+     "name": "nd include dot",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-include-text",
+     "name": "nd include text",
+     "text": "Every published audiobook",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-footer",
+     "name": "footer",
+     "text": "",
+     "box": null,
+     "entry_s": 65.53,
+     "entry_in_scene_s": 8.2,
+     "trigger_word": "adventure",
+     "trigger_at_s": 65.19,
+     "zone": null
+    },
+    {
+     "id": "nd-footer-stream",
+     "name": "footer",
+     "text": "Stream / Purchase at bigbrainshelf.com/clubs",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-footer-social",
+     "name": "footer",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-footer-social-text",
+     "name": "footer",
+     "text": "Follow @bigbrainshelf on",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-social-icon",
+     "name": "nd social icon",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "nd-caption",
+     "name": "caption",
+     "text": "Join the Audio Club at bigbrainshelf.com.",
+     "box": null,
+     "entry_s": 57.63,
+     "entry_in_scene_s": 0.3,
+     "trigger_word": "Join",
+     "trigger_at_s": 57.63,
+     "zone": null
+    }
+   ]
+  }
+ ]
+}

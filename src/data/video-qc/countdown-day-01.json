@@ -1,0 +1,172 @@
+{
+ "slug": "countdown-day-01",
+ "title": "Countdown Day 1",
+ "product": "Holiday 2026 \u00b7 12 Days",
+ "style": "Holiday \u00b7 Luna voice",
+ "attempt_id": "att-0032",
+ "duration_s": 11.0,
+ "lufs": -16.02,
+ "true_peak_db": -3.21,
+ "transcript": null,
+ "verdict": "pending",
+ "defect_tags": [],
+ "safezone_fg_violations": 14,
+ "safezone_elements_measured": 62,
+ "video_key": "video-qc/countdown-day-01/video.mp4",
+ "poster_key": "video-qc/countdown-day-01/scene-countdown.jpg",
+ "scenes": [
+  {
+   "id": "countdown",
+   "name": "Countdown",
+   "start_s": 0.0,
+   "end_s": 11.0,
+   "duration_s": 11.0,
+   "line": "It's 12 days till Christmas. Did you get your little reader something that feeds that brain?",
+   "frame_key": "video-qc/countdown-day-01/scene-countdown.jpg",
+   "frame_t_s": 4.95,
+   "measured_fg_violations": 14,
+   "elements": [
+    {
+     "id": "logo",
+     "name": "logo",
+     "text": "",
+     "box": [
+      0,
+      0,
+      640,
+      640
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": false,
+      "breach_px": 380
+     }
+    },
+    {
+     "id": "beard-wrap",
+     "name": "beard",
+     "text": "",
+     "box": null,
+     "entry_s": 2.35,
+     "entry_in_scene_s": 2.35,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "hat-wrap",
+     "name": "Santa hat",
+     "text": "",
+     "box": null,
+     "entry_s": 1.3,
+     "entry_in_scene_s": 1.3,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "count",
+     "name": "count line",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "count-inner",
+     "name": "count line",
+     "text": "It\u2019s days till Christmas.",
+     "box": null,
+     "entry_s": 3.1,
+     "entry_in_scene_s": 3.1,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "daysLeft",
+     "name": "daysLeft",
+     "text": "12",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "family",
+     "name": "family",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "family-inner",
+     "name": "family inner",
+     "text": "Did you get your little reader something that feeds that brain?",
+     "box": null,
+     "entry_s": 5.35,
+     "entry_in_scene_s": 5.35,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "gift",
+     "name": "gift cover",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "gift-inner",
+     "name": "gift cover",
+     "text": "",
+     "box": null,
+     "entry_s": 5.35,
+     "entry_in_scene_s": 5.35,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "fadeout",
+     "name": "fadeout",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "fadeout-inner",
+     "name": "fadeout inner",
+     "text": "",
+     "box": null,
+     "entry_s": 10.5,
+     "entry_in_scene_s": 10.5,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  }
+ ]
+}

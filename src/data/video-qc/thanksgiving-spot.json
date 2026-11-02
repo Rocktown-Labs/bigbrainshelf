@@ -1,0 +1,263 @@
+{
+ "slug": "thanksgiving-spot",
+ "title": "Thanksgiving spot",
+ "product": "Holiday 2026",
+ "style": "Holiday \u00b7 Luna voice",
+ "attempt_id": "att-0031",
+ "duration_s": 40.0,
+ "lufs": -15.9,
+ "true_peak_db": -2.79,
+ "transcript": null,
+ "verdict": "pending",
+ "defect_tags": [],
+ "safezone_fg_violations": 16,
+ "safezone_elements_measured": 75,
+ "video_key": "video-qc/thanksgiving-spot/video.mp4",
+ "poster_key": "video-qc/thanksgiving-spot/scene-scene-pilgrim.jpg",
+ "scenes": [
+  {
+   "id": "scene-pilgrim",
+   "name": "Pilgrim solo",
+   "start_s": 0.0,
+   "end_s": 14.6,
+   "duration_s": 14.6,
+   "line": "This Thanksgiving, we are thankful for stories. For small hands that turn the pages. For grown-ups who read one more chapter. And for every big idea a little brain can hold.",
+   "frame_key": "video-qc/thanksgiving-spot/scene-scene-pilgrim.jpg",
+   "frame_t_s": 6.57,
+   "measured_fg_violations": 13,
+   "elements": [
+    {
+     "id": "solo-frame",
+     "name": "solo frame",
+     "text": "",
+     "box": [
+      190,
+      320,
+      890,
+      1020
+     ],
+     "entry_s": 0.0,
+     "entry_in_scene_s": 0.0,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": false,
+      "breach_px": 60
+     }
+    },
+    {
+     "id": "solo-push",
+     "name": "solo push",
+     "text": "",
+     "box": null,
+     "entry_s": 0.0,
+     "entry_in_scene_s": 0.0,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "scene-pair",
+   "name": "Mascot pair",
+   "start_s": 13.9,
+   "end_s": 28.5,
+   "duration_s": 14.6,
+   "line": "Our Pilgrim brought a pumpkin. Our friend brought the corn. Together they brought the best part. A table full of people they love. Stories to read together. Stories to listen to. All season long.",
+   "frame_key": "video-qc/thanksgiving-spot/scene-scene-pair.jpg",
+   "frame_t_s": 20.47,
+   "measured_fg_violations": 2,
+   "elements": [
+    {
+     "id": "pair-inner",
+     "name": "pair inner",
+     "text": "",
+     "box": null,
+     "entry_s": 13.9,
+     "entry_in_scene_s": 13.9,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pair-frame-a",
+     "name": "pair frame a",
+     "text": "",
+     "box": [
+      120,
+      420,
+      540,
+      840
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": true,
+      "breach_px": 0
+     }
+    },
+    {
+     "id": "pair-push-a",
+     "name": "pair push a",
+     "text": "",
+     "box": null,
+     "entry_s": 13.9,
+     "entry_in_scene_s": 13.9,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pair-frame-b",
+     "name": "pair frame b",
+     "text": "",
+     "box": [
+      540,
+      420,
+      960,
+      840
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": true,
+      "breach_px": 0
+     }
+    },
+    {
+     "id": "pair-push-b",
+     "name": "pair push b",
+     "text": "",
+     "box": null,
+     "entry_s": 13.9,
+     "entry_in_scene_s": 13.9,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pair-rule",
+     "name": "accent rule",
+     "text": "",
+     "box": [
+      240,
+      920,
+      840,
+      928
+     ],
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": true,
+      "breach_px": 0
+     }
+    }
+   ]
+  },
+  {
+   "id": "scene-end",
+   "name": "End card",
+   "start_s": 28.1,
+   "end_s": 40.0,
+   "duration_s": 11.9,
+   "line": "From the Big Brain Shelf to your table, happy Thanksgiving. Find your next story at bigbrainshelf.com.",
+   "frame_key": "video-qc/thanksgiving-spot/scene-scene-end.jpg",
+   "frame_t_s": 33.45,
+   "measured_fg_violations": 2,
+   "elements": [
+    {
+     "id": "endcard",
+     "name": "card",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "endcard-inner",
+     "name": "card",
+     "text": "",
+     "box": null,
+     "entry_s": 28.1,
+     "entry_in_scene_s": 28.1,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "end-logo",
+     "name": "logo",
+     "text": "",
+     "box": [
+      325,
+      290,
+      755,
+      720
+     ],
+     "entry_s": 28.1,
+     "entry_in_scene_s": 28.1,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": false,
+      "breach_px": 90
+     }
+    },
+    {
+     "id": "end-close",
+     "name": "end close",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "end-close-inner",
+     "name": "end close inner",
+     "text": "From the Big Brain Shelf to your table, happy Thanksgiving.",
+     "box": null,
+     "entry_s": 28.46,
+     "entry_in_scene_s": 28.46,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "end-domain",
+     "name": "end domain",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "end-domain-inner",
+     "name": "end domain inner",
+     "text": "bigbrainshelf.com",
+     "box": null,
+     "entry_s": 32.76,
+     "entry_in_scene_s": 32.76,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  }
+ ]
+}

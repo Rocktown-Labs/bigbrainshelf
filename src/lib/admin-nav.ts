@@ -46,6 +46,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: "Media",
     items: [
       { href: "/admin/video", label: "Video", icon: "video" },
+      { href: "/admin/videos", label: "Promo QC", icon: "video" },
       { href: "/", label: "Storefront", icon: "store" },
     ],
   },

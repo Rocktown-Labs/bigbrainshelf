@@ -1,0 +1,1190 @@
+{
+ "slug": "audiobooks-style-a",
+ "title": "The Audio Books",
+ "product": "The Audio Books",
+ "style": "Style A \u00b7 house rebuild",
+ "attempt_id": "att-0009",
+ "duration_s": 79.067,
+ "lufs": -15.85,
+ "true_peak_db": -1.23,
+ "transcript": {
+  "ratio": null,
+  "state": "pass"
+ },
+ "verdict": "pending",
+ "defect_tags": [],
+ "safezone_fg_violations": 153,
+ "safezone_elements_measured": 864,
+ "video_key": "video-qc/audiobooks-style-a/video.mp4",
+ "poster_key": "video-qc/audiobooks-style-a/scene-hook.jpg",
+ "scenes": [
+  {
+   "id": "hook",
+   "name": "Hook",
+   "start_s": 0.0,
+   "end_s": 5.27,
+   "duration_s": 5.27,
+   "line": "Every hero does something different. The audiobooks are how you follow them all.",
+   "frame_key": "video-qc/audiobooks-style-a/scene-hook.jpg",
+   "frame_t_s": 2.37,
+   "measured_fg_violations": 16,
+   "elements": [
+    {
+     "id": "bgimg",
+     "name": "bgimg",
+     "text": "",
+     "box": null,
+     "entry_s": 0.0,
+     "entry_in_scene_s": 0.0,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "shade",
+     "name": "shade",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "hp0",
+     "name": "hp0",
+     "text": "Every hero",
+     "box": null,
+     "entry_s": 0.3,
+     "entry_in_scene_s": 0.3,
+     "trigger_word": "every",
+     "trigger_at_s": 0.3,
+     "zone": null
+    },
+    {
+     "id": "hp1",
+     "name": "hp1",
+     "text": "does something different.",
+     "box": null,
+     "entry_s": 1.03,
+     "entry_in_scene_s": 1.03,
+     "trigger_word": "does",
+     "trigger_at_s": 1.02,
+     "zone": null
+    },
+    {
+     "id": "hp2",
+     "name": "hp2",
+     "text": "The audiobooks are",
+     "box": null,
+     "entry_s": 2.57,
+     "entry_in_scene_s": 2.57,
+     "trigger_word": "The",
+     "trigger_at_s": 2.56,
+     "zone": null
+    },
+    {
+     "id": "hp3",
+     "name": "hp3",
+     "text": "how you follow them all.",
+     "box": null,
+     "entry_s": 3.47,
+     "entry_in_scene_s": 3.47,
+     "trigger_word": "how",
+     "trigger_at_s": 3.48,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "presents",
+   "name": "Presents",
+   "start_s": 5.27,
+   "end_s": 9.3,
+   "duration_s": 4.03,
+   "line": "Big Brain Shelf presents: the audiobooks.",
+   "frame_key": "video-qc/audiobooks-style-a/scene-presents.jpg",
+   "frame_t_s": 7.08,
+   "measured_fg_violations": 17,
+   "elements": [
+    {
+     "id": "glow",
+     "name": "glow",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pline",
+     "name": "story line",
+     "text": "BIG BRAIN SHELF PRESENTS",
+     "box": null,
+     "entry_s": 5.32,
+     "entry_in_scene_s": 0.05,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "ptitle",
+     "name": "title",
+     "text": "THE AUDIO BOOKS",
+     "box": null,
+     "entry_s": 5.42,
+     "entry_in_scene_s": 0.15,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pl0",
+     "name": "pl0",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pl1",
+     "name": "pl1",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pl2",
+     "name": "pl2",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c0",
+     "name": "c0",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c1",
+     "name": "c1",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c2",
+     "name": "c2",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c3",
+     "name": "c3",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c4",
+     "name": "c4",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c5",
+     "name": "c5",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c6",
+     "name": "c6",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c7",
+     "name": "c7",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c8",
+     "name": "c8",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "plogo",
+     "name": "logo",
+     "text": "",
+     "box": null,
+     "entry_s": 6.37,
+     "entry_in_scene_s": 1.1,
+     "trigger_word": "shelf",
+     "trigger_at_s": 6.15,
+     "zone": null
+    },
+    {
+     "id": "capwrap",
+     "name": "capwrap",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "cap",
+     "name": "cap",
+     "text": "Big Brain Shelf presents: the audiobooks.",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "pitch",
+   "name": "Pitch",
+   "start_s": 9.3,
+   "end_s": 17.93,
+   "duration_s": 8.63,
+   "line": "Every Big Brain Shelf book comes with its full audiobook, read aloud, first page to the end. Press play, and listen together.",
+   "frame_key": "video-qc/audiobooks-style-a/scene-pitch.jpg",
+   "frame_t_s": 13.18,
+   "measured_fg_violations": 16,
+   "elements": [
+    {
+     "id": "glow",
+     "name": "glow",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "label",
+     "name": "label",
+     "text": "EVERY BOOK COMES WITH ITS AUDIOBOOK",
+     "box": null,
+     "entry_s": 9.35,
+     "entry_in_scene_s": 0.05,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pl0",
+     "name": "pl0",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pl1",
+     "name": "pl1",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pl2",
+     "name": "pl2",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c0",
+     "name": "c0",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c1",
+     "name": "c1",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c2",
+     "name": "c2",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c3",
+     "name": "c3",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c4",
+     "name": "c4",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c5",
+     "name": "c5",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c6",
+     "name": "c6",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c7",
+     "name": "c7",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "c8",
+     "name": "c8",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "capwrap",
+     "name": "capwrap",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "cap",
+     "name": "cap",
+     "text": "Every Big Brain Shelf book comes with its full audiobook, read aloud, first page to the end.",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "trio-mira",
+   "name": "Trio: Mira",
+   "start_s": 17.93,
+   "end_s": 23.73,
+   "duration_s": 5.8,
+   "line": "Mira stands at the still water, learning that good things take watching and practice.",
+   "frame_key": "video-qc/audiobooks-style-a/scene-trio-mira.jpg",
+   "frame_t_s": 20.54,
+   "measured_fg_violations": 10,
+   "elements": [
+    {
+     "id": "fill",
+     "name": "fill",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "shade",
+     "name": "shade",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "seclabel",
+     "name": "seclabel",
+     "text": "FOLLOW THE HEROES",
+     "box": null,
+     "entry_s": 17.98,
+     "entry_in_scene_s": 0.05,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "hero",
+     "name": "cast cards",
+     "text": "",
+     "box": [
+      230,
+      450,
+      850,
+      1277
+     ],
+     "entry_s": 17.93,
+     "entry_in_scene_s": 0.0,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": true,
+      "breach_px": 0
+     }
+    },
+    {
+     "id": "capwrap",
+     "name": "capwrap",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "cap",
+     "name": "cap",
+     "text": "Mira stands at the still water, learning that good things take watching and practice.",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "trio-wally",
+   "name": "Trio: Wally",
+   "start_s": 23.73,
+   "end_s": 28.87,
+   "duration_s": 5.13,
+   "line": "Wally sails the great harbor, his sea-chest packed for every island.",
+   "frame_key": "video-qc/audiobooks-style-a/scene-trio-wally.jpg",
+   "frame_t_s": 26.04,
+   "measured_fg_violations": 16,
+   "elements": [
+    {
+     "id": "fill",
+     "name": "fill",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "shade",
+     "name": "shade",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "hero",
+     "name": "cast cards",
+     "text": "",
+     "box": [
+      230,
+      450,
+      850,
+      1277
+     ],
+     "entry_s": 23.73,
+     "entry_in_scene_s": 0.0,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": true,
+      "breach_px": 0
+     }
+    },
+    {
+     "id": "capwrap",
+     "name": "capwrap",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "cap",
+     "name": "cap",
+     "text": "Wally sails the great harbor, his sea-chest packed for every island.",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "trio-basil",
+   "name": "Trio: Basil",
+   "start_s": 28.87,
+   "end_s": 34.97,
+   "duration_s": 6.1,
+   "line": "Basil builds from his pattern book, swapping one piece to solve a brand-new problem.",
+   "frame_key": "video-qc/audiobooks-style-a/scene-trio-basil.jpg",
+   "frame_t_s": 31.61,
+   "measured_fg_violations": 33,
+   "elements": [
+    {
+     "id": "fill",
+     "name": "fill",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "shade",
+     "name": "shade",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "hero",
+     "name": "cast cards",
+     "text": "",
+     "box": [
+      230,
+      450,
+      850,
+      1277
+     ],
+     "entry_s": 28.87,
+     "entry_in_scene_s": 0.0,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": true,
+      "breach_px": 0
+     }
+    },
+    {
+     "id": "capwrap",
+     "name": "capwrap",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "cap",
+     "name": "cap",
+     "text": "Basil builds from his pattern book, swapping one piece to solve a brand-new problem.",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "sample",
+   "name": "Free sample",
+   "start_s": 34.97,
+   "end_s": 42.97,
+   "duration_s": 8.0,
+   "line": "The start of every book is free. On its audio page, the introduction and chapter one play free. No account needed.",
+   "frame_key": "video-qc/audiobooks-style-a/scene-sample.jpg",
+   "frame_t_s": 38.57,
+   "measured_fg_violations": 12,
+   "elements": [
+    {
+     "id": "head",
+     "name": "head",
+     "text": "THE START IS FREE",
+     "box": null,
+     "entry_s": 35.02,
+     "entry_in_scene_s": 0.05,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "pills",
+     "name": "pill",
+     "text": "",
+     "box": null,
+     "entry_s": 35.22,
+     "entry_in_scene_s": 0.25,
+     "trigger_word": "The",
+     "trigger_at_s": 35.27,
+     "zone": null
+    },
+    {
+     "id": "pill",
+     "name": "pill",
+     "text": "INTRODUCTION + CHAPTER 1",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "page",
+     "name": "page",
+     "text": "",
+     "box": [
+      140,
+      300,
+      940,
+      1367
+     ],
+     "entry_s": 35.17,
+     "entry_in_scene_s": 0.2,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": false,
+      "breach_px": 80
+     }
+    },
+    {
+     "id": "img2",
+     "name": "img2",
+     "text": "",
+     "box": null,
+     "entry_s": 41.24,
+     "entry_in_scene_s": 6.27,
+     "trigger_word": "No",
+     "trigger_at_s": 41.25,
+     "zone": null
+    },
+    {
+     "id": "capwrap",
+     "name": "capwrap",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "cap",
+     "name": "cap",
+     "text": "The start of every book is free.",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "facts",
+   "name": "Facts",
+   "start_s": 42.97,
+   "end_s": 60.23,
+   "duration_s": 17.27,
+   "line": "Made for curious kids ages 4 to 8, and the grown-ups who press play. Stream it in your library, or buy it and download the audio book to take anywhere: the car, the couch, the long drive home. Hear them all with the Audio Club, and cancel anytime.",
+   "frame_key": "video-qc/audiobooks-style-a/scene-facts.jpg",
+   "frame_t_s": 50.74,
+   "measured_fg_violations": 26,
+   "elements": [
+    {
+     "id": "glow",
+     "name": "glow",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "flogo",
+     "name": "logo",
+     "text": "",
+     "box": [
+      380,
+      388,
+      700,
+      708
+     ],
+     "entry_s": 43.07,
+     "entry_in_scene_s": 0.1,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": {
+      "inside": true,
+      "breach_px": 0
+     }
+    },
+    {
+     "id": "fh",
+     "name": "fh",
+     "text": "MADE FOR LITTLE READERS",
+     "box": null,
+     "entry_s": 43.32,
+     "entry_in_scene_s": 0.35,
+     "trigger_word": "Made",
+     "trigger_at_s": 43.27,
+     "zone": null
+    },
+    {
+     "id": "row1",
+     "name": "row1",
+     "text": "",
+     "box": null,
+     "entry_s": 44.6,
+     "entry_in_scene_s": 1.63,
+     "trigger_word": "ages",
+     "trigger_at_s": 44.61,
+     "zone": null
+    },
+    {
+     "id": "card",
+     "name": "card",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "big",
+     "name": "big",
+     "text": "Ages 4 to 8",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "sub",
+     "name": "sub",
+     "text": "And the grown-ups who press play",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "plank",
+     "name": "plank",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "row2",
+     "name": "row2",
+     "text": "",
+     "box": null,
+     "entry_s": 48.44,
+     "entry_in_scene_s": 5.47,
+     "trigger_word": "it",
+     "trigger_at_s": 48.47,
+     "zone": null
+    },
+    {
+     "id": "row3",
+     "name": "row3",
+     "text": "",
+     "box": null,
+     "entry_s": 58.2,
+     "entry_in_scene_s": 15.23,
+     "trigger_word": "cancel",
+     "trigger_at_s": 58.21,
+     "zone": null
+    },
+    {
+     "id": "capwrap",
+     "name": "capwrap",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "cap",
+     "name": "cap",
+     "text": "Made for curious kids ages 4 to 8, and the grown-ups who press play.",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  },
+  {
+   "id": "end",
+   "name": "End card",
+   "start_s": 60.23,
+   "end_s": 79.07,
+   "duration_s": 18.83,
+   "line": "Start listening at bigbrainshelf.com/audiobooks. One audio book, one ninety-nine. Every audio book, with the Audio Club: five ninety-nine a month, or forty-nine dollars a year. Or the whole bundle, eight ninety-nine, audio book included.",
+   "frame_key": "video-qc/audiobooks-style-a/scene-end.jpg",
+   "frame_t_s": 68.71,
+   "measured_fg_violations": 7,
+   "elements": [
+    {
+     "id": "ehead",
+     "name": "ehead",
+     "text": "THE AUDIO BOOKS",
+     "box": null,
+     "entry_s": 60.28,
+     "entry_in_scene_s": 0.05,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "fan",
+     "name": "boom spread",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "hero",
+     "name": "cast cards",
+     "text": "",
+     "box": [
+      345,
+      499,
+      735,
+      1019
+     ],
+     "entry_s": 60.53,
+     "entry_in_scene_s": 0.3,
+     "trigger_word": "Start",
+     "trigger_at_s": 60.53,
+     "zone": {
+      "inside": true,
+      "breach_px": 0
+     }
+    },
+    {
+     "id": "rung1",
+     "name": "rung1",
+     "text": "",
+     "box": [
+      120,
+      1062,
+      960,
+      1162
+     ],
+     "entry_s": 66.06,
+     "entry_in_scene_s": 5.83,
+     "trigger_word": "199.",
+     "trigger_at_s": 66.05,
+     "zone": {
+      "inside": true,
+      "breach_px": 0
+     }
+    },
+    {
+     "id": "lab",
+     "name": "lab",
+     "text": "One audiobook",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "sub",
+     "name": "sub",
+     "text": "Any book on the shelf, yours to keep",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "price",
+     "name": "price pill",
+     "text": "$1.99",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "rung2",
+     "name": "rung2",
+     "text": "",
+     "box": [
+      120,
+      1188,
+      960,
+      1288
+     ],
+     "entry_s": 69.76,
+     "entry_in_scene_s": 9.53,
+     "trigger_word": "$5",
+     "trigger_at_s": 69.77,
+     "zone": {
+      "inside": true,
+      "breach_px": 0
+     }
+    },
+    {
+     "id": "rung3",
+     "name": "rung3",
+     "text": "",
+     "box": [
+      120,
+      1314,
+      960,
+      1414
+     ],
+     "entry_s": 74.33,
+     "entry_in_scene_s": 14.1,
+     "trigger_word": ".99",
+     "trigger_at_s": 74.33,
+     "zone": {
+      "inside": true,
+      "breach_px": 0
+     }
+    },
+    {
+     "id": "social",
+     "name": "social",
+     "text": "",
+     "box": null,
+     "entry_s": 75.13,
+     "entry_in_scene_s": 14.9,
+     "trigger_word": "audiobook",
+     "trigger_at_s": 74.85,
+     "zone": null
+    },
+    {
+     "id": "url",
+     "name": "url",
+     "text": "Stream / Purchase at bigbrainshelf.com/audiobooks",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "fol",
+     "name": "fol",
+     "text": "Follow @bigbrainshelf on",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "capwrap",
+     "name": "capwrap",
+     "text": "",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    },
+    {
+     "id": "cap",
+     "name": "cap",
+     "text": "Start listening at bigbrainshelf.com/audiobooks.",
+     "box": null,
+     "entry_s": null,
+     "entry_in_scene_s": null,
+     "trigger_word": null,
+     "trigger_at_s": null,
+     "zone": null
+    }
+   ]
+  }
+ ]
+}
