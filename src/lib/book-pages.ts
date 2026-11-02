@@ -30,6 +30,7 @@ import { keyFromImageUrl } from "./takes";
 export interface ChapterFinale {
   text: string;
   imageKey: string;
+  imageColorKey?: string;
 }
 
 /** The bucket key a stored page `image` value points at ("" if none). */
@@ -60,11 +61,14 @@ export async function loadChapterFinales(
         const fin = plan?.finale;
         const imageKey = typeof fin?.imageKey === "string" ? fin.imageKey.trim() : "";
         if (!imageKey) return null;
+        const imageColorKey =
+          typeof fin?.imageColorKey === "string" ? fin.imageColorKey.trim() : "";
         return {
           n,
           finale: {
             text: typeof fin.storyText === "string" ? fin.storyText : "",
             imageKey,
+            ...(imageColorKey ? { imageColorKey } : {}),
           } as ChapterFinale,
         };
       } catch {
@@ -101,7 +105,14 @@ export function withFinalePages(
       ...ch,
       pages: [
         ...pages,
-        { text: fin.text, image: fin.imageKey, character: "", concept: "", finale: true },
+        {
+          text: fin.text,
+          image: fin.imageKey,
+          ...(fin.imageColorKey ? { imageColor: fin.imageColorKey } : {}),
+          character: "",
+          concept: "",
+          finale: true,
+        },
       ],
     };
   });
