@@ -41,9 +41,13 @@ export const GET: APIRoute = async ({ url }) => {
     if (obj) {
       const chapters = gatedChapters(await loadFullChapters(e.BOOKS, slug, JSON.parse(await obj.text())));
       const totalPages = chapters.reduce((s: number, c: any) => s + c.pages.length, 0);
+      const backColor = await e.BOOKS.head('books/docker/back-cover-color.jpg');
+      const backLine = await e.BOOKS.head('books/docker/back-cover-line.jpg');
       return Response.json({
         title: "Wally the Whale and the Great Harbor",
         slug: "docker", totalPages, chapters,
+        backCoverColor: backColor ? adminMediaUrl('books/docker/back-cover-color.jpg') : "",
+        backCoverLine: backLine ? adminMediaUrl('books/docker/back-cover-line.jpg') : "",
       });
     }
     const chapters: any = gatedChapters(await loadFullChapters(e.BOOKS, slug, dockerChapters as any[]));
@@ -63,5 +67,15 @@ export const GET: APIRoute = async ({ url }) => {
   }
   const chapters = gatedChapters(await loadFullChapters(e.BOOKS, slug, JSON.parse(await obj.text())));
   const totalPages = chapters.reduce((s: number, c: any) => s + c.pages.length, 0);
-  return Response.json({ title: book.title, slug, totalPages, chapters });
+  // Back cover art rides the same admin-gated media route as the story
+  // pages; the QC viewer used to build a raw public-bucket URL for it,
+  // which 404s (the bucket's public domain is disabled), so the back
+  // cover silently never appeared in the viewer.
+  const backColor = await e.BOOKS.head(`books/${slug}/back-cover-color.jpg`);
+  const backLine = await e.BOOKS.head(`books/${slug}/back-cover-line.jpg`);
+  return Response.json({
+    title: book.title, slug, totalPages, chapters,
+    backCoverColor: backColor ? adminMediaUrl(`books/${slug}/back-cover-color.jpg`) : "",
+    backCoverLine: backLine ? adminMediaUrl(`books/${slug}/back-cover-line.jpg`) : "",
+  });
 };

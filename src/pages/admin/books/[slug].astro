@@ -285,7 +285,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       var pageNo = 0;
       var seen = {};
       pages.forEach(function (p) {
-        if (p.cover || p.toc || p.backcover) return;
+        if (p.cover || p.toc || p.backcover || p.copyright) return;
         pageNo += 1;
         if (!seen[p.chapterNum]) {
           seen[p.chapterNum] = true;
@@ -297,9 +297,21 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       }).join("") + "</div>";
     }
 
+    function copyrightCardHtml() {
+      var t = (book && book.title) || "";
+      var yr = new Date().getFullYear();
+      return '<div class="toccard"><h3>' + esc(t) + '</h3>' +
+        '<p class="tocrow"><span>&copy; ' + yr + ' Big Brain Shelf</span></p>' +
+        '<p class="captext" style="text-align:left">All rights reserved. No part of this book may be reproduced, stored in a retrieval system, or transmitted in any form or by any means, without written permission from the publisher, except for brief quotations in a review.</p>' +
+        '<p class="tocrow"><span>Big Brain Shelf &middot; Searcy, Arkansas</span></p>' +
+        '<p class="tocrow"><span>First edition, ' + yr + '.</span></p>' +
+        '<p class="captext" style="text-align:left"><em>Every Big Brain Shelf book turns one real grown-up idea into a story little kids can follow, with the real words saved at the back for grown-ups to share.</em></p></div>';
+    }
+
     function pageLabel(p) {
       if (p.cover) return "Cover";
       if (p.toc) return "Contents";
+      if (p.copyright) return "Copyright";
       if (p.backcover) return "Back cover";
       return esc(p.chapterTitle) + " · Page " + (p.pageIndex + 1);
     }
@@ -310,6 +322,9 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       }
       if (p.toc) {
         return '<div class="captext">Contents · the story book\'s table of contents, as the book prints it</div>';
+      }
+      if (p.copyright) {
+        return '<div class="captext">Copyright · page 2 of the printed book, as it prints</div>';
       }
       if (p.backcover) {
         return '<div class="captext">Back cover · the painted back cover that closes the book</div>';
@@ -344,8 +359,11 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
           : r ? '<span class="dot ' + esc(r.status) + '"></span>' : "";
         var thumb = p.toc
           ? '<span class="tocthumb">Contents</span>'
+          : p.copyright
+          ? '<span class="tocthumb">&copy;</span>'
           : '<img loading="lazy" src="' + esc(imgFor(p)) + '" alt="" />';
         var lbl = p.cover ? 'Cover<span class="ch">Front cover</span>'
+          : p.copyright ? 'Copyright<span class="ch">Page 2</span>'
           : p.toc ? 'Contents<span class="ch">Table of contents</span>'
           : p.backcover ? 'Back cover<span class="ch">Back cover</span>'
           : esc(p.chapterTitle) + '<span class="ch">Page ' + (p.pageIndex + 1) + "</span>";
@@ -360,7 +378,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       var p = pages[cur];
       if (!p) { main.innerHTML = '<p id="msg">No pages yet.</p>'; return; }
       main.innerHTML = '<div class="stage">' +
-        (p.toc ? tocCardHtml() : '<img class="page" src="' + esc(imgFor(p)) + '" alt="page art" />') +
+        (p.toc ? tocCardHtml() : p.copyright ? copyrightCardHtml() : '<img class="page" src="' + esc(imgFor(p)) + '" alt="page art" />') +
         pageTextHtml(p) +
         '<div class="nav">' +
           '<button id="prev"' + (cur === 0 ? " disabled" : "") + ">&larr; Prev</button>" +
@@ -380,7 +398,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       main.innerHTML = pages.map(function (p, i) {
         return '<div class="pageblock" id="pb-' + i + '">' +
           '<p class="cap">' + pageLabel(p) + "</p>" +
-          (p.toc ? tocCardHtml() : '<img class="page" loading="lazy" src="' + esc(imgFor(p)) + '" alt="page art" />') +
+          (p.toc ? tocCardHtml() : p.copyright ? copyrightCardHtml() : '<img class="page" loading="lazy" src="' + esc(imgFor(p)) + '" alt="page art" />') +
           pageTextHtml(p) + markBarHtml("s" + i, p.chapterNum, p.pageIndex) + reqBoxHtml("s" + i, p.chapterNum, p.pageIndex) + "</div>";
       }).join("");
       pages.forEach(function (p, i) { wireReq("s" + i); wireMark("s" + i); });
@@ -664,17 +682,30 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
         // front cover, the table of contents as the story book
         // prints it, every story page, and the back cover closing
         // it. Flipping through QC is flipping through the book.
-        pages.push({
-          backcover: true,
+        if (data.backCoverColor || data.backCoverLine) {
+          pages.push({
+            backcover: true,
+            chapterNum: 0,
+            chapterTitle: "Back cover",
+            pageIndex: 2,
+            text: "",
+            character: "",
+            concept: "",
+            image: data.backCoverLine || data.backCoverColor,
+            imageColor: data.backCoverColor || ""
+          });
+        }
+        pages.splice(pages.length && pages[0].cover ? 1 : 0, 0, {
+          copyright: true,
           chapterNum: 0,
-          chapterTitle: "Back cover",
-          pageIndex: 2,
+          chapterTitle: "Copyright",
+          pageIndex: 3,
           text: "",
           character: "",
           concept: "",
-          image: R2 + "books/" + slug + "/back-cover-color.jpg"
+          image: ""
         });
-        pages.splice(pages.length && pages[0].cover ? 1 : 0, 0, {
+        pages.splice(pages.length && pages[0].cover ? 2 : 1, 0, {
           toc: true,
           chapterNum: 0,
           chapterTitle: "Contents",

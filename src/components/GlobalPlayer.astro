@@ -87,7 +87,10 @@
     function currentTrack() {
       return state.index >= 0 && state.index < state.tracks.length ? state.tracks[state.index] : null;
     }
-    function hostSlug() { return window.__bbsHostSlug || ""; }
+    function hostSlug() {
+      var d = document.documentElement.dataset || {};
+      return d.bbsHost || window.__bbsHostSlug || "";
+    }
     function syncBar() {
       var bar = $("bbs-mini");
       if (!bar) return;
@@ -169,6 +172,7 @@
       host: function (meta) {
         if (!meta) return;
         window.__bbsHostSlug = meta.slug || "";
+        try { document.documentElement.dataset.bbsHost = meta.slug || ""; } catch (e) {}
         if (meta.slug && meta.slug !== state.slug) {
           // A different book's player page: keep whatever is playing
           // untouched until this page's user presses play (its own
@@ -250,6 +254,14 @@
       syncBar();
     }
     document.addEventListener("astro:page-load", onPageLoad);
+    // The host stamp lives on <html> so it describes the CURRENT page;
+    // clear it as a navigation starts so a stamp from the page being
+    // left can never mark the next page as a host (that staleness is
+    // what kept the mini bar hidden after navigating home).
+    document.addEventListener("astro:before-preparation", function () {
+      try { delete document.documentElement.dataset.bbsHost; } catch (e) {}
+      window.__bbsHostSlug = "";
+    });
 
     // ---- restore after a hard navigation ----
     if (restored && restored.slug && Array.isArray(restored.tracks) && restored.tracks.length) {
