@@ -186,7 +186,7 @@ export const STILL_POOL_NOTE = {
 // bible order. Drives the index grouping, castmate rows and prev/next
 // navigation on the character pages.
 export const BOOK_CAST_ORDER: Record<string, string[]> = {
-  mira-the-heron-and-the-still-water: ["Mira", "Ansel", "Dell", "The Otter"],
+  "mira-the-heron-and-the-still-water": ["Mira", "Ansel", "Dell", "The Otter"],
   algorithms: ["Fern", "Moss", "Orin"],
   compoundeffect: ["Maisie", "Jasper", "Willa"],
   designpatterns: ["Basil", "Ada", "Nox"],
