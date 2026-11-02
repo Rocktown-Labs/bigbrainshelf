@@ -20,6 +20,7 @@
 // Turnstile keys are present. With no site key configured, the form
 // submits directly, exactly as it did before Turnstile existed.
 import { env } from "cloudflare:workers";
+import GlobalPlayer from "./GlobalPlayer.astro";
 const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
 ---
 <style is:inline>body{overflow-x:clip}img{max-width:100%}</style>
@@ -79,6 +80,7 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
     </div>
   </div>
 </footer>
+<GlobalPlayer />
 
 <script is:inline>
   // Bind every newsletter form on the page. Runs on first render and

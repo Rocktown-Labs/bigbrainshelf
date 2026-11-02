@@ -1,6 +1,5 @@
 ---
 import "../../styles/global.css";
-import GlobalPlayer from "../../components/GlobalPlayer.astro";
 import SiteFooter from "../../components/SiteFooter.astro";
 import SiteHeader from "../../components/SiteHeader.astro";
 import CartSheet from "../../components/CartSheet.astro";
@@ -237,7 +236,6 @@ const description = String(book.description || "").trim();
   </main>
 
   <SiteFooter />
-  <GlobalPlayer />
   <CartSheet />
 
   <script is:inline>
