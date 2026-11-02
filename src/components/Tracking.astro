@@ -66,6 +66,34 @@ const { pageEvent, traksEvent } = Astro.props;
 )}
 
 <script is:inline>
+  // Funnel mirror (2026-11-01): every taxonomy event also beacons to
+  // our own /api/collect, which lands it in Analytics Engine
+  // store_events next to the server-side money events. Traks keeps
+  // the props and the dashboard; the mirror carries only the event
+  // name, the path, a first-touch utm_source, and the value, so the
+  // two stores can be joined without personal data ever crossing.
+  function bbsMirror(name, value) {
+    try {
+      var utm = "";
+      try {
+        var q = new URLSearchParams(location.search).get("utm_source");
+        if (q) { sessionStorage.setItem("bbs-utm", q); utm = q; }
+        else utm = sessionStorage.getItem("bbs-utm") || "";
+      } catch (e) {}
+      var payload = JSON.stringify({
+        name: name,
+        path: location.pathname,
+        utm_source: utm || undefined,
+        value: typeof value === "number" ? value : undefined,
+      });
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon("/api/collect", new Blob([payload], { type: "application/json" }));
+      } else {
+        fetch("/api/collect", { method: "POST", body: payload, headers: { "Content-Type": "application/json" }, keepalive: true }).catch(function () {});
+      }
+    } catch (err) {}
+  }
+
   // The one Traks call site: a guarded wrapper so page scripts can fire
   // taxonomy events without caring whether the loader above ran.
   window.bbsTraks = function (name, props, value) {
@@ -74,6 +102,7 @@ const { pageEvent, traksEvent } = Astro.props;
         window.traks(name, props || {}, typeof value === "number" ? value : undefined);
       }
     } catch (err) {}
+    try { bbsMirror(name, typeof value === "number" ? value : undefined); } catch (err) {}
   };
 
   // One funnel call site for the whole store. Fans out to the Meta Pixel
@@ -155,6 +184,7 @@ const { pageEvent, traksEvent } = Astro.props;
         }
         window.bbsTraks(tev.name, tev.props || {}, typeof tev.value === "number" ? tev.value : undefined);
       }
+      try { bbsMirror("page_view", undefined); } catch (err) {}
       if (bbsFirstLoad) {
         bbsFirstLoad = false;
         if (ev && ev.name) window.bbsTrack(ev.name, ev.data || {});

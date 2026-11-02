@@ -125,6 +125,10 @@ const gate = async (context: any, next: any) => {
     if (pathname === "/api/stripe/webhook") return next();
     // Newsletter subscribe is a public form (email capture for new releases).
     if (pathname === "/api/subscribe") return next();
+    // Funnel mirror beacon: public by design (browser analytics
+    // beacons are unauthenticated); the route allowlists event names
+    // and stores no personal data.
+    if (pathname === "/api/collect") return next();
     // Contact form submit is public (it only enqueues an email to
     // the store; Turnstile-gated when configured, like subscribe).
     if (pathname === "/api/contact") return next();
