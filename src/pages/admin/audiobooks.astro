@@ -1,5 +1,6 @@
 ---
 import "../../styles/global.css";
+import { ClientRouter } from "astro:transitions";
 import { env } from "cloudflare:workers";
 import AdminShell from "../../components/AdminShell.astro";
 import { inspectAudiobook, formatClock } from "../../lib/audiobooks";
@@ -37,6 +38,7 @@ const mb = (n: number) => (n / 1048576).toFixed(1) + " MB";
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Audiobooks · Big Brain Shelf Admin</title>
+  <ClientRouter />
 </head>
 <body class="bg-stone-50 text-stone-900 antialiased">
   <AdminShell current="/admin/audiobooks" />

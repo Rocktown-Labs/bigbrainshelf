@@ -1,0 +1,267 @@
+---
+// GlobalPlayer: the one audio element for the whole site.
+//
+// Playback must survive navigation (CG, 2026-11-02): a parent starts an
+// audiobook in the reader, taps into the library or another book, and
+// the story keeps playing with a slim bottom bar as the control. Full
+// player pages (reader, story review, audiobook pages) drive this same
+// element through window.BBSPlayer; every other page just shows the
+// bar. The element and the bar carry transition:persist so Astro's
+// ClientRouter moves them across soft navigations untouched; a hard
+// navigation falls back to the sessionStorage mirror (book, track,
+// position, rate), restored paused with the bar up.
+//
+// Host pages: remove your own <audio>, use window.BBSPlayer.audio,
+// call BBSPlayer.host({ slug, title, cover, bookUrl }) once and
+// BBSPlayer.notePlaylist(tracks, index) whenever you load a track.
+---
+
+<audio id="bbs-audio" transition:persist="bbs-audio" preload="metadata" class="hidden"></audio>
+
+<div
+  id="bbs-mini"
+  transition:persist="bbs-mini"
+  class="hidden fixed inset-x-0 bottom-0 z-50 bg-[#1a3454] text-white shadow-[0_-4px_24px_rgba(0,0,0,0.35)]"
+  role="region"
+  aria-label="Audiobook player"
+>
+  <div class="mx-auto max-w-5xl px-3 py-2.5 flex items-center gap-3">
+    <a id="bbs-mini-open" href="#" class="flex items-center gap-3 min-w-0 flex-1">
+      <img id="bbs-mini-cover" src="" alt="" class="w-10 h-[52px] object-cover rounded border border-white/20 shrink-0 hidden" />
+      <span class="min-w-0">
+        <span id="bbs-mini-title" class="block font-bold text-sm leading-tight truncate">Audiobook</span>
+        <span id="bbs-mini-track" class="block text-white/65 text-xs truncate mt-0.5">Paused</span>
+      </span>
+    </a>
+    <span id="bbs-mini-time" class="text-xs text-white/70 tabular-nums shrink-0 hidden sm:block">0:00 / 0:00</span>
+    <button id="bbs-mini-prev" type="button" aria-label="Previous chapter" class="h-9 w-9 grid place-items-center rounded-full border border-white/30 hover:border-white/70 disabled:opacity-35 shrink-0">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2.5v14H6zM19 5v14L9.5 12z"/></svg>
+    </button>
+    <button id="bbs-mini-toggle" type="button" aria-label="Play or pause" class="h-11 w-11 grid place-items-center rounded-full bg-orange-600 hover:bg-orange-500 shrink-0">
+      <svg id="bbs-mini-icon-play" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+      <svg id="bbs-mini-icon-pause" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" class="hidden"><path d="M6.5 5h4v14h-4zM13.5 5h4v14h-4z"/></svg>
+    </button>
+    <button id="bbs-mini-next" type="button" aria-label="Next chapter" class="h-9 w-9 grid place-items-center rounded-full border border-white/30 hover:border-white/70 disabled:opacity-35 shrink-0">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.5 5H18v14h-2.5zM5 5v14l9.5-7z"/></svg>
+    </button>
+    <button id="bbs-mini-close" type="button" aria-label="Stop and close player" class="h-9 w-9 grid place-items-center rounded-full hover:bg-white/10 shrink-0 text-white/70 hover:text-white">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg>
+    </button>
+  </div>
+  <div class="h-[3px] bg-white/15">
+    <div id="bbs-mini-fill" class="h-full w-0 bg-[#f97316]"></div>
+  </div>
+</div>
+
+<script is:inline>
+  (function () {
+    if (window.BBSPlayer) return; // controller lives for the whole session
+
+    var STORE_KEY = "bbs-player-v1";
+    var audio = document.getElementById("bbs-audio");
+    var state = {
+      slug: "", title: "", cover: "", bookUrl: "",
+      tracks: [], index: -1, rate: 1,
+    };
+    var restored = null;
+    try { restored = JSON.parse(sessionStorage.getItem(STORE_KEY) || "null"); } catch (e) { restored = null; }
+
+    function $(id) { return document.getElementById(id); }
+    function fmt(s) {
+      if (s == null || !isFinite(s) || s < 0) return "0:00";
+      s = Math.round(s);
+      var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = s % 60;
+      var mm = h > 0 ? String(m).padStart(2, "0") : String(m);
+      return (h > 0 ? h + ":" : "") + mm + ":" + String(r).padStart(2, "0");
+    }
+    function save() {
+      try {
+        if (!state.slug || state.index < 0) { sessionStorage.removeItem(STORE_KEY); return; }
+        sessionStorage.setItem(STORE_KEY, JSON.stringify({
+          slug: state.slug, title: state.title, cover: state.cover, bookUrl: state.bookUrl,
+          tracks: state.tracks, index: state.index, rate: state.rate,
+          time: audio.currentTime || 0,
+        }));
+      } catch (e) {}
+    }
+    function currentTrack() {
+      return state.index >= 0 && state.index < state.tracks.length ? state.tracks[state.index] : null;
+    }
+    function hostSlug() { return window.__bbsHostSlug || ""; }
+    function syncBar() {
+      var bar = $("bbs-mini");
+      if (!bar) return;
+      var t = currentTrack();
+      var has = !!(state.slug && (t || audio.getAttribute("src")));
+      var onHost = has && hostSlug() === state.slug;
+      bar.classList.toggle("hidden", !has || onHost);
+      if (!has) return;
+      var cover = $("bbs-mini-cover");
+      if (cover) {
+        if (state.cover) { cover.src = state.cover; cover.classList.remove("hidden"); }
+        else cover.classList.add("hidden");
+      }
+      var title = $("bbs-mini-title"); if (title) title.textContent = state.title || "Audiobook";
+      var track = $("bbs-mini-track");
+      if (track) track.textContent = (t ? t.label : "") + (audio.paused ? " · Paused" : "");
+      var open = $("bbs-mini-open"); if (open && state.bookUrl) open.href = state.bookUrl;
+      var prev = $("bbs-mini-prev"); if (prev) prev.disabled = state.index <= 0;
+      var next = $("bbs-mini-next"); if (next) next.disabled = state.index < 0 || state.index >= state.tracks.length - 1;
+      var ip = $("bbs-mini-icon-play"), ipa = $("bbs-mini-icon-pause");
+      if (ip) ip.classList.toggle("hidden", !audio.paused);
+      if (ipa) ipa.classList.toggle("hidden", audio.paused);
+      syncTime();
+      syncMediaSession();
+    }
+    function syncTime() {
+      var time = $("bbs-mini-time"), fill = $("bbs-mini-fill");
+      var dur = isFinite(audio.duration) && audio.duration > 0 ? audio.duration : (currentTrack() && currentTrack().duration) || 0;
+      if (time) time.textContent = fmt(audio.currentTime) + " / " + fmt(dur);
+      if (fill) fill.style.width = dur > 0 ? Math.min(100, (audio.currentTime / dur) * 100) + "%" : "0%";
+    }
+    function syncMediaSession() {
+      if (!("mediaSession" in navigator)) return;
+      try {
+        var t = currentTrack();
+        navigator.mediaSession.metadata = new window.MediaMetadata({
+          title: t ? t.label : state.title,
+          album: state.title,
+          artist: "Big Brain Shelf",
+          artwork: state.cover ? [{ src: state.cover, sizes: "512x512" }] : [],
+        });
+        navigator.mediaSession.setActionHandler("play", function () { audio.play().catch(function () {}); });
+        navigator.mediaSession.setActionHandler("pause", function () { audio.pause(); });
+        navigator.mediaSession.setActionHandler("previoustrack", function () { api.step(-1); });
+        navigator.mediaSession.setActionHandler("nexttrack", function () { api.step(1); });
+      } catch (e) {}
+    }
+    function loadIndex(i, autoplay, atTime) {
+      if (i < 0 || i >= state.tracks.length) return;
+      state.index = i;
+      var t = state.tracks[i];
+      audio.src = t.url;
+      audio.playbackRate = state.rate || 1;
+      if (atTime && atTime > 0) {
+        var seekOnce = function () {
+          try { audio.currentTime = atTime; } catch (e) {}
+          audio.removeEventListener("loadedmetadata", seekOnce);
+        };
+        audio.addEventListener("loadedmetadata", seekOnce);
+      }
+      if (autoplay) audio.play().catch(function () {});
+      save();
+      syncBar();
+    }
+    function inferIndexFromSrc() {
+      var src = audio.currentSrc || audio.getAttribute("src") || "";
+      if (!src || !state.tracks.length) return;
+      for (var i = 0; i < state.tracks.length; i++) {
+        if (state.tracks[i].url && src.indexOf(state.tracks[i].url) !== -1) {
+          if (state.index !== i) { state.index = i; save(); }
+          return;
+        }
+      }
+    }
+
+    var api = {
+      audio: audio,
+      state: state,
+      host: function (meta) {
+        if (!meta) return;
+        window.__bbsHostSlug = meta.slug || "";
+        if (meta.slug && meta.slug !== state.slug) {
+          // A different book's player page: keep whatever is playing
+          // untouched until this page's user presses play (its own
+          // loadTrack will notePlaylist over the state).
+          state.hostMeta = meta;
+        } else if (meta.slug) {
+          state.title = meta.title || state.title;
+          state.cover = meta.cover || state.cover;
+          state.bookUrl = meta.bookUrl || state.bookUrl;
+        }
+        syncBar();
+      },
+      notePlaylist: function (tracks, index, meta) {
+        if (meta) {
+          state.slug = meta.slug || state.slug;
+          state.title = meta.title || state.title;
+          state.cover = meta.cover || state.cover;
+          state.bookUrl = meta.bookUrl || state.bookUrl;
+        }
+        if (Array.isArray(tracks) && tracks.length) state.tracks = tracks;
+        if (typeof index === "number") state.index = index;
+        save();
+        syncBar();
+      },
+      loadIndex: loadIndex,
+      step: function (d) { loadIndex(state.index + d, true); },
+      toggle: function () {
+        if (audio.paused) {
+          if (!audio.getAttribute("src") && state.index >= 0) loadIndex(state.index, true);
+          else audio.play().catch(function () {});
+        } else audio.pause();
+      },
+      stop: function () {
+        audio.pause();
+        audio.removeAttribute("src");
+        audio.load();
+        state.slug = ""; state.tracks = []; state.index = -1;
+        try { sessionStorage.removeItem(STORE_KEY); } catch (e) {}
+        syncBar();
+      },
+    };
+    window.BBSPlayer = api;
+
+    // ---- wire the (persisted) bar controls once ----
+    function wireBar() {
+      var toggle = $("bbs-mini-toggle"), prev = $("bbs-mini-prev"),
+          next = $("bbs-mini-next"), close = $("bbs-mini-close"), bar = $("bbs-mini");
+      if (!bar || bar.__wired) return;
+      bar.__wired = true;
+      if (toggle) toggle.addEventListener("click", function () { api.toggle(); });
+      if (prev) prev.addEventListener("click", function () { api.step(-1); });
+      if (next) next.addEventListener("click", function () { api.step(1); });
+      if (close) close.addEventListener("click", function () { api.stop(); });
+    }
+
+    // ---- audio events drive the bar + the session mirror ----
+    var saveTick = 0;
+    audio.addEventListener("play", syncBar);
+    audio.addEventListener("pause", function () { save(); syncBar(); });
+    audio.addEventListener("loadstart", function () { inferIndexFromSrc(); syncBar(); });
+    audio.addEventListener("loadedmetadata", syncBar);
+    audio.addEventListener("timeupdate", function () {
+      syncTime();
+      var now = Date.now();
+      if (now - saveTick > 4000) { saveTick = now; save(); }
+    });
+    audio.addEventListener("ended", function () {
+      if (state.index >= 0 && state.index < state.tracks.length - 1) loadIndex(state.index + 1, true);
+      else { save(); syncBar(); }
+    });
+
+    function onPageLoad() {
+      wireBar();
+      // The persisted <audio> may have been replaced by a fresh one in
+      // a page that renders its own GlobalPlayer copy before the router
+      // swaps; re-point if the node changed.
+      var el = document.getElementById("bbs-audio");
+      if (el && el !== audio) { audio = el; api.audio = el; }
+      syncBar();
+    }
+    document.addEventListener("astro:page-load", onPageLoad);
+
+    // ---- restore after a hard navigation ----
+    if (restored && restored.slug && Array.isArray(restored.tracks) && restored.tracks.length) {
+      state.slug = restored.slug; state.title = restored.title || "";
+      state.cover = restored.cover || ""; state.bookUrl = restored.bookUrl || "";
+      state.tracks = restored.tracks; state.index = restored.index || 0;
+      state.rate = restored.rate || 1;
+      if (hostSlug() !== state.slug) {
+        loadIndex(state.index, false, restored.time || 0);
+      }
+    }
+    wireBar();
+    syncBar();
+  })();
+</script>

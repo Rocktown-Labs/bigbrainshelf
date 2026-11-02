@@ -1,5 +1,7 @@
 ---
 import "../../../styles/global.css";
+import GlobalPlayer from "../../../components/GlobalPlayer.astro";
+import { ClientRouter } from "astro:transitions";
 import { env } from "cloudflare:workers";
 import AdminShell from "../../../components/AdminShell.astro";
 import { resolveBookForPublicRoute, publicSlugFor } from "../../../lib/public-slugs";
@@ -32,6 +34,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width" />
   <title>Book QC · Big Brain Shelf admin</title>
+  <ClientRouter />
   <style is:global>
     * { box-sizing: border-box; }
     body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; color: #1c1917; background: #fafaf9; }
@@ -724,5 +727,6 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       });
     });
   </script>
+  <GlobalPlayer />
 </body>
 </html>

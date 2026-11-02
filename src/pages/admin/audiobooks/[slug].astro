@@ -1,5 +1,6 @@
 ---
 import "../../../styles/global.css";
+import { ClientRouter } from "astro:transitions";
 import { env } from "cloudflare:workers";
 import AdminShell from "../../../components/AdminShell.astro";
 import { inspectAudiobook, formatClock } from "../../../lib/audiobooks";
@@ -44,6 +45,7 @@ const mb = (n: number) => (n / 1048576).toFixed(1) + " MB";
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{book ? `${book.title} · Audiobook` : "Audiobook"} · Big Brain Shelf Admin</title>
+  <ClientRouter />
 </head>
 <body class="bg-stone-50 text-stone-900 antialiased">
   <AdminShell current="/admin/audiobooks" />
@@ -86,7 +88,7 @@ const mb = (n: number) => (n / 1048576).toFixed(1) + " MB";
             <span class="text-sm text-red-600" id="player-status"></span>
           </div>
 
-          <audio id="player" preload="metadata"></audio>
+          
 
           <div class="mt-4 flex items-center gap-3">
             <button id="prev-btn" class="rounded-full border border-stone-300 bg-white h-11 w-11 grid place-items-center hover:border-stone-500 disabled:opacity-40" aria-label="Previous chapter">
@@ -139,7 +141,8 @@ const mb = (n: number) => (n / 1048576).toFixed(1) + " MB";
 
   {playerData && (
     <script is:inline define:vars={{ playerData }}>
-      var audio = document.getElementById("player");
+      var audio = window.BBSPlayer.audio;
+      if (window.BBSPlayer) window.BBSPlayer.host({ slug: playerData.slug, title: playerData.title || document.title, cover: playerData.cover || "", bookUrl: window.location.pathname });
       var playBtn = document.getElementById("play-btn");
       var iconPlay = document.getElementById("icon-play");
       var iconPause = document.getElementById("icon-pause");
@@ -197,6 +200,7 @@ const mb = (n: number) => (n / 1048576).toFixed(1) + " MB";
         var tracks = playlist();
         if (i < 0 || i >= tracks.length) return;
         index = i;
+        if (window.BBSPlayer) window.BBSPlayer.notePlaylist(playlist(), index, { slug: playerData.slug, title: playerData.title || document.title, cover: playerData.cover || "", bookUrl: window.location.pathname });
         var t = tracks[i];
         statusEl.textContent = "";
         audio.src = t.url;

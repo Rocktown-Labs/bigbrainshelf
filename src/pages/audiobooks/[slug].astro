@@ -1,5 +1,6 @@
 ---
 import "../../styles/global.css";
+import GlobalPlayer from "../../components/GlobalPlayer.astro";
 import SiteFooter from "../../components/SiteFooter.astro";
 import SiteHeader from "../../components/SiteHeader.astro";
 import CartSheet from "../../components/CartSheet.astro";
@@ -179,7 +180,7 @@ const description = String(book.description || "").trim();
         </div>
         <span id="ap-dur" class="text-xs text-white/70 tabular-nums">{sampleSecs ? formatClock(sampleSecs) : "0:00"}</span>
       </div>
-      <audio id="ap-audio" preload="none"></audio>
+      
     </section>
 
     <div id="ap-tracks" class="border border-stone-200 rounded-2xl overflow-hidden mt-4">
@@ -236,6 +237,7 @@ const description = String(book.description || "").trim();
   </main>
 
   <SiteFooter />
+  <GlobalPlayer />
   <CartSheet />
 
   <script is:inline>
@@ -297,7 +299,7 @@ const description = String(book.description || "").trim();
     document.addEventListener("astro:page-load", initAudioBuy);
   </script>
 
-  <script is:inline define:vars={{ publicSlug, sample }}>
+  <script is:inline define:vars={{ publicSlug, sample, bookTitle: title }}>
     // Free sample player: plays the sample tracks in order (the
     // introduction, then chapter 1) from /api/audio-sample, the
     // public sample route. Locked chapters have no URLs on this page
@@ -308,7 +310,7 @@ const description = String(book.description || "").trim();
     }
     function initSamplePlayer() {
       if (window.location.pathname !== "/audiobooks/" + publicSlug) return;
-      var audio = document.getElementById("ap-audio");
+      var audio = window.BBSPlayer.audio;
       var toggle = document.getElementById("ap-toggle");
       if (!audio || !toggle || toggle.__playerBound) return;
       toggle.__playerBound = true;
@@ -359,6 +361,7 @@ const description = String(book.description || "").trim();
       }
       function select(i, autoplay) {
         idx = i;
+        if (window.BBSPlayer) { window.BBSPlayer.host({ slug: publicSlug, title: bookTitle, bookUrl: window.location.pathname }); window.BBSPlayer.notePlaylist(sample, idx, { slug: publicSlug, title: bookTitle, bookUrl: window.location.pathname }); }
         audio.src = sample[idx].url;
         audio.currentTime = 0;
         paint();

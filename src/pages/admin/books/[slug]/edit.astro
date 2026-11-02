@@ -1,5 +1,7 @@
 ---
 import "../../../../styles/global.css";
+import GlobalPlayer from "../../../../components/GlobalPlayer.astro";
+import { ClientRouter } from "astro:transitions";
 import { env } from "cloudflare:workers";
 import AdminShell from "../../../../components/AdminShell.astro";
 import { resolveBookForPublicRoute, publicSlugFor } from "../../../../lib/public-slugs";
@@ -28,6 +30,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Page Editor - Kidsbook Hub</title>
+  <ClientRouter />
   <style is:global>
     :root { --bg: #f7f5f0; --surface: #ffffff; --text: #1c2733; --dim: #6b7280; --border: #e2ddd4; --accent: #2563eb; --accent-strong: #1d4ed8; --qa: #1f9d66; }
     @media (prefers-color-scheme: dark) { :root { --bg: #14181d; --surface: #1e242b; --text: #e8e6e1; --dim: #9aa0a8; --border: #333b44; } }
@@ -1191,5 +1194,6 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       });
     });
   </script>
+  <GlobalPlayer />
 </body>
 </html>

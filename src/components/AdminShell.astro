@@ -20,6 +20,7 @@
 //   menu button; nothing about phone admin changes hands.
 // Auth gating is untouched: the middleware still guards /admin.
 import { ADMIN_NAV, isEditorRoute } from "../lib/admin-nav";
+import GlobalPlayer from "./GlobalPlayer.astro";
 
 const { current = "" } = Astro.props;
 const editor = isEditorRoute(Astro.url.pathname);
@@ -46,6 +47,7 @@ const icon = (name: string) =>
   `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
 ---
 
+<GlobalPlayer />
 <script is:inline define:vars={{ editor }}>
   // Set the initial sidebar state before the rail paints: editor
   // routes start collapsed; everywhere else the persisted choice

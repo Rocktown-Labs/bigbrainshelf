@@ -12,6 +12,7 @@
 // The switcher contract (select id, option data attributes, the
 // bbs:profile-change event) is stable: the library and reader listen.
 import { KID_AVATARS, type KidProfile } from "../lib/family";
+import GlobalPlayer from "./GlobalPlayer.astro";
 import SiteHeader from "./SiteHeader.astro";
 import CartSheet from "./CartSheet.astro";
 
@@ -720,6 +721,7 @@ const ICONS: Record<string, string> = {
   </div>
 </div>
 
+<GlobalPlayer />
 <script is:inline>
   (function () {
     function initCustomerShell() {

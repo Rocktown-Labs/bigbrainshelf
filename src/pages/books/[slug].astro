@@ -1,5 +1,6 @@
 ---
 import "../../styles/global.css";
+import GlobalPlayer from "../../components/GlobalPlayer.astro";
 import { env } from "cloudflare:workers";
 import SiteFooter from "../../components/SiteFooter.astro";
 import SiteHeader from "../../components/SiteHeader.astro";
@@ -650,6 +651,7 @@ const bookJsonLd: Record<string, unknown> = isLocalized
   )}
 
   <SiteFooter />
+  <GlobalPlayer />
 
   {!isLocalized && <script is:inline define:vars={{ slug, publicSlug, priceCents: digitalCentsEffective, printCents: Number(book.price_print || 0), giftCents: GIFT_SET_PRICE_CENTS, audioCents: AUDIO_PRICE_CENTS }}>
     function money(cents) { return "$" + (cents / 100).toFixed(2); }

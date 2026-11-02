@@ -1,5 +1,7 @@
 ---
 import "../../../../styles/global.css";
+import GlobalPlayer from "../../../../components/GlobalPlayer.astro";
+import { ClientRouter } from "astro:transitions";
 import { env } from "cloudflare:workers";
 import AdminShell from "../../../../components/AdminShell.astro";
 import { inspectAudiobook, formatClock } from "../../../../lib/audiobooks";
@@ -183,6 +185,7 @@ const unresolvedCount = notes.filter((n) => !n.resolved).length;
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{book ? `${book.title} · Story Review` : "Story Review"} · Big Brain Shelf Admin</title>
+  <ClientRouter />
   <style>
     .rv-anchor { scroll-margin-top: 140px; }
     @media (max-width: 640px) { .rv-anchor { scroll-margin-top: 184px; } }
@@ -246,7 +249,7 @@ const unresolvedCount = notes.filter((n) => !n.resolved).length;
           </div>
           {playerData && (
             <>
-              <audio id="player" preload="metadata"></audio>
+              
               <div class="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
                 <button id="prev-btn" class="rounded-full border border-stone-300 bg-white h-8 w-8 grid place-items-center hover:border-stone-500 disabled:opacity-40 shrink-0" aria-label="Previous chapter">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2.5v14H6zM19 5v14L9.5 12z"/></svg>
@@ -565,7 +568,8 @@ const unresolvedCount = notes.filter((n) => !n.resolved).length;
     }
 
     if (playerData) {
-      var audio = document.getElementById("player");
+      var audio = window.BBSPlayer.audio;
+      if (window.BBSPlayer) window.BBSPlayer.host({ slug: playerData.slug, title: playerData.title || document.title, cover: playerData.cover || "", bookUrl: window.location.pathname });
       var playBtn = document.getElementById("play-btn");
       var iconPlay = document.getElementById("icon-play");
       var iconPause = document.getElementById("icon-pause");
@@ -613,6 +617,7 @@ const unresolvedCount = notes.filter((n) => !n.resolved).length;
         var tracks = playlist();
         if (i < 0 || i >= tracks.length) return;
         index = i;
+        if (window.BBSPlayer) window.BBSPlayer.notePlaylist(playlist(), index, { slug: playerData.slug, title: playerData.title || document.title, cover: playerData.cover || "", bookUrl: window.location.pathname });
         var t = tracks[i];
         statusEl.textContent = "";
         audio.src = t.url;
@@ -734,5 +739,6 @@ const unresolvedCount = notes.filter((n) => !n.resolved).length;
       });
     });
   </script>
+  <GlobalPlayer />
 </body>
 </html>

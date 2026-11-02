@@ -1,5 +1,6 @@
 ---
 import "../../styles/global.css";
+import { ClientRouter } from "astro:transitions";
 import { env } from "cloudflare:workers";
 import { getAuth } from "../../lib/auth";
 import Tracking from "../../components/Tracking.astro";
@@ -67,7 +68,7 @@ if (book.audiobook_key) {
   info = await inspectAudiobook(e, book, `/api/library/audio/${slug}`);
 }
 const playerData = info
-  ? { slug: book.slug, full: info.full, chapters: info.chapters, tracks: info.tracks }
+  ? { slug: book.slug, title: book.title, cover: book.cover_key ? R2 + book.cover_key : "", full: info.full, chapters: info.chapters, tracks: info.tracks }
   : null;
 const audioChapterCount = info ? info.chapters.length : 0;
 const totalSecs = info ? info.tracks.reduce((s: number, c: any) => s + (c.duration || 0), 0) : 0;
@@ -101,6 +102,7 @@ if (entitlement.owned) {
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/site.webmanifest" />
   <meta name="theme-color" content="#1a3454" />
+  <ClientRouter />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{book.title} · Read · Big Brain Shelf</title>
@@ -161,7 +163,7 @@ if (entitlement.owned) {
             <span class="text-sm text-red-600" id="player-status"></span>
             <span class="ml-auto text-sm tabular-nums text-stone-500 shrink-0"><span id="time-elapsed">0:00</span> / <span id="time-total">0:00</span></span>
           </div>
-          <audio id="player" preload="metadata"></audio>
+          
           <div class="mt-2 flex items-center gap-3">
             <button id="prev-btn" class="rounded-full border border-stone-300 bg-white h-9 w-9 grid place-items-center hover:border-stone-500 disabled:opacity-40" aria-label="Previous chapter">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2.5v14H6zM19 5v14L9.5 12z"/></svg>
@@ -469,7 +471,7 @@ if (entitlement.owned) {
 
     // ---------- Player (same behavior as the admin Story Review) ----
     if (playerData) {
-      var audio = document.getElementById("player");
+      var audio = window.BBSPlayer.audio;
       var playBtn = document.getElementById("play-btn");
       var iconPlay = document.getElementById("icon-play");
       var iconPause = document.getElementById("icon-pause");
@@ -485,6 +487,7 @@ if (entitlement.owned) {
       var modeFullBtn = document.getElementById("mode-full");
 
       var pmode = "chapters";
+      if (window.BBSPlayer) window.BBSPlayer.host({ slug: playerData.slug, title: playerData.title || document.title, cover: playerData.cover || "", bookUrl: window.location.pathname });
       var index = -1;
       var seeking = false;
 
@@ -517,6 +520,7 @@ if (entitlement.owned) {
         var tracks = playlist();
         if (i < 0 || i >= tracks.length) return;
         index = i;
+        if (window.BBSPlayer) window.BBSPlayer.notePlaylist(playlist(), index, { slug: playerData.slug, title: playerData.title || document.title, cover: playerData.cover || "", bookUrl: window.location.pathname });
         var t = tracks[i];
         statusEl.textContent = "";
         audio.src = t.url;
