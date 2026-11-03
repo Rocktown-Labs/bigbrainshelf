@@ -1,7 +1,8 @@
-# Big Brain Shelf factory — source snapshot
+# Big Brain Shelf factory — shared source
 
-Snapshot of the factory worker and the judgment-run records, copied here
-2026-11-03 so everything is readable from this repo.
+Shared source for the factory worker and the judgment-run records. Other
+authorized agents work from this repository copy; see
+`../docs/agent-access.md` for how repository access is granted.
 
 ## Layout
 
@@ -27,9 +28,11 @@ Snapshot of the factory worker and the judgment-run records, copied here
 
 ## Canonical source
 
-The live factory still builds and deploys from the VM tree
-(`~/workspace/kidsbook-factory`), which is not a git repo. This folder
-is a dated snapshot for reading and review, not the deploy source.
-One-off migration and patch scripts from the VM were left behind;
-the judgment-run tooling above is the complete set that produced
-the ledgers.
+This folder is the shared source of truth for agent collaboration. RGM's
+VM factory tree remains the deployment workspace. Before deploying, the
+operator pulls and reconciles this repository, builds from the merged
+state, and commits any factory change back here. An uncommitted change
+that exists only in a deployment workspace is not shared source.
+
+One-off migration and patch scripts from the VM were left behind; the
+judgment-run tooling above is the complete set that produced the ledgers.

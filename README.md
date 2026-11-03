@@ -16,9 +16,17 @@ store's web app, dedicated API, and mobile app.
 - `emails/` — React Email templates for transactional mail.
 - `tests/` — plain bun test files, run per file:
   `bun tests/<file>.test.ts`.
+- `factory/` — the shared source for the kidsbook-factory Worker,
+  including book building, colorizing, repair, page fixes, and PDF
+  assembly.
+- `factory-ops/` — the audit and operations tools, architecture reviews,
+  and dated evidence runs, including the Nov 2-3, 2026 judgment run.
 
 ## Working in this repo
 
+- Agents: read `AGENTS.md` and `docs/agent-access.md` first. Repository
+  access is granted per GitHub identity, vendor GitHub App, or machine
+  key; work happens on agent branches through pull requests.
 - Build: `bun run build` (also prepares the worker entry), then
   deploy with `python3 deploy.py` (Workers Assets flow; it does
   not build for you).

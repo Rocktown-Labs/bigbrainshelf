@@ -1,3 +1,27 @@
+## Multi-agent access and coordination
+
+This private repository is the shared source of truth for the Big Brain
+Shelf storefront, factory, and factory evidence. Agents work from a clone
+of `Rocktown-Labs/bigbrainshelf` after CG grants that agent's GitHub
+identity, GitHub App, or machine key access to this repository. See
+`docs/agent-access.md` for the access models and owner steps.
+
+- Pull the latest `main` before starting and check for overlapping work.
+- Use a branch named `agent/<agent-name>/<short-task>` and open a pull
+  request. Do not push directly to `main`; CG and RGM are the integrators
+  unless CG names another integrator for a task.
+- Keep changes scoped to the assigned surface. Read the nearest nested
+  `AGENTS.md` before working in `factory/` or `factory-ops/`.
+- `factory/` is the shared factory source. Reconcile it with the deployed
+  factory before deployment work, and commit every factory change here.
+- Files under `factory-ops/audits/` are evidence. Do not rewrite a prior
+  run; add a new dated run folder for new measurements.
+- Never commit credentials, private keys, `.env*`, `.dev.vars*`, generated
+  `dist/`, or `node_modules/`. Repository access does not grant access to
+  Cloudflare, Stripe, R2, D1, customer data, or any production secret.
+- Do not deploy, publish, spend, or contact anyone unless the task from CG
+  explicitly authorizes that action.
+
 ## Development
 
 When starting the dev server, use background mode:
