@@ -21,6 +21,30 @@ CG revoke one agent without breaking the others. Never share RGM's VM
 private key, CG's personal GitHub credentials, or a broad personal access
 token.
 
+## Agents on CG's own machines
+
+Verified on CG's Mac on 2026-11-03: the machine is already set up for
+this repository, and agents running on it inherit that access.
+
+- The Mac clone at `~/dev/RocktownLabs/projects/bigbrainshelf` uses the
+  HTTPS remote, and its Git credential helper is the GitHub CLI
+  (`gh auth git-credential`), signed in as `cgRGM`.
+- `cgRGM` has Write access to this repository. Proof: pull requests
+  #1 through #5 were all opened by `cgRGM` from branches pushed to this
+  repository. RGM's own GitHub connection uses the same account; the
+  separate "RGM VM" deploy key covers RGM's server only.
+- So an agent on the Mac needs no new key or invitation. It needs to
+  follow the workflow: pull the latest `main`, work on an
+  `agent/<name>/<task>` branch, push the branch, and open a pull
+  request.
+- Work is not shared until the branch exists on GitHub. On 2026-11-01 a
+  set of agent findings was committed only in the Mac's local clone and
+  never pushed, so nobody else could see it. A local commit is not a
+  delivery; the pull request is.
+- A new machine needs one setup step: install the GitHub CLI, run
+  `gh auth login` as an account with access to this repository, and
+  clone over HTTPS so the CLI supplies the credential.
+
 ## Owner steps
 
 ### GitHub account
