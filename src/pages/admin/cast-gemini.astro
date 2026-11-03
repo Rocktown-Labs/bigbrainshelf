@@ -21,21 +21,17 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Casting · Big Brain Shelf Admin</title>
-  <style>
-    /* Book shelf: the customer /account library pattern, same boards
-       and planks as /admin/books (redesign S1). */
-    .shelf-board{margin-top:26px}
-    .shelf-board:first-of-type{margin-top:10px}
-    .shelf-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;padding:0 4px}
-    @media (max-width:640px){.shelf-row{grid-template-columns:repeat(2,1fr)}}
+  <style is:global>
+    /* Book shelf: the customer /account library pattern (boards of
+       four, two-up on phones, plank under each board). The cards are
+       rendered by the page script, and Astro scoped styles never
+       match script-injected DOM (the redesign S3 shelf shipped as a
+       vertical stack of full-width covers for exactly that reason),
+       so these rules are global to this page and the card geometry
+       itself rides on Tailwind utilities, like the customer shelf. */
+    .shelf-board{margin-top:1.75rem}
+    .shelf-board:first-of-type{margin-top:.75rem}
     .shelf-plank{height:.65rem;margin-top:.55rem;border-radius:.3rem;background:linear-gradient(180deg,#b08954 0%,#8a6844 55%,#6f5133 100%);box-shadow:0 10px 14px -8px rgba(90,62,27,.55),inset 0 1px 0 rgba(255,235,200,.5)}
-    .shelf-item{display:block;text-decoration:none;color:inherit}
-    .shelf-cover{aspect-ratio:3/4;border-radius:10px;overflow:hidden;border:1px solid #e7e5e4;background:#f5f5f4;box-shadow:0 1px 2px rgba(28,25,23,.06)}
-    .shelf-cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s ease}
-    .shelf-item:hover .shelf-cover img{transform:scale(1.02)}
-    .shelf-cover-fallback{display:flex;align-items:center;justify-content:center;height:100%;padding:12px;text-align:center;font-weight:700;color:#78716c}
-    .shelf-title{display:block;font-weight:700;font-size:.95rem;line-height:1.3;margin-top:10px}
-    .shelf-chip{display:block;margin-top:6px;min-height:24px}
     .cast-chip{display:inline-block;border-radius:9999px;font-size:11px;font-weight:600;padding:2px 8px}
     .cast-chip.ok{background:#dcfce7;color:#166534}
     .cast-chip.needs{background:#fef3c7;color:#92400e}
@@ -144,14 +140,17 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
       if (info.total === 0) chip = '<span class="cast-chip none">No cast in bible yet</span>';
       else if (info.needs === 0) chip = '<span class="cast-chip ok">All cast</span>';
       else chip = '<span class="cast-chip needs">Needs voices: ' + info.needs + "</span>";
-      var cover = book.coverKey
-        ? '<img src="' + R2 + esc(book.coverKey) + '" alt="' + esc(book.title) + '" loading="lazy" />'
-        : '<span class="shelf-cover-fallback">' + esc(book.title) + "</span>";
+      // Card geometry mirrors the customer library shelf exactly:
+      // aspect frame, extrabold two-line title, one chip on its own
+      // row under the title with real spacing.
+      var coverInner = book.coverKey
+        ? '<img src="' + R2 + esc(book.coverKey) + '" alt="' + esc(book.title) + '" width="300" height="400" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200" />'
+        : '<span class="flex items-center justify-center h-full px-3 text-center font-bold text-stone-500">' + esc(book.title) + "</span>";
       var href = "/admin/cast-gemini/" + encodeURIComponent(book.publicSlug || book.slug);
-      return '<a class="shelf-item" href="' + href + '">' +
-        '<span class="shelf-cover">' + cover + "</span>" +
-        '<span class="shelf-title">' + esc(book.title) + "</span>" +
-        '<span class="shelf-chip">' + chip + "</span></a>";
+      return '<a class="shelf-card group block w-[calc(50%-0.5rem)] sm:w-auto" href="' + href + '">' +
+        '<div class="aspect-[3/4] rounded-xl bg-stone-100 overflow-hidden border border-stone-200 relative shadow-sm">' + coverInner + "</div>" +
+        '<h3 class="font-extrabold text-xs sm:text-sm leading-snug text-stone-900 line-clamp-2 mt-2">' + esc(book.title) + "</h3>" +
+        '<div class="flex items-center gap-1.5 mt-1">' + chip + "</div></a>";
     }
 
     function renderShelf() {
@@ -183,9 +182,15 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
       }
       var html = "";
       for (var i = 0; i < list.length; i += 4) {
-        html += '<div class="shelf-board"><div class="shelf-row">' +
-          list.slice(i, i + 4).map(shelfItemHtml).join("") +
-          '</div><div class="shelf-plank" aria-hidden="true"></div></div>';
+        var rowHtml = "";
+        list.slice(i, i + 4).forEach(function (book, j) {
+          rowHtml += shelfItemHtml(book);
+          // Phones rest two covers per plank, like the customer shelf.
+          if (j % 2 === 1) rowHtml += '<div class="shelf-plank w-full sm:hidden" aria-hidden="true"></div>';
+        });
+        html += '<div class="shelf-board"><div class="flex flex-wrap sm:grid sm:grid-cols-4 gap-4 px-1">' +
+          rowHtml +
+          '</div><div class="shelf-plank hidden sm:block" aria-hidden="true"></div></div>';
       }
       wrap.innerHTML = html;
     }
