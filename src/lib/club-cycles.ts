@@ -18,7 +18,7 @@
 // full day to act. A box created on its due date (the normal first
 // box) locks 2 days after creation instead.
 
-import { ensureOutboxColumns, type DBLike } from "./orders";
+import { ensureOutboxColumns, parsePackState, type DBLike } from "./orders";
 import { ensureOnce } from "./schema-cache";
 import { chicagoDateString } from "./offers";
 import { ensureClubTable, clubPlanOf } from "./club";
@@ -596,6 +596,35 @@ const BOX_TRANSITIONS: Record<string, string[]> = {
   canceled: [],
 };
 
+// Pack checklist keys per title slot (lib/packing.ts line keys). When
+// a slot's book changes or is cleared, that slot's ticks described the
+// OLD book going into the box, so they are dropped and the operator
+// re-ticks what is actually packed; the other slot keeps its ticks.
+const SLOT_PACK_KEYS: Record<number, string[]> = {
+  1: ["slot1:story", "slot1:coloring"],
+  2: ["slot2:story"],
+};
+
+async function clearClubBoxSlotPackTicks(db: DBLike, box: any, slot: number): Promise<void> {
+  const keys = SLOT_PACK_KEYS[slot] || [];
+  if (!keys.length) return;
+  const state = parsePackState(box?.pack_json);
+  let changed = false;
+  for (const k of keys) {
+    if (state[k]) {
+      delete state[k];
+      changed = true;
+    }
+  }
+  if (!changed) return;
+  await db
+    .prepare("UPDATE club_cycle_boxes SET pack_json = ? WHERE id = ?")
+    .bind(JSON.stringify(state), box.id)
+    .run();
+}
+
+const FINAL_BOX_STATUSES = ["shipped", "delivered", "skipped", "canceled"];
+
 export async function updateClubBoxByAdmin(
   db: DBLike,
   args: {
@@ -605,6 +634,10 @@ export async function updateClubBoxByAdmin(
     // 2 the back catalog second book. Resolving slot 2 locks the box
     // only when the club book is already in place.
     slot?: number;
+    // Empty the given slot instead of filling it (admin redesign fix,
+    // 2026-11-03): a pick can be changed or cleared until the box is
+    // packed and gone; before this flag a saved pick was permanent.
+    clear?: boolean;
     status?: string | null;
     carrier?: string | null;
     trackingNumber?: string | null;
@@ -616,12 +649,73 @@ export async function updateClubBoxByAdmin(
   if (!box) return { ok: false, error: "box not found" };
   const ts = nowSeconds();
 
+  if (args.clear) {
+    if (FINAL_BOX_STATUSES.includes(String(box.status))) {
+      return { ok: false, error: `a ${box.status} box's picks are final` };
+    }
+    const slot = args.slot === 2 ? 2 : 1;
+    if (slot === 2) {
+      await db
+        .prepare(
+          `UPDATE club_cycle_boxes SET second_selected_book_slug = NULL, second_resolved_book_slug = NULL, updated_at = ? WHERE id = ?`
+        )
+        .bind(ts, box.id)
+        .run();
+    } else {
+      await db
+        .prepare(
+          `UPDATE club_cycle_boxes SET selected_book_slug = NULL, resolved_book_slug = NULL, updated_at = ? WHERE id = ?`
+        )
+        .bind(ts, box.id)
+        .run();
+    }
+    await clearClubBoxSlotPackTicks(db, box, slot);
+    // Status honesty after a clear: an emptied club-book slot means
+    // the box needs a pick again; an emptied second slot drops a
+    // box that was being packed back to locked (its club book is
+    // still in place, so it is contents work, not a fresh box).
+    let next = await getClubBox(db, box.id);
+    if (slot === 1 && ["locked", "preparing"].includes(String(next.status))) {
+      await db
+        .prepare("UPDATE club_cycle_boxes SET status = 'needs_attention', updated_at = ? WHERE id = ?")
+        .bind(ts, box.id)
+        .run();
+      next = await getClubBox(db, box.id);
+    } else if (slot === 2 && String(next.status) === "preparing") {
+      await db
+        .prepare("UPDATE club_cycle_boxes SET status = 'locked', updated_at = ? WHERE id = ?")
+        .bind(ts, box.id)
+        .run();
+      next = await getClubBox(db, box.id);
+    }
+    return { ok: true, box: next };
+  }
+
   if (args.bookSlug) {
     const book = await getEligibleClubBook(db, args.bookSlug);
     if (!book) return { ok: false, error: "That book is not eligible for a club box." };
-    if (["shipped", "delivered", "skipped", "canceled"].includes(String(box.status))) {
+    if (FINAL_BOX_STATUSES.includes(String(box.status))) {
       return { ok: false, error: `a ${box.status} box cannot be re-resolved` };
     }
+    const slot = args.slot === 2 ? 2 : 1;
+    // A box never carries the same book twice: the lock resolver has
+    // always excluded the other slot's book, and the admin path now
+    // refuses the duplicate too instead of only hiding it in the
+    // picker (CG's report, 2026-11-03).
+    const otherSlug =
+      slot === 2
+        ? String(box.resolved_book_slug || box.selected_book_slug || "")
+        : String(box.second_resolved_book_slug || box.second_selected_book_slug || "");
+    if (otherSlug && otherSlug === String(book.slug)) {
+      return {
+        ok: false,
+        error: "That book is already the other pick in this box. Pick a different book for this slot.",
+      };
+    }
+    const currentSlug =
+      slot === 2
+        ? String(box.second_resolved_book_slug || box.second_selected_book_slug || "")
+        : String(box.resolved_book_slug || box.selected_book_slug || "");
     if (args.slot === 2) {
       const clubBookInPlace = !!(box.resolved_book_slug || box.selected_book_slug);
       await db
@@ -639,6 +733,9 @@ export async function updateClubBoxByAdmin(
           box.id
         )
         .run();
+      if (currentSlug && currentSlug !== String(book.slug)) {
+        await clearClubBoxSlotPackTicks(db, box, 2);
+      }
       return { ok: true, box: await getClubBox(db, box.id) };
     }
     await db
@@ -649,6 +746,9 @@ export async function updateClubBoxByAdmin(
       )
       .bind(book.slug, book.slug, ts, ts, box.id)
       .run();
+    if (currentSlug && currentSlug !== String(book.slug)) {
+      await clearClubBoxSlotPackTicks(db, box, 1);
+    }
     return { ok: true, box: await getClubBox(db, box.id) };
   }
 

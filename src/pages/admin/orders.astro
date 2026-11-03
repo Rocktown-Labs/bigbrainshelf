@@ -94,6 +94,13 @@ export const prerender = false;
     .packcard .pack-meta{display:block;font-size:.7rem;color:#78716c;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .packcard .pack-stage{display:inline-block;font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#9a3412;background:#ffedd5;border-radius:999px;padding:2px 7px;margin-top:6px}
     .packcard .pack-stage.pick{color:#7c2d12;background:#fee2e2}
+    .packcard .pack-stage.done{color:#065f46;background:#d1fae5}
+    /* Completed section: finished parcels live behind one collapsed
+       summary so the shelf above stays waiting work only. */
+    #completed-details summary{list-style:none;min-height:32px;display:flex;align-items:center;gap:6px}
+    #completed-details summary::-webkit-details-marker{display:none}
+    #completed-details summary::after{content:"▾";color:#a8a29e;font-weight:800}
+    #completed-details:not([open]) summary::after{content:"▸"}
     input,select,textarea{font-size:16px}
   </style>
   </head>
@@ -101,8 +108,13 @@ export const prerender = false;
   <AdminShell current="/admin/orders" />
 
   <main class="mx-auto max-w-6xl px-4 py-8" style="padding-bottom:calc(2rem + env(safe-area-inset-bottom, 0px))">
-    <h1 class="text-2xl font-bold tracking-tight">Orders</h1>
-    <p class="text-sm text-stone-500 mt-1">New orders, what needs shipping, and the email outbox.</p>
+    <div class="flex flex-wrap items-start gap-3">
+      <div class="flex-1 min-w-[220px]">
+        <h1 class="text-2xl font-bold tracking-tight">Orders</h1>
+        <p class="text-sm text-stone-500 mt-1">New orders, what needs shipping, and the email outbox.</p>
+      </div>
+      <a href="/admin/orders/new" class="tap inline-flex items-center rounded-lg bg-stone-900 text-white text-sm font-semibold px-4 min-h-[44px] no-underline">New manual order</a>
+    </div>
 
     <div class="stats">
       <div class="stat">
@@ -141,6 +153,14 @@ export const prerender = false;
       <p class="text-[13px] text-stone-500 mt-0.5">New printed orders and club boxes land here as they come in.</p>
       <a href="/admin/books" class="tap inline-flex items-center mt-3 rounded-lg bg-stone-900 text-white text-sm font-semibold px-4 min-h-[44px]">Browse the book shelf</a>
     </div>
+
+    <section id="completed-shelf" class="mt-4 hidden" aria-label="Completed parcels">
+      <details id="completed-details" class="rounded-xl bg-white border border-stone-200 px-4 py-3 shadow-sm">
+        <summary class="tap cursor-pointer text-sm font-bold">Completed <span id="completed-count" class="text-stone-500 font-semibold"></span></summary>
+        <p class="text-[13px] text-stone-500 mt-1">Shipped and delivered parcels, newest first. Finished work lives here, off the packing shelf. Tap one to reopen it.</p>
+        <div id="completed-cards" class="packshelf mt-3"></div>
+      </details>
+    </section>
 
     <div class="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="Order filters">
       <button class="tabbtn" role="tab" data-tab="tofulfill" aria-selected="false">To fulfill <span class="n" data-count="toFulfill"></span></button>
@@ -362,6 +382,31 @@ export const prerender = false;
       }).join("");
     }
 
+    // The Completed section renders from the list payload's
+    // packing_completed list (lib/packing.ts getCompletedParcels):
+    // shipped and delivered parcels, collapsed by default, so the
+    // shelf above it is waiting work only.
+    function renderCompleted(list) {
+      var section = document.getElementById("completed-shelf");
+      var cards = document.getElementById("completed-cards");
+      var count = document.getElementById("completed-count");
+      var items = Array.isArray(list) ? list : [];
+      if (!items.length) {
+        section.classList.add("hidden");
+        return;
+      }
+      section.classList.remove("hidden");
+      count.textContent = "(" + items.length + ")";
+      cards.innerHTML = items.map(function (p) {
+        var meta = p.lines + (p.lines === 1 ? " item" : " items");
+        return '<a class="packcard tap" href="' + esc(p.href) + '">' +
+          (p.cover ? '<img src="' + esc(p.cover) + '" alt="" loading="lazy">' : '<span class="pack-nocover">Big Brain Shelf</span>') +
+          '<span class="pack-ref">' + esc(p.ref) + "</span>" +
+          '<span class="pack-meta">' + esc(meta) + "</span>" +
+          '<span class="pack-stage done">' + esc(p.stage) + "</span></a>";
+      }).join("");
+    }
+
     async function load() {
       var qs = currentTab ? "?tab=" + encodeURIComponent(currentTab) + "&page=" + currentPage : "";
       var r = await fetch("/api/admin/orders" + qs);
@@ -369,6 +414,7 @@ export const prerender = false;
       currentTab = data.tab || "all";
       currentPage = data.page || 1;
       renderPacking(data.packing);
+      renderCompleted(data.packing_completed);
 
       var tabCounts = data.tabCounts || {};
       document.querySelectorAll(".tabbtn").forEach(function (b) {

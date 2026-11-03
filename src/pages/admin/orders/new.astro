@@ -1,0 +1,211 @@
+---
+import "../../../styles/global.css";
+import AdminShell from "../../../components/AdminShell.astro";
+export const prerender = false;
+// New manual order (admin redesign fix, 2026-11-03): the form for
+// creating a real order by hand: an offline sale, a replacement, a
+// comp. Customer, ship-to address, line items picked from the catalog
+// by public title with editable per-line prices, a shipping amount,
+// and an internal note. Submitting posts create_manual_order to
+// /api/admin/orders and lands on the new order's fulfillment page.
+// No Stripe objects are created and no email is sent at creation;
+// fulfillment (label, pack, ship) runs through the normal steps.
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>New manual order · Big Brain Shelf Admin</title>
+  <style is:global>
+    html{-webkit-tap-highlight-color:transparent}
+    .tap{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    .card{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .fld{display:block;margin-top:12px}
+    .fld span{display:block;font-size:.78rem;font-weight:700;color:#44403c;margin-bottom:4px}
+    .fld input,.fld select,.fld textarea{width:100%;border:1px solid #d6d3d1;border-radius:9px;padding:9px 11px;font-size:.9rem;min-height:44px;background:#fff}
+    .fld textarea{min-height:64px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+    @media (max-width:560px){.grid2{grid-template-columns:1fr}}
+    .linerow{display:grid;grid-template-columns:1fr 128px 64px 96px 40px;gap:8px;align-items:end;margin-top:10px}
+    @media (max-width:640px){.linerow{grid-template-columns:1fr 104px 56px 84px 40px}}
+    .linerow .fld{margin-top:0}
+    .linerow input,.linerow select{min-height:44px}
+    .rmline{border:1px solid #fecaca;color:#b91c1c;background:#fff;border-radius:9px;min-height:44px;font-weight:800;cursor:pointer}
+  </style>
+</head>
+<body>
+  <AdminShell current="orders" />
+  <main class="min-h-screen bg-[#faf9f7] text-stone-900">
+    <div class="mx-auto max-w-3xl px-4 sm:px-6 pt-6 sm:pt-8 pb-16">
+      <a href="/admin/orders" class="text-sm font-semibold text-orange-700 hover:text-orange-800">← Orders</a>
+      <h1 class="text-2xl font-bold tracking-tight mt-2">New manual order</h1>
+      <p class="text-sm text-stone-500 mt-1">For an offline sale, a replacement, or a comp. This creates a real order: physical books land on the packing shelf, and the label, pack, and ship steps work like any other order. No payment is taken and no email is sent when you create it.</p>
+
+      <form id="manual-form" class="card mt-5">
+        <h2 class="font-bold">Customer</h2>
+        <label class="fld"><span>Customer name</span><input id="f-name" type="text" autocomplete="name" placeholder="Who it ships to" /></label>
+        <label class="fld"><span>Email</span><input id="f-email" type="email" autocomplete="email" placeholder="buyer@example.com" required /></label>
+
+        <h2 class="font-bold mt-6">Ships to</h2>
+        <p class="text-[13px] text-stone-500 mt-1">Needed when the order has printed books. Leave blank for a digital-only order.</p>
+        <label class="fld"><span>Street address</span><input id="f-line1" type="text" autocomplete="street-address" /></label>
+        <label class="fld"><span>Apartment, suite (optional)</span><input id="f-line2" type="text" /></label>
+        <div class="grid2">
+          <label class="fld"><span>City</span><input id="f-city" type="text" /></label>
+          <label class="fld"><span>State</span><input id="f-state" type="text" /></label>
+          <label class="fld"><span>ZIP code</span><input id="f-zip" type="text" inputmode="numeric" /></label>
+          <label class="fld"><span>Country</span><input id="f-country" type="text" value="US" /></label>
+        </div>
+
+        <h2 class="font-bold mt-6">Books</h2>
+        <div id="lines"></div>
+        <button type="button" id="add-line" class="tap mt-3 rounded-lg border border-stone-300 bg-white text-sm font-semibold px-4 min-h-[44px]">Add another book</button>
+
+        <div class="grid2 mt-2">
+          <label class="fld"><span>Shipping charged ($)</span><input id="f-shipping" type="number" min="0" step="0.01" value="0" /></label>
+          <div class="fld"><span>Order total</span><p id="f-total" class="text-lg font-extrabold tabular-nums pt-1.5">$0.00</p></div>
+        </div>
+
+        <label class="fld"><span>Internal note (admin only, never emailed)</span><textarea id="f-note" placeholder="Why this order exists: replacement for a damaged copy, comp for a reviewer, and so on."></textarea></label>
+
+        <p id="f-error" class="hidden text-sm font-medium text-red-700 mt-4" role="alert"></p>
+        <button type="submit" id="f-submit" class="tap mt-5 w-full rounded-lg bg-stone-900 text-white text-sm font-bold px-4 min-h-[48px]">Create order</button>
+      </form>
+      <p id="loading-note" class="text-sm text-stone-400 mt-4">Loading the catalog...</p>
+    </div>
+  </main>
+
+  <script is:inline>
+    var catalog = [];
+    var FORMATS = [
+      { id: "printed", label: "Printed book" },
+      { id: "giftset", label: "Gift set" },
+      { id: "digital", label: "Digital" },
+      { id: "audio", label: "Audiobook" },
+    ];
+    function money(c) { return "$" + (Number(c || 0) / 100).toFixed(2); }
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+
+    function bookOptions(sel) {
+      return catalog.map(function (b, i) {
+        return '<option value="' + i + '"' + (String(i) === String(sel) ? " selected" : "") + ">" + esc(b.title) + "</option>";
+      }).join("");
+    }
+    function formatOptions(book, sel) {
+      return FORMATS.filter(function (f) { return book && book.prices[f.id] != null; }).map(function (f) {
+        return '<option value="' + f.id + '"' + (f.id === sel ? " selected" : "") + ">" + f.label + "</option>";
+      }).join("");
+    }
+    function lineRow(bookIdx, format) {
+      var b = catalog[bookIdx || 0];
+      var fmt = format || (b && b.prices.printed != null ? "printed" : "digital");
+      var price = b ? b.prices[fmt] : null;
+      var row = document.createElement("div");
+      row.className = "linerow";
+      row.innerHTML =
+        '<label class="fld"><span>Book</span><select data-line="book">' + bookOptions(bookIdx || 0) + "</select></label>" +
+        '<label class="fld"><span>Format</span><select data-line="format">' + formatOptions(b, fmt) + "</select></label>" +
+        '<label class="fld"><span>Qty</span><input data-line="qty" type="number" min="1" step="1" value="1"></label>' +
+        '<label class="fld"><span>Price ($)</span><input data-line="price" type="number" min="0" step="0.01" value="' + (price != null ? (price / 100).toFixed(2) : "0.00") + '"></label>' +
+        '<button type="button" class="rmline tap" data-line="remove" aria-label="Remove this line">×</button>';
+      row.querySelector('[data-line="book"]').addEventListener("change", function () { syncLine(row, true); totals(); });
+      row.querySelector('[data-line="format"]').addEventListener("change", function () { syncLine(row, true); totals(); });
+      row.querySelector('[data-line="qty"]').addEventListener("input", totals);
+      row.querySelector('[data-line="price"]').addEventListener("input", totals);
+      row.querySelector('[data-line="remove"]').addEventListener("click", function () { row.remove(); totals(); });
+      return row;
+    }
+    // When the book or format changes, the price resets to that
+    // format's store price; the admin can still type over it.
+    function syncLine(row, resetPrice) {
+      var b = catalog[Number(row.querySelector('[data-line="book"]').value || 0)];
+      var fmtSel = row.querySelector('[data-line="format"]');
+      var cur = fmtSel.value;
+      fmtSel.innerHTML = formatOptions(b, b && b.prices[cur] != null ? cur : undefined);
+      if (!fmtSel.value && fmtSel.options.length) fmtSel.selectedIndex = 0;
+      if (resetPrice && b) {
+        var p = b.prices[fmtSel.value];
+        row.querySelector('[data-line="price"]').value = p != null ? (p / 100).toFixed(2) : "0.00";
+      }
+    }
+    function readLines() {
+      return Array.prototype.map.call(document.querySelectorAll(".linerow"), function (row) {
+        var b = catalog[Number(row.querySelector('[data-line="book"]').value || 0)];
+        return {
+          slug: b ? b.slug : "",
+          format: row.querySelector('[data-line="format"]').value,
+          qty: Math.max(1, Math.round(Number(row.querySelector('[data-line="qty"]').value || 1))),
+          price_cents: Math.round(Number(row.querySelector('[data-line="price"]').value || 0) * 100),
+        };
+      }).filter(function (l) { return l.slug; });
+    }
+    function totals() {
+      var sum = readLines().reduce(function (s, l) { return s + l.price_cents * l.qty; }, 0);
+      sum += Math.round(Number(document.getElementById("f-shipping").value || 0) * 100);
+      document.getElementById("f-total").textContent = money(sum);
+    }
+
+    async function init() {
+      var note = document.getElementById("loading-note");
+      try {
+        var r = await fetch("/api/admin/orders?catalog=1");
+        var data = await r.json();
+        catalog = data.catalog || [];
+      } catch (e) { catalog = []; }
+      if (!catalog.length) {
+        note.textContent = "No sellable books are available for a manual order right now.";
+        document.getElementById("f-submit").disabled = true;
+        return;
+      }
+      note.classList.add("hidden");
+      document.getElementById("lines").appendChild(lineRow(0));
+      totals();
+    }
+    document.getElementById("add-line").addEventListener("click", function () {
+      document.getElementById("lines").appendChild(lineRow(0));
+      totals();
+    });
+    document.getElementById("f-shipping").addEventListener("input", totals);
+    document.getElementById("manual-form").addEventListener("submit", async function (ev) {
+      ev.preventDefault();
+      var err = document.getElementById("f-error");
+      var btn = document.getElementById("f-submit");
+      err.classList.add("hidden");
+      btn.disabled = true;
+      btn.textContent = "Creating...";
+      var payload = {
+        action: "create_manual_order",
+        name: document.getElementById("f-name").value,
+        email: document.getElementById("f-email").value,
+        address: {
+          line1: document.getElementById("f-line1").value,
+          line2: document.getElementById("f-line2").value,
+          city: document.getElementById("f-city").value,
+          state: document.getElementById("f-state").value,
+          postal_code: document.getElementById("f-zip").value,
+          country: document.getElementById("f-country").value || "US",
+        },
+        lines: readLines(),
+        shipping_cents: Math.round(Number(document.getElementById("f-shipping").value || 0) * 100),
+        note: document.getElementById("f-note").value,
+      };
+      var resp = await fetch("/api/admin/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      var out = await resp.json().catch(function () { return {}; });
+      if (!resp.ok || !out.ok) {
+        err.textContent = out.error || "The order could not be created.";
+        err.classList.remove("hidden");
+        btn.disabled = false;
+        btn.textContent = "Create order";
+        return;
+      }
+      window.location.href = "/admin/orders/" + out.order_id;
+    });
+    init();
+  </script>
+</body>
+</html>

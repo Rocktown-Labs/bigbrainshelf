@@ -35,9 +35,10 @@ import { coverDerivative, MEDIA_PUBLIC } from "../../../lib/derivatives";
 // GET ?box_id= -> the unified fulfillment payload for ONE box (admin
 //        redesign S4): the box, its member, its pack checklist, label
 //        and pickup state, and the eligible books for the pick step.
-// POST { action: "update_box", box_id, book_slug?, status?, carrier?,
-//        tracking_number?, label_url? } -> resolve a box to a book,
-//        change its fulfilment status, or attach tracking. Marking a box
+// POST { action: "update_box", box_id, book_slug?, slot?, clear?,
+//        status?, carrier?, tracking_number?, label_url? } -> resolve
+//        a box slot to a book (or clear it with clear: true), change
+//        its fulfilment status, or attach tracking. Marking a box
 //        shipped enqueues the member's shipped email with tracking.
 //        Marking shipped is gated here: the box needs a purchased
 //        label and a fully ticked pack checklist.
@@ -419,6 +420,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     boxId: String(body.box_id),
     bookSlug: body.book_slug ? String(body.book_slug) : null,
     slot: body.slot === 2 || body.slot === "2" ? 2 : undefined,
+    clear: body.clear === true,
     status: body.status ? String(body.status) : null,
     carrier: body.carrier ? String(body.carrier) : null,
     trackingNumber: body.tracking_number ? String(body.tracking_number) : null,
