@@ -27,7 +27,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     db: e.DB,
     userId: String(session.user.id),
     kidProfileId: body.kidProfileId ? Number(body.kidProfileId) : null,
-    bookSlug: String(body.bookSlug || "fern-counts-the-forest"),
+    bookSlug: String(body.bookSlug || "algorithms"),
     characterName: String(body.characterName || catalogLeadName("algorithms")),
     questionText: String(body.questionText || "Where did you spot a pattern in the forest?"),
     vercelAiGatewayUrl: e.VERCEL_AI_GATEWAY_URL,

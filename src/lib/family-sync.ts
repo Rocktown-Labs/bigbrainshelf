@@ -176,7 +176,7 @@ export async function getFamilySyncState(
     return {
       familyUserId,
       activeKidId: null,
-      activeBookSlug: "fern-counts-the-forest",
+      activeBookSlug: "algorithms",
       activeFormat: "read_along",
       chapterIndex: 0,
       pageIndex: 0,
@@ -202,7 +202,7 @@ export async function getFamilySyncState(
     return {
       familyUserId,
       activeKidId: null,
-      activeBookSlug: "fern-counts-the-forest",
+      activeBookSlug: "algorithms",
       activeFormat: "read_along",
       chapterIndex: 0,
       pageIndex: 0,
@@ -225,7 +225,7 @@ export async function getFamilySyncState(
   return {
     familyUserId,
     activeKidId: row.active_kid_id ?? null,
-    activeBookSlug: row.active_book_slug ?? "fern-counts-the-forest",
+    activeBookSlug: row.active_book_slug ?? "algorithms",
     activeFormat: (row.active_format as FamilySyncState["activeFormat"]) || "read_along",
     chapterIndex: Number(row.chapter_index || 0),
     pageIndex: Number(row.page_index || 0),
@@ -434,7 +434,7 @@ export async function askCastCompanion(params: {
       .bind(
         params.userId,
         params.kidProfileId ?? null,
-        params.bookSlug || "fern-counts-the-forest",
+        params.bookSlug || "algorithms",
         avatar.name,
         cleanQuestion || "Story reflection",
         responseText,
@@ -447,7 +447,7 @@ export async function askCastCompanion(params: {
   return {
     characterName: avatar.name,
     characterRole: avatar.label,
-    bookSlug: params.bookSlug || "fern-counts-the-forest",
+    bookSlug: params.bookSlug || "algorithms",
     questionText: cleanQuestion,
     responseText,
     comprehensionBadge: badge,
