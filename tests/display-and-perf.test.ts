@@ -113,7 +113,7 @@ assert(adminOrdersApi.includes("email_outbox") && adminOrdersApi.includes("WHERE
 assert(adminOrdersApi.includes("orderPickList") && adminOrdersApi.includes("items_pick"), "the admin orders API resolves the pick list server-side");
 assert(adminOrdersPage.includes("items_pick") && adminOrdersPage.includes("fmtPick"), "the orders list renders the pick list, not full titles, in the row summary");
 assert(adminOrdersPage.includes("fmt-audio") && adminOrdersPage.includes("fmt-digital") && adminOrdersPage.includes("fmt-printed"), "each format carries its own colored circle class on the list");
-assert(adminOrdersPage.includes('g.format === "giftset" ? "printed" : g.format'), "the gift set rides the printed circle family on the list");
+assert(adminOrdersPage.includes('giftset: { cls: "fmt-giftset", label: "Gift set", icon: ICONS.gift }'), "the gift set carries its own gift-box circle on the list (S4, CG 2026-11-03; replaces the printed-family fold)");
 assert(adminOrdersPage.includes("pick-more") && adminOrdersPage.includes('" more</span>'), "pick-list overflow renders as +N more after the first two items");
 assert(!adminOrdersPage.includes("esc(fmtItems(o))"), "the row summary no longer renders full title labels");
 assert(adminOrdersApi.includes("tabCounts") && adminOrdersApi.includes("TAB_WHERE"), "the orders API classifies the filter tabs server-side");

@@ -143,9 +143,10 @@
         if (it.format === "digital" && window.__bbsUpgrade && window.__bbsUpgrade.slug === it.slug) return window.__bbsUpgrade.digitalCents;
         return Math.round(Number(b.price || 0));
       }
-      // Shipping is pass-through at the real carrier rate, quoted from
-      // the buyer's address on the cart page. The surfaces never name
-      // an amount; they only know whether the cart needs that step.
+      // Shipping is quoted from the buyer's address on the cart page
+      // and charged rounded up to the next whole dollar. The surfaces
+      // never name an amount; they only know whether the cart needs
+      // that step.
       function hasPhysical(items) {
         return items.some(function (it) { return it.format === "printed" || it.format === "giftset"; });
       }

@@ -96,7 +96,7 @@ export function buildClubCycleEmailModel(args: {
         subject: `Pick the book for your ${shipLabel} Book Club box`,
         heading: "Choose the book for your next box",
         paragraphs: [
-          `Your next Book Club box ships on ${shipLabel}. You can pick the book yourself, or leave it on Surprise me and we will choose a book you do not already have.`,
+          `Your next Book Club box ships on ${shipLabel}. You can pick the book yourself, or leave it on Mystery and we will choose a book you do not already have.`,
           `Selections lock on ${lockLabel}. Until then you can change your pick any time from your account.`,
         ],
       };
@@ -106,7 +106,7 @@ export function buildClubCycleEmailModel(args: {
         subject: `Last call: Book Club selections lock on ${lockLabel}`,
         heading: "Last call before selections lock",
         paragraphs: [
-          `Your Book Club box ships on ${shipLabel}, and selections lock on ${lockLabel}. Your box is still set to Surprise me, so we will choose a book you do not already have when selections lock.`,
+          `Your Book Club box ships on ${shipLabel}, and selections lock on ${lockLabel}. Your box is still set to Mystery, so we will choose a book you do not already have when selections lock.`,
           "Want a specific book instead? Pick it from your account before the lock and it is yours.",
         ],
       };
@@ -128,7 +128,7 @@ export function buildClubCycleEmailModel(args: {
         subject: "Action needed for your next Book Club box",
         heading: "We need a pick from you",
         paragraphs: [
-          `Your next Book Club box ships on ${shipLabel}. Surprise me could not pick this time, because every book we can send is already in your library or in one of your earlier club boxes.`,
+          `Your next Book Club box ships on ${shipLabel}. Mystery could not pick this time, because every book we can send is already in your library or in one of your earlier club boxes.`,
           "Open your account and choose a repeat or gift copy for this box, and we will get it ready. If we do not hear from you, this box will wait rather than duplicate a book by accident.",
         ],
       };
