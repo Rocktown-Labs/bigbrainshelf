@@ -105,7 +105,32 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
     .doclist li { padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: .95em; }
     .doclist .sz { color: #888; font-size: .85em; margin-left: 8px; }
     .coverimg { max-width: 300px; width: 100%; border-radius: 10px; border: 1px solid #e7e5e4; display: block; }
-    @media (max-width: 720px) { #rail { display: none; } }
+    @media (max-width: 720px) {
+      #rail { display: none; }
+      /* Mobile pass (CG, 2026-11-02): the desktop subbar wrapped into
+         an overflowing mess on phones. Title truncates instead of
+         forcing width, the section links get their own scrollable
+         row, the view controls wrap, and nothing can push the page
+         sideways. Verdict and nav buttons become full-width thumb
+         targets. */
+      html, body { overflow-x: clip; }
+      .subbar { padding: 8px 12px; gap: 8px 10px; }
+      .subbar h1 { min-width: 0; flex: 1 1 40%; font-size: 15px; }
+      .subbar-links { display: flex; gap: 14px; order: 5; flex: 1 1 100%; overflow-x: auto; white-space: nowrap; padding: 2px 0; -webkit-overflow-scrolling: touch; }
+      .subbar-controls { flex-wrap: wrap; row-gap: 8px; margin-left: 0 !important; flex: 1 1 100%; order: 6; }
+      .subbar-controls select { flex: 1 1 auto; min-width: 0; min-height: 40px; }
+      .seg button { min-height: 40px; padding: 6px 16px; }
+      #qc-progress { white-space: normal; }
+      #qc-colorize { min-height: 40px; }
+      #main { padding: 12px; }
+      .stage img.page { max-height: 58vh; }
+      .markbar { flex-wrap: wrap; }
+      .markbar button { flex: 1 1 40%; min-height: 48px; font-size: 15px; }
+      .nav { flex-wrap: wrap; }
+      .nav button { min-height: 44px; flex: 1 1 30%; }
+      .nav .count { flex: 1 1 100%; text-align: center; order: -1; }
+      .ptext { font-size: 15px; }
+    }
   </style>
   </head>
 <body>
@@ -115,11 +140,13 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
     <a href="/admin/books" style="font-size:14px">&larr; Books</a>
     <h1 id="title">Loading...</h1>
     <span id="bookstatus"></span>
+    <span class="subbar-links">
     <a href={"/admin/books/" + adminSlug + "/review"} style="font-size:14px">Story review</a>
     <a href={"/admin/books/" + adminSlug + "/attempts"} style="font-size:14px">Attempts</a>
     <a href={"/admin/books/" + adminSlug + "/edit"} style="font-size:14px">Edit</a>
     <a href={"/admin/books/" + adminSlug + "/readiness"} style="font-size:14px">Readiness</a>
-    <span style="margin-left:auto;display:flex;gap:10px;align-items:center">
+    </span>
+    <span class="subbar-controls" style="margin-left:auto;display:flex;gap:10px;align-items:center">
       <label style="font-size:13px;color:#78716c" for="view-sel">View</label>
       <select id="view-sel" aria-label="View">
         <option value="story">Story book QC</option>
