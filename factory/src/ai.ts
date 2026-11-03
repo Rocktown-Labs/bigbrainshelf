@@ -60,7 +60,7 @@ export async function planChapter(
     `5-year-old understands, using a physical metaphor (animals, toys, sports, marbles, games). ` +
     `Vary the metaphor from chapter to chapter; do not reuse the same metaphor twice in one book. ` +
     `The story must feel original: invent an original storybook title for this chapter ` +
-    `(in the spirit of titles like "Wally the Whale and the Great Picnic", but a fresh one for ` +
+    `(in the spirit of titles like "<Name> the <Animal> and the Great Picnic", but a fresh one for ` +
     `THIS chapter's story and characters; never reuse an example title and never repeat a title ` +
     `used for another chapter). NEVER cite, mention, or reference the source book's ` +
     `title or that this is adapted from a book. End the story with something being deployed ` +

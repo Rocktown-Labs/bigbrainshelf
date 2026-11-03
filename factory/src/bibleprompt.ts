@@ -80,7 +80,7 @@ Reply with ONLY a JSON object with these exact sections:
     "forbiddenSourceTerms": ["every technical term from the source book that kids must never see in story text or image prompts, lowercase, including plurals and variants. Each one must also appear as a vocab term with a storyName."]
   },
   "bannedOpeners": ["4-8 chapter-opening phrases THIS book must never use, derived from this book's own source and early chapters: e.g. the stale old-way contrast the first chapters already used up. Phrases only, lowercase."],
-  "starNote": "one short clause naming the character who must not star every chapter, e.g. 'do not make Wally the star every chapter'. Generated from THIS book's cast.",
+  "starNote": "one short clause naming the character who must not star every chapter, e.g. 'do not make the lead the star every chapter'. Generated from THIS book's cast.",
   "vocab": [
     {"term": "real term from the book", "storyName": "what it is called in the story", "definition": "one plain sentence that says what the term really means, simple enough to read aloud"}
   ],
