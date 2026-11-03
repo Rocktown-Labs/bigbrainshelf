@@ -341,9 +341,9 @@ export interface BookQaFacts {
 // explicitly asks for one).
 const QA_FRESHNESS_GRACE_SEC = 300;
 
-async function readBookQaFacts(db: any, books: any, book: any): Promise<BookQaFacts> {
+async function readBookQaFacts(db: any, books: any, book: any, readOnly = false): Promise<BookQaFacts> {
   try {
-    await ensureBookQaTable(db);
+    if (!readOnly) await ensureBookQaTable(db);
     const row = await db
       .prepare(
         `SELECT cover_typeset, coloring_captions_truncated, back_cover_truncated, line_purity, measured_at
@@ -402,9 +402,9 @@ export async function ensureBookMarketingTable(db: any): Promise<void> {
     .run();
 }
 
-async function readMarketing(db: any, books: any, slug: string): Promise<DeliveryFacts["marketing"]> {
+async function readMarketing(db: any, books: any, slug: string, readOnly = false): Promise<DeliveryFacts["marketing"]> {
   try {
-    await ensureBookMarketingTable(db);
+    if (!readOnly) await ensureBookMarketingTable(db);
     const row = await db
       .prepare(
         `SELECT promo_main_key, promo_parents_key, known_defects FROM book_marketing WHERE slug = ?`
@@ -531,7 +531,8 @@ async function headOrNull(books: any, key: string | null): Promise<boolean | nul
 export async function getDeliveryReadiness(
   db: any,
   books: any,
-  slug: string
+  slug: string,
+  options: { readOnly?: boolean } = {}
 ): Promise<DeliveryReadiness | null> {
   const book = await db
     .prepare(
@@ -553,8 +554,10 @@ export async function getDeliveryReadiness(
   // Cast completeness from the bible + the voice registry.
   let cast: DeliveryFacts["cast"] = null;
   try {
-    await ensureCastTables(db);
-    await seedRecordedCasts(db);
+    if (!options.readOnly) {
+      await ensureCastTables(db);
+      await seedRecordedCasts(db);
+    }
     const row = await db
       .prepare(`SELECT data FROM bibles WHERE book_slug = ? ORDER BY created_at DESC LIMIT 1`)
       .bind(slug)
@@ -612,8 +615,8 @@ export async function getDeliveryReadiness(
     }
   }
 
-  const qaFacts = await readBookQaFacts(db, books, book);
-  const marketing = await readMarketing(db, books, slug);
+  const qaFacts = await readBookQaFacts(db, books, book, options.readOnly);
+  const marketing = await readMarketing(db, books, slug, options.readOnly);
 
   return computeDeliveryReadiness({
     slug: book.slug,
