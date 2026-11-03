@@ -41,6 +41,13 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
     a { color: #c2410c; }
     .subbar { position: sticky; top: 0; z-index: 6; background: #fff; border-bottom: 1px solid #e7e5e4; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .subbar h1 { font-size: 16px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Section links as spaced pills (redesign S1, 2026-11-03): the
+       row used to render jammed together with no gap between the
+       link texts. The mobile block below keeps its own scrollable
+       row treatment. */
+    .subbar-links { display: inline-flex; align-items: center; gap: 8px; }
+    .subbar-links a { font-size: 14px; font-weight: 600; text-decoration: none; padding: 5px 12px; border: 1px solid #d6d3d1; border-radius: 999px; background: #fff; white-space: nowrap; }
+    .subbar-links a:hover { background: #f5f5f4; }
     .subbar select { padding: 7px 10px; border: 1px solid #d6d3d1; border-radius: 8px; font-size: 14px; background: #fff; }
     .status { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; }
     .draft { background: #f5f5f4; color: #44403c; } .queued { background: #dbeafe; color: #1e40af; }
@@ -141,10 +148,10 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
     <h1 id="title">Loading...</h1>
     <span id="bookstatus"></span>
     <span class="subbar-links">
-    <a href={"/admin/books/" + adminSlug + "/review"} style="font-size:14px">Story review</a>
-    <a href={"/admin/books/" + adminSlug + "/attempts"} style="font-size:14px">Attempts</a>
-    <a href={"/admin/books/" + adminSlug + "/edit"} style="font-size:14px">Edit</a>
-    <a href={"/admin/books/" + adminSlug + "/readiness"} style="font-size:14px">Readiness</a>
+    <a href={"/admin/books/" + adminSlug + "/review"}>Story review</a>
+    <a href={"/admin/books/" + adminSlug + "/attempts"}>Attempts</a>
+    <a href={"/admin/books/" + adminSlug + "/edit"}>Edit</a>
+    <a href={"/admin/books/" + adminSlug + "/readiness"}>Readiness</a>
     </span>
     <span class="subbar-controls" style="margin-left:auto;display:flex;gap:10px;align-items:center">
       <label style="font-size:13px;color:#78716c" for="view-sel">View</label>

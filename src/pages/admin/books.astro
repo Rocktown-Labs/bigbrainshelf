@@ -36,6 +36,22 @@ if (!Astro.locals.user) {
     .tabs{margin:16px 0}.tabs button{padding:8px 16px;margin-right:8px;border:1px solid #d6d3d1;border-radius:999px;background:#fff;cursor:pointer;font-size:.95em}
     .tabs button.active{background:#1a3454;color:#fff;border-color:#1a3454}
     .group-title{margin:32px 0 12px;font-size:1.3em;font-weight:700}
+    /* Book shelf (redesign S1, 2026-11-03): the customer /account
+       library pattern moved to admin. Covers rest on wooden planks,
+       four to a board; the title and one readiness chip sit under
+       each cover; the whole cover is the link. No buttons here: the
+       book page holds every action. */
+    .shelf-board{margin-top:26px}
+    .shelf-board:first-of-type{margin-top:10px}
+    .shelf-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;padding:0 4px}
+    @media (max-width:640px){.shelf-row{grid-template-columns:repeat(2,1fr)}}
+    .shelf-plank{height:.65rem;margin-top:.55rem;border-radius:.3rem;background:linear-gradient(180deg,#b08954 0%,#8a6844 55%,#6f5133 100%);box-shadow:0 10px 14px -8px rgba(90,62,27,.55),inset 0 1px 0 rgba(255,235,200,.5)}
+    .shelf-item{display:block;text-decoration:none;color:inherit}
+    .shelf-cover{aspect-ratio:3/4;border-radius:10px;overflow:hidden;border:1px solid #e7e5e4;background:#f5f5f4;box-shadow:0 1px 2px rgba(28,25,23,.06)}
+    .shelf-cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s ease}
+    .shelf-item:hover .shelf-cover img{transform:scale(1.02)}
+    .shelf-title{display:block;font-weight:700;font-size:.95rem;line-height:1.3;margin-top:10px}
+    .shelf-chip{display:block;margin-top:6px;min-height:24px}
     .card img{max-width:100%;border-radius:8px;background:#f5f5f4}
     label{display:block;margin:16px 0 6px;font-weight:600;font-size:14px}
     input,select,textarea{width:100%;padding:10px 12px;font-size:14px;border:1px solid #d6d3d1;border-radius:8px;box-sizing:border-box;background:#fff}
@@ -83,29 +99,34 @@ if (!Astro.locals.user) {
     function topicOf(b) { return (b.topic || "").trim() || "uncategorized"; }
     function topicLabel(t) { return t === "uncategorized" ? "Uncategorized" : t.charAt(0).toUpperCase() + t.slice(1); }
 
-    function cardHtml(b) {
+    function shelfItemHtml(b) {
       // Admin book links wear the PUBLIC slug (owner, 2026-10-29);
       // data-slug attributes and API calls keep the internal slug.
+      // Shelf item (redesign S1): cover, public title, and ONE
+      // readiness chip. The chip is filled by the delivery readiness
+      // fetch in render(); its label already reads "Ready" or
+      // "Not ready: N blockers". Every action lives on the book page.
       var pub = b.public_slug || b.slug;
-      var stage = b.stage ? ' · ' + escB(b.stage) + (b.stage_detail ? ' (' + escB(b.stage_detail) + ')' : '') : '';
-      var cover = b.cover_key ? '<img src="' + R2 + b.cover_key + '" alt="" style="width:74px;height:98px;object-fit:cover;border-radius:6px;border:1px solid #e7e5e4;flex-shrink:0" />' : '<div style="width:74px;height:98px;border-radius:6px;background:#f5f5f4;border:1px solid #e7e5e4;flex-shrink:0"></div>';
-      return '<div class="card" style="display:flex;gap:18px;align-items:flex-start">' + cover +
-        '<div style="flex:1;min-width:0">' +
-        '<h2 style="margin:2px 0 6px"><a href="/admin/books/' + pub + '">' + escB(b.title) + '</a></h2>' +
-        '<p style="margin:4px 0"><span class="rchip" data-rslug="' + escB(b.slug) + '"></span><span class="meta">' + stage + '</span></p>' +
-        (b.published_at ? '<p class="meta" style="margin:4px 0">Published ' + escB(new Date(b.published_at * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })) + '</p>' : '') +
-        '<p class="meta" style="margin:4px 0">Public slug: ' + escB(b.public_slug || "not set") + (b.topic ? ' · Category: ' + escB(b.topic) : '') + (b.topics ? ' · Topics: ' + escB(b.topics) : '') + '</p>' +
-        '<p class="meta" id="ver-' + escB(b.slug) + '" style="margin:4px 0"></p>' +
-        '<p style="margin:10px 0 0"><a class="btn" href="/admin/books/' + pub + '">Open QC</a> ' +
-        '<a class="ghostbtn" href="/admin/books/' + pub + '/edit">Full editor</a> ' +
-        '<a class="ghostbtn" href="/books/' + pub + '">Storefront</a>' +
-        ' <a class="ghostbtn" href="/admin/books/' + pub + '/readiness">Readiness</a>' +
-        ((b.status === 'draft' || b.status === 'failed') ? ' <button class="ghostbtn build-btn" data-slug="' + escB(b.slug) + '" data-title="' + escB(b.title) + '">Build this book</button>' : '') +
-        ((b.stage === 'awaiting_pilot_approval') ? ' <button class="ghostbtn pilot-btn" data-slug="' + escB(b.slug) + '" data-title="' + escB(b.title) + '" style="color:#166534;border-color:#bbf7d0">Approve pilot, build the rest</button>' : '') +
-        (b.color_book_key ? ' <span class="meta">Color edition ready</span>' : '') +
-        ' <button class="ghostbtn delete-btn" data-slug="' + escB(b.slug) + '" data-title="' + escB(b.title) + '" style="color:#b91c1c;border-color:#fecaca">Delete</button>' +
-        '</p>' +
-        '</div></div>';
+      var cover = b.cover_key
+        ? '<img src="' + R2 + b.cover_key + '" alt="' + escB(b.title) + '" loading="lazy" />'
+        : '';
+      return '<a class="shelf-item" href="/admin/books/' + pub + '">' +
+        '<span class="shelf-cover">' + cover + '</span>' +
+        '<span class="shelf-title">' + escB(b.title) + '</span>' +
+        '<span class="shelf-chip"><span class="rchip" data-rslug="' + escB(b.slug) + '"></span></span>' +
+        '</a>';
+    }
+
+    function shelfBoardsHtml(books) {
+      // Four covers to a board, a wooden plank under each board:
+      // the customer library shelf pattern.
+      var html = '';
+      for (var i = 0; i < books.length; i += 4) {
+        html += '<div class="shelf-board"><div class="shelf-row">' +
+          books.slice(i, i + 4).map(shelfItemHtml).join('') +
+          '</div><div class="shelf-plank" aria-hidden="true"></div></div>';
+      }
+      return html;
     }
 
     function render() {
@@ -128,27 +149,19 @@ if (!Astro.locals.user) {
       var el = document.getElementById('books');
       if (!list.length) { el.innerHTML = '<p>No books match.</p>'; return; }
       if (sortBy === "topic") {
-        var html = "", lastTopic = null;
+        // One shelf per topic group, heading above its boards.
+        var html = "", group = [], lastTopic = null;
+        var flush = function () { if (group.length) { html += shelfBoardsHtml(group); group = []; } };
         list.forEach(function (b) {
           var t = topicOf(b);
-          if (t !== lastTopic) { html += '<h2 class="group-title">' + escB(topicLabel(t)) + '</h2>'; lastTopic = t; }
-          html += cardHtml(b);
+          if (t !== lastTopic) { flush(); html += '<h2 class="group-title">' + escB(topicLabel(t)) + '</h2>'; lastTopic = t; }
+          group.push(b);
         });
+        flush();
         el.innerHTML = html;
       } else {
-        el.innerHTML = list.map(cardHtml).join('');
+        el.innerHTML = shelfBoardsHtml(list);
       }
-      // Version lines: the factory archives a snapshot before any
-      // overwrite; versions.json lists them. Silent when none exist.
-      list.forEach(function (b) {
-        fetch('/api/admin/media?key=' + encodeURIComponent('books/' + b.slug + '/versions.json')).then(function (r) { return r.ok ? r.json() : null; }).then(function (m) {
-          if (!m || !m.versions || !m.versions.length) return;
-          var v = m.versions[m.versions.length - 1];
-          var when = v.at ? new Date(v.at * 1000).toLocaleDateString() : "";
-          var slot = document.getElementById('ver-' + b.slug);
-          if (slot) slot.textContent = 'Versions: ' + m.versions.length + ' archived (latest v' + v.version + (when ? ', ' + when : '') + ')';
-        }).catch(function () {});
-      });
       // Delivery readiness chips (2026-10-31): the verdict from
       // the same checklist the readiness page shows, one fetch
       // per book, silent on failure.
@@ -182,7 +195,7 @@ if (!Astro.locals.user) {
     function loadBooks() {
       return fetch('/api/books').then(r => r.json()).then(books => {
         allBooks = books || [];
-        if (!allBooks.length) { document.getElementById('books').innerHTML = '<p>No books yet.</p>'; return; }
+        if (!allBooks.length) { document.getElementById('books').innerHTML = '<div class="card"><h2 style="margin-top:0">No books yet</h2><p class="meta">The shelf is empty. Start the first book and it will appear here.</p><p style="margin-bottom:0"><a class="btn" href="/admin/books/new">+ New book</a></p></div>'; return; }
         renderTabs();
         render();
         // While anything is mid-flight, keep the list fresh on its own.
@@ -216,101 +229,6 @@ if (!Astro.locals.user) {
     document.getElementById('q').addEventListener('input', render);
     document.getElementById('status-filter').addEventListener('change', render);
     document.getElementById('sort-by').addEventListener('change', render);
-    document.getElementById('books').addEventListener('click', async function (e) {
-      var dbtn = e.target.closest('.delete-btn');
-      if (dbtn) {
-        var dslug = dbtn.getAttribute('data-slug');
-        var dtitle = dbtn.getAttribute('data-title');
-        if (!confirm('Delete "' + dtitle + '" permanently? This removes the book, its bible, plans, page art, PDFs and EPUB from the store. This cannot be undone.')) return;
-        dbtn.disabled = true;
-        dbtn.textContent = 'Deleting...';
-        try {
-          var dres = await fetch('/api/books/delete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ slug: dslug })
-          });
-          var ddata = await dres.json().catch(function () { return {}; });
-          if (!dres.ok) throw new Error(ddata.error || ('HTTP ' + dres.status));
-          setTimeout(loadBooks, 800);
-        } catch (err) {
-          dbtn.disabled = false;
-          dbtn.textContent = 'Delete';
-          alert('Could not delete: ' + err.message);
-        }
-        return;
-      }
-      var pbtn = e.target.closest('.pilot-btn');
-      if (pbtn) {
-        var pslug = pbtn.getAttribute('data-slug');
-        var ptitle = pbtn.getAttribute('data-title');
-        if (!confirm('Approve the chapter 1 pilot for "' + ptitle + '"? The factory will build the remaining chapters. Look at the chapter 1 pages in Open QC first if you have not.')) return;
-        pbtn.disabled = true;
-        pbtn.textContent = 'Approving...';
-        try {
-          var pres = await fetch('/api/books/pilot-approve', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ slug: pslug })
-          });
-          var pdata = await pres.json().catch(function () { return {}; });
-          if (!pres.ok) throw new Error(pdata.error || ('HTTP ' + pres.status));
-          pbtn.textContent = 'Approved, building...';
-          setTimeout(loadBooks, 2500);
-        } catch (err) {
-          pbtn.disabled = false;
-          pbtn.textContent = 'Approve pilot, build the rest';
-          alert('Could not approve the pilot: ' + err.message);
-        }
-        return;
-      }
-      var cbtn = e.target.closest('.colorize-btn');
-      if (cbtn) {
-        var cslug = cbtn.getAttribute('data-slug');
-        var ctitle = cbtn.getAttribute('data-title');
-        if (!confirm('Colorize "' + ctitle + '" now? This colors the book\'s own black and white pages into a separate full color edition. The base book does not change.')) return;
-        cbtn.disabled = true;
-        cbtn.textContent = 'Starting...';
-        try {
-          var cres = await fetch('/api/books/colorize', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ slug: cslug })
-          });
-          var cdata = await cres.json().catch(function () { return {}; });
-          if (!cres.ok) throw new Error(cdata.error || ('HTTP ' + cres.status));
-          cbtn.textContent = 'Colorizing...';
-          setTimeout(loadBooks, 2500);
-        } catch (err) {
-          cbtn.disabled = false;
-          cbtn.textContent = 'Colorize';
-          alert('Could not start colorizing: ' + err.message);
-        }
-        return;
-      }
-      var btn = e.target.closest('.build-btn');
-      if (!btn) return;
-      var slug = btn.getAttribute('data-slug');
-      var title = btn.getAttribute('data-title');
-      if (!confirm('Build "' + title + '" in the factory now? This runs the full pipeline: plans, art, color pages, and assembly.')) return;
-      btn.disabled = true;
-      btn.textContent = 'Starting...';
-      try {
-        var res = await fetch('/api/books/build', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug: slug })
-        });
-        var data = await res.json().catch(function () { return {}; });
-        if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
-        btn.textContent = 'Building...';
-        setTimeout(loadBooks, 2500);
-      } catch (err) {
-        btn.disabled = false;
-        btn.textContent = 'Build this book';
-        alert('Could not start the build: ' + err.message);
-      }
-    });
   </script>
   </main>
   <script is:inline>
