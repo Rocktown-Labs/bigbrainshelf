@@ -69,6 +69,20 @@ export async function ensurePromoTables(db: DBLike): Promise<void> {
     )
     .bind()
     .run();
+  // Whether a code is limited to a customer's first purchase.
+  // FOUNDING15 is (that is the launch offer's shape); the SORRY10
+  // make-good below is the opposite, a code FOR returning customers,
+  // so the rule has to live on the row. Existing tables gain the
+  // column with default 1, which keeps FOUNDING15's semantics
+  // exactly; the SORRY10 seed opts out explicitly.
+  const { results: promoCols } = await db.prepare("PRAGMA table_info(promo_codes)").bind().all();
+  const promoHave = new Set(((promoCols || []) as any[]).map((r) => String(r.name)));
+  if (!promoHave.has("first_purchase_only")) {
+    await db
+      .prepare("ALTER TABLE promo_codes ADD COLUMN first_purchase_only INTEGER NOT NULL DEFAULT 1")
+      .bind()
+      .run();
+  }
   // The seed offer. INSERT OR IGNORE: edits CG makes later in D1
   // (deactivate, raise the cap) are never overwritten by a deploy.
   await db
@@ -76,6 +90,23 @@ export async function ensurePromoTables(db: DBLike): Promise<void> {
       `INSERT OR IGNORE INTO promo_codes
          (code, percent_off, min_subtotal_cents, max_redemptions, grant_months, active, created_at)
        VALUES ('FOUNDING15', 15, 3000, 10, 12, 1, ?)`
+    )
+    .bind(nowSeconds())
+    .run();
+  // The running-late make-good (S5, lib/delay-emails.ts): 10% off
+  // the next order, promised in the delay apology. Mirrors the
+  // FOUNDING15 row shape with the terms that fit a make-good: no
+  // minimum subtotal, no first-purchase limit (its recipients have
+  // bought already by definition), no club year (grant_months 0,
+  // which also makes grantPromoClubYear finalize the redemption
+  // without granting anything), and a cap set high enough to be
+  // bookkeeping rather than a limit. One redemption per customer
+  // still applies, through the same redemption checks as every code.
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO promo_codes
+         (code, percent_off, min_subtotal_cents, max_redemptions, grant_months, active, first_purchase_only, created_at)
+       VALUES ('SORRY10', 10, 0, 100000, 0, 1, 0, ?)`
     )
     .bind(nowSeconds())
     .run();
@@ -230,7 +261,10 @@ export async function validatePromo(
     if (await hasRedeemed(db, code, args)) {
       return { ok: false, error: "This code has already been used on your account." };
     }
-    if (await hasCompletedOrder(db, args)) {
+    // The first-purchase limit is per-code: SORRY10 is a make-good
+    // for customers whose order ran late, so it must redeem on a
+    // next order, not a first one.
+    if (Number(promo.first_purchase_only ?? 1) === 1 && (await hasCompletedOrder(db, args))) {
       return { ok: false, error: "This code is for a first purchase, and your account already has an order." };
     }
   }
@@ -314,13 +348,30 @@ export async function grantPromoClubYear(
     await voidRedemption(db, String(order.id), "already_redeemed");
     return null;
   }
-  if (await hasCompletedOrder(db, { email, userId: String(order.user_id || "") }, String(order.id))) {
+  if (
+    Number(promo.first_purchase_only ?? 1) === 1 &&
+    (await hasCompletedOrder(db, { email, userId: String(order.user_id || "") }, String(order.id)))
+  ) {
     await voidRedemption(db, String(order.id), "not_first_purchase");
     return null;
   }
   const counts = await redemptionCounts(db, code);
   if (counts.completed >= Number(promo.max_redemptions || 0)) {
     await voidRedemption(db, String(order.id), "cap_reached");
+    return null;
+  }
+
+  // Discount-only codes (grant_months 0, today just SORRY10) grant
+  // no club year: the redemption finalizes here, so one-per-customer
+  // and the cap stay enforced for guests exactly as at apply time,
+  // and nothing below (club rows, comp windows) is touched.
+  if (Number(promo.grant_months || 0) <= 0) {
+    await db
+      .prepare(
+        "UPDATE promo_redemptions SET status = 'completed', email = ?, completed_at = ? WHERE order_id = ?"
+      )
+      .bind(email, nowSeconds(), String(order.id))
+      .run();
     return null;
   }
 
