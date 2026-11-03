@@ -2,13 +2,13 @@
 import "../../styles/global.css";
 import AdminShell from "../../components/AdminShell.astro";
 export const prerender = false;
-// Book Club admin (operator redesign, 2026-10-29): three stat cards
-// (boxes to pack, active members, club revenue per month), then the
-// work in operator order — boxes needing action as cards with the
-// resolve/status/tracking controls, members as clean rows, and
-// reservations/canceled/founding cap in a quiet bottom section.
-// Data comes from /api/admin/club (admin session required); every
-// box action posts the same update_box action as before.
+// Book Club admin (operator redesign, 2026-10-29; slice S2 of the
+// admin redesign, 2026-11-03): three stat cards (boxes to pack,
+// active members, club revenue per month), then a compact packing
+// summary card that links to Orders (packing lives there now),
+// members as a sortable table whose names open the profile drawer,
+// and reservations/canceled in a quiet bottom section.
+// Data comes from /api/admin/club (admin session required).
 ---
 <!doctype html>
 <html lang="en">
@@ -41,8 +41,6 @@ export const prerender = false;
     .bchip-good{background:#ecfdf5;color:#047857}
     .bchip-bad{background:#fef2f2;color:#b91c1c}
     .mono{font-family:ui-monospace,monospace;font-size:.72rem;word-break:break-all}
-    input,select,textarea{font-size:16px}
-    .ctl{width:100%;min-height:44px;border:1px solid #d6d3d1;border-radius:8px;padding:8px 10px;background:#fff}
     .abtn{min-height:44px;border-radius:8px;background:#1c1917;color:#fff;font-weight:700;font-size:.85rem;padding:8px 16px;white-space:nowrap}
     .abtn:active{background:#44403c}
   </style>
@@ -72,12 +70,19 @@ export const prerender = false;
       </div>
     </div>
 
-    <h2 class="mt-9 text-xl font-bold tracking-tight">Boxes to pack</h2>
-    <p id="box-counts" class="mt-1.5 flex flex-wrap gap-1.5 text-xs text-stone-400"></p>
-    <div id="pack-list" class="mt-3 flex flex-col gap-3">
-      <p class="text-stone-400 text-sm">Loading...</p>
-    </div>
-    <p id="box-msg" class="mt-3 text-sm text-stone-500" role="status"></p>
+    <!-- Packing summary (S2, 2026-11-03): the pack work itself
+         moved to Orders, where a club box is packed like any other
+         order. This card reports the queue and links over. -->
+    <section id="pack-summary" class="mt-9 rounded-xl border border-stone-200 bg-white px-4 py-4 sm:px-5">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="min-w-0">
+          <h2 class="text-xl font-bold tracking-tight">Boxes to pack</h2>
+          <p id="pack-summary-line" class="mt-1 text-sm text-stone-500" role="status">Loading...</p>
+        </div>
+        <a href="/admin/orders" class="abtn tap ml-auto inline-flex items-center" style="text-decoration:none">Pack boxes in Orders</a>
+      </div>
+      <p id="pack-summary-counts" class="mt-3 flex flex-wrap gap-1.5 text-xs text-stone-400"></p>
+    </section>
 
     <h2 class="mt-10 text-xl font-bold tracking-tight">Members</h2>
     <div class="mt-3 overflow-x-auto rounded-xl border border-stone-200 bg-white">
@@ -118,12 +123,6 @@ export const prerender = false;
       </aside>
     </div>
 
-    <div id="more-boxes-wrap" class="hidden">
-      <h2 class="mt-10 text-xl font-bold tracking-tight">More boxes</h2>
-      <p class="text-sm text-stone-500 mt-1">Shipped boxes still in transit, and finished ones.</p>
-      <div id="more-boxes" class="mt-3 flex flex-col gap-3"></div>
-    </div>
-
     <div class="mt-12 border-t border-stone-200 pt-5">
       <h2 class="text-sm font-bold uppercase tracking-wide text-stone-400">Reservations &amp; canceled</h2>
       <p id="founding-line" class="text-sm text-stone-400 mt-2"></p>
@@ -141,88 +140,18 @@ export const prerender = false;
       return new Date((ts || 0) * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     }
     function money(cents) { return "$" + ((cents || 0) / 100).toFixed(2); }
-    function chicagoToday() {
-      var parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-      var g = function (t) { var p = parts.find(function (x) { return x.type === t; }); return p ? p.value : ""; };
-      return g("year") + "-" + g("month") + "-" + g("day");
-    }
-    function fmtShipDate(s) {
-      var p = String(s || "").split("-");
-      if (p.length !== 3) return String(s || "");
-      return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    }
     function humanStatus(s) { return String(s || "").replace(/_/g, " "); }
 
     var BOX_STATUSES = ["awaiting_selection", "locked", "preparing", "shipped", "delivered", "needs_attention", "skipped", "canceled"];
-    var TERMINAL = ["delivered", "skipped", "canceled"];
-    var bookOptionsHtml = "";
-
-    function needsPacking(b, today) {
-      if (b.status === "needs_attention") return true;
-      return ["awaiting_selection", "locked", "preparing"].indexOf(b.status) >= 0 && String(b.ship_date) <= today;
-    }
-    function dueBadge(b, today) {
-      if (TERMINAL.indexOf(b.status) >= 0) return "";
-      if (String(b.ship_date) < today) return ' · <span class="text-red-600 font-semibold">overdue</span>';
-      if (String(b.ship_date) === today) return ' · <span class="text-amber-600 font-semibold">due today</span>';
-      return "";
-    }
-
-    function boxCard(b, today) {
-      var choice = b.selected_book_slug ? ("Member pick" + (b.allow_repeat ? " (repeat/gift)" : "")) : (b.selection_source === "admin" ? "Admin" : "Surprise me");
-      var bookLabel = b.resolved_title || b.selected_title || ((b.selected_book_slug || b.resolved_book_slug) ? "Title unavailable" : "Not resolved yet");
-      var secondLabel = b.second_resolved_title || b.second_selected_title || ((b.second_selected_book_slug || b.second_resolved_book_slug) ? "Title unavailable" : "Not resolved yet");
-      var terminal = TERMINAL.indexOf(b.status) >= 0;
-      var statusOptions = BOX_STATUSES.map(function (s) {
-        return "<option value='" + s + "'" + (s === b.status ? " selected" : "") + ">" + humanStatus(s) + "</option>";
-      }).join("");
-      var card = document.createElement("div");
-      card.className = "rounded-xl bg-white border border-stone-200 px-4 py-3.5";
-      card.setAttribute("data-box-id", b.id);
-      var controls = terminal
-        ? '<p class="text-sm text-stone-400 mt-3">Done</p>'
-        : '<div class="mt-3.5 flex flex-col gap-2.5">' +
-            '<div class="flex gap-2 items-end"><label class="flex-1 min-w-0"><span class="block text-xs font-semibold text-stone-400 mb-1">Club book (gift set)</span>' +
-              "<select class='box-book ctl'><option value=''>Resolve club book...</option>" + bookOptionsHtml + "</select></label>" +
-              "<button type='button' class='box-resolve abtn tap'>Resolve</button></div>" +
-            '<div class="flex gap-2 items-end"><label class="flex-1 min-w-0"><span class="block text-xs font-semibold text-stone-400 mb-1">Second book</span>' +
-              "<select class='box-book-2 ctl'><option value=''>Resolve second book...</option>" + bookOptionsHtml + "</select></label>" +
-              "<button type='button' class='box-resolve-2 abtn tap'>Resolve</button></div>" +
-            '<div class="flex gap-2 items-end"><label class="flex-1 min-w-0"><span class="block text-xs font-semibold text-stone-400 mb-1">Box status</span>' +
-              "<select class='box-status ctl'>" + statusOptions + "</select></label>" +
-              "<button type='button' class='box-save-status abtn tap'>Save</button></div>" +
-            '<div class="flex gap-2"><label class="w-28"><span class="block text-xs font-semibold text-stone-400 mb-1">Carrier</span>' +
-              "<input class='box-carrier ctl' placeholder='Carrier' value='" + esc(b.carrier || "") + "'></label>" +
-              '<label class="flex-1"><span class="block text-xs font-semibold text-stone-400 mb-1">Tracking number</span>' +
-              "<input class='box-tracking ctl' placeholder='Tracking number' value='" + esc(b.tracking_number || "") + "'></label></div>" +
-          "</div>";
-      card.innerHTML =
-        '<div class="flex items-start gap-2">' +
-          '<span class="font-bold min-w-0">' + esc(b.member_name || b.member_email || "Member") + "</span>" +
-          '<span class="bchip bchip-' + esc(b.status) + ' ml-auto flex-none">' + esc(humanStatus(b.status)) + "</span>" +
-        "</div>" +
-        '<p class="text-sm text-stone-500 mt-0.5">' + esc(b.member_email || "") +
-          " · Ships " + fmtShipDate(b.ship_date) + dueBadge(b, today) + " · " + esc(choice) +
-          (b.member_subscription_status && b.member_subscription_status !== "active" ? '<br><span class="text-amber-600 font-medium">billing: ' + esc(humanStatus(b.member_subscription_status)) + "</span>" : "") +
-        "</p>" +
-        '<div class="text-sm mt-2.5 leading-relaxed">' +
-          "<div><span class='text-stone-400'>Club book:</span> " + esc(bookLabel) + " <span class='text-stone-400'>(gift set)</span></div>" +
-          "<div><span class='text-stone-400'>Second:</span> " + esc(secondLabel) + "</div>" +
-          "<div class='text-stone-400'>Extras: sticker sheet + little extra</div>" +
-          (b.tracking_number ? "<div class='mt-1 text-stone-500'>Tracking: " + esc((b.carrier ? b.carrier + " " : "") + b.tracking_number) + "</div>" : "") +
-        "</div>" + controls;
-      return card;
-    }
 
     async function load() {
       var r = await fetch("/api/admin/club");
       var data = await r.json();
-      var packList = document.getElementById("pack-list");
+      var summaryLine = document.getElementById("pack-summary-line");
       if (!data.signups) {
-        packList.innerHTML = '<p class="text-stone-400 text-sm">Could not load the club queue.</p>';
+        summaryLine.textContent = "Could not load the club queue.";
         return;
       }
-      var today = chicagoToday();
       var shelfNames = { tech: "Tech", money: "Money", courage: "Courage" };
 
       // ---- Stat cards -------------------------------------------------
@@ -234,31 +163,17 @@ export const prerender = false;
       var monthlyCents = Math.round((data.quarterlyRevenueCents || 0) / 3) + (data.audioMonthlyRevenueCents || 0);
       document.getElementById("stat-revenue").textContent = money(monthlyCents);
 
-      // ---- Boxes -------------------------------------------------------
-      bookOptionsHtml = (data.eligibleBooks || []).map(function (b) {
-        return "<option value='" + esc(b.slug) + "'>" + esc(b.title) + "</option>";
-      }).join("");
+      // ---- Packing summary ---------------------------------------------
+      // Same boxesToPack figure as the stat card above. The box work
+      // itself (resolve picks, status, tracking) happens in Orders.
+      var packN = data.boxesToPack != null ? data.boxesToPack : 0;
+      summaryLine.textContent = packN === 0
+        ? "Nothing to pack. You are caught up."
+        : packN + (packN === 1 ? " box is" : " boxes are") + " due now or flagged needs attention. Resolve picks and pack them from the orders queue.";
       var byStatus = data.boxByStatus || {};
-      document.getElementById("box-counts").innerHTML = BOX_STATUSES.filter(function (s) { return byStatus[s]; }).map(function (s) {
-        return "<span class='rounded-full bg-white border border-stone-200 px-2.5 py-0.5'>" + esc(humanStatus(s)) + ": " + byStatus[s] + "</span>";
+      document.getElementById("pack-summary-counts").innerHTML = BOX_STATUSES.filter(function (s) { return byStatus[s]; }).map(function (s) {
+        return "<span class='rounded-full bg-stone-50 border border-stone-200 px-2.5 py-0.5'>" + esc(humanStatus(s)) + ": " + byStatus[s] + "</span>";
       }).join("") || "<span>No boxes yet. The scheduler creates them for paid members.</span>";
-      var boxes = data.boxes || [];
-      var pack = boxes.filter(function (b) { return needsPacking(b, today); });
-      var rest = boxes.filter(function (b) { return !needsPacking(b, today); });
-      packList.innerHTML = "";
-      if (!pack.length) {
-        packList.innerHTML = '<p class="text-stone-400 text-sm">Nothing to pack. You are caught up.</p>';
-      }
-      pack.forEach(function (b) { packList.appendChild(boxCard(b, today)); });
-      var moreWrap = document.getElementById("more-boxes-wrap");
-      var more = document.getElementById("more-boxes");
-      more.innerHTML = "";
-      if (rest.length) {
-        moreWrap.classList.remove("hidden");
-        rest.forEach(function (b) { more.appendChild(boxCard(b, today)); });
-      } else {
-        moreWrap.classList.add("hidden");
-      }
 
       // ---- Members -----------------------------------------------------
       var statusText = function (s) {
@@ -482,44 +397,6 @@ export const prerender = false;
         bottom.appendChild(row);
       });
     }
-
-    async function boxAction(boxId, payload) {
-      var msg = document.getElementById("box-msg");
-      msg.textContent = "Saving...";
-      var r = await fetch("/api/admin/club", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(Object.assign({ action: "update_box", box_id: boxId }, payload)),
-      });
-      var data = await r.json().catch(function () { return {}; });
-      if (!r.ok) {
-        msg.textContent = data.error || "Could not update the box.";
-        return;
-      }
-      msg.textContent = "Box updated.";
-      load();
-    }
-
-    document.addEventListener("click", function (e) {
-      var resolveBtn = e.target.closest(".box-resolve");
-      var resolve2Btn = e.target.closest(".box-resolve-2");
-      var statusBtn = e.target.closest(".box-save-status");
-      if (!resolveBtn && !resolve2Btn && !statusBtn) return;
-      var card = e.target.closest("[data-box-id]");
-      if (!card) return;
-      var boxId = card.getAttribute("data-box-id");
-      if (resolveBtn || resolve2Btn) {
-        var slug = card.querySelector(resolveBtn ? ".box-book" : ".box-book-2").value;
-        if (!slug) { document.getElementById("box-msg").textContent = "Pick a book first."; return; }
-        boxAction(boxId, resolveBtn ? { book_slug: slug } : { book_slug: slug, slot: 2 });
-      } else {
-        boxAction(boxId, {
-          status: card.querySelector(".box-status").value,
-          carrier: card.querySelector(".box-carrier").value || null,
-          tracking_number: card.querySelector(".box-tracking").value || null,
-        });
-      }
-    });
 
     load();
   </script>

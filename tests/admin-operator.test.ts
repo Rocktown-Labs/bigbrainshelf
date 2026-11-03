@@ -25,12 +25,14 @@ assert(clubPage.includes("Math.round((data.quarterlyRevenueCents || 0) / 3) + (d
 assert(clubPage.includes('paidPhysical + " Book Club · " + paidAudio + " Audio Club"'), "active members stat splits Book Club and Audio Club in the subline");
 assert(clubApi.includes("boxesToPack"), "the club API counts boxes to pack over the whole table");
 assert(clubApi.includes("needs_attention"), "the boxes-to-pack count includes flagged boxes");
-// Every pre-existing box control survives in the card layout.
-for (const hook of ["box-book", "box-resolve", "box-book-2", "box-resolve-2", "box-status", "box-save-status", "box-carrier", "box-tracking", "data-box-id", "update_box"]) {
-  assert(clubPage.includes(hook), `club box control survives: ${hook}`);
-}
-assert(clubPage.includes("Extras: sticker sheet + little extra"), "club box cards carry the extras packing line");
-assert(clubPage.indexOf('id="pack-list"') < clubPage.indexOf('id="member-list"'), "boxes needing action come before members");
+// Redesign slice S2 (2026-11-03): the packing controls leave this
+// page for Orders (a club box is an order). The club page carries a
+// summary card that links over; the box actions survive in the API.
+assert(clubPage.includes('id="pack-summary"'), "club page carries the packing summary card");
+assert(clubPage.includes('href="/admin/orders"') && clubPage.includes("Pack boxes in Orders"), "the summary card links to the orders queue for packing");
+assert(clubApi.includes("update_box"), "the box update action survives in the club API");
+assert(clubPage.indexOf('id="pack-summary"') < clubPage.indexOf('id="member-table"'), "the packing summary comes before members");
+assert(clubPage.includes('id="member-drawer"') && clubPage.includes("member_id="), "member names open the right-side profile drawer fed by the member_id API branch");
 assert(clubPage.includes("Reservations &amp; canceled") && clubPage.includes("paid physical members"), "reservations, canceled accounts and the member count sit in the quiet bottom section (no founding cap since 2026-10-31)");
 
 // ---- Orders ------------------------------------------------------------
