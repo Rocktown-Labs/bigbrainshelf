@@ -1,0 +1,276 @@
+---
+import "../../../styles/global.css";
+import AdminShell from "../../../components/AdminShell.astro";
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+---
+
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>All books · Big Brain Shelf admin</title>
+  <style is:global>
+    body{font-family:ui-sans-serif,system-ui,sans-serif;background:#fafaf9;color:#1c1917;margin:0}
+    .wrap{max-width:64rem;margin:0 auto;padding:1.75rem 1rem 4rem}
+    h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 1rem}
+    .card{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:20px;margin:16px 0;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .card h2,.card h3{margin-top:0}
+    .status{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.85em;font-weight:600}
+    .meta{color:#78716c;font-size:.88em}
+    a{color:#c2410c}
+    .btn{display:inline-block;background:#ea580c;color:#fff;padding:10px 22px;border-radius:999px;font-weight:600;text-decoration:none;border:0;cursor:pointer;font-size:14px}
+    .btn:hover{background:#c2410c}
+    .ghostbtn{display:inline-block;background:#fff;color:#1c1917;border:1px solid #d6d3d1;padding:9px 18px;border-radius:999px;font-weight:600;cursor:pointer;font-size:14px;text-decoration:none}
+    .tabs{margin:16px 0}.tabs button{padding:8px 16px;margin-right:8px;border:1px solid #d6d3d1;border-radius:999px;background:#fff;cursor:pointer;font-size:.95em}
+    .tabs button.active{background:#1a3454;color:#fff;border-color:#1a3454}
+    .group-title{margin:32px 0 12px;font-size:1.3em;font-weight:700}
+    /* All-books shelf (fix A, 2026-11-03): the full catalog on one
+       filterable page. Geometry mirrors the customer shelf
+       (src/pages/account/library.astro) exactly, and matches the
+       fixed shelf on /admin/books: 1.75rem board spacing, a 4-up
+       row with a 1rem gap, the wooden plank, and a BLOCK 3/4 cover
+       box at .75rem radius, so covers are contained, never cropped
+       by an overflowing row or stretched to natural height. */
+    .shelf-board{margin-top:1.75rem}
+    .shelf-board:first-of-type{margin-top:.75rem}
+    .shelf-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;padding:0 4px}
+    @media (max-width:640px){.shelf-row{grid-template-columns:repeat(2,1fr)}}
+    .shelf-plank{height:.65rem;margin-top:.55rem;border-radius:.3rem;background:linear-gradient(180deg,#b08954 0%,#8a6844 55%,#6f5133 100%);box-shadow:0 10px 14px -8px rgba(90,62,27,.55),inset 0 1px 0 rgba(255,235,200,.5)}
+    .shelf-item{display:block;text-decoration:none;color:inherit;min-width:0}
+    .shelf-cover{display:block;position:relative;aspect-ratio:3/4;border-radius:.75rem;overflow:hidden;border:1px solid #e7e5e4;background:#f5f5f4;box-shadow:0 1px 2px rgba(28,25,23,.06)}
+    .shelf-cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s ease}
+    .shelf-item:hover .shelf-cover img{transform:scale(1.02)}
+    .shelf-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:700;font-size:.95rem;line-height:1.3;margin-top:.5rem}
+    .shelf-chip{display:block;margin-top:6px;min-height:24px}
+    label{display:block;margin:16px 0 6px;font-weight:600;font-size:14px}
+    input,select,textarea{width:100%;padding:10px 12px;font-size:14px;border:1px solid #d6d3d1;border-radius:8px;box-sizing:border-box;background:#fff}
+    .hint{color:#78716c;font-size:.85em}
+  </style>
+  </head>
+<body>
+  <AdminShell current="/admin/books" />
+  <main class="wrap">
+  <h1>All books</h1>
+  <p class="meta" style="margin-top:0">The full catalog on one shelf. Tap a cover to open the book; the back link there returns here with your filters still on.</p>
+  <p style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><a href="/admin/books" class="ghostbtn">&larr; Books shelf</a> <a href="/admin/books/new" class="btn">+ New book</a></p>
+  <div class="tabs" id="topic-tabs"></div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:4px 0">
+    <input id="q" type="text" placeholder="Search title or slug..." style="flex:1;min-width:170px;width:auto" />
+    <select id="status-filter" style="width:auto">
+      <option value="">Any status</option>
+      <option value="building">Building</option>
+      <option value="ready_for_qa">Ready for QA</option>
+      <option value="in_progress">In progress</option>
+      <option value="draft">Draft</option>
+      <option value="queued">Queued</option>
+      <option value="complete">Complete</option>
+      <option value="failed">Failed</option>
+    </select>
+    <select id="sort-by" style="width:auto">
+      <option value="topic">Sort: Topic</option>
+      <option value="title">Sort: Title A-Z</option>
+      <option value="status">Sort: Status</option>
+      <option value="newest">Sort: Newest</option>
+    </select>
+  </div>
+  <p class="meta" id="count"></p>
+  <div id="books"><p>Loading...</p></div>
+  <script is:inline>
+    var R2 = "https://media.bigbrainshelf.com/";
+    var allBooks = [];
+    var STATUS_RANK = { building: 0, ready_for_qa: 1, in_progress: 2, failed: 3, draft: 4, queued: 5, complete: 6 };
+    function escB(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+    function topicOf(b) { return (b.topic || "").trim() || "uncategorized"; }
+    function topicLabel(t) { return t === "uncategorized" ? "Uncategorized" : t.charAt(0).toUpperCase() + t.slice(1); }
+
+    // Filter state starts from the URL: the operator may have
+    // carried filters here from /admin/books, or be returning from
+    // a book page whose back link restored them.
+    var startParams = new URLSearchParams(window.location.search);
+    var topicFilter = startParams.get("topic") || "all";
+    (function initControls() {
+      var st = startParams.get("status");
+      if (st) document.getElementById('status-filter').value = st;
+      var sb = startParams.get("sort");
+      if (sb) document.getElementById('sort-by').value = sb;
+      var q = startParams.get("q");
+      if (q) document.getElementById('q').value = q;
+    })();
+
+    // The current filter state as query parts (non-default values
+    // only). Cover links carry them into the book page so its back
+    // link can return here with the same filters, and render()
+    // mirrors them into this page's own URL.
+    function filterParts() {
+      var parts = [];
+      if (topicFilter !== "all") parts.push("topic=" + encodeURIComponent(topicFilter));
+      var st = document.getElementById('status-filter').value;
+      if (st) parts.push("status=" + encodeURIComponent(st));
+      var sb = document.getElementById('sort-by').value;
+      if (sb && sb !== "topic") parts.push("sort=" + encodeURIComponent(sb));
+      var q = document.getElementById('q').value.trim();
+      if (q) parts.push("q=" + encodeURIComponent(q));
+      return parts;
+    }
+    function filterQuery() {
+      var parts = filterParts();
+      return parts.length ? "?" + parts.join("&") : "";
+    }
+
+    function clearFilters() {
+      topicFilter = "all";
+      document.getElementById('q').value = "";
+      document.getElementById('status-filter').value = "";
+      document.getElementById('sort-by').value = "topic";
+      renderTabs();
+      render();
+    }
+
+    function shelfItemHtml(b) {
+      // Admin book links wear the PUBLIC slug (owner, 2026-10-29);
+      // data-slug attributes and API calls keep the internal slug.
+      // The from=all marker plus the current filters ride along so
+      // the book page's back link returns to this filtered view.
+      var pub = b.public_slug || b.slug;
+      var cover = b.cover_key
+        ? '<img src="' + R2 + b.cover_key + '" alt="' + escB(b.title) + '" loading="lazy" />'
+        : '';
+      var back = filterParts();
+      return '<a class="shelf-item" href="/admin/books/' + pub + '?from=all' + (back.length ? '&' + back.join('&') : '') + '">' +
+        '<span class="shelf-cover">' + cover + '</span>' +
+        '<span class="shelf-title">' + escB(b.title) + '</span>' +
+        '<span class="shelf-chip"><span class="rchip" data-rslug="' + escB(b.slug) + '"></span></span>' +
+        '</a>';
+    }
+
+    function shelfBoardsHtml(books) {
+      // Four covers to a board, a wooden plank under each board:
+      // the customer library shelf pattern.
+      var html = '';
+      for (var i = 0; i < books.length; i += 4) {
+        html += '<div class="shelf-board"><div class="shelf-row">' +
+          books.slice(i, i + 4).map(shelfItemHtml).join('') +
+          '</div><div class="shelf-plank" aria-hidden="true"></div></div>';
+      }
+      return html;
+    }
+
+    function render() {
+      var q = document.getElementById('q').value.trim().toLowerCase();
+      var st = document.getElementById('status-filter').value;
+      var sortBy = document.getElementById('sort-by').value;
+      var list = allBooks.filter(function (b) {
+        if (topicFilter !== "all" && topicOf(b) !== topicFilter) return false;
+        if (st && b.status !== st) return false;
+        if (q && (b.title + " " + b.slug).toLowerCase().indexOf(q) < 0) return false;
+        return true;
+      });
+      list.sort(function (a, b) {
+        if (sortBy === "title") return String(a.title).localeCompare(String(b.title));
+        if (sortBy === "status") return (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9) || String(a.title).localeCompare(String(b.title));
+        if (sortBy === "newest") return (b.created_at || 0) - (a.created_at || 0);
+        return topicOf(a).localeCompare(topicOf(b)) || String(a.title).localeCompare(String(b.title));
+      });
+      document.getElementById('count').textContent = list.length + (list.length === 1 ? " book" : " books");
+      // Keep the URL in step with the filters, so a refresh, a
+      // shared link, or a browser Back lands on the same view.
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, "", "/admin/books/all" + filterQuery());
+      }
+      var el = document.getElementById('books');
+      if (!list.length) {
+        el.innerHTML = '<div class="card"><h2 style="margin-top:0">No books match those filters</h2><p class="meta">Nothing on the shelf fits the current search and filters.</p><p style="margin-bottom:0"><button class="btn" id="clear-filters" type="button">Clear filters</button></p></div>';
+        var cf = document.getElementById('clear-filters');
+        if (cf) cf.addEventListener('click', clearFilters);
+        return;
+      }
+      if (sortBy === "topic") {
+        // One shelf per topic group, heading above its boards.
+        var html = "", group = [], lastTopic = null;
+        var flush = function () { if (group.length) { html += shelfBoardsHtml(group); group = []; } };
+        list.forEach(function (b) {
+          var t = topicOf(b);
+          if (t !== lastTopic) { flush(); html += '<h2 class="group-title">' + escB(topicLabel(t)) + '</h2>'; lastTopic = t; }
+          group.push(b);
+        });
+        flush();
+        el.innerHTML = html;
+      } else {
+        el.innerHTML = shelfBoardsHtml(list);
+      }
+      // Delivery readiness chips: the verdict from the same
+      // checklist the readiness page shows, one fetch per book,
+      // silent on failure.
+      document.querySelectorAll('.rchip').forEach(function (chip) {
+        var islug = chip.getAttribute('data-rslug');
+        fetch('/api/editor/readiness?book_slug=' + encodeURIComponent(islug)).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+          var d = j && j.delivery;
+          if (!d) return;
+          var colors = { ready: 'background:#dcfce7;color:#166534', 'product-ready': 'background:#dbeafe;color:#1d4ed8', 'not-ready': 'background:#fef3c7;color:#92400e', unverified: 'background:#f5f5f4;color:#57534e' };
+          chip.setAttribute('style', 'display:inline-block;padding:3px 11px;border-radius:999px;font-size:12px;font-weight:600;' + (colors[d.verdict] || colors.unverified));
+          chip.textContent = d.statusLabel;
+        }).catch(function () {});
+      });
+    }
+
+    function renderTabs() {
+      var counts = {};
+      allBooks.forEach(function (b) { var t = topicOf(b); counts[t] = (counts[t] || 0) + 1; });
+      var topics = Object.keys(counts).sort();
+      var tabs = document.getElementById('topic-tabs');
+      var html = '<button data-topic="all" class="' + (topicFilter === "all" ? "active" : "") + '">All (' + allBooks.length + ')</button>';
+      topics.forEach(function (t) {
+        html += '<button data-topic="' + escB(t) + '" class="' + (topicFilter === t ? "active" : "") + '">' + escB(topicLabel(t)) + ' (' + counts[t] + ')</button>';
+      });
+      tabs.innerHTML = html;
+      tabs.querySelectorAll('button').forEach(function (btn) {
+        btn.addEventListener('click', function () { topicFilter = btn.getAttribute('data-topic'); renderTabs(); render(); });
+      });
+    }
+
+    function loadBooks() {
+      return fetch('/api/books').then(r => r.json()).then(books => {
+        allBooks = books || [];
+        if (!allBooks.length) { document.getElementById('books').innerHTML = '<div class="card"><h2 style="margin-top:0">No books yet</h2><p class="meta">The shelf is empty. Start the first book and it will appear here.</p><p style="margin-bottom:0"><a class="btn" href="/admin/books/new">+ New book</a></p></div>'; return; }
+        renderTabs();
+        render();
+        // While anything is mid-flight, keep the list fresh on its own.
+        var active = allBooks.some(function (b) { return b.status === 'building' || b.status === 'queued'; });
+        if (active && !window.__bbPoll) {
+          window.__bbPoll = setInterval(function () {
+            if (!allBooks.some(function (b) { return b.status === 'building' || b.status === 'queued'; })) {
+              clearInterval(window.__bbPoll); window.__bbPoll = null; return;
+            }
+            loadBooks();
+          }, 30000);
+        }
+      });
+    }
+    loadBooks();
+    document.getElementById('q').addEventListener('input', render);
+    document.getElementById('status-filter').addEventListener('change', render);
+    document.getElementById('sort-by').addEventListener('change', render);
+  </script>
+  </main>
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

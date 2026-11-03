@@ -20,6 +20,24 @@ const param = String(Astro.params.slug || "");
 const resolvedBook = await resolveBookForPublicRoute(env.DB as any, param).catch(() => null);
 const slug = resolvedBook ? String(resolvedBook.book.slug) : param;
 const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
+// Back link context (fix A, 2026-11-03): arriving from the
+// all-books page (from=all plus its filter params), the back link
+// returns there with those filters restored. Any other arrival
+// keeps the long-standing back link to /admin/books. Only the four
+// known filter keys are carried back, and only as query values.
+const fromAll = Astro.url.searchParams.get("from") === "all";
+let backHref = "/admin/books";
+let backLabel = "← Books";
+if (fromAll) {
+  const qs = new URLSearchParams();
+  for (const k of ["topic", "status", "sort", "q"]) {
+    const v = Astro.url.searchParams.get(k);
+    if (v) qs.set(k, v);
+  }
+  const s = qs.toString();
+  backHref = "/admin/books/all" + (s ? "?" + s : "");
+  backLabel = "← All books";
+}
 ---
 
 <html lang="en">
@@ -144,7 +162,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
   <AdminShell current="/admin/books" />
 
   <div class="subbar">
-    <a href="/admin/books" style="font-size:14px">&larr; Books</a>
+    <a href={backHref} style="font-size:14px">{backLabel}</a>
     <h1 id="title">Loading...</h1>
     <span id="bookstatus"></span>
     <span class="subbar-links">

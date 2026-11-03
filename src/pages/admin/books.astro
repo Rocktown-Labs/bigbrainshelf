@@ -40,17 +40,25 @@ if (!Astro.locals.user) {
        library pattern moved to admin. Covers rest on wooden planks,
        four to a board; the title and one readiness chip sit under
        each cover; the whole cover is the link. No buttons here: the
-       book page holds every action. */
-    .shelf-board{margin-top:26px}
-    .shelf-board:first-of-type{margin-top:10px}
-    .shelf-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;padding:0 4px}
+       book page holds every action.
+       Geometry mirrors the customer shelf (src/pages/account/
+       library.astro): 1.75rem board spacing, a 4-up row with a 1rem
+       gap, the same plank, and a 3/4 cover box at .75rem radius.
+       Fix A (2026-11-03): the cover wrapper MUST be a block box. It
+       shipped as an inline span, so aspect-ratio never formed a box,
+       covers rendered at their natural (much taller) height and
+       overflowed their rows, and the topic headings painted over
+       the previous row's titles and chips. */
+    .shelf-board{margin-top:1.75rem}
+    .shelf-board:first-of-type{margin-top:.75rem}
+    .shelf-row{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;padding:0 4px}
     @media (max-width:640px){.shelf-row{grid-template-columns:repeat(2,1fr)}}
     .shelf-plank{height:.65rem;margin-top:.55rem;border-radius:.3rem;background:linear-gradient(180deg,#b08954 0%,#8a6844 55%,#6f5133 100%);box-shadow:0 10px 14px -8px rgba(90,62,27,.55),inset 0 1px 0 rgba(255,235,200,.5)}
-    .shelf-item{display:block;text-decoration:none;color:inherit}
-    .shelf-cover{aspect-ratio:3/4;border-radius:10px;overflow:hidden;border:1px solid #e7e5e4;background:#f5f5f4;box-shadow:0 1px 2px rgba(28,25,23,.06)}
+    .shelf-item{display:block;text-decoration:none;color:inherit;min-width:0}
+    .shelf-cover{display:block;position:relative;aspect-ratio:3/4;border-radius:.75rem;overflow:hidden;border:1px solid #e7e5e4;background:#f5f5f4;box-shadow:0 1px 2px rgba(28,25,23,.06)}
     .shelf-cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s ease}
     .shelf-item:hover .shelf-cover img{transform:scale(1.02)}
-    .shelf-title{display:block;font-weight:700;font-size:.95rem;line-height:1.3;margin-top:10px}
+    .shelf-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:700;font-size:.95rem;line-height:1.3;margin-top:.5rem}
     .shelf-chip{display:block;margin-top:6px;min-height:24px}
     .card img{max-width:100%;border-radius:8px;background:#f5f5f4}
     label{display:block;margin:16px 0 6px;font-weight:600;font-size:14px}
@@ -62,7 +70,7 @@ if (!Astro.locals.user) {
   <AdminShell current="/admin/books" />
   <main class="wrap">
   <h1>Books</h1>
-  <p><a href="/admin/books/new" class="btn">+ New book</a></p>
+  <p style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><a href="/admin/books/new" class="btn">+ New book</a> <a href="/admin/books/all" class="ghostbtn" id="view-all">View all books</a></p>
   <div class="card" id="releases-block" style="display:none">
     <h3 style="margin-bottom:6px">Releases and announcements</h3>
     <p class="meta" style="margin:0 0 10px">Every published book announces in two waves: Book Club members first (immediate), then subscribers after 3 days. Counts are the announcement emails in the outbox.</p>
@@ -98,6 +106,34 @@ if (!Astro.locals.user) {
     function escB(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
     function topicOf(b) { return (b.topic || "").trim() || "uncategorized"; }
     function topicLabel(t) { return t === "uncategorized" ? "Uncategorized" : t.charAt(0).toUpperCase() + t.slice(1); }
+
+    // The current filter state as query parts, so links out of this
+    // page (View all books) carry the operator's place with them.
+    // Only non-default values ride along.
+    function filterParts() {
+      var parts = [];
+      if (topicFilter !== "all") parts.push("topic=" + encodeURIComponent(topicFilter));
+      var st = document.getElementById('status-filter').value;
+      if (st) parts.push("status=" + encodeURIComponent(st));
+      var sb = document.getElementById('sort-by').value;
+      if (sb && sb !== "topic") parts.push("sort=" + encodeURIComponent(sb));
+      var q = document.getElementById('q').value.trim();
+      if (q) parts.push("q=" + encodeURIComponent(q));
+      return parts;
+    }
+    function filterQuery() {
+      var parts = filterParts();
+      return parts.length ? "?" + parts.join("&") : "";
+    }
+
+    function clearFilters() {
+      topicFilter = "all";
+      document.getElementById('q').value = "";
+      document.getElementById('status-filter').value = "";
+      document.getElementById('sort-by').value = "topic";
+      renderTabs();
+      render();
+    }
 
     function shelfItemHtml(b) {
       // Admin book links wear the PUBLIC slug (owner, 2026-10-29);
@@ -146,8 +182,15 @@ if (!Astro.locals.user) {
         return topicOf(a).localeCompare(topicOf(b)) || String(a.title).localeCompare(String(b.title));
       });
       document.getElementById('count').textContent = list.length + (list.length === 1 ? " book" : " books");
+      var va = document.getElementById('view-all');
+      if (va) va.setAttribute('href', '/admin/books/all' + filterQuery());
       var el = document.getElementById('books');
-      if (!list.length) { el.innerHTML = '<p>No books match.</p>'; return; }
+      if (!list.length) {
+        el.innerHTML = '<div class="card"><h2 style="margin-top:0">No books match those filters</h2><p class="meta">Nothing on the shelf fits the current search and filters.</p><p style="margin-bottom:0"><button class="btn" id="clear-filters" type="button">Clear filters</button></p></div>';
+        var cf = document.getElementById('clear-filters');
+        if (cf) cf.addEventListener('click', clearFilters);
+        return;
+      }
       if (sortBy === "topic") {
         // One shelf per topic group, heading above its boards.
         var html = "", group = [], lastTopic = null;
