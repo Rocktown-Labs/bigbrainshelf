@@ -10,7 +10,9 @@ import {
 import {
   clubMemberCycleEligible,
   ensureClubCycleTables,
+  getClubBox,
   listEligibleClubBooks,
+  setClubBoxPack,
   updateClubBoxByAdmin,
 } from "../../../lib/club-cycles";
 import { clubAnchorDateString, memberCycleWindowDates } from "../../../lib/club-cycle-dates";
@@ -18,6 +20,10 @@ import { chicagoDateString } from "../../../lib/offers";
 import { enqueueClubCycleEmail, CLUB_BOX_SHIPPED_KIND } from "../../../lib/club-emails";
 import { markSeen } from "../../../lib/seen";
 import { flushOutbox } from "../../../lib/email";
+import { loadBooksByAnySlug, normalizePackState, parsePackState } from "../../../lib/orders";
+import { boxContentsComplete, packLinesForBox, packProgress } from "../../../lib/packing";
+import { buyDestinationLabel, destinationFromStored, getDestinationLabelQuote, pickupStateFor, requestPickup, shippoStatus } from "../../../lib/shippo";
+import { coverDerivative, MEDIA_PUBLIC } from "../../../lib/derivatives";
 
 // Admin Book Club queue. Gated by the middleware's admin session cookie,
 // with the locals.user check as defense in depth (same pattern as
@@ -26,10 +32,22 @@ import { flushOutbox } from "../../../lib/email";
 // GET -> all club signups (newest first) + counts per shelf and status,
 //        plus Book Club V2 cycle boxes (upcoming and recent), per-status
 //        box counts, and the eligible book list for override controls.
+// GET ?box_id= -> the unified fulfillment payload for ONE box (admin
+//        redesign S4): the box, its member, its pack checklist, label
+//        and pickup state, and the eligible books for the pick step.
 // POST { action: "update_box", box_id, book_slug?, status?, carrier?,
 //        tracking_number?, label_url? } -> resolve a box to a book,
 //        change its fulfilment status, or attach tracking. Marking a box
 //        shipped enqueues the member's shipped email with tracking.
+//        Marking shipped is gated here: the box needs a purchased
+//        label and a fully ticked pack checklist.
+// POST { action: "set_pack", box_id, pack } -> persist pack ticks.
+// POST { action: "box_label_quote", box_id } -> Shippo rate preview
+//        for the box's one parcel to the member's club address.
+// POST { action: "buy_box_label", box_id, shipment_id, rate_id } ->
+//        buy the quoted label and store it on the box row.
+// POST { action: "schedule_pickup", box_id } -> Shippo pickup for the
+//        box's label (USPS Priority-class / DHL Express only).
 
 export const GET: APIRoute = async ({ locals, url }) => {
   if (!(locals as any)?.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -114,6 +132,45 @@ export const GET: APIRoute = async ({ locals, url }) => {
       reviews = (rv.results || []) as any[];
     } catch { /* reviews are a bonus */ }
     return Response.json({ member, boxes, orders, total_spent_cents: totalSpent, shipping, account, reviews });
+  }
+  // Single box for the unified fulfillment view (/admin/orders/box/[id]).
+  const boxId = url.searchParams.get("box_id");
+  if (boxId) {
+    await ensureClubCycleTables(e.DB);
+    const box = await e.DB.prepare(
+      `SELECT b.*, s.name AS member_name, s.email AS member_email
+       FROM club_cycle_boxes b JOIN club_signups s ON s.id = b.signup_id
+       WHERE b.id = ?`
+    ).bind(boxId).first() as any;
+    if (!box) return Response.json({ error: "box not found" }, { status: 404 });
+    const member = await e.DB.prepare(
+      "SELECT id, name, email, ship_name, ship_address FROM club_signups WHERE id = ?"
+    ).bind(String(box.signup_id)).first();
+    const slotSlugs = [
+      String(box.resolved_book_slug || box.selected_book_slug || ""),
+      String(box.second_resolved_book_slug || box.second_selected_book_slug || ""),
+    ].filter(Boolean);
+    const books = await loadBooksByAnySlug(e.DB, slotSlugs, "slug, title, cover_key, public_slug").catch(() => new Map());
+    const packState = parsePackState(box.pack_json);
+    const packLines = packLinesForBox(box, books as Map<string, any>);
+    const eligible = await listEligibleClubBooks(e.DB).catch(() => []);
+    const eligibleBooks = (eligible as any[]).map((b) => ({
+      ...b,
+      cover:
+        coverDerivative(String(b.slug), "card", b.cover_key) ||
+        (b.cover_key ? MEDIA_PUBLIC + b.cover_key : null),
+    }));
+    return Response.json({
+      box,
+      member,
+      contents_complete: boxContentsComplete(box),
+      pack_lines: packLines,
+      pack_state: packState,
+      pack_progress: packProgress(packLines, packState),
+      pickup: pickupStateFor(box),
+      eligibleBooks,
+      shippo: shippoStatus(e),
+    });
   }
   const rows = await e.DB.prepare(
     "SELECT id, name, email, shelf, status, created_at, plan, club_plan, user_id, paid_at, first_ship_date, stripe_subscription_id, subscription_status, payment_failed_at FROM club_signups ORDER BY created_at DESC LIMIT 500"
@@ -254,8 +311,109 @@ export const POST: APIRoute = async ({ request, locals }) => {
   } catch {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
-  if (body.action !== "update_box" || !body.box_id) {
+  if (!body.box_id) {
     return Response.json({ error: "Unknown action." }, { status: 400 });
+  }
+  const boxId = String(body.box_id);
+
+  if (body.action === "set_pack") {
+    const pack = normalizePackState(body.pack);
+    if (!pack) return Response.json({ error: "pack must be an object of line ticks" }, { status: 400 });
+    const box = await getClubBox(e.DB, boxId).catch(() => null);
+    if (!box) return Response.json({ error: "box not found" }, { status: 404 });
+    await setClubBoxPack(e.DB, boxId, pack);
+    return Response.json({ ok: true });
+  }
+
+  if (body.action === "box_label_quote" || body.action === "buy_box_label") {
+    await ensureClubCycleTables(e.DB);
+    const box = await getClubBox(e.DB, boxId);
+    if (!box) return Response.json({ error: "box not found" }, { status: 404 });
+    if (box.label_url) return Response.json({ error: "A label has already been bought for this box." }, { status: 400 });
+    if (body.action === "box_label_quote") {
+      const member = await e.DB.prepare(
+        "SELECT ship_name, ship_address FROM club_signups WHERE id = ?"
+      ).bind(String(box.signup_id)).first() as any;
+      const parsed = destinationFromStored(member?.ship_name, member?.ship_address);
+      if (!parsed.ok) {
+        return Response.json({ error: `This member's saved address is missing ${parsed.missing.join(", ")}. Fix the address before buying a label.` }, { status: 400 });
+      }
+      try {
+        // One parcel: the club book's gift set plus the second book.
+        const quote = await getDestinationLabelQuote(e, parsed.dest, [{ format: "giftset" }, { format: "printed" }]);
+        return Response.json({ ok: true, quote });
+      } catch (err: any) {
+        return Response.json({ error: String(err?.message || "Could not get rates.") }, { status: 400 });
+      }
+    }
+    try {
+      const label = await buyDestinationLabel(e, {
+        shipmentId: String(body.shipment_id || ""),
+        rateId: String(body.rate_id || ""),
+      });
+      await e.DB.prepare(
+        `UPDATE club_cycle_boxes SET carrier = ?, carrier_service = ?, tracking_number = ?, label_url = ?,
+           label_cost_cents = ?, shippo_shipment_id = ?, shippo_transaction_id = ?, updated_at = ? WHERE id = ?`
+      ).bind(label.carrier, label.service, label.trackingNumber, label.labelUrl, label.amountCents, label.shipmentId, label.transactionId, Date.now(), boxId).run();
+      const updated = await getClubBox(e.DB, boxId);
+      return Response.json({ ok: true, label, box: updated });
+    } catch (err: any) {
+      return Response.json({ error: String(err?.message || "Label purchase failed.") }, { status: 400 });
+    }
+  }
+
+  if (body.action === "schedule_pickup") {
+    await ensureClubCycleTables(e.DB);
+    const box = await getClubBox(e.DB, boxId);
+    if (!box) return Response.json({ error: "box not found" }, { status: 404 });
+    if (!box.label_url || !box.shippo_transaction_id) {
+      return Response.json({ error: "Buy the shipping label first, then request the pickup." }, { status: 400 });
+    }
+    const state = pickupStateFor(box as any);
+    if (!state.eligible) {
+      return Response.json({ error: "Shippo pickups cover USPS Priority-class and DHL Express labels only. This label is pack and drop off." }, { status: 400 });
+    }
+    if (box.pickup_confirmation) {
+      return Response.json({ ok: true, pickup: { confirmation: String(box.pickup_confirmation), windowLabel: String(box.pickup_window || "") } });
+    }
+    try {
+      const r = await requestPickup(e, { carrier: String(box.carrier || ""), transactionId: String(box.shippo_transaction_id) });
+      await e.DB.prepare(
+        "UPDATE club_cycle_boxes SET pickup_confirmation = ?, pickup_window = ?, pickup_scheduled_at = ?, updated_at = ? WHERE id = ?"
+      ).bind(r.confirmation, r.windowLabel, Date.now(), Date.now(), boxId).run();
+      return Response.json({ ok: true, pickup: { confirmation: r.confirmation, windowLabel: r.windowLabel } });
+    } catch (err: any) {
+      return Response.json({ error: String(err?.message || "Could not schedule the pickup.") }, { status: 400 });
+    }
+  }
+
+  if (body.action !== "update_box") {
+    return Response.json({ error: "Unknown action." }, { status: 400 });
+  }
+  // Ship gate (admin redesign S4): a box ships only with a purchased
+  // label and a fully ticked pack checklist, label confirmation
+  // included, mirroring the store-order gate in /api/admin/orders.
+  if (body.status === "shipped") {
+    const box = await getClubBox(e.DB, boxId).catch(() => null);
+    if (!box) return Response.json({ error: "box not found" }, { status: 404 });
+    if (!(body.label_url || box.label_url)) {
+      return Response.json({ error: "Buy the shipping label first. A box cannot ship without a label." }, { status: 400 });
+    }
+    if (!boxContentsComplete(box)) {
+      return Response.json({ error: "Pick the books for this box first." }, { status: 400 });
+    }
+    const slotSlugs = [
+      String(box.resolved_book_slug || box.selected_book_slug || ""),
+      String(box.second_resolved_book_slug || box.second_selected_book_slug || ""),
+    ].filter(Boolean);
+    const books = await loadBooksByAnySlug(e.DB, slotSlugs, "slug, title, cover_key, public_slug").catch(() => new Map());
+    const progress = packProgress(packLinesForBox(box, books as Map<string, any>), parsePackState((box as any).pack_json));
+    if (!progress.labelPrinted) {
+      return Response.json({ error: "Tick \"Shipping label printed\" in the pack checklist first: the label has to be on the box before it ships." }, { status: 400 });
+    }
+    if (!progress.complete) {
+      return Response.json({ error: `Pack the box first: ${progress.done} of ${progress.total} items are ticked.` }, { status: 400 });
+    }
   }
   const result = await updateClubBoxByAdmin(e.DB, {
     boxId: String(body.box_id),

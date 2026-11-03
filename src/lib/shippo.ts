@@ -1,15 +1,18 @@
-// Shippo integration: pass-through shipping quotes at checkout, and
-// label buying for physical fulfillment.
+// Shippo integration: shipping quotes at checkout, and label buying
+// for physical fulfillment.
 //
-// Shipping is charged at the real carrier rate (CG, 2026-10-28: "the
-// customer should pay the shipping fee lol. whatever it is, it can be
-// ups or usps, idc."). At checkout the buyer enters a US destination,
-// the hub quotes Shippo server-side for the cart's combined parcels,
-// picks a rate with pickRate (cheapest qualifying USPS/UPS), and that
-// exact amount is what the buyer pays. The quote (carrier, service,
-// amount, Shippo shipment + rate ids) is stored on the order; at
-// fulfillment the admin buys that stored rate when it is still
-// purchasable, and any label-cost difference against what the buyer
+// Shipping is charged to the buyer (CG, 2026-10-28: "the customer
+// should pay the shipping fee lol. whatever it is, it can be ups or
+// usps, idc."), at the quoted carrier rate rounded UP to the next
+// whole dollar (CG, 2026-11-03; the round-up covers the label and the
+// small drift between a quote and a purchase). At checkout the buyer
+// enters a US destination, the hub quotes Shippo server-side for the
+// cart's combined parcels, picks a rate with pickRate (cheapest
+// qualifying USPS/UPS), and the rounded charge is what the buyer pays.
+// The quote (carrier, service, real amount, Shippo shipment + rate
+// ids) is stored on the order; at fulfillment the admin buys that
+// stored rate at its REAL amount when it is still purchasable, and any
+// label-cost difference against what the buyer
 // paid is surfaced on the order, never silently absorbed into a
 // re-charge.
 //
@@ -216,6 +219,32 @@ export function missingAddressFields(addr: any): string[] {
   return missing;
 }
 
+// Build a ShipDestination from a stored ship_name + ship_address pair
+// (the shape both orders and club signups store). Exported for the
+// club box label flow, which ships to the member's saved club address.
+export function destinationFromStored(
+  shipName: unknown,
+  shipAddress: unknown
+): { ok: true; dest: ShipDestination } | { ok: false; missing: string[] } {
+  const addr = parseShipAddress({ ship_address: shipAddress });
+  const missing = missingAddressFields(addr);
+  if (!addr || missing.length) return { ok: false, missing };
+  return {
+    ok: true,
+    dest: {
+      name: String(shipName || ""),
+      address: {
+        line1: String(addr.line1 || ""),
+        line2: String(addr.line2 || ""),
+        city: String(addr.city || ""),
+        state: String(addr.state || ""),
+        postal_code: String(addr.postal_code || ""),
+        country: String(addr.country || "US"),
+      },
+    },
+  };
+}
+
 function orderItems(order: any): { format: string }[] {
   try {
     const items = JSON.parse(order?.items || "[]");
@@ -407,10 +436,11 @@ function quoteFromRate(shipment: any, rate: ShippoRate): LabelQuote {
 }
 
 // ---------------------------------------------------------------------------
-// Checkout quotes (pass-through shipping). The amount a buyer pays for
-// shipping comes ONLY from a Shippo rate picked here, server-side, with
-// the same pickRate rule fulfillment uses. Nothing the client sends can
-// name or influence the amount.
+// Checkout quotes. The rate a buyer is QUOTED comes ONLY from a Shippo
+// rate picked here, server-side, with the same pickRate rule
+// fulfillment uses; the checkout route rounds that rate up to the next
+// whole dollar for the CHARGE (see the file header). Nothing the
+// client sends can name or influence either amount.
 
 // ---------------------------------------------------------------------------
 // Address validation (CG, 2026-10-30). createShipment asks Shippo to
@@ -569,7 +599,18 @@ export async function ensureOrderQuoteColumns(db: DBLike): Promise<void> {
 export async function storeCheckoutQuote(
   db: DBLike,
   orderId: string,
-  args: { dest: ShipDestination; quote: LabelQuote; amount: number }
+  args: {
+    dest: ShipDestination;
+    quote: LabelQuote;
+    amount: number;
+    // The shipping CHARGE stored on the order (orders.shipping_cents).
+    // Since 2026-11-03 the charge is the quoted rate rounded up to the
+    // next whole dollar, while the stored shippo_rate_id still buys
+    // the label at the quote's real amount. Defaults to the quote
+    // amount (the pre-rounding behavior) when a caller does not pass
+    // it; the checkout route always passes it.
+    shippingCents?: number;
+  }
 ): Promise<void> {
   await ensureOrderQuoteColumns(db);
   await db
@@ -584,7 +625,7 @@ export async function storeCheckoutQuote(
     .bind(
       args.dest.name || null,
       JSON.stringify(args.dest.address),
-      args.quote.amountCents,
+      args.shippingCents ?? args.quote.amountCents,
       args.quote.carrier || null,
       args.quote.service || null,
       args.quote.shipmentId || null,
@@ -730,5 +771,195 @@ export async function getShippoTracking(
   return {
     status: String(ts.status || "").toUpperCase(),
     statusDetails: String(ts.status_details || ""),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Carrier pickups (admin redesign S4, 2026-11-03). Shippo's POST
+// /pickups exists but covers ONLY USPS and DHL Express carrier
+// accounts; UPS and FedEx pickups are NOT offered through Shippo at
+// all (docs checked 2026-11-03). USPS pickups are eligible only for
+// Priority Mail Express, Priority Mail, international, or return
+// parcels: NOT Ground Advantage. The store's labels are typically UPS
+// Ground Saver, so in practice the pickup button shows only on a
+// USPS Priority-class (or DHL Express) label; everything else is pack
+// and drop off, and tracking takes over. One pickup per day max per
+// address; a scheduled pickup cannot be edited or canceled through
+// Shippo (the carrier and the confirmation code handle changes).
+
+export function pickupEligibleFor(carrier: string, service: string): boolean {
+  const c = String(carrier || "").toLowerCase();
+  const s = String(service || "").toLowerCase();
+  if (c.includes("dhl")) return true;
+  if (c.includes("usps")) {
+    if (s.includes("ground advantage")) return false;
+    return /priority|express|international|return/.test(s);
+  }
+  return false;
+}
+
+// The stored pickup summary a fulfillment view renders: whether the
+// button shows (a purchased label of an eligible class), and the
+// confirmation once one is scheduled.
+export interface PickupState {
+  eligible: boolean;
+  confirmation: string | null;
+  window: string | null;
+  scheduledAt: number | null;
+}
+
+export function pickupStateFor(row: {
+  label_url?: string | null;
+  carrier?: string | null;
+  carrier_service?: string | null;
+  pickup_confirmation?: string | null;
+  pickup_window?: string | null;
+  pickup_scheduled_at?: number | null;
+}): PickupState {
+  return {
+    eligible: Boolean(row.label_url) && pickupEligibleFor(String(row.carrier || ""), String(row.carrier_service || "")),
+    confirmation: row.pickup_confirmation ? String(row.pickup_confirmation) : null,
+    window: row.pickup_window ? String(row.pickup_window) : null,
+    scheduledAt: row.pickup_scheduled_at ? Number(row.pickup_scheduled_at) : null,
+  };
+}
+
+// Runtime-ensured pickup columns on orders (the label columns pattern).
+const ORDER_PICKUP_COLUMNS: Record<string, string> = {
+  pickup_confirmation: "TEXT",
+  pickup_window: "TEXT",
+  pickup_scheduled_at: "INTEGER",
+};
+
+export async function ensureOrderPickupColumns(db: DBLike): Promise<void> {
+  await ensureOnce(db, "orders.pickup_columns", async () => {
+    const { results } = await db
+      .prepare("SELECT name FROM pragma_table_info('orders')")
+      .bind()
+      .all();
+    const have = new Set((results || []).map((r: any) => String(r.name)));
+    for (const [name, type] of Object.entries(ORDER_PICKUP_COLUMNS)) {
+      if (!have.has(name)) {
+        await db.prepare(`ALTER TABLE orders ADD COLUMN ${name} ${type}`).bind().run();
+      }
+    }
+  });
+}
+
+// Schedule a pickup for a purchased label through Shippo. Returns the
+// confirmation (USPS confirms by email; the response's object id /
+// confirmation code is what we keep) and the requested window in words.
+// Caller persists; this function only talks to Shippo.
+export async function requestPickup(
+  e: any,
+  args: { carrier: string; transactionId: string; buildingLocationType?: string }
+): Promise<{ confirmation: string; windowLabel: string; pickupDate: string }> {
+  if (!shippoConfigured(e)) throw new Error("Shippo is not connected yet.");
+  const carrier = String(args.carrier || "");
+  const accounts = await shippoFetch(e, "/carrier_accounts/");
+  const list: any[] = Array.isArray(accounts?.results) ? accounts.results : Array.isArray(accounts) ? accounts : [];
+  const want = carrier.toLowerCase();
+  const account =
+    list.find((a) => String(a?.provider || "").toLowerCase() === want && a?.active !== false) ||
+    list.find((a) => String(a?.provider || "").toLowerCase().includes(want.split(" ")[0] || want));
+  if (!account?.object_id) throw new Error(`No ${carrier} carrier account is connected in Shippo.`);
+  // Tomorrow, Chicago time, inside the carrier's daytime window.
+  const now = new Date();
+  const chicago = new Date(now.toLocaleString("en-US", { timeZone: "America/Chicago" }));
+  const start = new Date(chicago);
+  start.setDate(start.getDate() + 1);
+  start.setHours(8, 0, 0, 0);
+  const end = new Date(start);
+  end.setHours(16, 0, 0, 0);
+  const pickupDate = start.toISOString().slice(0, 10);
+  const body = {
+    carrier_account: String(account.object_id),
+    transactions: [String(args.transactionId || "")],
+    requested_start_time: start.toISOString(),
+    requested_end_time: end.toISOString(),
+    building_location_type: args.buildingLocationType || "front_door",
+    instructions: "Packages are packed and labeled at the front door.",
+  };
+  const res = await shippoFetch(e, "/pickups/", { method: "POST", body: JSON.stringify(body) });
+  const confirmation = String(res?.confirmation_code || res?.object_id || "");
+  if (!confirmation) throw new Error("Shippo did not confirm the pickup. Try again in a moment.");
+  const windowLabel = `${pickupDate} between 8 AM and 4 PM`;
+  return { confirmation, windowLabel, pickupDate };
+}
+
+export async function schedulePickupForOrder(
+  db: DBLike,
+  e: any,
+  order: any
+): Promise<{ confirmation: string; windowLabel: string }> {
+  if (!order?.label_url || !order?.shippo_transaction_id) {
+    throw new Error("Buy the shipping label first, then request the pickup.");
+  }
+  if (!pickupEligibleFor(String(order.carrier || ""), String(order.carrier_service || ""))) {
+    throw new Error("Shippo pickups cover USPS Priority-class and DHL Express labels only. This label is pack and drop off.");
+  }
+  if (order.pickup_confirmation) {
+    return { confirmation: String(order.pickup_confirmation), windowLabel: String(order.pickup_window || "") };
+  }
+  const r = await requestPickup(e, {
+    carrier: String(order.carrier || ""),
+    transactionId: String(order.shippo_transaction_id),
+  });
+  await ensureOrderPickupColumns(db);
+  await db
+    .prepare("UPDATE orders SET pickup_confirmation = ?, pickup_window = ?, pickup_scheduled_at = ? WHERE id = ?")
+    .bind(r.confirmation, r.windowLabel, Date.now(), order.id)
+    .run();
+  return { confirmation: r.confirmation, windowLabel: r.windowLabel };
+}
+
+// ---------------------------------------------------------------------------
+// Labels for an arbitrary destination parcel set: the club box flow.
+// A club box ships ONE parcel (the one-parcel combined quote passed
+// its gate 2026-10-31) to the member's saved club address. The quote
+// and purchase mirror the order versions (createShipment + chooseRate,
+// then POST /transactions/) but persist NOTHING: the club API writes
+// the result onto the club_cycle_boxes row, whose label columns are
+// ensured by lib/club-cycles.ts.
+
+export async function getDestinationLabelQuote(
+  e: any,
+  dest: ShipDestination,
+  items: { format: string }[]
+): Promise<LabelQuote> {
+  if (!shippoConfigured(e)) throw new Error("Shippo is not connected yet.");
+  const { shipment, rates } = await createShipment(e, dest, items);
+  const { rate, twoDay } = chooseRate(rates);
+  if (!rate) throw new Error("Shippo returned no usable USPS or UPS rates for this address.");
+  return { ...quoteFromRate(shipment, rate), twoDay };
+}
+
+export async function buyDestinationLabel(
+  e: any,
+  args: { shipmentId: string; rateId: string }
+): Promise<{ carrier: string; service: string; trackingNumber: string; labelUrl: string; amountCents: number; shipmentId: string; transactionId: string }> {
+  if (!shippoConfigured(e)) throw new Error("Shippo is not connected yet.");
+  const shipment = await shippoFetch(e, `/shipments/${encodeURIComponent(String(args.shipmentId || ""))}/`);
+  const rates: ShippoRate[] = Array.isArray(shipment?.rates) ? shipment.rates : [];
+  const rate = rates.find((r) => String(r.object_id) === String(args.rateId)) || null;
+  if (!rate) throw new Error("That rate is no longer available. Get a fresh rate and try again.");
+  const tx = await shippoFetch(e, "/transactions/", {
+    method: "POST",
+    body: JSON.stringify({ rate: rate.object_id, label_file_type: "PDF", async: false }),
+  });
+  if (tx?.status !== "SUCCESS" || !tx?.label_url) {
+    const msg = Array.isArray(tx?.messages) && tx.messages.length
+      ? String(tx.messages[0]?.text || "Label purchase failed.")
+      : "Label purchase failed.";
+    throw new Error(msg);
+  }
+  return {
+    carrier: String(rate.provider || ""),
+    service: String(rate.servicelevel?.name || rate.servicelevel?.token || ""),
+    trackingNumber: String(tx.tracking_number || ""),
+    labelUrl: String(tx.label_url || ""),
+    amountCents: Math.round(Number(rate.amount || 0) * 100),
+    shipmentId: String(shipment.object_id || ""),
+    transactionId: String(tx.object_id || ""),
   };
 }

@@ -373,7 +373,7 @@ const coverOf = (slug: string | null) => clubGridOptions.find((o: any) => o.slug
                         <>
                           <span class="club-slot-q">?</span>
                           <span>
-                            <span class="club-slot-name">Surprise me</span>
+                            <span class="club-slot-name">Mystery</span>
                             <span class="club-slot-sub">We pick from your {shelfLabel(clubSignup.shelf)} shelf</span>
                           </span>
                         </>
@@ -513,7 +513,7 @@ const coverOf = (slug: string | null) => clubGridOptions.find((o: any) => o.slug
           <div>
             <h2 class="text-lg font-extrabold">Choose your books</h2>
             <p class="text-[13px] text-white/75 leading-relaxed mt-1">
-              Tap a book on the shelf and it goes in the box. Tap a filled slot to swap it back to Surprise. You can change these until {changeUntilLabel}.
+              Tap a book on the shelf and it goes in the box. Tap a filled slot to swap it back to Mystery. You can change these until {changeUntilLabel}.
             </p>
           </div>
           <button type="button" data-close-sheet aria-label="Close" class="cust-pressable flex-none w-11 h-11 rounded-xl bg-white/10 text-white grid place-items-center cursor-pointer">
@@ -562,7 +562,7 @@ const coverOf = (slug: string | null) => clubGridOptions.find((o: any) => o.slug
           <p class="text-xs text-white/80" data-pick-msg role="status"></p>
         </div>
         <p class="text-xs text-white/55 mt-3">
-          Your box ships by {shipsByLabel}. A slot left on Surprise means we pick from your {shelfLabel(clubSignup.shelf)} shelf.
+          Your box ships by {shipsByLabel}. A slot left on Mystery means we pick from your {shelfLabel(clubSignup.shelf)} shelf.
         </p>
       </div>
     </div>
@@ -572,7 +572,7 @@ const coverOf = (slug: string | null) => clubGridOptions.find((o: any) => o.slug
     // The Shelf picker sheet (Club home, CG 2026-11-01): the page
     // shows a summary and one CTA; this sheet is where picking
     // happens. Tap a book and it goes into the active box slot, tap
-    // a filled slot to swap it back to Surprise. Purchased books sit
+    // a filled slot to swap it back to Mystery. Purchased books sit
     // behind the Show purchased toggle. Same save payload the
     // inline picker used.
     function initClubSheet() {
@@ -605,7 +605,7 @@ const coverOf = (slug: string | null) => clubGridOptions.find((o: any) => o.slug
           var v = picks[slot];
           if (!body) return;
           if (v === "surprise" || !bySlug[v]) {
-            body.innerHTML = '<span class="pick-boxslot-empty">?</span><span class="pick-boxslot-emptytxt">Surprise me</span>';
+            body.innerHTML = '<span class="pick-boxslot-empty">?</span><span class="pick-boxslot-emptytxt">Mystery</span>';
           } else {
             body.innerHTML =
               (bySlug[v].cover ? '<img src="' + esc(bySlug[v].cover) + '" alt="">' : "") +
@@ -646,7 +646,7 @@ const coverOf = (slug: string | null) => clubGridOptions.find((o: any) => o.slug
       root.querySelectorAll("[data-boxslot]").forEach(function (el) {
         el.addEventListener("click", function () {
           var slot = el.getAttribute("data-boxslot");
-          // One tap on a filled slot swaps it back to Surprise,
+          // One tap on a filled slot swaps it back to Mystery,
           // whichever slot is active; a tap on an empty slot just
           // makes it the picking slot.
           if (picks[slot] !== "surprise") {
@@ -725,7 +725,7 @@ const coverOf = (slug: string | null) => clubGridOptions.find((o: any) => o.slug
             return (
               '<div class="club-slot-tile">' + head +
               '<span class="club-slot-body"><span class="club-slot-q">?</span><span>' +
-              '<span class="club-slot-name">Surprise me</span>' +
+              '<span class="club-slot-name">Mystery</span>' +
               '<span class="club-slot-sub">We pick from your ' + esc(shelfName) + " shelf</span></span></span></div>"
             );
           }

@@ -3,6 +3,7 @@ import "../../styles/global.css";
 import AdminShell from "../../components/AdminShell.astro";
 import { env } from "cloudflare:workers";
 import { getAdminDashboard } from "../../lib/admin-dashboard";
+import { getPackingQueue } from "../../lib/packing";
 
 if (!Astro.locals.user) {
   return Astro.redirect("/admin/login");
@@ -35,6 +36,10 @@ const fmtDate = (sec: number) =>
 const todayLabel = new Date(nowSec * 1000).toLocaleDateString("en-US", {
   timeZone: "America/Chicago", month: "long", day: "numeric",
 });
+// The packing shelf, compact (admin redesign S4): the same queue
+// the Orders page shows, as a strip here. Best-effort: a packing
+// query hiccup never takes the dashboard down.
+const packing = await getPackingQueue(e.DB).catch(() => []);
 const clubTotal = d.audience.clubActiveByPlan.reduce((a, p) => a + p.count, 0);
 const clubPlanLabel = d.audience.clubActiveByPlan.map((p) => `${p.plan}: ${p.count}`).join(" · ");
 const attentionEmpty =
@@ -116,6 +121,14 @@ const attentionEmpty =
     .row-count{font-weight:700;font-variant-numeric:tabular-nums;flex:none}
     .row-side{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:none}
     .chev{color:#d6d3d1;font-size:1.35rem;line-height:1;flex:none}
+    /* Packing strip (S4): compact cards, cover + ref + count + stage. */
+    .packstrip{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}
+    .packmini{flex:none;width:118px;background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:8px;text-decoration:none;color:inherit}
+    .packmini img,.packmini .packmini-none{display:block;width:100%;height:84px;object-fit:cover;border-radius:8px;background:#f5f5f4}
+    .packmini .packmini-none{display:grid;place-items:center;color:#a8a29e;font-size:.65rem;font-weight:700}
+    .packmini .packmini-ref{display:block;font-size:.76rem;font-weight:800;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .packmini .packmini-meta{display:block;font-size:.68rem;color:#78716c;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .packmini .packmini-stage{display:inline-block;font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#9a3412;background:#ffedd5;border-radius:999px;padding:2px 7px;margin-top:5px}
     .badge{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 7px;border-radius:999px;background:#fef2f2;color:#b91c1c;font-weight:800;font-size:.85rem;flex:none;font-variant-numeric:tabular-nums}
     .ok{color:#78716c}
 
@@ -164,6 +177,26 @@ const attentionEmpty =
       <a href="/admin/reviews">Reviews</a>
       <a href="/admin/books/new">+ New story</a>
     </nav>
+
+    <div class="card">
+      <h2>What do we pack and ship?</h2>
+      {packing.length === 0 ? (
+        <p class="meta">Nothing waiting to pack. New printed orders and club boxes land here as they come in.</p>
+      ) : (
+        <div class="packstrip">
+          {packing.map((p) => (
+            <a class="packmini" href={p.href}>
+              {p.cover
+                ? <img src={p.cover} alt="" loading="lazy" />
+                : <span class="packmini-none">Big Brain Shelf</span>}
+              <span class="packmini-ref">{p.ref}</span>
+              <span class="packmini-meta">{p.needsPick ? "Mystery box: pick the books" : `${p.lines} ${p.lines === 1 ? "item" : "items"} to pack`}</span>
+              <span class="packmini-stage">{p.stage}</span>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
 
     {d.urgent.total > 0 && (
       <div class="card urgent">

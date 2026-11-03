@@ -145,7 +145,7 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
           </div>
           <p id="step1-summary" class="hidden mt-2 text-sm text-stone-600"></p>
           <div id="ship-form" class="hidden">
-            <p class="text-xs text-stone-500 mt-3">Printed books ship by UPS or USPS at the carrier's actual rate for your address, the cheapest good option of the two. No markup, no flat fee.</p>
+            <p class="text-xs text-stone-500 mt-3">Printed books ship by UPS or USPS at the carrier's rate for your address, the cheapest good option of the two, rounded up to the nearest whole dollar. No flat fee.</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
               <label class="block sm:col-span-2">
                 <span class="text-xs font-semibold text-stone-500">Full name</span>
@@ -247,8 +247,8 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
       // is only ever valid for the items it was taken on.
       var view = { items: [], total: 0, physical: false, quoted: null, shippingConfirmed: false, promo: null };
 
-      // Shipping is pass-through at the real carrier rate: the hub
-      // quotes it server-side from the address below, so the client
+      // Shipping is quoted server-side from the address below and
+      // charged rounded up to the next whole dollar, so the client
       // never computes or names a shipping amount.
       function readAddress() {
         return {
@@ -493,7 +493,7 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
           var line = document.getElementById("quote-line");
           line.textContent = "Shipping via " + qd.shipping.carrier + " " + qd.shipping.service +
             (qd.shipping.estimated_days != null ? ", about " + qd.shipping.estimated_days + " days" : "") +
-            ": " + store.money(qd.shipping.amount_cents) + ". That is the carrier's rate for your address, charged as-is.";
+            ": " + store.money(qd.shipping.amount_cents) + ". Shipping is the carrier's rate for your address, rounded up to the nearest whole dollar.";
           document.getElementById("ship-amount").textContent = store.money(qd.shipping.amount_cents);
           document.getElementById("total").textContent = store.money(qd.total);
           checkoutBtn.textContent = "Pay " + store.money(qd.total);

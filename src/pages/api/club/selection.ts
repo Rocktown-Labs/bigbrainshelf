@@ -5,7 +5,7 @@ import { getClubSignup } from "../../../lib/club";
 import { saveClubSelection } from "../../../lib/club-cycles";
 
 // POST /api/club/selection — a paid Book Club member chooses the
-// books for one box, or returns a slot to "Surprise me".
+// books for one box, or returns a slot to "Mystery" (the stored selection value stays 'surprise').
 // Body: { ship_date: "2026-11-15", selection: "<book slug>" | "surprise",
 //         selection_2: "<book slug>" | "surprise" (optional second slot),
 //         allow_repeat: boolean }

@@ -45,6 +45,15 @@ const orderId = String(Astro.params.id || "");
     .step.on::before{background:#ea580c}
     .step .l{display:block;font-size:.72rem;font-weight:700;color:#78716c;margin-top:2px}
     .card{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    /* Pack checklist (S4): one row per physical piece, cover + code +
+       qty, a 44px tick target. Ticks persist server-side (pack_json). */
+    .packrow{display:flex;align-items:center;gap:10px;min-height:52px;padding:6px 0;border-bottom:1px solid #f5f5f4}
+    .packrow:last-child{border-bottom:0}
+    .packrow img,.packrow .pack-nocover{width:40px;height:40px;border-radius:8px;object-fit:cover;border:1px solid #e7e5e4;flex:none;background:#f5f5f4}
+    .packrow .pack-nocover{display:grid;place-items:center;font-size:.6rem;font-weight:800;color:#a8a29e}
+    .packrow input[type="checkbox"]{width:24px;height:24px;flex:none;accent-color:#ea580c;cursor:pointer}
+    .packrow input[type="checkbox"]:disabled{cursor:not-allowed;opacity:.45}
+    .packrow .pack-code{font-family:ui-monospace,monospace;font-size:.68rem;font-weight:700;background:#f5f5f4;border:1px solid #e7e5e4;border-radius:6px;padding:1px 6px;color:#57534e;white-space:nowrap}
     input,select,textarea{font-size:16px}
   </style>
   </head>
@@ -80,19 +89,20 @@ const orderId = String(Astro.params.id || "");
     }
     // Format chips: the shared system from the global stylesheet
     // (.fchip + .fmt-* colors), with the owner's icon language:
-    // digital = book, printed = pencil, audio = headphones, gift
-    // set rides the printed family. Fixed width/height attributes
-    // on the SVGs as a second guard.
+    // digital = download, printed = book, audio = headphones, gift
+    // set = a gift box in its own chip. Fixed width/height
+    // attributes on the SVGs as a second guard.
     var ICONS = {
       audio: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2.5" y="14" width="4" height="6.5" rx="1.6"/><rect x="17.5" y="14" width="4" height="6.5" rx="1.6"/></svg>',
-      digital: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.2C10.3 4.7 8.2 4.2 5 4.2v13.6c3.2 0 5.3.5 7 2 1.7-1.5 3.8-2 7-2V4.2c-3.2 0-5.3.5-7 2Z"/><path d="M12 6.2v13.6"/></svg>',
-      printed: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.9 3.9a2.05 2.05 0 0 1 2.9 0l.3.3a2.05 2.05 0 0 1 0 2.9L8.2 19l-4.2 1.1L5.1 15.9Z"/><path d="m14.7 6.1 3.2 3.2"/></svg>'
+      digital: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10.5m0 0 4-4m-4 4-4-4"/><path d="M4.5 19.5h15"/></svg>',
+      printed: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.2C10.3 4.7 8.2 4.2 5 4.2v13.6c3.2 0 5.3.5 7 2 1.7-1.5 3.8-2 7-2V4.2c-3.2 0-5.3.5-7 2Z"/><path d="M12 6.2v13.6"/></svg>',
+      gift: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="8" width="17" height="4"/><path d="M5.5 12v8.5h13V12M12 8v12.5"/><path d="M12 8s-4.2.3-5.3-1.5C5.7 4.9 7.6 3.2 9.3 3.9 11.1 4.6 12 8 12 8Zm0 0s4.2.3 5.3-1.5c1-1.6-.9-3.3-2.6-2.6C12.9 4.6 12 8 12 8Z"/></svg>'
     };
     var FMT = {
       audio: { cls: "fmt-audio", label: "Audio", icon: ICONS.audio },
       digital: { cls: "fmt-digital", label: "Digital", icon: ICONS.digital },
       printed: { cls: "fmt-printed", label: "Printed", icon: ICONS.printed },
-      giftset: { cls: "fmt-printed", label: "Gift set", icon: ICONS.printed }
+      giftset: { cls: "fmt-giftset", label: "Gift set", icon: ICONS.gift }
     };
     function fchip(format) {
       var f = FMT[format] || FMT.digital;
@@ -162,6 +172,62 @@ const orderId = String(Astro.params.id || "");
       if (!shippo.originConfigured) return quotedLine + '<p class="text-sm text-stone-400 mt-2">Ship-from address not configured yet (see the checklist on the orders page).</p>';
       if (!o.ship_address) return quotedLine + '<p class="text-sm text-stone-400 mt-2">No shipping address on this order.</p>';
       return quotedLine + '<div class="mt-3 flex flex-wrap items-center gap-2"><button id="quote-label" class="tap rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 min-h-[44px]">Get shipping rate</button><span id="quote-slot" class="inline-block align-middle"></span></div>';
+    }
+
+    // The pack checklist (S4): the label line first (its tick is the
+    // "label printed and on the box" confirmation, enabled only once
+    // a label actually exists), then one row per physical piece with
+    // cover, book code, and quantity. Ticks save to the order row on
+    // every change; a shipped or delivered order's list is read-only.
+    function packHtml(o) {
+      var lines = o.pack_lines || [];
+      if (!lines.length) return "";
+      var state = o.pack_state || {};
+      var prog = o.pack_progress || { done: 0, total: lines.length, complete: false, labelPrinted: false };
+      var locked = o.physical_status === "shipped" || o.physical_status === "delivered";
+      var total = prog.total + 1;
+      var doneCount = prog.done + (prog.labelPrinted ? 1 : 0);
+      var serviceLine = [o.carrier, o.carrier_service].filter(Boolean).join(" ");
+      var labelRow =
+        '<div class="packrow">' +
+          '<input type="checkbox" data-pack="__label" aria-label="Shipping label printed"' +
+            (prog.labelPrinted ? " checked" : "") + ((o.label_url && !locked) ? "" : " disabled") + ">" +
+          '<span class="pack-nocover">LBL</span>' +
+          '<span class="min-w-0 flex-1"><span class="block text-sm font-semibold leading-snug">Shipping label printed</span>' +
+          '<span class="block text-[13px] text-stone-500">' + (o.label_url ? esc(serviceLine || "Label bought") + ". Print it and put it on the box, then tick." : "Buy the label above first.") + "</span></span>" +
+        "</div>";
+      var rows = lines.map(function (l) {
+        return '<div class="packrow">' +
+          '<input type="checkbox" data-pack="' + esc(l.key) + '" aria-label="Packed: ' + esc(l.label) + '"' +
+            (state[l.key] ? " checked" : "") + (locked ? " disabled" : "") + ">" +
+          (l.cover ? '<img src="' + esc(l.cover) + '" alt="" loading="lazy">' : '<span class="pack-nocover">BBS</span>') +
+          '<span class="min-w-0 flex-1"><span class="block text-sm font-semibold leading-snug">' + esc(l.label) + "</span>" +
+          '<span class="block text-[13px] text-stone-500">' + esc(l.detail) + "</span></span>" +
+          (l.code ? '<span class="pack-code">' + esc(l.code) + "</span>" : "") +
+          (l.qty > 1 ? '<span class="text-sm font-bold tabular-nums">× ' + l.qty + "</span>" : "") +
+        "</div>";
+      }).join("");
+      return '<div class="mt-4 border-t border-stone-100 pt-3">' +
+        '<h3 class="font-bold text-sm">Pack the box</h3>' +
+        '<p class="text-[13px] text-stone-500 mt-0.5">' + doneCount + " of " + total + " packed. Tick each item as it goes in; the ticks save themselves.</p>" +
+        '<div class="mt-1">' + labelRow + rows + "</div></div>";
+    }
+    // Pickup (S4): the button renders ONLY for labels Shippo pickups
+    // cover (USPS Priority-class or DHL Express; the API computes
+    // eligibility from the purchased label). Everything else reads
+    // pack and drop off.
+    function pickupHtml(o) {
+      if (!o.label_url) return "";
+      var p = o.pickup || {};
+      if (p.confirmation) {
+        return '<p class="text-sm text-stone-600 mt-3">Pickup scheduled · confirmation <span class="font-mono text-[13px]">' + esc(p.confirmation) + "</span>" +
+          (p.window ? " · " + esc(p.window) : "") + ". Shippo cannot change or cancel it; the carrier has the details.</p>";
+      }
+      if (p.eligible) {
+        return '<div class="mt-3"><button id="pickup-btn" class="tap rounded-lg border border-stone-300 bg-white text-sm font-semibold px-4 min-h-[44px]">Request a pickup</button>' +
+          '<p class="text-xs text-stone-400 mt-1.5">The carrier collects from the front door tomorrow. One pickup per day; it cannot be changed through Shippo once set.</p></div>';
+      }
+      return '<p class="text-sm text-stone-500 mt-3">Pack it and drop it off: Shippo pickups cover USPS Priority-class and DHL Express labels only, and this label is neither. Tracking takes over once the carrier scans it.</p>';
     }
 
     async function load() {
@@ -271,13 +337,26 @@ const orderId = String(Astro.params.id || "");
       // catching up (print, pack, hand off in one visit). Buying a
       // label never moves the stage on its own (owner, 2026-10-29):
       // these buttons are how packed and shipped actually happen.
+      // Mark shipped is locked until the ship gate passes: a
+      // purchased label AND a fully ticked pack checklist (the API
+      // enforces the same gate; the button state just says it first).
+      var shipReady = Boolean(o.label_url && o.pack_progress && o.pack_progress.complete && o.pack_progress.labelPrinted);
       var stageBtns = "";
+      var shipHint = "";
       if (o.physical_status) {
         var fwd = FLOW.slice(stageIdx + 1);
         if (fwd.length) {
           stageBtns = '<div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Update fulfillment stage">' + fwd.map(function (s, i) {
-            return '<button data-stage="' + s + '" class="tap rounded-lg text-sm px-4 min-h-[44px] ' + (i === 0 ? "bg-orange-600 text-white font-bold" : "border border-stone-300 bg-white font-semibold") + '">Mark ' + LABELS[s] + "</button>";
+            var lockedShip = s === "shipped" && !shipReady;
+            return '<button data-stage="' + s + '"' + (lockedShip ? " disabled" : "") + ' class="tap rounded-lg text-sm px-4 min-h-[44px] ' + (lockedShip ? "bg-stone-100 text-stone-400 font-semibold cursor-not-allowed" : i === 0 ? "bg-orange-600 text-white font-bold" : "border border-stone-300 bg-white font-semibold") + '">Mark ' + LABELS[s] + "</button>";
           }).join("") + "</div>";
+          if (fwd.indexOf("shipped") >= 0 && !shipReady) {
+            shipHint = '<p class="text-[13px] text-stone-500 mt-2">' +
+              (!o.label_url
+                ? "Mark shipped unlocks once the label is bought, printed, and the box is packed."
+                : "Mark shipped unlocks when the label is printed and every pack line below is ticked.") +
+              "</p>";
+          }
         }
       }
       var emails = (data.emails || []).map(function (m) {
@@ -315,10 +394,12 @@ const orderId = String(Astro.params.id || "");
 
         (o.status !== "complete" ? "" :
           o.physical_status ?
-          '<section class="card mt-4" id="label"><h2 class="font-bold">Fulfillment</h2>' + steps + stageBtns +
+          '<section class="card mt-4" id="label"><h2 class="font-bold">Fulfillment</h2>' + steps + stageBtns + shipHint +
             (o.tracking_status ? '<p class="text-sm text-stone-600 mt-2">Carrier status: ' + esc(o.tracking_status) + "</p>" : "") +
             (o.tracking_number && !o.label_url ? '<p class="text-sm text-stone-600 mt-2">Tracking: <span class="font-mono text-[13px]">' + esc(([o.carrier, o.carrier_service].filter(Boolean).join(" ") + " " + o.tracking_number).trim()) + "</span></p>" : "") +
             labelHtml(o, shippo) +
+            packHtml(o) +
+            pickupHtml(o) +
           "</section>" :
           '<section class="card mt-4"><h2 class="font-bold">Fulfillment</h2>' +
             '<p class="text-sm text-stone-500 mt-1">Digital order. It was delivered automatically when payment completed, so there is nothing to pack or ship.</p>' +
@@ -342,13 +423,57 @@ const orderId = String(Astro.params.id || "");
         b.addEventListener("click", async function () {
           b.disabled = true;
           b.textContent = "Saving...";
-          await fetch("/api/admin/orders", {
+          var resp = await fetch("/api/admin/orders", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "set_physical_status", order_id: o.id, status: b.getAttribute("data-stage") }),
           });
+          if (!resp.ok) {
+            var serr = await resp.json().catch(function () { return {}; });
+            alert(serr.error || "That step is not ready yet.");
+          }
           load();
         });
+      });
+      // Pack ticks save on change (the whole state, so unticking is
+      // just the key going away). A reload repaints from the server.
+      root.querySelectorAll("[data-pack]").forEach(function (cb) {
+        cb.addEventListener("change", async function () {
+          var pack = {};
+          var cur = o.pack_state || {};
+          for (var k in cur) if (cur[k]) pack[k] = true;
+          var key = cb.getAttribute("data-pack");
+          if (cb.checked) pack[key] = true; else delete pack[key];
+          cb.disabled = true;
+          var resp = await fetch("/api/admin/orders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "set_pack", order_id: o.id, pack: pack }),
+          });
+          if (!resp.ok) {
+            var perr = await resp.json().catch(function () { return {}; });
+            alert(perr.error || "The pack tick could not be saved.");
+          }
+          load();
+        });
+      });
+      var pickupBtn = document.getElementById("pickup-btn");
+      if (pickupBtn) pickupBtn.addEventListener("click", async function () {
+        pickupBtn.disabled = true;
+        pickupBtn.textContent = "Scheduling...";
+        var resp = await fetch("/api/admin/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "schedule_pickup", order_id: o.id }),
+        });
+        var out = await resp.json().catch(function () { return {}; });
+        if (!resp.ok || !out.ok) {
+          pickupBtn.disabled = false;
+          pickupBtn.textContent = "Request a pickup";
+          alert(out.error || "Could not schedule the pickup.");
+          return;
+        }
+        load();
       });
       var resetBtn = document.getElementById("reset-downloads");
       if (resetBtn) resetBtn.addEventListener("click", async function () {
@@ -371,11 +496,15 @@ const orderId = String(Astro.params.id || "");
       if (adv) adv.addEventListener("click", async function () {
         adv.disabled = true;
         adv.textContent = "Saving...";
-        await fetch("/api/admin/orders", {
+        var resp = await fetch("/api/admin/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "set_physical_status", order_id: o.id, status: next }),
         });
+        if (!resp.ok) {
+          var aerr = await resp.json().catch(function () { return {}; });
+          alert(aerr.error || "That step is not ready yet. See the Fulfillment card for what is missing.");
+        }
         load();
       });
       var qBtn = document.getElementById("quote-label");

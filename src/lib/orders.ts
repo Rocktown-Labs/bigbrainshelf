@@ -21,7 +21,8 @@
 
 import { ensureClubTable, isPaidClubMember } from "./club";
 import { ensureOnce } from "./schema-cache";
-import { publicSlugFor } from "./public-slugs";
+import { publicSlugFor, ensurePublicSlugColumn, ensureSlugAliasesTable } from "./public-slugs";
+import { bookCodeForTitle } from "./catalog";
 import { coverDerivative, MEDIA_PUBLIC } from "./derivatives";
 import {
   clubPriceLabel,
@@ -470,6 +471,69 @@ export function orderFormatLabel(format: string): string {
         : "digital";
 }
 
+// Batch book lookup keyed by the slug the CALLER recorded, which is
+// not always the slug the book wears today: orders written before a
+// rename or the Mira slug migration carry retired slug forms
+// ("mastery"), and those orders rendered as the neutral "Big Brain
+// Shelf book" because the books row no longer answers to the old key.
+// Resolution mirrors the public routes (public-slugs.ts): the books
+// table by slug first, then by public_slug, then through
+// book_slug_aliases. The returned Map is keyed by the REQUESTED slug;
+// each row is the canonical book row. Fallback steps are best-effort:
+// a schema that predates them degrades to the direct lookup.
+export async function loadBooksByAnySlug(
+  db: any,
+  slugs: string[],
+  columns: string
+): Promise<Map<string, any>> {
+  const wanted = [...new Set(slugs.map((s) => String(s || "")).filter(Boolean))];
+  const out = new Map<string, any>();
+  if (!wanted.length) return out;
+  const ph = (arr: string[]) => arr.map(() => "?").join(",");
+  const direct = await db
+    .prepare(`SELECT ${columns} FROM books WHERE slug IN (${ph(wanted)})`)
+    .bind(...wanted)
+    .all();
+  for (const r of (direct.results || []) as any[]) out.set(String(r.slug), r);
+  let missing = wanted.filter((s) => !out.has(s));
+  if (!missing.length) return out;
+  try {
+    await ensurePublicSlugColumn(db);
+    const byPublic = await db
+      .prepare(`SELECT ${columns} FROM books WHERE public_slug IN (${ph(missing)})`)
+      .bind(...missing)
+      .all();
+    for (const r of (byPublic.results || []) as any[]) {
+      const key = missing.find((s) => s === String(r.public_slug));
+      if (key) out.set(key, r);
+    }
+  } catch { /* public_slug predates this schema: direct lookup stands */ }
+  missing = wanted.filter((s) => !out.has(s));
+  if (!missing.length) return out;
+  try {
+    await ensureSlugAliasesTable(db);
+    const aliasRows = await db
+      .prepare(`SELECT alias, slug FROM book_slug_aliases WHERE alias IN (${ph(missing)})`)
+      .bind(...missing)
+      .all();
+    const canonical = new Map<string, string>();
+    for (const r of (aliasRows.results || []) as any[]) canonical.set(String(r.alias), String(r.slug));
+    const targets = [...new Set([...canonical.values()])].filter((s) => !out.has(s));
+    if (targets.length) {
+      const rows = await db
+        .prepare(`SELECT ${columns} FROM books WHERE slug IN (${ph(targets)})`)
+        .bind(...targets)
+        .all();
+      const bySlug = new Map(((rows.results || []) as any[]).map((r) => [String(r.slug), r]));
+      for (const [alias, slug] of canonical) {
+        const row = bySlug.get(slug) || out.get(slug);
+        if (row) out.set(alias, row);
+      }
+    }
+  } catch { /* aliases are a rename courtesy, never a hard dependency */ }
+  return out;
+}
+
 // "Penny the Squirrel and the Acorn Orchard (audiobook only)" style
 // labels for a batch of orders, resolving every referenced book's
 // title with ONE books query. Orders whose items JSON is absent fall
@@ -503,14 +567,9 @@ export async function orderItemLabels(
   }
   const titles = new Map<string, string>();
   if (slugSet.size) {
-    const slugs = [...slugSet];
-    const ph = slugs.map(() => "?").join(",");
-    const rows = await db
-      .prepare(`SELECT slug, title FROM books WHERE slug IN (${ph})`)
-      .bind(...slugs)
-      .all();
-    for (const r of (rows.results || []) as any[]) {
-      titles.set(String(r.slug), String(r.title || ""));
+    const rows = await loadBooksByAnySlug(db, [...slugSet], "slug, title");
+    for (const [slug, r] of rows) {
+      titles.set(slug, String(r.title || ""));
     }
   }
   const out = new Map<string, string[]>();
@@ -551,6 +610,11 @@ export interface OrderItemGroup {
   name: string; // short pick-list name
   format: string; // digital | printed | giftset | audio
   count: number;
+  // Packing code derived from the title (lib/catalog bookCodeForTitle),
+  // e.g. "MTH-still-water"; null when the book no longer resolves.
+  // Pack lines key off this (never the internal slug, which stays out
+  // of every payload by design).
+  code: string | null;
   // Template dressing for the order views (Tailwind "Order history"
   // pattern): the book's cover thumbnail URL, the public product
   // page for the row's "View Product" link (the audiobook page for
@@ -613,8 +677,9 @@ function groupOrderItems(
         name: shortBookName(title),
         format: i.format,
         count: itemQty(i),
+        code: book ? bookCodeForTitle(title) : null,
         cover: book
-          ? coverDerivative(i.slug, "card", book.cover_key) ||
+          ? coverDerivative(String(book.slug), "card", book.cover_key) ||
             (book.cover_key ? MEDIA_PUBLIC + book.cover_key : null)
           : null,
         href: book ? (i.format === "audio" ? `/audiobooks/${pub}` : `/books/${pub}`) : null,
@@ -646,20 +711,11 @@ export async function orderPickList(
       if (Array.isArray(parsed)) for (const s of parsed) slugSet.add(String(s));
     } catch { /* no slugs */ }
   }
-  const books = new Map<string, OrderBookRow>();
-  if (slugSet.size) {
-    const slugs = [...slugSet];
-    const ph = slugs.map(() => "?").join(",");
-    const rows = await db
-      .prepare(
-        `SELECT slug, title, cover_key, price, price_print, picture_book_key, coloring_book_key, audiobook_key, public_slug FROM books WHERE slug IN (${ph})`
-      )
-      .bind(...slugs)
-      .all();
-    for (const r of (rows.results || []) as any[]) {
-      books.set(String(r.slug), { ...r, slug: String(r.slug), title: String(r.title || "") });
-    }
-  }
+  const books = (await loadBooksByAnySlug(
+    db,
+    [...slugSet],
+    "slug, title, cover_key, price, price_print, picture_book_key, coloring_book_key, audiobook_key, public_slug"
+  )) as Map<string, OrderBookRow>;
   const out = new Map<string, OrderItemGroup[]>();
   for (const o of orders) out.set(o.id, groupOrderItems(o, books));
   return out;
@@ -1037,6 +1093,66 @@ export async function ensureOutboxColumns(db: DBLike): Promise<void> {
         .run();
     } catch { /* index is a dedupe guard, never a reason to fail a send */ }
   });
+}
+
+// ---------------------------------------------------------------------------
+// Pack checklist state (admin redesign S4, 2026-11-03). The fulfillment
+// view's pack step ticks lines as books go into the box; the ticks live
+// on the order row (pack_json, runtime-ensured like the other late
+// columns) so they survive reloads and follow the order, not a browser
+// session. Shape: a flat object of line key -> true, plus the reserved
+// key PACK_LABEL_KEY for the printed-label confirmation. Line keys are
+// built by lib/packing.ts.
+export const PACK_LABEL_KEY = "__label";
+
+export async function ensureOrderPackColumns(db: DBLike): Promise<void> {
+  await ensureOnce(db, "orders.pack_columns", async () => {
+    const { results } = await db
+      .prepare("SELECT name FROM pragma_table_info('orders')")
+      .bind()
+      .all();
+    const have = new Set((results || []).map((r: any) => String(r.name)));
+    if (!have.has("pack_json")) {
+      await db.prepare("ALTER TABLE orders ADD COLUMN pack_json TEXT").bind().run();
+    }
+  });
+}
+
+export type PackState = Record<string, boolean>;
+
+/** Parse a stored pack_json value; junk reads as "nothing ticked". */
+export function parsePackState(raw: unknown): PackState {
+  if (typeof raw !== "string" || !raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: PackState = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (v) out[k] = true;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Validate an incoming pack payload: only boolean-true ticks survive. */
+export function normalizePackState(input: unknown): PackState | null {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return null;
+  const out: PackState = {};
+  for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+    if (k.length > 80) return null;
+    if (v) out[k] = true;
+  }
+  return out;
+}
+
+export async function setOrderPack(db: DBLike, orderId: string, pack: PackState): Promise<void> {
+  await ensureOrderPackColumns(db);
+  await db
+    .prepare("UPDATE orders SET pack_json = ? WHERE id = ?")
+    .bind(JSON.stringify(pack), orderId)
+    .run();
 }
 
 // Enqueue an email. The unique (order_id, kind) index makes this a no-op

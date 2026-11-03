@@ -107,3 +107,45 @@ export function catalogLeadDisplayName(id: string): string {
   const t = catalogTitle(id);
   return t ? t.split(" and ")[0] : "";
 }
+
+// ---------------------------------------------------------------------------
+// Book codes (CG, admin redesign S4, 2026-11-03): the short packing
+// code an operator reads off a box line, e.g. "MTH-still-water" for
+// "Mira the Heron and the Still Water". Shape: the initials of the
+// title's first three words ("Mira The Heron" -> MTH), a hyphen, then
+// the distinctive title words after "and the" ("Still Water" ->
+// "still-water"). Series-proof by construction: a second book for the
+// same lead keeps the initials and changes the title words. Derived
+// from the TITLE, never the internal slug, so a renamed or re-slugged
+// book keeps the code its printed title earns.
+export function bookCodeForTitle(title: string): string | null {
+  const words = String(title || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length < 3) return null;
+  const initials = words
+    .slice(0, 3)
+    .map((w) => (w[0] || "").toUpperCase())
+    .join("");
+  if (!initials) return null;
+  const andIdx = words.findIndex((w) => w.toLowerCase() === "and");
+  let tail = andIdx >= 0 ? words.slice(andIdx + 1) : words.slice(3);
+  if (tail.length && tail[0].toLowerCase() === "the") tail = tail.slice(1);
+  const tailSlug = tail
+    .join("-")
+    .toLowerCase()
+    .replace(/[’‘]/g, "'")
+    .replace(/[^a-z0-9'-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return tailSlug ? `${initials}-${tailSlug}` : initials;
+}
+
+const BY_ANY_SLUG = new Map<string, CatalogBook>();
+for (const b of CATALOG.books) {
+  BY_ANY_SLUG.set(b.id, b);
+  if (b.titleSlug && !BY_ANY_SLUG.has(b.titleSlug)) BY_ANY_SLUG.set(b.titleSlug, b);
+}
+
+/** The packing code for a book keyed by internal slug or title slug. */
+export function catalogBookCode(idOrTitleSlug: string): string | null {
+  const b = BY_ANY_SLUG.get(String(idOrTitleSlug || ""));
+  return b ? bookCodeForTitle(b.title) : null;
+}

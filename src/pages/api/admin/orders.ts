@@ -1,8 +1,9 @@
 import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
-import { setPhysicalStatus, orderItemLabels, orderPickList, shortOrderId } from "../../../lib/orders";
+import { setPhysicalStatus, orderItemLabels, orderPickList, shortOrderId, ensureOrderPackColumns, parsePackState, normalizePackState, setOrderPack } from "../../../lib/orders";
 import { flushOutbox } from "../../../lib/email";
-import { shippoStatus, ensureOrderLabelColumns, ensureOrderQuoteColumns, ensureOrderTrackingColumns, getLabelQuote, buyLabelForOrder } from "../../../lib/shippo";
+import { shippoStatus, ensureOrderLabelColumns, ensureOrderQuoteColumns, ensureOrderTrackingColumns, ensureOrderPickupColumns, getLabelQuote, buyLabelForOrder, schedulePickupForOrder, pickupStateFor } from "../../../lib/shippo";
+import { packLinesForGroups, packProgress, getPackingQueue } from "../../../lib/packing";
 import { downloadCountsForOrder, resetDownloadsForOrder, DOWNLOAD_LIMIT } from "../../../lib/download-guard";
 import { markSeen } from "../../../lib/seen";
 
@@ -32,6 +33,22 @@ import { markSeen } from "../../../lib/seen";
 //      for the 5-downloads-per-purchase budget in lib/download-guard).
 //      The detail GET reports the counts as download_counts, with
 //      book titles resolved, plus the budget as download_limit.
+// POST { action: "set_pack", order_id, pack }
+//      persists the pack checklist ticks (lib/packing line keys) on
+//      the order row, so the pack step survives reloads.
+// POST { action: "schedule_pickup", order_id }
+//      schedules a carrier pickup for the order's purchased label via
+//      Shippo (USPS Priority-class / DHL Express labels only; see
+//      pickupEligibleFor in lib/shippo.ts).
+//
+// The detail GET also carries the order's pack checklist (pack_lines
+// + pack_state + pack_progress) and pickup state (pickup), and the
+// list GET carries the packing shelf queue (packing) for the orders
+// page and dashboard. Mark shipped (set_physical_status -> shipped)
+// is gated HERE, at the API layer: the order must have a purchased
+// label and a fully ticked pack checklist (label confirmation
+// included). The lib transition itself stays ungated so the tracking
+// poll and tests keep their plain semantics.
 
 function guard(locals: any) {
   return !(locals as any)?.user;
@@ -43,6 +60,8 @@ export const GET: APIRoute = async ({ locals, url }) => {
   await ensureOrderLabelColumns(e.DB).catch(() => {});
   await ensureOrderQuoteColumns(e.DB).catch(() => {});
   await ensureOrderTrackingColumns(e.DB).catch(() => {});
+  await ensureOrderPackColumns(e.DB).catch(() => {});
+  await ensureOrderPickupColumns(e.DB).catch(() => {});
 
   // Single-order detail for /admin/orders/[id]: the full row, its
   // resolved item titles, and that order's email history from the
@@ -50,7 +69,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const detailId = url.searchParams.get("order_id");
   if (detailId) {
     const order = await e.DB.prepare(
-      "SELECT id, email, book_slugs, items, amount, currency, status, physical_status, stripe_session_id, created_at, ship_name, ship_address, shipping_cents, quoted_carrier, quoted_service, carrier, carrier_service, tracking_number, label_url, label_cost_cents, tracking_status FROM orders WHERE id = ?"
+      "SELECT id, email, book_slugs, items, amount, currency, status, physical_status, stripe_session_id, created_at, ship_name, ship_address, shipping_cents, quoted_carrier, quoted_service, carrier, carrier_service, tracking_number, label_url, label_cost_cents, shippo_transaction_id, pack_json, pickup_confirmation, pickup_window, pickup_scheduled_at, tracking_status FROM orders WHERE id = ?"
     ).bind(detailId).first();
     if (!order) return Response.json({ error: "order not found" }, { status: 404 });
     // Opening an order is what clears it from the sidebar badge
@@ -60,6 +79,13 @@ export const GET: APIRoute = async ({ locals, url }) => {
     (order as any).items_display = labels.get((order as any).id) || [];
     const pick = await orderPickList(e.DB, [order]).catch(() => new Map());
     (order as any).items_detail = pick.get((order as any).id) || [];
+    // Pack checklist + pickup state for the fulfillment view.
+    const packState = parsePackState((order as any).pack_json);
+    const packLines = packLinesForGroups(((order as any).items_detail || []) as any[]);
+    (order as any).pack_lines = packLines;
+    (order as any).pack_state = packState;
+    (order as any).pack_progress = packProgress(packLines, packState);
+    (order as any).pickup = pickupStateFor(order as any);
     (order as any).short_id = shortOrderId(String((order as any).id));
     let emails: any[] = [];
     try {
@@ -150,8 +176,12 @@ export const GET: APIRoute = async ({ locals, url }) => {
     o.items_pick = picks.get(o.id) || [];
     o.short_id = shortOrderId(String(o.id));
   }
+  // The packing shelf ("What do we pack and ship?"): store orders and
+  // club boxes awaiting fulfillment, for the section above the tabs.
+  const packing = await getPackingQueue(e.DB).catch(() => []);
   return Response.json({
     orders: orderRows,
+    packing,
     outbox: counts,
     tab,
     page,
@@ -180,10 +210,56 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const action = String(body?.action || "");
 
   if (action === "set_physical_status") {
-    const result = await setPhysicalStatus(e.DB, SITE, String(body?.order_id || ""), String(body?.status || ""));
+    const orderId = String(body?.order_id || "");
+    const status = String(body?.status || "");
+    // Ship gate (admin redesign S4): an order ships only with a
+    // purchased label and a fully ticked pack checklist, label
+    // confirmation included. Enforced here so every caller (detail
+    // page, list advance, kebab) gets the same plain refusal.
+    if (status === "shipped") {
+      await ensureOrderPackColumns(e.DB).catch(() => {});
+      const row = await e.DB.prepare("SELECT id, items, book_slugs, label_url, pack_json FROM orders WHERE id = ?")
+        .bind(orderId).first() as any;
+      if (!row) return Response.json({ error: "order not found" }, { status: 404 });
+      if (!row.label_url) {
+        return Response.json({ error: "Buy the shipping label first. An order cannot ship without a label." }, { status: 400 });
+      }
+      const pick = await orderPickList(e.DB, [row]).catch(() => new Map());
+      const lines = packLinesForGroups(pick.get(row.id) || []);
+      const progress = packProgress(lines, parsePackState(row.pack_json));
+      if (!progress.labelPrinted) {
+        return Response.json({ error: "Tick \"Shipping label printed\" in the pack checklist first: the label has to be on the box before it ships." }, { status: 400 });
+      }
+      if (!progress.complete) {
+        return Response.json({ error: `Pack the box first: ${progress.done} of ${progress.total} items are ticked.` }, { status: 400 });
+      }
+    }
+    const result = await setPhysicalStatus(e.DB, SITE, orderId, status);
     if (!result.ok) return Response.json({ error: result.error }, { status: 400 });
     const flush = await flushOutbox(e.DB, e, 10, SITE).catch(() => null);
     return Response.json({ ok: true, order: result.order, flush });
+  }
+  if (action === "set_pack") {
+    const orderId = String(body?.order_id || "");
+    if (!orderId) return Response.json({ error: "order_id required" }, { status: 400 });
+    const pack = normalizePackState(body?.pack);
+    if (!pack) return Response.json({ error: "pack must be an object of line ticks" }, { status: 400 });
+    const exists = await e.DB.prepare("SELECT id FROM orders WHERE id = ?").bind(orderId).first();
+    if (!exists) return Response.json({ error: "order not found" }, { status: 404 });
+    await setOrderPack(e.DB, orderId, pack);
+    return Response.json({ ok: true });
+  }
+  if (action === "schedule_pickup") {
+    const orderId = String(body?.order_id || "");
+    await ensureOrderPickupColumns(e.DB).catch(() => {});
+    const order = await e.DB.prepare("SELECT * FROM orders WHERE id = ?").bind(orderId).first();
+    if (!order) return Response.json({ error: "order not found" }, { status: 404 });
+    try {
+      const pickup = await schedulePickupForOrder(e.DB, e, order);
+      return Response.json({ ok: true, pickup });
+    } catch (err: any) {
+      return Response.json({ error: String(err?.message || "Could not schedule the pickup.") }, { status: 400 });
+    }
   }
   if (action === "retry_emails") {
     const flush = await flushOutbox(e.DB, e, 50, SITE);

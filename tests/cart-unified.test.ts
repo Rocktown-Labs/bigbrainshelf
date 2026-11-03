@@ -80,7 +80,7 @@ assert(checkoutPage.includes('id="ship-line1"') && checkoutPage.includes('id="sh
 assert(checkoutPage.includes('action: "quote"'), "checkout page: quotes shipping through /api/checkout's quote action");
 assert(checkoutPage.includes('id="step1-continue"') && checkoutPage.includes("Checking address and rates..."), "checkout page: step 1 Continue runs the shipping quote (stepped flow, CG 2026-10-30)");
 assert(checkoutPage.includes('id="step2-continue"') && checkoutPage.includes('id="step1-edit"'), "checkout page: shipping step confirms with its own Continue, address step collapses to a summary with Edit");
-assert(checkoutPage.includes("That is the carrier's rate for your address, charged as-is."), "checkout page: the quote line keeps the retired cart page's copy");
+assert(checkoutPage.includes("Shipping is the carrier's rate for your address, rounded up to the nearest whole dollar."), "checkout page: the quote line states the rounded charge (CG, 2026-11-03; replaces the retired charged as-is copy)");
 assert(checkoutPage.includes('checkoutBtn.textContent = "Pay " + store.money(qd.total)'), "checkout page: the pay button names the quoted total");
 assert(!checkoutPage.includes("with Stripe"), "checkout page: no buyer-facing button names Stripe");
 assert(checkoutPage.includes('id="cancelled"') && checkoutPage.includes('get("checkout") === "cancelled"') && checkoutPage.includes("Checkout was cancelled. Your cart is still here."), "checkout page: shows the cancelled banner for ?checkout=cancelled");

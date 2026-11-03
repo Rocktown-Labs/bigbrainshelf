@@ -1,12 +1,16 @@
-// Pass-through shipping tests (CG, 2026-10-28: the customer pays the
-// real carrier rate). Covers: destination normalization, checkout
-// quoting via the shared pickRate rule (stubbed Shippo), the one-retry
-// fallback, client-amount tamper resistance, storing the quote on the
-// pending order, webhook completion keeping the quoted numbers (the
-// receipt invariant: item lines + shipping_cents == amount), the
-// digital path staying shipping-free, fulfillment preferring the
-// stored checkout rate, and the confirmation email carrying the same
-// shipping + total as the receipt. Run: bun tests/checkout-shipping.test.ts
+// Shipping charge tests (CG, 2026-10-28: the customer pays for
+// shipping; CG, 2026-11-03: the CHARGE is the quoted carrier rate
+// rounded up to the next whole dollar, while the stored shippo_rate_id
+// still buys the label at the quote's real amount). Covers:
+// destination normalization, checkout quoting via the shared pickRate
+// rule (stubbed Shippo), the one-retry fallback, client-amount tamper
+// resistance, storing the quote on the pending order (charge 900 on
+// an 850 quote in this file's flow), webhook completion keeping the
+// charged numbers (the receipt invariant: item lines + shipping_cents
+// == amount), the digital path staying shipping-free, fulfillment
+// preferring the stored checkout rate (still at its real 850 amount),
+// and the confirmation email carrying the same shipping + total as
+// the receipt. Run: bun tests/checkout-shipping.test.ts
 import { Database } from "bun:sqlite";
 import {
   normalizeShipDestination,
@@ -194,44 +198,50 @@ const db = {
   const cart = [{ slug: "mastery", format: "printed" }];
   const itemsTotal = 2000;
   const quote = await quoteShipping(ENV, DEST, PRINTED);
-  const order = await getOrCreatePendingOrder(db, { userId: "u1", email: "buyer@example.com", items: cart, amount: itemsTotal + quote.amountCents });
-  await storeCheckoutQuote(db, order.id, { dest: DEST, quote, amount: itemsTotal + quote.amountCents });
+  // The route's rounding (CG, 2026-11-03): the 850 quote charges 900.
+  const charge = Math.ceil(quote.amountCents / 100) * 100;
+  assert(quote.amountCents === 850 && charge === 900, "rounding: an 850 quote charges 900 (the next whole dollar)");
+  const order = await getOrCreatePendingOrder(db, { userId: "u1", email: "buyer@example.com", items: cart, amount: itemsTotal + charge });
+  await storeCheckoutQuote(db, order.id, { dest: DEST, quote, amount: itemsTotal + charge, shippingCents: charge });
 
   let row: any = await db.prepare("SELECT * FROM orders WHERE id = ?").bind(order.id).first();
-  assert(row.shipping_cents === 850, "store: pending order carries the quoted shipping charge");
+  assert(row.shipping_cents === 900, "store: pending order carries the rounded shipping charge, not the raw quote");
   assert(row.quoted_carrier === "USPS" && row.quoted_service === "Ground Advantage", "store: quoted carrier + service recorded");
   assert(row.shippo_rate_id === "rate_usps" && row.shippo_shipment_id === "shp_fresh", "store: Shippo rate + shipment ids recorded for fulfillment");
   assert(JSON.parse(row.ship_address).postal_code === "72201" && row.ship_name === "Pat Buyer", "store: destination recorded on the order");
   assert(row.amount - row.shipping_cents === itemsTotal, "store: receipt invariant holds pre-payment (lines + shipping == total)");
 
-  // Webhook completion: the session reports the same shipping via
-  // shipping_cost; the stored destination must survive (no Stripe
-  // shipping_details on the new flow), and quoted fields stay intact.
+  // Webhook completion: the session reports the same (rounded)
+  // shipping via shipping_cost; the stored destination must survive
+  // (no Stripe shipping_details on the new flow), and quoted fields
+  // stay intact.
   await attachStripeSession(db, order.id, "cs_ship_1");
   const done = await completeOrder(db, {
     id: "cs_ship_1",
-    amount_total: itemsTotal + 850,
+    amount_total: itemsTotal + 900,
     currency: "usd",
     customer_email: "buyer@example.com",
-    metadata: { user_id: "u1", order_id: order.id, items: JSON.stringify(cart), slugs: "mastery", shipping_cents: "850", ship_name: DEST.name, ship_address: JSON.stringify(DEST.address) },
-    shipping_cost: { amount_total: 850 },
+    metadata: { user_id: "u1", order_id: order.id, items: JSON.stringify(cart), slugs: "mastery", shipping_cents: "900", ship_name: DEST.name, ship_address: JSON.stringify(DEST.address) },
+    shipping_cost: { amount_total: 900 },
   });
-  assert(done.status === "complete" && done.shipping_cents === 850, "complete: shipping charge confirmed from the session");
+  assert(done.status === "complete" && done.shipping_cents === 900, "complete: shipping charge confirmed from the session");
   assert(JSON.parse(done.ship_address).line1 === "1200 President Clinton Avenue", "complete: the checkout destination survives completion");
   assert(done.quoted_carrier === "USPS" && done.amount - done.shipping_cents === itemsTotal, "complete: quote + receipt invariant intact after payment");
 
   // Confirmation email shows the same shipping + total as the receipt.
   const books = [{ slug: "mastery", title: "Mira the Heron and the Still Water", picture_book_key: "k", coloring_book_key: "k", audiobook_key: "a" }];
   const model = buildConfirmationEmailModel("https://bigbrainshelf.com", done, books as any);
-  assert(model.shipping?.cents === 850 && model.shipping?.carrier === "USPS" && model.totalCents === 2850, "email model: shipping + total match the order");
+  assert(model.shipping?.cents === 900 && model.shipping?.carrier === "USPS" && model.totalCents === 2900, "email model: shipping + total match the order");
   const text = buildConfirmationEmail("https://bigbrainshelf.com", done, books as any).text;
-  assert(text.includes("Shipping (USPS Ground Advantage): $8.50"), "email text: names the quoted carrier + service and amount");
-  assert(text.includes("Total charged: $28.50"), "email text: total matches the receipt total");
+  assert(text.includes("Shipping (USPS Ground Advantage): $9.00"), "email text: names the quoted carrier + service and the charged amount");
+  assert(text.includes("Total charged: $29.00"), "email text: total matches the receipt total");
 
-  // Fulfillment continuity: the stored checkout rate is the label quote.
+  // Fulfillment continuity: the stored checkout rate is the label
+  // quote, still at its REAL 850 amount (the label buys at the rate,
+  // not at the rounded charge).
   fetchCalls = []; storedShipmentRates = RATES;
   const labelQuote = await getLabelQuote(db, ENV, done);
-  assert(labelQuote.stored === true && labelQuote.rateId === "rate_usps" && labelQuote.amountCents === 850, "fulfillment: label quote is the rate the buyer was charged");
+  assert(labelQuote.stored === true && labelQuote.rateId === "rate_usps" && labelQuote.amountCents === 850, "fulfillment: label quote is the stored rate at its real amount");
   assert(fetchCalls.filter((c) => c.method === "POST").length === 0, "fulfillment: stored quote needs no fresh shipment");
 
   // If the stored rate has vanished from its shipment, a fresh quote
@@ -256,6 +266,20 @@ const db = {
   assert(done.shipping_cents === 0 && !done.ship_address && !done.physical_status, "digital: no shipping charged, no address, no fulfillment status");
   const model = buildConfirmationEmailModel("https://bigbrainshelf.com", done, [{ slug: "mastery", title: "Mira" }] as any);
   assert(model.shipping === null, "digital: confirmation model carries no shipping line");
+}
+
+// --- Route source pins: the rounding lives in the checkout route ----
+{
+  const { readFileSync } = await import("node:fs");
+  const route = readFileSync(new URL("../src/pages/api/checkout.ts", import.meta.url), "utf8");
+  assert(route.includes("Math.ceil(quote.amountCents / 100) * 100"), "route: the charge is the quote rounded up to the next whole dollar");
+  assert(route.includes("amount_cents: shippingCents"), "route: the preview returns the rounded charge (preview equals charged)");
+  assert(route.includes("shippingCents }"), "route: the rounded charge is what gets stored on the order");
+  const page = readFileSync(new URL("../src/pages/checkout.astro", import.meta.url), "utf8");
+  assert(!page.includes("charged as-is"), "checkout page: the charged as-is promise is gone");
+  assert(page.includes("rounded up to the nearest whole dollar"), "checkout page: the quote line states the rounding plainly");
+  const terms = readFileSync(new URL("../src/pages/terms.astro", import.meta.url), "utf8");
+  assert(terms.includes("rounded up to the nearest whole dollar"), "terms: shipping wording states the rounding");
 }
 
 globalThis.fetch = realFetch;

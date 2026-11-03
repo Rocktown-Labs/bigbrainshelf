@@ -5,7 +5,7 @@
 // club_cycle_boxes row per due date in their own schedule, which runs
 // from the day they joined (first box due at join) and then every 3
 // months. The member may pick a title, or leave the default
-// "Surprise me". At the selection lock date the scheduler resolves a
+// "Mystery" (stored as selection_source 'surprise'). At the selection lock date the scheduler resolves a
 // surprise to a book the member does not already own in any format and
 // has not already been sent (or firmly committed) in another club box.
 // If no such book exists the box is marked needs_attention rather than
@@ -70,6 +70,19 @@ const PAUSED_SUBSCRIPTION_STATUSES = ["past_due", "paused"];
 
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
+// Fulfillment columns a club box carries for the unified Orders view
+// (admin redesign S4, 2026-11-03); see ensureClubCycleTables.
+export const CLUB_BOX_FULFILLMENT_COLUMNS: Record<string, string> = {
+  pack_json: "TEXT",
+  carrier_service: "TEXT",
+  label_cost_cents: "INTEGER",
+  shippo_shipment_id: "TEXT",
+  shippo_transaction_id: "TEXT",
+  pickup_confirmation: "TEXT",
+  pickup_window: "TEXT",
+  pickup_scheduled_at: "INTEGER",
+};
+
 export async function ensureClubCycleTables(db: DBLike): Promise<void> {
   await ensureClubTable(db);
   return ensureOnce(db, "club_cycle_boxes", async () => {
@@ -108,6 +121,16 @@ export async function ensureClubCycleTables(db: DBLike): Promise<void> {
     for (const col of ["second_selected_book_slug", "second_resolved_book_slug"]) {
       if (!haveBoxCols.has(col)) {
         await db.prepare(`ALTER TABLE club_cycle_boxes ADD COLUMN ${col} TEXT`).bind().run();
+      }
+    }
+    // Unified fulfillment (admin redesign S4, 2026-11-03): a club box
+    // is fulfilled in the same view as a store order, so the box row
+    // carries the same fulfillment facts an order does: the pack
+    // checklist ticks (pack_json, same shape as orders), the label's
+    // service + cost + Shippo ids, and the pickup confirmation.
+    for (const [col, type] of Object.entries(CLUB_BOX_FULFILLMENT_COLUMNS)) {
+      if (!haveBoxCols.has(col)) {
+        await db.prepare(`ALTER TABLE club_cycle_boxes ADD COLUMN ${col} ${type}`).bind().run();
       }
     }
     const indexes: [string, string][] = [
@@ -347,7 +370,7 @@ async function saveClubSelectionPrimary(
   const timing = clubCycleTiming(String(box.ship_date), boxCreatedDateString(box.created_at));
   const pastLock = nowDate >= timing.lockDate;
 
-  // Surprise me: clear any pick. After the lock, a box that could not
+  // Mystery: clear any pick. After the lock, a box that could not
   // be resolved stays in needs_attention so the state stays honest.
   if (!args.bookSlug) {
     if (box.status === "locked") return { ok: false, error: "Selections are locked for this box." };
@@ -445,7 +468,7 @@ export async function saveClubSecondSelection(
     return { ok: false, error: "Selections have locked for this box." };
   }
 
-  // Surprise me for slot 2: clear the pick; resolution happens at the
+  // Mystery for slot 2: clear the pick; resolution happens at the
   // lock (or stays open in needs_attention).
   if (!args.bookSlug) {
     await db
@@ -494,7 +517,7 @@ export async function saveClubSecondSelection(
 
 // Save a member's picks for one box. bookSlug is the club book (slot
 // 1, the long-standing behavior); secondBookSlug, when present (null
-// counts: it means Surprise for slot 2), saves the back catalog pick
+// counts: it means Mystery for slot 2), saves the back catalog pick
 // in the same call. When secondBookSlug is absent entirely, slot 2 is
 // left exactly as it was.
 export async function saveClubSelection(
@@ -682,6 +705,21 @@ export async function updateClubBoxByAdmin(
   return { ok: false, error: "nothing to update" };
 }
 
+// Persist the pack checklist ticks for a box (admin redesign S4).
+// Same shape and rules as orders: a flat key -> true object; the line
+// keys come from lib/packing.ts.
+export async function setClubBoxPack(
+  db: DBLike,
+  boxId: string,
+  pack: Record<string, boolean>
+): Promise<void> {
+  await ensureClubCycleTables(db);
+  await db
+    .prepare("UPDATE club_cycle_boxes SET pack_json = ?, updated_at = ? WHERE id = ?")
+    .bind(JSON.stringify(pack), Date.now(), boxId)
+    .run();
+}
+
 export interface ClubSchedulerSummary {
   generatedMembers: number;
   skippedBoxes: number;
@@ -766,7 +804,7 @@ export async function runClubCycleScheduler(
     summary.generatedMembers += 1;
   }
 
-  // 2. Selection reminders for boxes still on Surprise me. The 14-day
+  // 2. Selection reminders for boxes still on Mystery. The 14-day
   // email runs inside its window (14 to 4 days out); the 3-day last
   // call runs from 3 days out until the lock date. Dedupe is by the
   // outbox dedupe key, so repeat passes send nothing twice.

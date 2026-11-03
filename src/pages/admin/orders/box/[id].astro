@@ -1,0 +1,367 @@
+---
+import "../../../../styles/global.css";
+import AdminShell from "../../../../components/AdminShell.astro";
+export const prerender = false;
+// Club box fulfillment (admin redesign S4, 2026-11-03): a club box
+// is an order, so it is fulfilled in the SAME view shape as a store
+// order, opened from the Orders packing shelf (slice S2 removed
+// packing from /admin/club). Steps: pick the books (only when the
+// box's contents are not set yet, a Mystery box the member left to
+// us), print the label, pack the box, shipped, delivered. Data and
+// actions come from /api/admin/club (box_id GET + update_box /
+// set_pack / box_label_quote / buy_box_label / schedule_pickup).
+const boxId = String(Astro.params.id || "");
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Club box · Big Brain Shelf Admin</title>
+  <!-- is:global on purpose: the page body is injected by the script
+       below, and Astro's scoped styles carry a data-astro-cid
+       attribute injected nodes never get. -->
+  <style is:global>
+    html{-webkit-tap-highlight-color:transparent}
+    .tap{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    .chip{display:inline-flex;align-items:center;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;background:#f5f5f4;color:#57534e;white-space:nowrap}
+    .chip-lg{font-size:.78rem;padding:4px 11px}
+    .chip-print{background:#eef4fb;color:#1a3454}
+    .steps{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:10px 0 4px}
+    .step{background:#f5f5f4;border-radius:10px;padding:10px 6px 9px;text-align:center}
+    .step::before{content:"";display:block;height:4px;border-radius:2px;background:#e7e5e4;margin-bottom:9px}
+    .step.on::before{background:#ea580c}
+    .step .l{display:block;font-size:.72rem;font-weight:700;color:#78716c;margin-top:2px}
+    .card{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .packrow{display:flex;align-items:center;gap:10px;min-height:52px;padding:6px 0;border-bottom:1px solid #f5f5f4}
+    .packrow:last-child{border-bottom:0}
+    .packrow img,.packrow .pack-nocover{width:40px;height:40px;border-radius:8px;object-fit:cover;border:1px solid #e7e5e4;flex:none;background:#f5f5f4}
+    .packrow .pack-nocover{display:grid;place-items:center;font-size:.6rem;font-weight:800;color:#a8a29e}
+    .packrow input[type="checkbox"]{width:24px;height:24px;flex:none;accent-color:#ea580c;cursor:pointer}
+    .packrow input[type="checkbox"]:disabled{cursor:not-allowed;opacity:.45}
+    .packrow .pack-code{font-family:ui-monospace,monospace;font-size:.68rem;font-weight:700;background:#f5f5f4;border:1px solid #e7e5e4;border-radius:6px;padding:1px 6px;color:#57534e;white-space:nowrap}
+    /* Pick step: a cover grid per slot; the chosen cover wears the
+       orange ring. Tap saves that slot immediately. */
+    .pickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px}
+    .pickbook{border:2px solid #e7e5e4;border-radius:12px;padding:6px;background:#fff;cursor:pointer;text-align:left}
+    .pickbook img,.pickbook .pick-nocover{display:block;width:100%;height:104px;object-fit:cover;border-radius:8px;background:#f5f5f4}
+    .pickbook .pick-nocover{display:grid;place-items:center;color:#a8a29e;font-size:.65rem;font-weight:700}
+    .pickbook .pick-title{display:block;font-size:.72rem;font-weight:700;line-height:1.25;margin-top:6px}
+    .pickbook.chosen{border-color:#ea580c;box-shadow:0 0 0 2px #ffedd5}
+    .pickbook:disabled{opacity:.55;cursor:wait}
+    input,select,textarea{font-size:16px}
+  </style>
+  </head>
+<body class="bg-stone-50 text-stone-900 antialiased">
+  <AdminShell current="/admin/orders" />
+
+  <main class="mx-auto max-w-6xl px-4 py-8" style="padding-bottom:calc(2rem + env(safe-area-inset-bottom, 0px))">
+    <a href="/admin/orders" class="tap inline-flex items-center min-h-[44px] text-sm font-semibold text-orange-700 no-underline">‹ All orders</a>
+    <div id="box-root">
+      <p class="text-stone-400 text-sm mt-2">Loading...</p>
+    </div>
+  </main>
+
+  <script is:inline define:vars={{ boxId }}>
+    var STEP_LABELS = ["Pick books", "Print label", "Pack the box", "Shipped", "Delivered"];
+    var STATUS_LABELS = {
+      awaiting_selection: "Waiting for picks", needs_attention: "Needs a pick",
+      locked: "Locked in", preparing: "Preparing", shipped: "Shipped",
+      delivered: "Delivered", skipped: "Skipped", canceled: "Canceled",
+    };
+
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+      });
+    }
+    function money(cents) { return "$" + ((cents || 0) / 100).toFixed(2); }
+    function fmtDay(ymd) {
+      var d = new Date(String(ymd || "") + "T12:00:00");
+      return isNaN(d.getTime()) ? String(ymd || "") : d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    }
+    async function post(body) {
+      var resp = await fetch("/api/admin/club", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      var out = await resp.json().catch(function () { return {}; });
+      return { resp: resp, out: out };
+    }
+
+    // Which of the five steps the box is on. Contents first, then
+    // the label, then the pack, then the carrier.
+    function stageIdxFor(data) {
+      var b = data.box;
+      if (b.status === "delivered") return 4;
+      if (b.status === "shipped") return 3;
+      if (!data.contents_complete) return 0;
+      if (b.status === "preparing") return 2;
+      if (!b.label_url) return 1;
+      return 2;
+    }
+
+    function pickHtml(data) {
+      if (data.contents_complete) return "";
+      var b = data.box;
+      var books = data.eligibleBooks || [];
+      function slotHtml(slot, current, heading, sub) {
+        var grid = books.map(function (bk) {
+          var chosen = bk.slug === current;
+          return '<button type="button" class="pickbook tap' + (chosen ? " chosen" : "") + '" data-pick="' + slot + '" data-slug="' + esc(bk.slug) + '">' +
+            (bk.cover ? '<img src="' + esc(bk.cover) + '" alt="" loading="lazy">' : '<span class="pick-nocover">Big Brain Shelf</span>') +
+            '<span class="pick-title">' + esc(bk.title) + "</span></button>";
+        }).join("");
+        return '<div class="mt-4"><h3 class="font-bold text-sm">' + heading + "</h3>" +
+          '<p class="text-[13px] text-stone-500 mt-0.5">' + sub + "</p>" +
+          (books.length
+            ? '<div class="pickgrid mt-2">' + grid + "</div>"
+            : '<p class="text-sm text-stone-400 mt-2">No books are eligible for club boxes right now.</p>') +
+          '<p class="text-[13px] text-stone-500 mt-1.5" data-pick-msg="' + slot + '" role="status"></p></div>';
+      }
+      var cur1 = b.resolved_book_slug || b.selected_book_slug || "";
+      var cur2 = b.second_resolved_book_slug || b.second_selected_book_slug || "";
+      return '<section class="card mt-4"><h2 class="font-bold">Mystery box: pick the books</h2>' +
+        '<p class="text-sm text-stone-500 mt-1">This box is still on Mystery, so the picks are ours to make. Choose the club book (it ships as the gift set: storybook plus coloring book) and the second story book. Tapping a cover saves that slot.</p>' +
+        slotHtml(1, cur1, "Book 1: the club book", "Ships as the full gift set.") +
+        slotHtml(2, cur2, "Book 2: the second story book", "A second printed storybook in the same box.") +
+      "</section>";
+    }
+
+    function labelHtml(data) {
+      var b = data.box;
+      var shippo = data.shippo || {};
+      if (b.label_url) {
+        var serviceLine = [b.carrier, b.carrier_service].filter(Boolean).join(" ");
+        return '<div class="mt-3">' +
+          '<a class="tap inline-flex items-center rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 min-h-[44px] no-underline" href="' + esc(b.label_url) + '" target="_blank" rel="noopener">Print shipping label (PDF)</a>' +
+          (b.tracking_number ? '<p class="text-sm text-stone-600 mt-2">' + esc(serviceLine) + ' · Tracking: <span class="font-mono text-[13px]">' + esc(b.tracking_number) + "</span></p>" : "") +
+          (b.label_cost_cents != null ? '<p class="text-sm text-stone-500 mt-1">Label cost ' + money(b.label_cost_cents) + " (shipping is inside the club price)</p>" : "") +
+        "</div>";
+      }
+      if (!shippo.configured) return '<p class="text-sm text-stone-400 mt-2">Label buying is not set up yet (see the Shippo note on the orders page).</p>';
+      if (!shippo.originConfigured) return '<p class="text-sm text-stone-400 mt-2">Ship-from address not configured yet (see the checklist on the orders page).</p>';
+      return '<div class="mt-3 flex flex-wrap items-center gap-2"><button id="quote-label" class="tap rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 min-h-[44px]">Get shipping rate</button><span id="quote-slot" class="inline-block align-middle"></span></div>';
+    }
+
+    function packHtml(data) {
+      if (!data.contents_complete) return "";
+      var b = data.box;
+      var lines = data.pack_lines || [];
+      var state = data.pack_state || {};
+      var prog = data.pack_progress || { done: 0, total: lines.length, complete: false, labelPrinted: false };
+      var locked = b.status === "shipped" || b.status === "delivered";
+      var total = prog.total + 1;
+      var doneCount = prog.done + (prog.labelPrinted ? 1 : 0);
+      var serviceLine = [b.carrier, b.carrier_service].filter(Boolean).join(" ");
+      var labelRow =
+        '<div class="packrow">' +
+          '<input type="checkbox" data-pack="__label" aria-label="Shipping label printed"' +
+            (prog.labelPrinted ? " checked" : "") + ((b.label_url && !locked) ? "" : " disabled") + ">" +
+          '<span class="pack-nocover">LBL</span>' +
+          '<span class="min-w-0 flex-1"><span class="block text-sm font-semibold leading-snug">Shipping label printed</span>' +
+          '<span class="block text-[13px] text-stone-500">' + (b.label_url ? esc(serviceLine || "Label bought") + ". Print it and put it on the box, then tick." : "Buy the label above first.") + "</span></span>" +
+        "</div>";
+      var rows = lines.map(function (l) {
+        return '<div class="packrow">' +
+          '<input type="checkbox" data-pack="' + esc(l.key) + '" aria-label="Packed: ' + esc(l.label) + '"' +
+            (state[l.key] ? " checked" : "") + (locked ? " disabled" : "") + ">" +
+          (l.cover ? '<img src="' + esc(l.cover) + '" alt="" loading="lazy">' : '<span class="pack-nocover">BBS</span>') +
+          '<span class="min-w-0 flex-1"><span class="block text-sm font-semibold leading-snug">' + esc(l.label) + "</span>" +
+          '<span class="block text-[13px] text-stone-500">' + esc(l.detail) + "</span></span>" +
+          (l.code ? '<span class="pack-code">' + esc(l.code) + "</span>" : "") +
+        "</div>";
+      }).join("");
+      return '<div class="mt-4 border-t border-stone-100 pt-3">' +
+        '<h3 class="font-bold text-sm">Pack the box</h3>' +
+        '<p class="text-[13px] text-stone-500 mt-0.5">' + doneCount + " of " + total + " packed. Tick each item as it goes in; the ticks save themselves.</p>" +
+        '<div class="mt-1">' + labelRow + rows + "</div></div>";
+    }
+
+    function pickupHtml(data) {
+      var b = data.box;
+      if (!b.label_url) return "";
+      var p = data.pickup || {};
+      if (p.confirmation) {
+        return '<p class="text-sm text-stone-600 mt-3">Pickup scheduled · confirmation <span class="font-mono text-[13px]">' + esc(p.confirmation) + "</span>" +
+          (p.window ? " · " + esc(p.window) : "") + ". Shippo cannot change or cancel it; the carrier has the details.</p>";
+      }
+      if (p.eligible) {
+        return '<div class="mt-3"><button id="pickup-btn" class="tap rounded-lg border border-stone-300 bg-white text-sm font-semibold px-4 min-h-[44px]">Request a pickup</button>' +
+          '<p class="text-xs text-stone-400 mt-1.5">The carrier collects from the front door tomorrow. One pickup per day; it cannot be changed through Shippo once set.</p></div>';
+      }
+      return '<p class="text-sm text-stone-500 mt-3">Pack it and drop it off: Shippo pickups cover USPS Priority-class and DHL Express labels only, and this label is neither. Tracking takes over once the carrier scans it.</p>';
+    }
+
+    async function load() {
+      var root = document.getElementById("box-root");
+      var r = await fetch("/api/admin/club?box_id=" + encodeURIComponent(boxId));
+      if (!r.ok) {
+        root.innerHTML = '<p class="text-stone-500 mt-2">This box could not be loaded.</p>';
+        return;
+      }
+      var data = await r.json();
+      var b = data.box;
+      var m = data.member || {};
+      var stageIdx = stageIdxFor(data);
+      var steps = '<div class="steps">' + STEP_LABELS.map(function (s, i) {
+        return '<div class="step' + (i <= stageIdx ? " on" : "") + '"><span class="l">' + s + "</span></div>";
+      }).join("") + "</div>";
+      // Ship gate, mirrored from the API: label bought + pack done.
+      var shipReady = Boolean(b.label_url && data.pack_progress && data.pack_progress.complete && data.pack_progress.labelPrinted);
+      var stageBtns = "";
+      var shipHint = "";
+      var btns = [];
+      if ((b.status === "awaiting_selection" || b.status === "needs_attention") && data.contents_complete) {
+        btns.push({ status: "locked", label: "Lock the box", primary: true });
+      }
+      if (b.status === "locked") {
+        btns.push({ status: "preparing", label: "Start packing", primary: true });
+        btns.push({ status: "shipped", label: "Mark Shipped", gated: !shipReady });
+      } else if (b.status === "preparing") {
+        btns.push({ status: "shipped", label: "Mark Shipped", primary: true, gated: !shipReady });
+      } else if (b.status === "shipped") {
+        btns.push({ status: "delivered", label: "Mark Delivered", primary: true });
+      }
+      if (btns.length) {
+        stageBtns = '<div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Update box stage">' + btns.map(function (x) {
+          return '<button data-stage="' + x.status + '"' + (x.gated ? " disabled" : "") + ' class="tap rounded-lg text-sm px-4 min-h-[44px] ' +
+            (x.gated ? "bg-stone-100 text-stone-400 font-semibold cursor-not-allowed" : x.primary ? "bg-orange-600 text-white font-bold" : "border border-stone-300 bg-white font-semibold") +
+            '">' + x.label + "</button>";
+        }).join("") + "</div>";
+        if (btns.some(function (x) { return x.gated; })) {
+          shipHint = '<p class="text-[13px] text-stone-500 mt-2">' +
+            (!b.label_url
+              ? "Mark shipped unlocks once the label is bought, printed, and the box is packed."
+              : "Mark shipped unlocks when the label is printed and every pack line below is ticked.") +
+            "</p>";
+        }
+      }
+      var addr = {};
+      try { addr = JSON.parse(m.ship_address || "{}"); } catch (e) {}
+      var addrLines = [m.ship_name, addr.line1, addr.line2, [addr.city, addr.state].filter(Boolean).join(", "), addr.postal_code, addr.country].filter(Boolean);
+      root.innerHTML =
+        '<div class="flex flex-wrap items-center gap-2.5 mt-1">' +
+          '<h1 class="text-[1.7rem] font-extrabold tracking-tight">Club box</h1>' +
+          '<span class="chip chip-lg chip-print">' + esc(STATUS_LABELS[b.status] || b.status) + "</span>" +
+        "</div>" +
+        '<p class="text-sm text-stone-500 mt-1.5">For ' + esc(b.member_name || m.name || "") +
+          (b.member_email || m.email ? " · " + esc(b.member_email || m.email) : "") +
+          " · Ships by " + esc(fmtDay(b.ship_date)) + "</p>" +
+
+        '<section class="card mt-4"><h2 class="font-bold">Ships to</h2>' +
+          (addrLines.length
+            ? '<p class="text-sm text-stone-600 mt-1 leading-relaxed">' + addrLines.map(esc).join("<br>") + "</p>"
+            : '<p class="text-sm text-stone-400 mt-1">No shipping address on file for this member.</p>') +
+        "</section>" +
+
+        pickHtml(data) +
+
+        '<section class="card mt-4" id="label"><h2 class="font-bold">Fulfillment</h2>' + steps + stageBtns + shipHint +
+          labelHtml(data) +
+          packHtml(data) +
+          pickupHtml(data) +
+        "</section>";
+
+      // Pick step: tap a cover, save that slot, repaint.
+      root.querySelectorAll("[data-pick]").forEach(function (btn) {
+        btn.addEventListener("click", async function () {
+          var slot = Number(btn.getAttribute("data-pick"));
+          var msg = root.querySelector('[data-pick-msg="' + slot + '"]');
+          btn.disabled = true;
+          if (msg) msg.textContent = "Saving...";
+          var res = await post({ action: "update_box", box_id: b.id, slot: slot, book_slug: btn.getAttribute("data-slug") });
+          if (!res.resp.ok || !res.out.ok) {
+            if (msg) msg.textContent = res.out.error || "That pick could not be saved.";
+            btn.disabled = false;
+            return;
+          }
+          load();
+        });
+      });
+      root.querySelectorAll("[data-stage]").forEach(function (btn) {
+        btn.addEventListener("click", async function () {
+          btn.disabled = true;
+          btn.textContent = "Saving...";
+          var res = await post({ action: "update_box", box_id: b.id, status: btn.getAttribute("data-stage") });
+          if (!res.resp.ok || !res.out.ok) alert(res.out.error || "That step is not ready yet.");
+          load();
+        });
+      });
+      root.querySelectorAll("[data-pack]").forEach(function (cb) {
+        cb.addEventListener("change", async function () {
+          var pack = {};
+          var cur = data.pack_state || {};
+          for (var k in cur) if (cur[k]) pack[k] = true;
+          var key = cb.getAttribute("data-pack");
+          if (cb.checked) pack[key] = true; else delete pack[key];
+          cb.disabled = true;
+          var res = await post({ action: "set_pack", box_id: b.id, pack: pack });
+          if (!res.resp.ok || !res.out.ok) alert(res.out.error || "The pack tick could not be saved.");
+          load();
+        });
+      });
+      var pickupBtn = document.getElementById("pickup-btn");
+      if (pickupBtn) pickupBtn.addEventListener("click", async function () {
+        pickupBtn.disabled = true;
+        pickupBtn.textContent = "Scheduling...";
+        var res = await post({ action: "schedule_pickup", box_id: b.id });
+        if (!res.resp.ok || !res.out.ok) {
+          pickupBtn.disabled = false;
+          pickupBtn.textContent = "Request a pickup";
+          alert(res.out.error || "Could not schedule the pickup.");
+          return;
+        }
+        load();
+      });
+      var qBtn = document.getElementById("quote-label");
+      if (qBtn) qBtn.addEventListener("click", async function () {
+        var slot = document.getElementById("quote-slot");
+        qBtn.disabled = true;
+        qBtn.textContent = "Getting rate...";
+        var res = await post({ action: "box_label_quote", box_id: b.id });
+        if (!res.resp.ok || !res.out.ok || !res.out.quote) {
+          qBtn.disabled = false;
+          qBtn.textContent = "Get shipping rate";
+          alert(res.out.error || "Could not get rates for this box.");
+          return;
+        }
+        var q = res.out.quote;
+        qBtn.classList.add("hidden");
+        slot.innerHTML = '<span class="text-sm text-stone-600">' +
+          esc(q.carrier) + " " + esc(q.service) + " · $" + Number(q.amount).toFixed(2) +
+          (q.estimatedDays != null ? " · about " + q.estimatedDays + " days" : "") +
+          (q.twoDay === false ? '<span class="block text-sm text-amber-700 font-medium">No 2-day rate for this address; using the cheapest USPS/UPS option.</span>' : "") +
+          '</span> <span class="inline-flex flex-wrap gap-2 mt-2"><button id="confirm-label" class="tap rounded-lg bg-orange-600 text-white text-sm font-bold px-4 min-h-[44px]">Buy this label</button>' +
+          ' <button id="cancel-label" class="tap rounded-lg border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">Cancel</button></span>';
+        document.getElementById("cancel-label").addEventListener("click", function () { load(); });
+        document.getElementById("confirm-label").addEventListener("click", async function () {
+          var btn = document.getElementById("confirm-label");
+          btn.disabled = true;
+          btn.textContent = "Buying label...";
+          var res2 = await post({ action: "buy_box_label", box_id: b.id, shipment_id: q.shipmentId, rate_id: q.rateId });
+          if (!res2.resp.ok || !res2.out.ok) {
+            btn.disabled = false;
+            btn.textContent = "Buy this label";
+            alert(res2.out.error || "Label purchase failed.");
+            return;
+          }
+          load();
+        });
+      });
+    }
+    load();
+  </script>
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

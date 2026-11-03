@@ -219,7 +219,7 @@ const clubTraksEvent = joined
           <p class="text-white/70 text-sm leading-relaxed mt-2">
             {nextBox.status === "needs_attention"
               ? <>Your next box ({formatClubDate(nextBox.ship_date)}) needs a pick from you: surprise ran out of new books, so choose a repeat or gift copy in your account.</>
-              : <>Next box: {formatClubDate(nextBox.ship_date)} · {nextBoxTitle ? <>Book: {nextBoxTitle}</> : "Surprise me (we will pick a book you do not already have)"} · <a href="/account" class="font-semibold text-orange-300 hover:text-orange-200">Choose or change your book</a></>}
+              : <>Next box: {formatClubDate(nextBox.ship_date)} · {nextBoxTitle ? <>Book: {nextBoxTitle}</> : "Mystery (we will pick a book you do not already have)"} · <a href="/account" class="font-semibold text-orange-300 hover:text-orange-200">Choose or change your book</a></>}
           </p>
         )}
         <a href="/account" class="inline-block mt-5 rounded-full bg-orange-600 text-white text-sm font-semibold px-6 py-2.5 hover:bg-orange-700 transition">See it in your account</a>

@@ -270,10 +270,13 @@ export const POST: APIRoute = async ({ request }) => {
   }
   const promoDiscountCents = promoApplied?.discountCents || 0;
 
-  // --- Pass-through shipping: destination in, server-side quote out.
-  // The preview stores its quote; the pay call reuses that exact
-  // quote (same code path AND same numbers), so what the buyer was
-  // shown is what the session charges.
+  // --- Shipping: destination in, server-side quote out. The CHARGE
+  // is the quoted rate rounded up to the next whole dollar (CG,
+  // 2026-11-03); the stored shippo_rate_id still buys the label at
+  // the quote's real amount, and the round-up covers the label plus
+  // quote-to-purchase drift. The preview stores its quote; the pay
+  // call reuses that exact quote through the same rounding, so what
+  // the buyer was shown is what the session charges.
   let quote: LabelQuote | null = null;
   let dest: ReturnType<typeof normalizeShipDestination> | null = null;
   let quoteFingerprint = "";
@@ -322,7 +325,11 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
   }
-  const shippingCents = quote?.amountCents ?? 0;
+  // The shipping charge: the quote rounded up to the next whole
+  // dollar (an exact-dollar quote stays as it is). One variable feeds
+  // the preview, the total, the Stripe session, and the order row, so
+  // preview always equals charged.
+  const shippingCents = quote ? Math.ceil(quote.amountCents / 100) * 100 : 0;
   const total = itemsTotal - promoDiscountCents + shippingCents;
 
   if (action === "quote") {
@@ -346,7 +353,9 @@ export const POST: APIRoute = async ({ request }) => {
             quote_id: quoteId,
             carrier: quote.carrier,
             service: quote.service,
-            amount_cents: quote.amountCents,
+            // The CHARGE (rounded up), not the raw quote: the preview
+            // must equal what the session charges.
+            amount_cents: shippingCents,
             estimated_days: quote.estimatedDays,
             // Shippo's standardized destination when validation ran
             // (null when it returned no verdict). The checkout page
@@ -391,7 +400,7 @@ export const POST: APIRoute = async ({ request }) => {
     // pending order NOW (before Stripe exists in the flow), so the
     // order always carries what the buyer was quoted; the webhook
     // completion keeps these values and only confirms them.
-    await storeCheckoutQuote(e.DB, order.id, { dest, quote, amount: total });
+    await storeCheckoutQuote(e.DB, order.id, { dest, quote, amount: total, shippingCents });
   }
 
   if (promoApplied) {

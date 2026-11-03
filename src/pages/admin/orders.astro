@@ -81,6 +81,19 @@ export const prerender = false;
     .rowmenu-item{display:flex;align-items:center;width:100%;min-height:44px;padding:8px 12px;border-radius:8px;font-size:.9rem;font-weight:600;color:#1c1917;text-align:left;cursor:pointer;text-decoration:none;box-sizing:border-box;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
     .rowmenu-item:active{background:#f5f5f4}
     @media (hover:hover) and (pointer:fine){.rowmenu-item:hover{background:#f5f5f4}}
+    /* Packing shelf (S4): compact cards for everything awaiting
+       fulfillment, store orders and club boxes together. A card is
+       cover + ref + contents count + stage; tapping opens the one
+       fulfillment view for that parcel. */
+    .packshelf{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}
+    .packcard{flex:none;width:128px;background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:8px;text-decoration:none;color:inherit;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .packcard:active{transform:scale(.98)}
+    .packcard img,.packcard .pack-nocover{display:block;width:100%;height:96px;object-fit:cover;border-radius:8px;background:#f5f5f4}
+    .packcard .pack-nocover{display:grid;place-items:center;color:#a8a29e;font-size:.7rem;font-weight:700}
+    .packcard .pack-ref{display:block;font-size:.78rem;font-weight:800;letter-spacing:-.01em;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .packcard .pack-meta{display:block;font-size:.7rem;color:#78716c;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .packcard .pack-stage{display:inline-block;font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#9a3412;background:#ffedd5;border-radius:999px;padding:2px 7px;margin-top:6px}
+    .packcard .pack-stage.pick{color:#7c2d12;background:#fee2e2}
     input,select,textarea{font-size:16px}
   </style>
   </head>
@@ -117,6 +130,17 @@ export const prerender = false;
     </div>
 
     <div id="shippo-banner" class="mt-3 rounded-xl border px-4 py-2.5 text-sm hidden"></div>
+
+    <section id="packing-shelf" class="mt-6 hidden" aria-label="Packing queue">
+      <h2 class="text-base font-bold tracking-tight">What do we pack and ship?</h2>
+      <p class="text-[13px] text-stone-500 mt-0.5">Store orders and club boxes waiting on us. Tap one to open it and pack it.</p>
+      <div id="packing-cards" class="packshelf mt-3"></div>
+    </section>
+    <div id="packing-empty" class="mt-6 hidden rounded-xl bg-white border border-stone-200 px-4 py-4">
+      <p class="text-sm font-semibold">Nothing waiting to pack.</p>
+      <p class="text-[13px] text-stone-500 mt-0.5">New printed orders and club boxes land here as they come in.</p>
+      <a href="/admin/books" class="tap inline-flex items-center mt-3 rounded-lg bg-stone-900 text-white text-sm font-semibold px-4 min-h-[44px]">Browse the book shelf</a>
+    </div>
 
     <div class="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="Order filters">
       <button class="tabbtn" role="tab" data-tab="tofulfill" aria-selected="false">To fulfill <span class="n" data-count="toFulfill"></span></button>
@@ -171,8 +195,9 @@ export const prerender = false;
     // ("we need 1 Penny, 2 Miras"), so the Items cell shows short
     // names with counts; the Format cell carries one colored circle
     // per format in the order. The owner's color language: digital =
-    // green circle, book icon; printed = yellow circle, pencil icon
-    // (the gift set rides along, it is a printed bundle); audio =
+    // green circle, download icon; printed = yellow circle, book
+    // icon; gift set = yellow circle, GIFT BOX icon (its own circle:
+    // a gift set is not just a printed book, CG 2026-11-03); audio =
     // red circle, headphones icon (it fulfills automatically). The
     // full titles live on the order detail page; items_display
     // remains the fallback if a pick list is missing. The SVGs carry
@@ -180,14 +205,15 @@ export const prerender = false;
     // the global stylesheet, so they can never balloon again.
     var ICONS = {
       audio: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2.5" y="14" width="4" height="6.5" rx="1.6"/><rect x="17.5" y="14" width="4" height="6.5" rx="1.6"/></svg>',
-      digital: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.2C10.3 4.7 8.2 4.2 5 4.2v13.6c3.2 0 5.3.5 7 2 1.7-1.5 3.8-2 7-2V4.2c-3.2 0-5.3.5-7 2Z"/><path d="M12 6.2v13.6"/></svg>',
-      printed: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.9 3.9a2.05 2.05 0 0 1 2.9 0l.3.3a2.05 2.05 0 0 1 0 2.9L8.2 19l-4.2 1.1L5.1 15.9Z"/><path d="m14.7 6.1 3.2 3.2"/></svg>'
+      digital: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10.5m0 0 4-4m-4 4-4-4"/><path d="M4.5 19.5h15"/></svg>',
+      printed: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.2C10.3 4.7 8.2 4.2 5 4.2v13.6c3.2 0 5.3.5 7 2 1.7-1.5 3.8-2 7-2V4.2c-3.2 0-5.3.5-7 2Z"/><path d="M12 6.2v13.6"/></svg>',
+      gift: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="8" width="17" height="4"/><path d="M5.5 12v8.5h13V12M12 8v12.5"/><path d="M12 8s-4.2.3-5.3-1.5C5.7 4.9 7.6 3.2 9.3 3.9 11.1 4.6 12 8 12 8Zm0 0s4.2.3 5.3-1.5c1-1.6-.9-3.3-2.6-2.6C12.9 4.6 12 8 12 8Z"/></svg>'
     };
     var CIRCLES = {
       audio: { cls: "fmt-audio", label: "Audio", icon: ICONS.audio },
       digital: { cls: "fmt-digital", label: "Digital", icon: ICONS.digital },
       printed: { cls: "fmt-printed", label: "Printed", icon: ICONS.printed },
-      giftset: { cls: "fmt-printed", label: "Gift set", icon: ICONS.printed }
+      giftset: { cls: "fmt-giftset", label: "Gift set", icon: ICONS.gift }
     };
     function fmtPick(o) {
       var pick = o.items_pick || [];
@@ -204,9 +230,10 @@ export const prerender = false;
       var seen = {};
       var out = [];
       pick.forEach(function (g) {
-        var fam = g.format === "giftset" ? "printed" : g.format;
-        if (seen[fam]) return;
-        seen[fam] = 1;
+        // One circle per FORMAT (a gift set earns its own gift-box
+        // circle beside a printed book's, never folded into it).
+        if (seen[g.format]) return;
+        seen[g.format] = 1;
         var f = CIRCLES[g.format] || CIRCLES.digital;
         out.push('<span class="fcircle ' + f.cls + '" title="' + f.label + '" aria-label="' + f.label + '">' + f.icon + "</span>");
       });
@@ -269,11 +296,15 @@ export const prerender = false;
           if (it.status) {
             if (el.tagName === "BUTTON") el.disabled = true;
             closeMenu();
-            await fetch("/api/admin/orders", {
+            var kr = await fetch("/api/admin/orders", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ action: "set_physical_status", order_id: o.id, status: it.status }),
             });
+            if (!kr.ok) {
+              var kerr = await kr.json().catch(function () { return {}; });
+              alert(kerr.error || "That step is not ready yet. Open the order to see what is missing.");
+            }
             load();
           } else if (it.copy) {
             try { await navigator.clipboard.writeText(o.id); } catch (e) { /* clipboard unavailable */ }
@@ -306,12 +337,38 @@ export const prerender = false;
     window.addEventListener("resize", closeMenu);
     document.addEventListener("scroll", closeMenu, true);
 
+    // The packing shelf renders from the list payload's `packing`
+    // queue (lib/packing.ts): compact cards, one per parcel awaiting
+    // fulfillment. Empty queue shows the empty state with its CTA.
+    function renderPacking(packing) {
+      var shelf = document.getElementById("packing-shelf");
+      var empty = document.getElementById("packing-empty");
+      var cards = document.getElementById("packing-cards");
+      var list = Array.isArray(packing) ? packing : [];
+      if (!list.length) {
+        shelf.classList.add("hidden");
+        empty.classList.remove("hidden");
+        return;
+      }
+      empty.classList.add("hidden");
+      shelf.classList.remove("hidden");
+      cards.innerHTML = list.map(function (p) {
+        var meta = p.needsPick ? "Mystery box: pick the books" : (p.lines + (p.lines === 1 ? " item" : " items") + " to pack");
+        return '<a class="packcard tap" href="' + esc(p.href) + '">' +
+          (p.cover ? '<img src="' + esc(p.cover) + '" alt="" loading="lazy">' : '<span class="pack-nocover">Big Brain Shelf</span>') +
+          '<span class="pack-ref">' + esc(p.ref) + "</span>" +
+          '<span class="pack-meta">' + esc(meta) + "</span>" +
+          '<span class="pack-stage' + (p.needsPick ? " pick" : "") + '">' + esc(p.stage) + "</span></a>";
+      }).join("");
+    }
+
     async function load() {
       var qs = currentTab ? "?tab=" + encodeURIComponent(currentTab) + "&page=" + currentPage : "";
       var r = await fetch("/api/admin/orders" + qs);
       var data = await r.json();
       currentTab = data.tab || "all";
       currentPage = data.page || 1;
+      renderPacking(data.packing);
 
       var tabCounts = data.tabCounts || {};
       document.querySelectorAll(".tabbtn").forEach(function (b) {
@@ -416,11 +473,17 @@ export const prerender = false;
           ev.stopPropagation();
           el.disabled = true;
           el.textContent = "Saving...";
-          await fetch("/api/admin/orders", {
+          var ar = await fetch("/api/admin/orders", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "set_physical_status", order_id: el.getAttribute("data-order"), status: el.getAttribute("data-next") }),
           });
+          if (!ar.ok) {
+            // The ship gate refuses plainly (no label, pack not
+            // finished); say why instead of silently reloading.
+            var aerr = await ar.json().catch(function () { return {}; });
+            alert(aerr.error || "That step is not ready yet. Open the order to see what is missing.");
+          }
           load();
         });
       });
