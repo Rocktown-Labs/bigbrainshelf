@@ -2,13 +2,17 @@
 import "../../styles/global.css";
 import AdminShell from "../../components/AdminShell.astro";
 export const prerender = false;
-// Casting: assign Gemini 3.8 Flash TTS voices to CHARACTERS, not books.
-// A character keeps their voice in every book and every version; the
-// protagonist's voice locks narrator + main character + promo voice at
-// once. Assignments live in the D1 registry (character_voices), written
-// through /api/admin/cast-registry, and export to R2 cast-registry.json.
-// Auditions read lines from the selected book and play through
-// /api/admin/cast-gemini-audition (cached in R2 after first generation).
+// Casting shelf (redesign S3, 2026-11-03): the index is a shelf in the
+// customer pattern, cover + ONE status chip per book, with filter pills
+// and search so the shelf survives a 190-book catalog. Tapping a cover
+// opens the book's own casting page (/admin/cast-gemini/[slug]), where
+// the cast sheet, voice pickers, and scene auditions live. The voice
+// registry view stays here as the second tab.
+//
+// Casting model (unchanged): voices are cast per CHARACTER in the D1
+// registry (character_voices) through /api/admin/cast-registry, export
+// to R2 cast-registry.json, and a character keeps their voice in every
+// book and every version.
 import geminiVoicesData from "../../data/cast/gemini-voices.json";
 ---
 <!doctype html>
@@ -18,9 +22,27 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Casting · Big Brain Shelf Admin</title>
   <style>
-    /* Last-played voice highlight: set when a play starts, cleared only
-       when a different voice is played. */
-    .lp-on { background: #fff7ed; box-shadow: inset 0 0 0 2px #ea580c; border-radius: 0.5rem; }
+    /* Book shelf: the customer /account library pattern, same boards
+       and planks as /admin/books (redesign S1). */
+    .shelf-board{margin-top:26px}
+    .shelf-board:first-of-type{margin-top:10px}
+    .shelf-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;padding:0 4px}
+    @media (max-width:640px){.shelf-row{grid-template-columns:repeat(2,1fr)}}
+    .shelf-plank{height:.65rem;margin-top:.55rem;border-radius:.3rem;background:linear-gradient(180deg,#b08954 0%,#8a6844 55%,#6f5133 100%);box-shadow:0 10px 14px -8px rgba(90,62,27,.55),inset 0 1px 0 rgba(255,235,200,.5)}
+    .shelf-item{display:block;text-decoration:none;color:inherit}
+    .shelf-cover{aspect-ratio:3/4;border-radius:10px;overflow:hidden;border:1px solid #e7e5e4;background:#f5f5f4;box-shadow:0 1px 2px rgba(28,25,23,.06)}
+    .shelf-cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s ease}
+    .shelf-item:hover .shelf-cover img{transform:scale(1.02)}
+    .shelf-cover-fallback{display:flex;align-items:center;justify-content:center;height:100%;padding:12px;text-align:center;font-weight:700;color:#78716c}
+    .shelf-title{display:block;font-weight:700;font-size:.95rem;line-height:1.3;margin-top:10px}
+    .shelf-chip{display:block;margin-top:6px;min-height:24px}
+    .cast-chip{display:inline-block;border-radius:9999px;font-size:11px;font-weight:600;padding:2px 8px}
+    .cast-chip.ok{background:#dcfce7;color:#166534}
+    .cast-chip.needs{background:#fef3c7;color:#92400e}
+    .cast-chip.none{background:#f5f5f4;color:#78716c}
+    .pill{border-radius:9999px;padding:6px 14px;font-size:.875rem;font-weight:600;border:1px solid #d6d3d1;background:#fff;color:#44403c;cursor:pointer}
+    .pill:hover{border-color:#78716c}
+    .pill.on{background:#1a3454;color:#fff;border-color:#1a3454}
   </style>
   </head>
 <body class="bg-stone-50 text-stone-900 antialiased">
@@ -28,7 +50,7 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
 
   <main class="mx-auto max-w-6xl px-4 py-8">
     <h1 class="text-2xl font-bold tracking-tight">Casting</h1>
-    <p class="text-sm text-stone-500 mt-1">Gemini 3.8 Flash TTS voices, cast per character. A character keeps their voice in every book and every version. Casting a book's protagonist locks that voice as narrator, main character, and promo voice all at once. A cast voice belongs to its character: once a voice is cast, it does not appear in other books' pickers at all. The override inside a picker reveals cast voices, and reusing one always asks first.</p>
+    <p class="text-sm text-stone-500 mt-1">Gemini 3.8 Flash TTS voices, cast per character. A character keeps their voice in every book and every version. Casting a book's protagonist locks that voice as narrator and main character at once. A cast voice belongs to its character: once a voice is cast, it does not appear in other books' pickers at all. The override inside a picker reveals cast voices, and reusing one always asks first.</p>
 
     <div class="mt-4 flex flex-wrap gap-2" role="group" aria-label="Casting views">
       <button id="tab-cast" class="rounded-full bg-[#1a3454] text-white px-4 py-2 text-sm font-semibold">Cast a book</button>
@@ -36,25 +58,15 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
     </div>
 
     <section id="view-cast">
-      <div class="mt-4 rounded-lg bg-white border border-stone-200 px-4 py-4">
-        <div class="flex flex-wrap items-center gap-3">
-          <label class="text-sm font-semibold" for="book-picker">Book</label>
-          <select id="book-picker" class="rounded-lg border border-stone-300 px-3 py-2 text-sm"></select>
-          <span class="text-sm text-red-600" id="cast-status"></span>
-        </div>
-        <p class="mt-2 text-xs text-stone-400" id="generation-note">Checking the voice generation key...</p>
-        <p class="mt-2 text-sm" id="book-audio-state"></p>
+      <div class="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Sort the casting shelf">
+        <button class="pill on" data-castfilter="all">All books</button>
+        <button class="pill" data-castfilter="needs">Needs voices</button>
+        <button class="pill" data-castfilter="cast">All cast</button>
+        <input id="cast-search" type="search" placeholder="Search the shelf" class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm w-56" />
+        <span class="text-sm text-stone-400" id="shelf-count"></span>
+        <span class="text-sm text-red-600" id="cast-status"></span>
       </div>
-
-      <div class="mt-4 rounded-lg bg-white border border-stone-200 px-4 py-4 sticky top-2 z-20 shadow">
-        <div class="flex flex-wrap items-center gap-3">
-          <span class="text-sm font-semibold" id="now-playing">Nothing playing</span>
-          <span class="text-sm font-semibold text-orange-700" id="last-played"></span>
-        </div>
-        <audio id="player" controls class="mt-3 w-full"></audio>
-      </div>
-
-      <div class="mt-4 grid gap-3" id="cast-sheet"></div>
+      <div id="cast-shelf" class="mt-2"></div>
     </section>
 
     <section id="view-registry" class="hidden">
@@ -88,448 +100,112 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
       books: [],
       registry: {}, // character_name -> row
       log: [],
-      slug: "mira-the-heron-and-the-still-water",
-      characters: [],
-      lines: [],
-      openPicker: null,
-      pickerSearch: "",
-      cardLine: {}, // character name -> line id
-      generation: "unknown",
-      lastPlayed: null, // { character, voiceId } of the voice most recently played
+      filter: "all",
+      search: "",
     };
-    var blobCache = {};
-    var currentSpeaker = null;
-    var player = document.getElementById("player");
+    var R2 = "https://media.bigbrainshelf.com/";
     var statusEl = document.getElementById("cast-status");
-    var nowPlayingEl = document.getElementById("now-playing");
-    var lastPlayedEl = document.getElementById("last-played");
 
-    function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
     function setStatus(msg) { statusEl.textContent = msg || ""; }
-    function allVoices() { return (geminiVoicesData.voices || []).slice(); }
-    function voiceById(id) {
-      return allVoices().find(function (v) { return v.id === id; }) || null;
-    }
-    function usedBy(voiceId) {
-      var names = Object.keys(state.registry);
-      for (var i = 0; i < names.length; i++) {
-        var row = state.registry[names[i]];
-        if (row && row.voice_id === voiceId) return names[i];
-      }
-      return null;
-    }
-    function sortedVoices(forCharacter) {
-      var current = state.registry[forCharacter];
-      var currentId = current ? current.voice_id : null;
-      return allVoices().sort(function (a, b) {
-        if (a.id === currentId) return -1;
-        if (b.id === currentId) return 1;
-        var au = usedBy(a.id) ? 1 : 0;
-        var bu = usedBy(b.id) ? 1 : 0;
-        if (au !== bu) return au - bu;
-        return a.name.localeCompare(b.name);
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
       });
     }
+    function voiceNameFor(characterName) {
+      var row = state.registry[characterName];
+      return row && row.voice_id ? (row.voice_name || row.voice_id) : null;
+    }
+    function voiceById(id) {
+      return ((geminiVoicesData.voices || []).find(function (v) { return v.id === id; })) || null;
+    }
+    function castInfo(book) {
+      var chars = book.characters || [];
+      var cast = chars.filter(function (c) { return !!voiceNameFor(c.name); }).length;
+      return { total: chars.length, cast: cast, needs: chars.length - cast };
+    }
 
-    function linesFor(character) {
-      var own = state.lines.filter(function (l) { return l.character === character.name; });
-      if (character.role === "protagonist") {
-        var claimed = {};
-        state.characters.forEach(function (c) {
-          state.lines.forEach(function (l) { if (l.character === c.name) claimed[l.id] = true; });
-        });
-        var extra = state.lines.filter(function (l) {
-          return l.character === "Narrator" || l.character === "Promo" || !claimed[l.id];
-        });
-        return own.concat(extra.filter(function (l) { return own.indexOf(l) === -1; }));
+    // ---------- shelf ----------
+    function bookMatches(book) {
+      var info = castInfo(book);
+      if (state.filter === "needs" && info.needs === 0) return false;
+      if (state.filter === "cast" && !(info.total > 0 && info.needs === 0)) return false;
+      var q = state.search.trim().toLowerCase();
+      if (q) {
+        var hay = (book.title + " " + (book.characters || []).map(function (c) { return c.name; }).join(" ")).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
       }
-      if (own.length) return own;
-      var narrator = state.lines.filter(function (l) { return l.character === "Narrator"; });
-      return narrator.length ? narrator : state.lines.slice(0, 1);
-    }
-    function lineFor(character) {
-      var list = linesFor(character);
-      if (!list.length) return null;
-      var id = state.cardLine[character.name];
-      return list.find(function (l) { return l.id === id; }) || list[0];
+      return true;
     }
 
-    // ---------- cast sheet ----------
-    function renderSheet() {
-      var wrap = document.getElementById("cast-sheet");
-      wrap.innerHTML = "";
-      if (!state.characters.length) {
-        var empty = document.createElement("div");
-        empty.className = "rounded-lg bg-white border border-stone-200 p-4 text-sm text-stone-400";
-        empty.textContent = "No cast found in this book's bible yet.";
-        wrap.appendChild(empty);
+    function shelfItemHtml(book) {
+      var info = castInfo(book);
+      var chip;
+      if (info.total === 0) chip = '<span class="cast-chip none">No cast in bible yet</span>';
+      else if (info.needs === 0) chip = '<span class="cast-chip ok">All cast</span>';
+      else chip = '<span class="cast-chip needs">Needs voices: ' + info.needs + "</span>";
+      var cover = book.coverKey
+        ? '<img src="' + R2 + esc(book.coverKey) + '" alt="' + esc(book.title) + '" loading="lazy" />'
+        : '<span class="shelf-cover-fallback">' + esc(book.title) + "</span>";
+      var href = "/admin/cast-gemini/" + encodeURIComponent(book.publicSlug || book.slug);
+      return '<a class="shelf-item" href="' + href + '">' +
+        '<span class="shelf-cover">' + cover + "</span>" +
+        '<span class="shelf-title">' + esc(book.title) + "</span>" +
+        '<span class="shelf-chip">' + chip + "</span></a>";
+    }
+
+    function renderShelf() {
+      var wrap = document.getElementById("cast-shelf");
+      var countEl = document.getElementById("shelf-count");
+      if (!state.books.length) {
+        wrap.innerHTML = '<div class="rounded-lg bg-white border border-stone-200 p-4 mt-4">' +
+          '<h2 class="font-bold" style="margin-top:0">No books yet</h2>' +
+          '<p class="text-sm text-stone-500">The casting shelf is empty. Books appear here once they are on the Books shelf.</p>' +
+          '<p style="margin-bottom:0"><a class="rounded-md bg-[#1a3454] text-white text-sm font-semibold px-3 py-1.5 inline-block" href="/admin/books">Go to Books</a></p></div>';
+        countEl.textContent = "";
         return;
       }
-      state.characters.forEach(function (c) { wrap.appendChild(characterCard(c)); });
-      applyLastPlayedHighlight();
-    }
-
-    function characterCard(c) {
-      var row = state.registry[c.name] || null;
-      var voice = row && row.voice_id ? voiceById(row.voice_id) : null;
-      var isLead = c.role === "protagonist";
-      var card = document.createElement("div");
-      card.className = "rounded-lg bg-white p-4 " +
-        (isLead ? "border-2 border-[#1a3454]" : "border border-stone-200");
-
-      var top = document.createElement("div");
-      top.className = "flex flex-wrap items-center gap-2";
-      var name = document.createElement("span");
-      name.className = "text-lg font-bold";
-      name.textContent = c.name;
-      top.appendChild(name);
-      if (c.species) {
-        var sp = document.createElement("span");
-        sp.className = "text-sm text-stone-500";
-        sp.textContent = "the " + c.species;
-        top.appendChild(sp);
-      }
-      var badge = document.createElement("span");
-      badge.className = "rounded-full text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide " +
-        (isLead ? "bg-[#1a3454] text-white" : "bg-stone-100 text-stone-600");
-      badge.textContent = isLead ? "Protagonist" : "Supporting";
-      top.appendChild(badge);
-      card.appendChild(top);
-
-      if (isLead) {
-        var chips = document.createElement("div");
-        chips.className = "mt-2 flex flex-wrap gap-1.5";
-        ["Narrator", "Main character", "Promo voice"].forEach(function (r) {
-          var chip = document.createElement("span");
-          chip.className = "rounded-full bg-orange-100 text-orange-800 text-[11px] font-semibold px-2 py-0.5";
-          chip.textContent = r;
-          chips.appendChild(chip);
+      var list = state.books.filter(bookMatches);
+      countEl.textContent = list.length + (list.length === 1 ? " book" : " books");
+      if (!list.length) {
+        wrap.innerHTML = '<div class="rounded-lg bg-white border border-stone-200 p-4 mt-4">' +
+          '<p class="text-sm text-stone-500" style="margin-top:0">No books match that view.</p>' +
+          '<p style="margin-bottom:0"><button id="shelf-show-all" class="rounded-md bg-[#1a3454] text-white text-sm font-semibold px-3 py-1.5">Show all books</button></p></div>';
+        var btn = document.getElementById("shelf-show-all");
+        if (btn) btn.addEventListener("click", function () {
+          state.filter = "all";
+          state.search = "";
+          document.getElementById("cast-search").value = "";
+          syncPills();
+          renderShelf();
         });
-        var note = document.createElement("span");
-        note.className = "text-[11px] text-stone-400 self-center";
-        note.textContent = "one voice locks all three roles";
-        chips.appendChild(note);
-        card.appendChild(chips);
+        return;
       }
-
-      var current = document.createElement("div");
-      current.className = "mt-3 flex flex-wrap items-center gap-2";
-      if (voice || (row && row.voice_id)) {
-        current.setAttribute("data-lp-char", c.name);
-        current.setAttribute("data-lp-voice", voice ? voice.id : row.voice_id);
-        current.setAttribute("data-lp-kind", "current");
+      var html = "";
+      for (var i = 0; i < list.length; i += 4) {
+        html += '<div class="shelf-board"><div class="shelf-row">' +
+          list.slice(i, i + 4).map(shelfItemHtml).join("") +
+          '</div><div class="shelf-plank" aria-hidden="true"></div></div>';
       }
-      var vlabel = document.createElement("span");
-      vlabel.className = "text-sm";
-      if (voice) {
-        vlabel.innerHTML = "";
-        var strong = document.createElement("strong");
-        strong.textContent = "Voice: " + voice.name;
-        vlabel.appendChild(strong);
-        var meta = document.createElement("span");
-        meta.className = "text-stone-500";
-        meta.textContent = " (" + [cap(voice.gender), voice.pitch, (voice.traits || []).join(", ")].filter(Boolean).join(" · ") + ")";
-        vlabel.appendChild(meta);
-      } else if (row && row.voice_id) {
-        vlabel.textContent = "Voice: " + (row.voice_name || row.voice_id);
-      } else {
-        vlabel.className = "text-sm text-stone-400";
-        vlabel.textContent = "Not yet cast";
-      }
-      current.appendChild(vlabel);
-      if (row && row.source === "recorded") {
-        var rec = document.createElement("span");
-        rec.className = "rounded-full bg-green-100 text-green-800 text-[11px] font-semibold px-2 py-0.5";
-        rec.textContent = "Recorded cast";
-        rec.title = "This voice reads the published audiobook. It can still be changed here.";
-        current.appendChild(rec);
-      }
-      if (voice) {
-        var playCurrent = document.createElement("button");
-        playCurrent.className = "rounded-md bg-[#1a3454] text-white text-sm font-semibold px-3 py-1.5 hover:bg-[#24466e]";
-        playCurrent.textContent = "Play";
-        playCurrent.addEventListener("click", function () { playVoice(voice, lineFor(c), playCurrent, c.name, "current"); });
-        current.appendChild(playCurrent);
-      }
-      var toggle = document.createElement("button");
-      toggle.className = "rounded-md bg-white border border-stone-300 text-sm font-semibold px-3 py-1.5 hover:border-stone-500";
-      toggle.textContent = state.openPicker === c.name ? "Close voices" : (voice ? "Change voice" : "Assign voice");
-      toggle.addEventListener("click", function () {
-        state.openPicker = state.openPicker === c.name ? null : c.name;
-        state.pickerSearch = "";
-        renderSheet();
-      });
-      current.appendChild(toggle);
-      card.appendChild(current);
-
-      // Audition line picker for this card.
-      var list = linesFor(c);
-      if (list.length) {
-        var lineRow = document.createElement("div");
-        lineRow.className = "mt-3 flex flex-wrap gap-1.5";
-        list.forEach(function (l) {
-          var active = lineFor(c) && lineFor(c).id === l.id;
-          var b = document.createElement("button");
-          b.className = "rounded-md px-2.5 py-1 text-xs font-semibold border " +
-            (active ? "bg-[#1a3454] text-white border-[#1a3454]" : "bg-white text-stone-600 border-stone-300 hover:border-stone-500");
-          b.textContent = l.label;
-          b.addEventListener("click", function () {
-            state.cardLine[c.name] = l.id;
-            renderSheet();
-          });
-          lineRow.appendChild(b);
-        });
-        card.appendChild(lineRow);
-        var preview = document.createElement("p");
-        preview.className = "mt-2 text-sm text-stone-500 leading-relaxed";
-        var lf = lineFor(c);
-        preview.textContent = lf ? '"' + lf.text + '"' : "";
-        card.appendChild(preview);
-      }
-
-      if (state.openPicker === c.name) card.appendChild(picker(c));
-      return card;
+      wrap.innerHTML = html;
     }
 
-    // Voice exclusivity (CG, 2026-10-31): a voice already cast to
-    // another character is not a picker option. The override below
-    // reveals cast voices; assigning one still confirms, and the
-    // API refuses a reuse without the override flag.
-    var showCastVoices = false;
-
-    function picker(c) {
-      var box = document.createElement("div");
-      box.className = "mt-3 border-t border-stone-100 pt-3";
-      var search = document.createElement("input");
-      search.type = "search";
-      search.placeholder = "Search voices or traits";
-      search.className = "rounded-lg border border-stone-300 px-3 py-2 text-sm w-64";
-      search.value = state.pickerSearch;
-      search.addEventListener("input", function (ev) {
-        state.pickerSearch = ev.target.value;
-        var listEl = box.querySelector("[data-voice-list]");
-        if (listEl) { listEl.innerHTML = ""; fillVoiceList(listEl, c); }
-      });
-      box.appendChild(search);
-
-      var overrideLabel = document.createElement("label");
-      overrideLabel.className = "flex items-center gap-2 mt-2 text-xs text-stone-500 cursor-pointer select-none";
-      var overrideBox = document.createElement("input");
-      overrideBox.type = "checkbox";
-      overrideBox.checked = showCastVoices;
-      overrideBox.addEventListener("change", function (ev) {
-        showCastVoices = !!ev.target.checked;
-        var listEl = box.querySelector("[data-voice-list]");
-        if (listEl) { listEl.innerHTML = ""; fillVoiceList(listEl, c); }
-      });
-      overrideLabel.appendChild(overrideBox);
-      var overrideText = document.createElement("span");
-      overrideText.textContent = "Override: show voices already cast to other characters";
-      overrideLabel.appendChild(overrideText);
-      box.appendChild(overrideLabel);
-
-      var listEl = document.createElement("div");
-      listEl.className = "mt-2 max-h-80 overflow-y-auto divide-y divide-stone-100";
-      listEl.setAttribute("data-voice-list", "");
-      fillVoiceList(listEl, c);
-      box.appendChild(listEl);
-      return box;
-    }
-
-    function fillVoiceList(listEl, c) {
-      var q = state.pickerSearch.trim().toLowerCase();
-      var current = state.registry[c.name];
-      var currentId = current ? current.voice_id : null;
-      sortedVoices(c.name).forEach(function (v) {
-        if (q) {
-          var hay = (v.name + " " + (v.traits || []).join(" ") + " " + (v.description || "") + " " + v.kind + " " + v.gender + " " + v.pitch).toLowerCase();
-          if (hay.indexOf(q) === -1) return;
-        }
-        // Cast voices are hidden unless the override is on.
-        var ownerEarly = usedBy(v.id);
-        if (ownerEarly && ownerEarly !== c.name && !showCastVoices) return;
-        var rowEl = document.createElement("div");
-        rowEl.className = "flex flex-wrap items-center gap-2 py-2";
-        rowEl.setAttribute("data-lp-char", c.name);
-        rowEl.setAttribute("data-lp-voice", v.id);
-        rowEl.setAttribute("data-lp-kind", "picker");
-        var nm = document.createElement("span");
-        nm.className = "font-semibold text-sm";
-        nm.textContent = v.name;
-        rowEl.appendChild(nm);
-        var kind = document.createElement("span");
-        kind.className = "rounded-full text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide " +
-          (v.kind === "storyteller" ? "bg-orange-100 text-orange-800" : "bg-stone-100 text-stone-600");
-        kind.textContent = v.kind === "storyteller" ? "Storyteller" : "Studio";
-        rowEl.appendChild(kind);
-        var meta = document.createElement("span");
-        meta.className = "text-xs text-stone-500";
-        meta.textContent = [cap(v.gender), v.pitch, v.accent, (v.traits || []).join(", ")].filter(Boolean).join(" · ");
-        rowEl.appendChild(meta);
-        var owner = usedBy(v.id);
-        if (v.id === currentId) {
-          var cur = document.createElement("span");
-          cur.className = "rounded-full bg-green-100 text-green-800 text-[11px] font-semibold px-2 py-0.5";
-          cur.textContent = "Current voice";
-          rowEl.appendChild(cur);
-        } else if (owner) {
-          var inUse = document.createElement("span");
-          inUse.className = "rounded-full bg-amber-100 text-amber-800 text-[11px] font-semibold px-2 py-0.5";
-          inUse.textContent = "In use: " + owner;
-          rowEl.appendChild(inUse);
-        }
-        var spacer = document.createElement("span");
-        spacer.className = "ml-auto";
-        rowEl.appendChild(spacer);
-        var play = document.createElement("button");
-        play.className = "rounded-md bg-[#1a3454] text-white text-xs font-semibold px-3 py-1.5 hover:bg-[#24466e]";
-        play.textContent = "Play";
-        play.addEventListener("click", function () { playVoice(v, lineFor(c), play, c.name, "picker"); });
-        rowEl.appendChild(play);
-        if (v.id !== currentId) {
-          var assign = document.createElement("button");
-          assign.className = "rounded-md bg-orange-600 text-white text-xs font-semibold px-3 py-1.5 hover:bg-orange-700";
-          assign.textContent = currentId ? "Change to this voice" : "Assign";
-          assign.addEventListener("click", function () { assignVoice(c, v); });
-          rowEl.appendChild(assign);
-        }
-        listEl.appendChild(rowEl);
-      });
-      if (!listEl.children.length) {
-        var none = document.createElement("div");
-        none.className = "py-2 text-sm text-stone-400";
-        none.textContent = "No voices match that search.";
-        listEl.appendChild(none);
-      }
-      applyLastPlayedHighlight();
-    }
-
-    // ---------- playback ----------
-    function audioUrlFor(v, line) {
-      var ck = v.id + "|" + state.slug + "|" + line.id;
-      if (blobCache[ck]) return Promise.resolve(blobCache[ck]);
-      var body = { voice: v.id, text: line.text };
-      if (line.cacheBook) body.book = line.cacheBook;
-      return fetch("/api/admin/cast-gemini-audition", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      }).then(function (r) {
-        if (!r.ok) {
-          return r.json().catch(function () { return {}; }).then(function (j) {
-            if (j.code === "generation_not_connected") {
-              state.generation = "not_connected";
-              renderGenerationNote();
-            }
-            throw new Error(j.error || ("Generation failed (" + r.status + ")"));
-          });
-        }
-        return r.blob();
-      }).then(function (blob) {
-        var url = URL.createObjectURL(blob);
-        blobCache[ck] = url;
-        return url;
+    function syncPills() {
+      document.querySelectorAll("[data-castfilter]").forEach(function (b) {
+        b.classList.toggle("on", b.getAttribute("data-castfilter") === state.filter);
       });
     }
-
-    // Marks the row the voice was played from (in that character's card)
-    // and mirrors the name into the player bar. The mark is set only when
-    // a play actually starts, and nothing clears it: it moves only when a
-    // different voice is played. Playback ending or pausing never clears
-    // it. Rows carry data-lp-char / data-lp-voice attributes; re-renders
-    // (search, line chips, sheet reloads) reapply the mark from state.
-    function applyLastPlayedHighlight() {
-      document.querySelectorAll(".lp-on").forEach(function (el) { el.classList.remove("lp-on"); });
-      document.querySelectorAll(".lp-badge").forEach(function (el) { el.remove(); });
-      if (!state.lastPlayed) return;
-      var el = document.querySelector(
-        '[data-lp-char="' + state.lastPlayed.character + '"][data-lp-voice="' + state.lastPlayed.voiceId + '"][data-lp-kind="' + state.lastPlayed.from + '"]'
-      ) || document.querySelector(
-        '[data-lp-char="' + state.lastPlayed.character + '"][data-lp-voice="' + state.lastPlayed.voiceId + '"]'
-      );
-      if (!el) return;
-      el.classList.add("lp-on");
-      var badge = document.createElement("span");
-      badge.className = "lp-badge rounded-full bg-orange-600 text-white text-[11px] font-semibold px-2 py-0.5";
-      badge.textContent = "\uD83D\uDD0A Last played";
-      el.appendChild(badge);
-    }
-
-    function playVoice(v, line, btn, characterName, fromKind) {
-      if (!line) { setStatus("No audition line for this card yet."); return Promise.resolve(); }
-      if (btn) { btn.disabled = true; btn.textContent = "Voicing..."; }
-      setStatus("");
-      return audioUrlFor(v, line).then(function (url) {
-        currentSpeaker = v.id;
-        state.lastPlayed = { character: characterName || "", voiceId: v.id, from: fromKind || "picker" };
-        applyLastPlayedHighlight();
-        if (lastPlayedEl) lastPlayedEl.textContent = "Last played: " + v.name;
-        player.src = url;
-        nowPlayingEl.textContent = "Now playing: " + v.name + " reading " + line.label;
-        return player.play().catch(function () {});
-      }).catch(function (err) {
-        setStatus(err.message || "Generation failed.");
-      }).finally(function () {
-        if (btn) { btn.disabled = false; btn.textContent = "Play"; }
+    document.querySelectorAll("[data-castfilter]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        state.filter = b.getAttribute("data-castfilter");
+        syncPills();
+        renderShelf();
       });
-    }
-
-    // ---------- assignment ----------
-    function assignVoice(c, v) {
-      var owner = usedBy(v.id);
-      if (owner && owner !== c.name) {
-        if (!window.confirm(v.name + " is already the voice of " + owner + ". Cast " + c.name + " with the same voice anyway? Fresh voices keep characters distinct.")) return;
-      }
-      setStatus("");
-      fetch("/api/admin/cast-registry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ character_name: c.name, voice_id: v.id, book_slug: state.slug, override: !!(owner && owner !== c.name) }),
-      }).then(function (r) {
-        return r.json().catch(function () { return {}; }).then(function (j) {
-          if (!r.ok) throw new Error(j.error || ("Save failed (" + r.status + ")"));
-          return j;
-        });
-      }).then(function (j) {
-        if (j.row) state.registry[j.row.character_name] = j.row;
-        state.openPicker = null;
-        setStatus(c.name + " is now voiced by " + v.name + ".");
-        renderSheet();
-        return loadOverview(true);
-      }).catch(function (err) {
-        setStatus(err.message || "Could not save that assignment.");
-      });
-    }
-
-    // ---------- per-book audio state (publish gate view) ----------
-    function renderBookAudio() {
-      var el = document.getElementById("book-audio-state");
-      if (!el) return;
-      var book = state.books.find(function (b) { return b.slug === state.slug; });
-      var a = book && book.audio;
-      if (!a) { el.textContent = ""; return; }
-      var hero = a.protagonist || "The protagonist";
-      if (a.state === "final") {
-        el.className = "mt-2 text-sm text-green-700";
-        el.textContent = "Audiobook: Final, read in " + a.audiobookVoiceName + ", matching " +
-          hero + "'s cast voice. This book passes the audio gate.";
-      } else if (a.state === "draft-audio") {
-        el.className = "mt-2 text-sm text-amber-700";
-        el.textContent = "Audiobook: Draft read in " + (a.audiobookVoiceName || "an unstamped voice") + ". " +
-          hero + " is cast as " + a.castVoiceName + ", so publishing is blocked until the final audiobook exists. " +
-          "Ask RGM to regenerate in the cast voice, about $0.20.";
-      } else if (a.state === "no-audiobook") {
-        el.className = "mt-2 text-sm text-amber-700";
-        el.textContent = "Audiobook: Not generated yet. Once " + hero + "'s voice is set here, " +
-          "ask RGM to generate the final audiobook in that voice, about $0.20.";
-      } else {
-        el.className = "mt-2 text-sm text-amber-700";
-        el.textContent = "Audiobook: " +
-          (a.audiobookVoiceName ? "Draft read in " + a.audiobookVoiceName + ", a QC read-back in a placeholder voice. " : "Not generated. ") +
-          hero + " is not cast yet, so there is no final audiobook. Publishing is blocked until the final is generated, " +
-          "unless it is deliberately let ride from the book's publish page.";
-      }
-    }
+    });
+    document.getElementById("cast-search").addEventListener("input", function (ev) {
+      state.search = ev.target.value;
+      renderShelf();
+    });
 
     // ---------- registry view ----------
     function renderRegistry() {
@@ -552,7 +228,6 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
       names.forEach(function (name) {
         var info = byCharacter[name];
         var row = state.registry[name];
-        var voice = row && row.voice_id ? voiceById(row.voice_id) : null;
         var tr = document.createElement("tr");
         tr.className = "border-t border-stone-100";
         var tdName = document.createElement("td");
@@ -563,7 +238,8 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
         tdBooks.textContent = info.books.join("; ") || "(registry only)";
         var tdVoice = document.createElement("td");
         tdVoice.className = "py-2 pr-3";
-        tdVoice.textContent = voice ? voice.name : (row && row.voice_name) || "—";
+        var voice = row && row.voice_id ? voiceById(row.voice_id) : null;
+        tdVoice.textContent = voice ? voice.name : (row && row.voice_name) || "Unknown";
         var tdStatus = document.createElement("td");
         tdStatus.className = "py-2";
         var pill = document.createElement("span");
@@ -609,58 +285,14 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
       (rows || []).forEach(function (r) { state.registry[r.character_name] = r; });
     }
 
-    function loadOverview(keepView) {
+    function loadOverview() {
       return fetch("/api/admin/cast-registry").then(function (r) { return r.json(); }).then(function (j) {
         state.books = j.books || [];
         applyRegistry(j.registry);
         state.log = j.log || [];
-        var picker = document.getElementById("book-picker");
-        picker.innerHTML = "";
-        state.books.forEach(function (b) {
-          var opt = document.createElement("option");
-          opt.value = b.slug;
-          opt.textContent = b.title;
-          picker.appendChild(opt);
-        });
-        if (!state.books.some(function (b) { return b.slug === state.slug; }) && state.books.length) {
-          state.slug = state.books[0].slug;
-        }
-        picker.value = state.slug;
+        renderShelf();
         renderRegistry();
-        renderBookAudio();
-        if (!keepView) return loadSheet(state.slug);
       }).catch(function () { setStatus("Could not load the casting registry."); });
-    }
-
-    function loadSheet(slug) {
-      state.slug = slug;
-      return fetch("/api/admin/cast-registry?slug=" + encodeURIComponent(slug)).then(function (r) { return r.json(); }).then(function (j) {
-        state.characters = j.characters || [];
-        state.lines = j.lines || [];
-        if (j.registry) applyRegistry(j.registry);
-        state.openPicker = null;
-        renderSheet();
-        renderRegistry();
-        renderBookAudio();
-      }).catch(function () { setStatus("Could not load that book's cast sheet."); });
-    }
-
-    function renderGenerationNote() {
-      var note = document.getElementById("generation-note");
-      if (state.generation === "connected") {
-        note.textContent = "Generation key connected: every voice can be voiced on demand, and plays cache after the first generation.";
-      } else if (state.generation === "not_connected") {
-        note.textContent = "Voice generation key not connected yet: add the AI_GATEWAY_API_KEY worker secret to voice new auditions on demand. Pre-generated Mira auditions still play.";
-      } else {
-        note.textContent = "";
-      }
-    }
-
-    function loadGenerationState() {
-      fetch("/api/admin/cast-gemini-audition").then(function (r) { return r.json(); }).then(function (j) {
-        if (j && j.generation) state.generation = j.generation;
-        renderGenerationNote();
-      }).catch(function () { /* the note is a courtesy */ });
     }
 
     // ---------- tabs ----------
@@ -675,10 +307,8 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
     }
     document.getElementById("tab-cast").addEventListener("click", function () { setView("cast"); });
     document.getElementById("tab-registry").addEventListener("click", function () { setView("registry"); });
-    document.getElementById("book-picker").addEventListener("change", function (ev) { loadSheet(ev.target.value); });
 
-    loadOverview(false);
-    loadGenerationState();
+    loadOverview();
   </script>
   <script is:inline>
     document.querySelectorAll(".js-signout").forEach(function (el) {

@@ -60,7 +60,7 @@ const EDITOR_PATTERNS: RegExp[] = [
   /^\/admin\/books\/[^/]+/, // book QC hub, editor, crops, story review
   /^\/admin\/characters\/[^/]+/, // character editor, cast crop editor
   /^\/admin\/cast\/?$/, // cast studio
-  /^\/admin\/cast-gemini\/?$/, // casting studio
+  /^\/admin\/cast-gemini(\/|$)/, // casting shelf + per-book casting pages (S3)
 ];
 
 export function isEditorRoute(pathname: string): boolean {
