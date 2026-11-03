@@ -41,6 +41,13 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
     a { color: #c2410c; }
     .subbar { position: sticky; top: 0; z-index: 6; background: #fff; border-bottom: 1px solid #e7e5e4; padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .subbar h1 { font-size: 16px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Section links as spaced pills (redesign S1, 2026-11-03): the
+       row used to render jammed together with no gap between the
+       link texts. The mobile block below keeps its own scrollable
+       row treatment. */
+    .subbar-links { display: inline-flex; align-items: center; gap: 8px; }
+    .subbar-links a { font-size: 14px; font-weight: 600; text-decoration: none; padding: 5px 12px; border: 1px solid #d6d3d1; border-radius: 999px; background: #fff; white-space: nowrap; }
+    .subbar-links a:hover { background: #f5f5f4; }
     .subbar select { padding: 7px 10px; border: 1px solid #d6d3d1; border-radius: 8px; font-size: 14px; background: #fff; }
     .status { display: inline-block; padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; }
     .draft { background: #f5f5f4; color: #44403c; } .queued { background: #dbeafe; color: #1e40af; }
@@ -141,10 +148,10 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
     <h1 id="title">Loading...</h1>
     <span id="bookstatus"></span>
     <span class="subbar-links">
-    <a href={"/admin/books/" + adminSlug + "/review"} style="font-size:14px">Story review</a>
-    <a href={"/admin/books/" + adminSlug + "/attempts"} style="font-size:14px">Attempts</a>
-    <a href={"/admin/books/" + adminSlug + "/edit"} style="font-size:14px">Edit</a>
-    <a href={"/admin/books/" + adminSlug + "/readiness"} style="font-size:14px">Readiness</a>
+    <a href={"/admin/books/" + adminSlug + "/review"}>Story review</a>
+    <a href={"/admin/books/" + adminSlug + "/attempts"}>Attempts</a>
+    <a href={"/admin/books/" + adminSlug + "/edit"}>Edit</a>
+    <a href={"/admin/books/" + adminSlug + "/readiness"}>Readiness</a>
     </span>
     <span class="subbar-controls" style="margin-left:auto;display:flex;gap:10px;align-items:center">
       <label style="font-size:13px;color:#78716c" for="view-sel">View</label>
@@ -551,7 +558,12 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
         '<div id="gen-status"><p>Checking...</p></div>' +
         '<p id="gen-error" style="color:#b91c1c;min-height:1.2em"></p>' +
         '<button class="btn" id="generate-btn">Generate book</button> ' +
-        '<button class="ghostbtn" id="refresh-btn">Refresh status</button></div>' +
+        '<button class="ghostbtn" id="refresh-btn">Refresh status</button>' +
+        '<h3 style="margin:14px 0 4px;font-size:1rem">Book actions</h3>' +
+        '<p style="margin:0">' +
+        ((b.status === "draft" || b.status === "failed") ? '<button class="ghostbtn" id="op-build-btn">Build this book</button> ' : "") +
+        (b.stage === "awaiting_pilot_approval" ? '<button class="ghostbtn" id="op-pilot-btn" style="color:#166534;border-color:#bbf7d0">Approve pilot, build the rest</button> ' : "") +
+        '<button class="ghostbtn" id="op-delete-btn" style="color:#b91c1c;border-color:#fecaca">Delete</button></p></div>' +
         "</div>";
       wireDetails();
       renderRail();
@@ -596,6 +608,77 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
           .finally(function () { genBtn.disabled = false; genBtn.textContent = "Generate book"; });
       });
       document.getElementById("refresh-btn").addEventListener("click", loadStatus);
+      // Operator actions rehoused from the old books list cards
+      // (redesign S1 follow-up, 2026-11-03): the shelf list dropped
+      // its buttons, so Build, pilot approval and Delete live here
+      // now. Same endpoints, request shapes, confirmations and
+      // visibility rules the list's delegated handler used.
+      var opTitle = (book && book.title) || slug;
+      function refreshBook() {
+        loadBook().then(function () { render(); });
+      }
+      var opBuild = document.getElementById("op-build-btn");
+      if (opBuild) opBuild.addEventListener("click", async function () {
+        if (!confirm('Build "' + opTitle + '" in the factory now? This runs the full pipeline: plans, art, color pages, and assembly.')) return;
+        opBuild.disabled = true;
+        opBuild.textContent = "Starting...";
+        try {
+          var res = await fetch("/api/books/build", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug: slug })
+          });
+          var data = await res.json().catch(function () { return {}; });
+          if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+          opBuild.textContent = "Building...";
+          setTimeout(refreshBook, 2500);
+        } catch (err) {
+          opBuild.disabled = false;
+          opBuild.textContent = "Build this book";
+          alert("Could not start the build: " + err.message);
+        }
+      });
+      var opPilot = document.getElementById("op-pilot-btn");
+      if (opPilot) opPilot.addEventListener("click", async function () {
+        if (!confirm('Approve the chapter 1 pilot for "' + opTitle + '"? The factory will build the remaining chapters. Look at the chapter 1 pages in Open QC first if you have not.')) return;
+        opPilot.disabled = true;
+        opPilot.textContent = "Approving...";
+        try {
+          var pres = await fetch("/api/books/pilot-approve", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug: slug })
+          });
+          var pdata = await pres.json().catch(function () { return {}; });
+          if (!pres.ok) throw new Error(pdata.error || ("HTTP " + pres.status));
+          opPilot.textContent = "Approved, building...";
+          setTimeout(refreshBook, 2500);
+        } catch (err) {
+          opPilot.disabled = false;
+          opPilot.textContent = "Approve pilot, build the rest";
+          alert("Could not approve the pilot: " + err.message);
+        }
+      });
+      var opDelete = document.getElementById("op-delete-btn");
+      if (opDelete) opDelete.addEventListener("click", async function () {
+        if (!confirm('Delete "' + opTitle + '" permanently? This removes the book, its bible, plans, page art, PDFs and EPUB from the store. This cannot be undone.')) return;
+        opDelete.disabled = true;
+        opDelete.textContent = "Deleting...";
+        try {
+          var dres = await fetch("/api/books/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slug: slug })
+          });
+          var ddata = await dres.json().catch(function () { return {}; });
+          if (!dres.ok) throw new Error(ddata.error || ("HTTP " + dres.status));
+          window.location.href = "/admin/books";
+        } catch (err) {
+          opDelete.disabled = false;
+          opDelete.textContent = "Delete";
+          alert("Could not delete: " + err.message);
+        }
+      });
       document.getElementById("upload-form").addEventListener("submit", function (e) {
         e.preventDefault();
         var files = document.getElementById("more-files").files;
