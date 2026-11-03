@@ -78,8 +78,11 @@ assert(clubCyclesSrcA.includes("saveClubSecondSelection"), "members can save a s
 const adminClubApi = read("../src/pages/api/admin/club.ts");
 assert(adminClubApi.includes("second_selected_title") && adminClubApi.includes("second_resolved_title"), "admin club payload includes both box titles");
 const adminClubPage = read("../src/pages/admin/club.astro");
-assert(adminClubPage.includes("Extras: sticker sheet + little extra"), "admin box rows carry the extras packing line");
-assert(adminClubPage.includes("box-book-2"), "admin can resolve the second slot");
+// Redesign slice S2 (2026-11-03): box packing rows leave the club
+// page for Orders; the page summarizes and links over, and the
+// resolve actions (both slots) survive in the club API.
+assert(adminClubPage.includes('id="pack-summary"') && adminClubPage.includes('href="/admin/orders"'), "admin club page carries the packing summary card linking to Orders");
+assert(adminClubApi.includes("update_box") && adminClubApi.includes("body.slot"), "admin can still resolve both box slots through the club API");
 const accountPageSrc = read("../src/pages/account/club.astro");
 assert(accountPageSrc.includes('data-pick-2') && accountPageSrc.includes('data-pick-shelf'), "account pick form is the Shelf selector with two box slots (radio list retired 2026-11-01; Shelf won the prototype, grid retired same day)");
 assert(accountPageSrc.includes("selection_2"), "account pick form submits the second pick");
