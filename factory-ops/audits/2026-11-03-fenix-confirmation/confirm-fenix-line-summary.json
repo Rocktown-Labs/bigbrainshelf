@@ -1,0 +1,309 @@
+{
+ "slug": "algorithms",
+ "edition": "line",
+ "model": "anthropic/claude-opus-5.5",
+ "pages_judged": 44,
+ "pages_defect": 36,
+ "pages_clean": 8,
+ "total_cost": 0.0,
+ "defect_pages": [
+  {
+   "page": "S1p2",
+   "summary": "Several small fish swimming in the stream are a species not in the book's cast (fox, turtle, owl). Moss's anatomy looks correct, with two arms holding the notebook and two legs on the stepping stones.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed"
+   }
+  },
+  {
+   "page": "S2p1",
+   "summary": "Moss the turtle is missing: the figure on the log is a furry bear-like creature with no shell. Garbled lettering ('Notebook' and other pseudo-text) is printed on the book, which should be a plain blank notebook.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed",
+    "3": "confirmed"
+   }
+  },
+  {
+   "page": "S2p2",
+   "summary": "The words \"Lock Number 123\" are lettered directly onto the tree trunk, so text is baked into the artwork.",
+   "claims": {
+    "1": "confirmed"
+   }
+  },
+  {
+   "page": "S2p3",
+   "summary": "Fenix the fox and Moss the turtle are missing. In their place are two extra owl-like owlets on the ground, so there are three owls besides Orin's single expected appearance.",
+   "claims": {
+    "1": "confirmed",
+    "2": "confirmed",
+    "3": "confirmed",
+    "4": "false_alarm"
+   }
+  },
+  {
+   "page": "S3p2",
+   "summary": "The black-and-white line page has color fill: Orin the owl's head, body and wings are shaded brown, and Fenix the fox has a light beige tint on his face and body.",
+   "claims": {
+    "1": "confirmed"
+   }
+  },
+  {
+   "page": "S3p3",
+   "summary": "Orin the owl's head, ear tufts and folded wings are filled with a tan/gray-brown tone instead of being left as white line art like the rest of the page.",
+   "claims": {
+    "1": "confirmed"
+   }
+  },
+  {
+   "page": "S4p1",
+   "summary": "The words \"Orin the\" are lettered into the artwork above the map, and a stray \"$10\"-like mark appears in the map's corner.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "false_alarm",
+    "3": "confirmed"
+   }
+  },
+  {
+   "page": "S4p2",
+   "summary": "The line page has color fills: the fox's dress is yellow, the scarf is blue and the boots are brown. The fox (Fenix) is present, though off-model, since the reference specifies no clothes or accessories.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed"
+   }
+  },
+  {
+   "page": "S4p3",
+   "summary": "Moss the turtle is clearly present, so the missing-character claim is a false alarm. Fenix the fox appears to have five legs: two raised front paws, two feet planted under the body, and a fifth hind leg extending backward with its own paw.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed"
+   }
+  },
+  {
+   "page": "S5p0",
+   "summary": "Moss the turtle is filled with light green color on what should be a black-and-white line page.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "false_alarm",
+    "3": "confirmed"
+   }
+  },
+  {
+   "page": "S5p1",
+   "summary": "Moss the turtle's head, arms and legs are filled with solid green on what should be a black-and-white line page. Fenix the fox is clearly present on the left.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed"
+   }
+  },
+  {
+   "page": "S5p2",
+   "summary": "Moss the turtle is filled with light green color, and gray shadow fills appear under both characters on what should be a pure black-and-white line page. Fenix the fox is clearly present, so the missing-character claim is a false alarm.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed"
+   }
+  },
+  {
+   "page": "S5p3",
+   "summary": "Garbled bubble-letter text reading \"the great ook k cleering\" is baked into the top of the artwork.",
+   "claims": {
+    "1": "confirmed"
+   }
+  },
+  {
+   "page": "S6p0",
+   "summary": "Fenix is present, standing on the riverbank, so the 'missing' claim is a false alarm. However, he is drawn off-model wearing a short-sleeved shirt and a neck scarf, though his spec says no clothes and no accessories.",
+   "claims": {
+    "1": "false_alarm"
+   }
+  },
+  {
+   "page": "S6p1",
+   "summary": "Fenix the fox is missing, and a human girl in a dress appears in his place. Moss's notebook is not blank: the numbers '12, 3, 4, 3, 4' are drawn on it.",
+   "claims": {
+    "1": "confirmed",
+    "2": "false_alarm",
+    "3": "confirmed",
+    "4": "confirmed",
+    "5": "false_alarm"
+   }
+  },
+  {
+   "page": "S6p3",
+   "summary": "The word \"Fern\" with stray quotation marks is lettered directly into the artwork at the top of the page. The fox's limbs and paws look plausible, with one hind leg hidden by the plank.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed"
+   }
+  },
+  {
+   "page": "S8p1",
+   "summary": "Moss's head, arms and legs are filled with a pale green tint on what should be a pure black-and-white line page. Anatomy looks correct, with two arms holding the notebook and two stubby legs.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed"
+   }
+  },
+  {
+   "page": "S8p2",
+   "summary": "The black-and-white line page has solid light-green fill on Moss's head, neck, front feet and legs instead of being uncolored line art.",
+   "claims": {
+    "1": "confirmed"
+   }
+  },
+  {
+   "page": "S9p1",
+   "summary": "Moss the turtle appears five times on the page (sitting at top-left, standing at center-left, standing at top-right, at bottom-left, and seen from behind at bottom-right), but the scene calls for only one turtle alongside the single fox.",
+   "claims": {
+    "1": "confirmed"
+   }
+  },
+  {
+   "page": "S9p2",
+   "summary": "Two foxes appear on the page, the large Fenix and a second smaller fox at the lower right, but the cast allows only one fox. The large fox also appears to have an extra third ear.",
+   "claims": {
+    "1": "confirmed"
+   }
+  },
+  {
+   "page": "S10p1",
+   "summary": "Three foxes appear (a large clothed adult fox in a floral dress and shoes plus two cubs at the table) where only one fox, Fenix, is expected. The adult fox is also off-model: front-facing and wearing clothes and shoes.",
+   "claims": {
+    "1": "confirmed",
+    "2": "false_alarm",
+    "3": "false_alarm"
+   }
+  },
+  {
+   "page": "S10p2",
+   "summary": "Several fox-like canines appear in the scene instead of the single Fenix: a clothed upright figure, a small canine and a larger collared one. Moss the turtle, with his shell and notebook, is missing entirely.",
+   "claims": {
+    "1": "confirmed",
+    "2": "false_alarm",
+    "3": "confirmed",
+    "4": "false_alarm"
+   }
+  },
+  {
+   "page": "S10p3",
+   "summary": "The page shows a human girl with braids writing in a notebook on a rock, which breaks the animals-only cast. Neither Fenix the fox nor Moss the turtle appears anywhere in the art.",
+   "claims": {
+    "1": "confirmed",
+    "2": "confirmed",
+    "3": "confirmed",
+    "4": "false_alarm"
+   }
+  },
+  {
+   "page": "S10p4",
+   "summary": "A soft gray shaded patch sits on the path near the bottom center, which is a gray fill on a black-and-white line page. Orin the owl is clearly present, perched on the branch.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed"
+   }
+  },
+  {
+   "page": "S11p0",
+   "summary": "Moss the turtle is filled with green color (skin and shell) on what should be a black-and-white line page.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "false_alarm",
+    "3": "confirmed"
+   }
+  },
+  {
+   "page": "S11p2",
+   "summary": "Moss the turtle is filled with light green color across his body, head, legs and shell on what should be a pure black-and-white line page.",
+   "claims": {
+    "1": "confirmed"
+   }
+  },
+  {
+   "page": "S11p3",
+   "summary": "Orin the owl is filled with brown color on his head, back and wings, and his feet are shaded gray, on what should be a pure black-and-white line page.",
+   "claims": {
+    "1": "confirmed"
+   }
+  },
+  {
+   "page": "S12p2",
+   "summary": "Fenix the fox appears to have an extra leg, with five legs drawn under the body. A small area between the legs is filled with gray on this line page. Orin the owl is clearly present, so the missing-character claim is a false alarm.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed",
+    "3": "confirmed"
+   }
+  },
+  {
+   "page": "S10 finale",
+   "summary": "Fenix the fox does not appear anywhere on the page; the art shows only a forest landscape with a path, trees, bushes, a crescent moon and a fern in the foreground.",
+   "claims": {
+    "1": "confirmed",
+    "2": "false_alarm"
+   }
+  },
+  {
+   "page": "S11 finale",
+   "summary": "Moss the turtle's body is filled with pale green color on what should be a black-and-white line page. Fenix the fox is clearly present on the left, so the missing-character claim is a false alarm.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed"
+   }
+  },
+  {
+   "page": "S12 finale",
+   "summary": "Moss the turtle's head, arms, and feet are filled with light green on what should be a pure black-and-white line page. Fenix the fox is clearly present, standing on the hill.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed"
+   }
+  },
+  {
+   "page": "S2 finale",
+   "summary": "Neither Fenix the fox nor Moss the turtle appears. Instead the page shows a green furry creature painting a '7' on the door and a brown bear-like cub, neither of which is in the cast. These two characters are also filled with green and brown color on what should be a black-and-white line page.",
+   "claims": {
+    "1": "confirmed",
+    "2": "confirmed",
+    "3": "false_alarm",
+    "4": "confirmed",
+    "5": "confirmed"
+   }
+  },
+  {
+   "page": "S3 finale",
+   "summary": "Moss the turtle's skin is filled with solid green on what should be a black-and-white line page. Fenix the fox is present on the right, and no anatomy defects are visible.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "false_alarm",
+    "3": "confirmed"
+   }
+  },
+  {
+   "page": "S5 finale",
+   "summary": "Moss the turtle's head, arms, legs and tail are filled with light green color on what should be a pure black-and-white line page.",
+   "claims": {
+    "1": "confirmed"
+   }
+  },
+  {
+   "page": "S6 finale",
+   "summary": "Neither Fenix the fox nor Moss the turtle appears. Instead, the page shows two human children holding a map, and there are no other animals of any species.",
+   "claims": {
+    "1": "confirmed",
+    "2": "confirmed",
+    "3": "confirmed",
+    "4": "false_alarm"
+   }
+  },
+  {
+   "page": "S9 finale",
+   "summary": "Moss the turtle's head, arms, and legs are filled with light green on what should be a black-and-white line page. Fenix the fox is clearly present, so the missing-character claim is a false alarm.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed"
+   }
+  }
+ ]
+}
