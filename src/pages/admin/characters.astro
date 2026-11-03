@@ -20,6 +20,12 @@ const shelfBooks = ((bookRows.results || []) as any[]).map((b) => ({
   adminSlug: publicSlugFor(b),
   coverUrl: b.cover_key ? adminMediaUrl(String(b.cover_key)) : null,
 }));
+// Shelf boards (redesign fix C, 2026-11-03): the customer library
+// pattern, four covers to a board with a wooden plank under each.
+// Cover art is exactly 3:4, so the 3:4 frame never crops it. Tapping
+// a book opens its character view (sheets plus the book tools).
+const boards: (typeof shelfBooks)[] = [];
+for (let i = 0; i < shelfBooks.length; i += 4) boards.push(shelfBooks.slice(i, i + 4));
 ---
 
 <html lang="en">
@@ -40,7 +46,6 @@ const shelfBooks = ((bookRows.results || []) as any[]).map((b) => ({
     h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 1rem}
     .card{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:20px;margin:16px 0;box-shadow:0 1px 2px rgba(28,25,23,.05)}
     .card h2,.card h3{margin-top:0}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-top:24px}
     .status{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.85em;font-weight:600}
     .draft{background:#f5f5f4;color:#44403c}.queued{background:#dbeafe;color:#1e40af}.building{background:#fef3c7;color:#92400e}.ready_for_qa{background:#cffafe;color:#155e75}.in_progress{background:#fef3c7;color:#92400e}.complete{background:#dcfce7;color:#166534}.failed{background:#fee2e2;color:#991b1b}
     .meta{color:#78716c;font-size:.88em}
@@ -48,23 +53,23 @@ const shelfBooks = ((bookRows.results || []) as any[]).map((b) => ({
     .btn{display:inline-block;background:#ea580c;color:#fff;padding:10px 22px;border-radius:999px;font-weight:600;text-decoration:none;border:0;cursor:pointer;font-size:14px}
     .btn:hover{background:#c2410c}
     .ghostbtn{display:inline-block;background:#fff;color:#1c1917;border:1px solid #d6d3d1;padding:9px 18px;border-radius:999px;font-weight:600;cursor:pointer;font-size:14px;text-decoration:none}
-    .tabs{margin:16px 0;display:flex;flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px}.tabs button{padding:8px 16px;margin-right:8px;border:1px solid #d6d3d1;border-radius:999px;background:#fff;cursor:pointer;font-size:.95em;flex:0 0 auto;white-space:nowrap}
-    @media (min-width:768px){.tabs{flex-wrap:wrap;overflow-x:visible}}
-    .tabs button.active{background:#1a3454;color:#fff;border-color:#1a3454}
-    .group-title{margin:32px 0 12px;font-size:1.3em;font-weight:700}
-    .card img{width:100%;height:230px;object-fit:cover;border-radius:8px;background:#f5f5f4}
     label{display:block;margin:16px 0 6px;font-weight:600;font-size:14px}
     input,select,textarea{width:100%;padding:10px 12px;font-size:14px;border:1px solid #d6d3d1;border-radius:8px;box-sizing:border-box;background:#fff}
     .hint{color:#78716c;font-size:.85em}
-    .shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-top:14px}
-    .tile{border:1px solid #e7e5e4;border-radius:12px;padding:10px;background:#fff;position:relative}
-    .tile img{width:100%;height:170px;object-fit:cover;border-radius:8px;background:#f5f5f4}
-    .tile .t-title{font-weight:700;font-size:.92rem;margin:8px 0 2px;line-height:1.25}
-    .tile .t-menu-btn{width:100%;margin-top:10px;background:#1a3454;color:#fff;border:0;border-radius:999px;padding:10px;font-weight:600;cursor:pointer;font-size:14px;min-height:44px}
-    .tile .t-menu{display:none;border-top:1px solid #f5f5f4;margin-top:10px;padding-top:6px}
-    .tile.open .t-menu{display:block}
-    .tile .t-menu a{display:flex;align-items:center;min-height:44px;padding:4px 6px;text-decoration:none;color:#1c1917;font-weight:600;font-size:.92rem;border-radius:8px}
-    .tile .t-menu a:active{background:#f5f5f4}
+    /* Book shelf: covers rest on wooden planks, four to a board;
+       the title and one status chip sit under each cover; the whole
+       cover is the link into the book's character view. */
+    .shelf-board{margin-top:26px}
+    .shelf-board:first-of-type{margin-top:10px}
+    .shelf-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;padding:0 4px}
+    @media (max-width:640px){.shelf-row{grid-template-columns:repeat(2,1fr)}}
+    .shelf-plank{height:.65rem;margin-top:.55rem;border-radius:.3rem;background:linear-gradient(180deg,#b08954 0%,#8a6844 55%,#6f5133 100%);box-shadow:0 10px 14px -8px rgba(90,62,27,.55),inset 0 1px 0 rgba(255,235,200,.5)}
+    .shelf-item{display:block;text-decoration:none;color:inherit}
+    .shelf-cover{aspect-ratio:3/4;border-radius:10px;overflow:hidden;border:1px solid #e7e5e4;background:#f5f5f4;box-shadow:0 1px 2px rgba(28,25,23,.06)}
+    .shelf-cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s ease}
+    .shelf-item:hover .shelf-cover img{transform:scale(1.02)}
+    .shelf-title{display:block;font-weight:700;font-size:.95rem;line-height:1.3;margin-top:10px}
+    .shelf-chip{display:block;margin-top:6px;min-height:24px}
   </style>
   </head>
 <body>
@@ -85,100 +90,66 @@ const shelfBooks = ((bookRows.results || []) as any[]).map((b) => ({
     <p class="meta">Adjust the portrait and pose framing used on the public Meet the Cast pages. The automatic sheet split is a starting point; here you can move and resize every pose box yourself, choose the portrait, and restore the previous gallery if a save goes wrong.</p>
     <p style="margin:12px 0 0"><a class="btn" href="/admin/characters/cast-crops" style="text-decoration:none">Open the cast crop editor</a></p>
   </div>
-  <div class="card">
-    <h2 style="margin-top:0">Books on the shelf</h2>
-    <p class="meta">Tap a book for its options: check the pages, fix pose crops with the automatic boxes, or upload poses you cut yourself from the sheet.</p>
-    <div class="shelf">
-      {shelfBooks.map((b) => (
-        <div class="tile">
-          {b.coverUrl ? <img src={b.coverUrl} alt="" loading="lazy" /> : null}
-          <p class="t-title">{b.title}</p>
-          <span class={`status ${b.status}`}>{b.status.replace(/_/g, " ")}</span>
-          <button type="button" class="t-menu-btn">Options</button>
-          <div class="t-menu">
-            <a href={`/admin/books/${b.adminSlug}`}>QC viewer</a>
-            <a href={`/admin/books/${b.adminSlug}/crops`}>Pose crops (automatic)</a>
-            <a href={`/admin/books/${b.adminSlug}/poses`}>Upload poses by hand</a>
-            <a href={`/books/${b.adminSlug}`}>Public book page</a>
+  <h2 style="margin:32px 0 0;font-size:1.3rem;font-weight:800;letter-spacing:-.01em">Books on the shelf</h2>
+  <p class="meta">Tap a book to open its characters, their sheets, and the book tools (QC viewer, pose crops, pose uploads, public page).</p>
+  {shelfBooks.length ? (
+    <>
+      <div style="margin:14px 0 4px">
+        <input id="book-q" type="text" placeholder="Search books..." aria-label="Search books" />
+      </div>
+      <div id="shelf">
+        {boards.map((board) => (
+          <div class="shelf-board">
+            <div class="shelf-row">
+              {board.map((b) => (
+                <a class="shelf-item" href={`/admin/characters/book/${b.adminSlug}`} data-title={b.title.toLowerCase()}>
+                  <span class="shelf-cover">{b.coverUrl ? <img src={b.coverUrl} alt={b.title} loading="lazy" /> : null}</span>
+                  <span class="shelf-title">{b.title}</span>
+                  <span class="shelf-chip"><span class={`status ${b.status}`}>{b.status.replace(/_/g, " ")}</span></span>
+                </a>
+              ))}
+            </div>
+            <div class="shelf-plank" aria-hidden="true"></div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
+      <div class="card" id="shelf-noresults" hidden>
+        <h2 style="margin-top:0">No books match</h2>
+        <p class="meta">No book on the shelf matches that search.</p>
+        <p style="margin-bottom:0"><button type="button" class="btn" id="shelf-clear">Clear search</button></p>
+      </div>
+      <script is:inline>
+        var bookQ = document.getElementById('book-q');
+        var noResults = document.getElementById('shelf-noresults');
+        function applySearch() {
+          var q = bookQ.value.trim().toLowerCase();
+          var anyVisible = false;
+          document.querySelectorAll('.shelf-board').forEach(function (board) {
+            var boardVisible = false;
+            board.querySelectorAll('.shelf-item').forEach(function (item) {
+              var show = !q || (item.getAttribute('data-title') || '').indexOf(q) !== -1;
+              item.style.display = show ? '' : 'none';
+              if (show) { boardVisible = true; anyVisible = true; }
+            });
+            board.style.display = boardVisible ? '' : 'none';
+          });
+          noResults.hidden = anyVisible;
+        }
+        bookQ.addEventListener('input', applySearch);
+        document.getElementById('shelf-clear').addEventListener('click', function () {
+          bookQ.value = '';
+          applySearch();
+          bookQ.focus();
+        });
+      </script>
+    </>
+  ) : (
+    <div class="card">
+      <h2 style="margin-top:0">No books yet</h2>
+      <p class="meta">The shelf is empty. Start the first book and it will appear here with its characters.</p>
+      <p style="margin-bottom:0"><a class="btn" href="/admin/books/new">+ New book</a></p>
     </div>
-  </div>
-  <script is:inline>
-    document.querySelectorAll(".tile .t-menu-btn").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        var tile = btn.closest(".tile");
-        var wasOpen = tile.classList.contains("open");
-        document.querySelectorAll(".tile.open").forEach(function (t) { t.classList.remove("open"); });
-        if (!wasOpen) tile.classList.add("open");
-      });
-    });
-  </script>
-  <div class="tabs" id="tabs"></div>
-  <div id="groups"><p>Loading...</p></div>
-  <script is:inline>
-    var allChars = [];
-    var bookTitles = {};
-    var activeTab = "all";
-
-    function imgFor(c) {
-      // Sheets are admin-only art: serve through the gated sheet route.
-      if (c.jpg_key) return '/api/admin/character-sheet?id=' + encodeURIComponent(c.id) + '&kind=color';
-      return null;
-    }
-    function cardHtml(c) {
-      var img = imgFor(c);
-      var href = '/admin/characters/' + encodeURIComponent(c.id);
-      return '<a href="' + href + '" style="display:block;text-decoration:none;color:inherit">' +
-        '<div class="card" style="margin:0;height:100%;box-sizing:border-box">' +
-        (img ? '<img src="' + img + '" alt="' + c.name + '" loading="lazy" />' : '') +
-        '<h3>' + c.name + '</h3>' +
-        '<p class="meta">' + c.species + '</p>' +
-        '<p>' + c.visual + '</p>' +
-        (c.real_maps_to ? '<p class="meta">Maps to: ' + c.real_maps_to + '</p>' : '') +
-        '<p style="margin:12px 0 0;color:#c2410c;font-weight:600">View full sheet &rarr;</p>' +
-        '</div></a>';
-    }
-    function render() {
-      var tabsEl = document.getElementById('tabs');
-      var groupsEl = document.getElementById('groups');
-      var slugs = [];
-      allChars.forEach(function(c) {
-        var s = c.book_slug || 'unassigned';
-        if (slugs.indexOf(s) === -1) slugs.push(s);
-      });
-      var tabs = '<button data-tab="all" class="' + (activeTab === 'all' ? 'active' : '') + '">All characters</button>';
-      slugs.forEach(function(s) {
-        var label = bookTitles[s] || s;
-        tabs += '<button data-tab="' + s + '" class="' + (activeTab === s ? 'active' : '') + '">' + label + '</button>';
-      });
-      tabsEl.innerHTML = tabs;
-      tabsEl.querySelectorAll('button').forEach(function(b) {
-        b.addEventListener('click', function() { activeTab = b.getAttribute('data-tab'); render(); });
-      });
-      var html = '';
-      var showSlugs = activeTab === 'all' ? slugs : [activeTab];
-      showSlugs.forEach(function(s) {
-        var chars = allChars.filter(function(c) { return (c.book_slug || 'unassigned') === s; });
-        if (!chars.length) return;
-        var label = bookTitles[s] || (s === 'unassigned' ? 'Unassigned' : s);
-        html += '<h2 class="group-title">' + label + ' (' + chars.length + ')</h2>';
-        html += '<div class="grid">' + chars.map(cardHtml).join('') + '</div>';
-      });
-      groupsEl.innerHTML = html || '<p>No characters yet.</p>';
-    }
-    Promise.all([
-      fetch('/api/characters').then(function(r) { return r.json(); }),
-      fetch('/api/books').then(function(r) { return r.json(); }).catch(function() { return []; })
-    ]).then(function(res) {
-      allChars = res[0] || [];
-      (res[1] || []).forEach(function(b) { bookTitles[b.slug] = b.title; });
-      render();
-    }).catch(function() {
-      document.getElementById('groups').innerHTML = '<p>Could not load characters.</p>';
-    });
-  </script>
+  )}
   <script is:inline>
     // ---- character studio ---------------------------------------------
     var stBook = document.getElementById('st-book');
