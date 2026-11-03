@@ -160,6 +160,80 @@ export function packProgress(
 }
 
 // ---------------------------------------------------------------------------
+// The completed list: parcels whose fulfillment is DONE (shipped or
+// delivered), newest first. The packing queue above is work waiting
+// only; finished parcels live here instead, so the shelf never mixes
+// the two (CG's report, 2026-11-03). The orders page renders this as
+// a collapsed "Completed" section; the dashboard strip shows the
+// waiting queue only.
+
+export async function getCompletedParcels(db: any, limit = 20): Promise<PackingItem[]> {
+  const items: PackingItem[] = [];
+  try {
+    const { results } = await db
+      .prepare(
+        `SELECT id, created_at, physical_status, items, book_slugs FROM orders
+         WHERE status = 'complete' AND physical_status IN ('shipped', 'delivered')
+         ORDER BY created_at DESC LIMIT ?`
+      )
+      .bind(limit)
+      .all();
+    const rows = (results || []) as any[];
+    if (rows.length) {
+      const picks = await orderPickList(db, rows);
+      for (const o of rows) {
+        const lines = packLinesForGroups(picks.get(String(o.id)) || []);
+        if (!lines.length) continue; // a digital-only order has no parcel to complete
+        items.push({
+          kind: "order",
+          id: String(o.id),
+          ref: "#" + String(o.id).slice(0, 8).toUpperCase(),
+          href: `/admin/orders/${o.id}`,
+          cover: lines[0].cover,
+          lines: lines.length,
+          stage: String(o.physical_status) === "delivered" ? "Delivered" : "Shipped",
+          needsPick: false,
+          when: Number(o.created_at || 0),
+        });
+      }
+    }
+  } catch { /* the completed list is additive; the page works without it */ }
+  try {
+    await ensureClubCycleTables(db);
+    const { results } = await db
+      .prepare(
+        `SELECT b.* FROM club_cycle_boxes b
+         WHERE b.status IN ('shipped', 'delivered')
+         ORDER BY b.ship_date DESC LIMIT ?`
+      )
+      .bind(limit)
+      .all();
+    const boxes = (results || []) as any[];
+    if (boxes.length) {
+      const slugs = boxes.flatMap((b) => [boxSlug(b, 1), boxSlug(b, 2)]).filter(Boolean);
+      const books = await loadBooksByAnySlug(db, slugs, "slug, title, cover_key, public_slug");
+      for (const b of boxes) {
+        const lines = packLinesForBox(b, books);
+        const stamp = Number(b.delivered_at || b.shipped_at || 0);
+        items.push({
+          kind: "box",
+          id: String(b.id),
+          ref: "Club box",
+          href: `/admin/orders/box/${b.id}`,
+          cover: lines.length ? lines[0].cover : null,
+          lines: lines.length,
+          stage: String(b.status) === "delivered" ? "Delivered" : "Shipped",
+          needsPick: false,
+          when: stamp || Math.floor(Date.parse(String(b.ship_date || "")) / 1000) || 0,
+        });
+      }
+    }
+  } catch { /* boxes are additive to the completed list */ }
+  items.sort((a, b) => b.when - a.when);
+  return items.slice(0, limit);
+}
+
+// ---------------------------------------------------------------------------
 // The packing queue: everything awaiting fulfillment, store orders and
 // club boxes together, oldest first within each kind. Digital-only
 // orders never appear (their pick list has no physical lines).

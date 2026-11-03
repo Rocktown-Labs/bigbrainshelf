@@ -49,6 +49,13 @@ const boxId = String(Astro.params.id || "");
     .pickbook .pick-title{display:block;font-size:.72rem;font-weight:700;line-height:1.25;margin-top:6px}
     .pickbook.chosen{border-color:#ea580c;box-shadow:0 0 0 2px #ffedd5}
     .pickbook:disabled{opacity:.55;cursor:wait}
+    .pickbook.inbox{border-color:#d6d3d1;background:#fafaf9;cursor:not-allowed;opacity:.75}
+    .pickbook .pick-note{display:block;font-size:.66rem;font-weight:700;color:#b45309;margin-top:2px}
+    .picksum{display:flex;align-items:center;gap:12px;border:1px solid #e7e5e4;border-radius:12px;padding:8px 10px;background:#fafaf9}
+    .picksum img{width:44px;height:58px;object-fit:cover;border-radius:6px;background:#f5f5f4}
+    .picksum .pick-nocover{width:44px;height:58px;display:grid;place-items:center;border-radius:6px;background:#f5f5f4;color:#a8a29e;font-size:.6rem;font-weight:700;text-align:center}
+    .pickbtn{border:1px solid #d6d3d1;background:#fff;border-radius:9px;font-size:.8rem;font-weight:700;padding:0 12px;min-height:38px;cursor:pointer}
+    .pickbtn.danger{color:#b91c1c;border-color:#fecaca}
     input,select,textarea{font-size:16px}
   </style>
   </head>
@@ -103,29 +110,63 @@ const boxId = String(Astro.params.id || "");
     }
 
     function pickHtml(data) {
-      if (data.contents_complete) return "";
       var b = data.box;
+      // Picks can be changed or cleared until the box has shipped
+      // (admin redesign fix, 2026-11-03): the section used to vanish
+      // once both slots were filled, which made a saved pick final.
+      var FINAL = ["shipped", "delivered", "skipped", "canceled"];
+      if (FINAL.indexOf(String(b.status)) >= 0) return "";
       var books = data.eligibleBooks || [];
-      function slotHtml(slot, current, heading, sub) {
-        var grid = books.map(function (bk) {
-          var chosen = bk.slug === current;
-          return '<button type="button" class="pickbook tap' + (chosen ? " chosen" : "") + '" data-pick="' + slot + '" data-slug="' + esc(bk.slug) + '">' +
+      var bySlug = {};
+      books.forEach(function (bk) { bySlug[bk.slug] = bk; });
+      var cur1 = b.resolved_book_slug || b.selected_book_slug || "";
+      var cur2 = b.second_resolved_book_slug || b.second_selected_book_slug || "";
+      function slotHtml(slot, current, other, heading, sub) {
+        var head = '<div class="mt-4"><h3 class="font-bold text-sm">' + heading + "</h3>" +
+          '<p class="text-[13px] text-stone-500 mt-0.5">' + sub + "</p>";
+        var msg = '<p class="text-[13px] text-stone-500 mt-1.5" data-pick-msg="' + slot + '" role="status"></p>';
+        if (current) {
+          var cur = bySlug[current];
+          var summary = '<div class="picksum mt-2">' +
+            (cur && cur.cover ? '<img src="' + esc(cur.cover) + '" alt="" loading="lazy">' : '<span class="pick-nocover">Big Brain Shelf</span>') +
+            '<span class="min-w-0 flex-1"><span class="block text-sm font-bold leading-snug">' + esc(cur ? cur.title : current) + '</span>' +
+            '<span class="block text-[13px] text-stone-500">Picked for this box.</span></span>' +
+            '<button type="button" class="pickbtn tap" data-change="' + slot + '">Change</button>' +
+            '<button type="button" class="pickbtn danger tap" data-clear="' + slot + '">Clear</button></div>';
+          var grid = books.map(function (bk) {
+            if (bk.slug === other) {
+              return '<div class="pickbook inbox" aria-disabled="true">' +
+                (bk.cover ? '<img src="' + esc(bk.cover) + '" alt="" loading="lazy">' : '<span class="pick-nocover">Big Brain Shelf</span>') +
+                '<span class="pick-title">' + esc(bk.title) + '</span><span class="pick-note">Already in this box</span></div>';
+            }
+            var chosen = bk.slug === current;
+            return '<button type="button" class="pickbook tap' + (chosen ? " chosen" : "") + '" data-pick="' + slot + '" data-slug="' + esc(bk.slug) + '">' +
+              (bk.cover ? '<img src="' + esc(bk.cover) + '" alt="" loading="lazy">' : '<span class="pick-nocover">Big Brain Shelf</span>') +
+              '<span class="pick-title">' + esc(bk.title) + "</span></button>";
+          }).join("");
+          return head + summary +
+            '<div class="pickgrid mt-2 hidden" data-grid="' + slot + '">' + grid + "</div>" + msg + "</div>";
+        }
+        var openGrid = books.map(function (bk) {
+          if (bk.slug === other) {
+            return '<div class="pickbook inbox" aria-disabled="true">' +
+              (bk.cover ? '<img src="' + esc(bk.cover) + '" alt="" loading="lazy">' : '<span class="pick-nocover">Big Brain Shelf</span>') +
+              '<span class="pick-title">' + esc(bk.title) + '</span><span class="pick-note">Already in this box</span></div>';
+          }
+          return '<button type="button" class="pickbook tap" data-pick="' + slot + '" data-slug="' + esc(bk.slug) + '">' +
             (bk.cover ? '<img src="' + esc(bk.cover) + '" alt="" loading="lazy">' : '<span class="pick-nocover">Big Brain Shelf</span>') +
             '<span class="pick-title">' + esc(bk.title) + "</span></button>";
         }).join("");
-        return '<div class="mt-4"><h3 class="font-bold text-sm">' + heading + "</h3>" +
-          '<p class="text-[13px] text-stone-500 mt-0.5">' + sub + "</p>" +
+        return head +
           (books.length
-            ? '<div class="pickgrid mt-2">' + grid + "</div>"
+            ? '<div class="pickgrid mt-2">' + openGrid + "</div>"
             : '<p class="text-sm text-stone-400 mt-2">No books are eligible for club boxes right now.</p>') +
-          '<p class="text-[13px] text-stone-500 mt-1.5" data-pick-msg="' + slot + '" role="status"></p></div>';
+          msg + "</div>";
       }
-      var cur1 = b.resolved_book_slug || b.selected_book_slug || "";
-      var cur2 = b.second_resolved_book_slug || b.second_selected_book_slug || "";
-      return '<section class="card mt-4"><h2 class="font-bold">Mystery box: pick the books</h2>' +
-        '<p class="text-sm text-stone-500 mt-1">This box is still on Mystery, so the picks are ours to make. Choose the club book (it ships as the gift set: storybook plus coloring book) and the second story book. Tapping a cover saves that slot.</p>' +
-        slotHtml(1, cur1, "Book 1: the club book", "Ships as the full gift set.") +
-        slotHtml(2, cur2, "Book 2: the second story book", "A second printed storybook in the same box.") +
+      return '<section class="card mt-4"><h2 class="font-bold">Pick the books</h2>' +
+        '<p class="text-sm text-stone-500 mt-1">Choose the club book (it ships as the gift set: storybook plus coloring book) and the second story book. Tapping a cover saves that slot. A pick can be changed or cleared until the box ships, and a box never carries the same book twice.</p>' +
+        slotHtml(1, cur1, cur2, "Book 1: the club book", "Ships as the full gift set.") +
+        slotHtml(2, cur2, cur1, "Book 2: the second story book", "A second printed storybook in the same box.") +
       "</section>";
     }
 
@@ -264,6 +305,29 @@ const boxId = String(Astro.params.id || "");
           pickupHtml(data) +
         "</section>";
 
+      // Change reveals the slot's grid; Clear empties the slot
+      // through the same update_box action.
+      root.querySelectorAll("[data-change]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var grid = root.querySelector('[data-grid="' + btn.getAttribute("data-change") + '"]');
+          if (grid) grid.classList.toggle("hidden");
+        });
+      });
+      root.querySelectorAll("[data-clear]").forEach(function (btn) {
+        btn.addEventListener("click", async function () {
+          var slot = Number(btn.getAttribute("data-clear"));
+          var msg = root.querySelector('[data-pick-msg="' + slot + '"]');
+          btn.disabled = true;
+          if (msg) msg.textContent = "Clearing...";
+          var res = await post({ action: "update_box", box_id: b.id, slot: slot, clear: true });
+          if (!res.resp.ok || !res.out.ok) {
+            if (msg) msg.textContent = res.out.error || "That pick could not be cleared.";
+            btn.disabled = false;
+            return;
+          }
+          load();
+        });
+      });
       // Pick step: tap a cover, save that slot, repaint.
       root.querySelectorAll("[data-pick]").forEach(function (btn) {
         btn.addEventListener("click", async function () {

@@ -1,9 +1,9 @@
 import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
-import { setPhysicalStatus, orderItemLabels, orderPickList, shortOrderId, ensureOrderPackColumns, parsePackState, normalizePackState, setOrderPack } from "../../../lib/orders";
+import { setPhysicalStatus, orderItemLabels, orderPickList, shortOrderId, ensureOrderPackColumns, parsePackState, normalizePackState, setOrderPack, ensureOrderManualColumns, createManualOrder, listManualOrderCatalog } from "../../../lib/orders";
 import { flushOutbox } from "../../../lib/email";
 import { shippoStatus, ensureOrderLabelColumns, ensureOrderQuoteColumns, ensureOrderTrackingColumns, ensureOrderPickupColumns, getLabelQuote, buyLabelForOrder, schedulePickupForOrder, pickupStateFor } from "../../../lib/shippo";
-import { packLinesForGroups, packProgress, getPackingQueue } from "../../../lib/packing";
+import { packLinesForGroups, packProgress, getPackingQueue, getCompletedParcels } from "../../../lib/packing";
 import { downloadCountsForOrder, resetDownloadsForOrder, DOWNLOAD_LIMIT } from "../../../lib/download-guard";
 import { markSeen } from "../../../lib/seen";
 
@@ -40,6 +40,13 @@ import { markSeen } from "../../../lib/seen";
 //      schedules a carrier pickup for the order's purchased label via
 //      Shippo (USPS Priority-class / DHL Express labels only; see
 //      pickupEligibleFor in lib/shippo.ts).
+// GET ?catalog=1 -> the manual-order form's catalog: sellable books by
+//      public title with default per-format prices.
+// POST { action: "create_manual_order", name, email, address, lines,
+//        shipping_cents, note }
+//      creates a real order by hand (lib/orders createManualOrder):
+//      no Stripe objects, no emails at creation; fulfillment runs
+//      through the same actions as a checkout order afterwards.
 //
 // The detail GET also carries the order's pack checklist (pack_lines
 // + pack_state + pack_progress) and pickup state (pickup), and the
@@ -62,6 +69,13 @@ export const GET: APIRoute = async ({ locals, url }) => {
   await ensureOrderTrackingColumns(e.DB).catch(() => {});
   await ensureOrderPackColumns(e.DB).catch(() => {});
   await ensureOrderPickupColumns(e.DB).catch(() => {});
+  await ensureOrderManualColumns(e.DB).catch(() => {});
+
+  // The manual-order form's catalog (public titles + default prices).
+  if (url.searchParams.get("catalog")) {
+    const catalog = await listManualOrderCatalog(e.DB).catch(() => []);
+    return Response.json({ catalog });
+  }
 
   // Single-order detail for /admin/orders/[id]: the full row, its
   // resolved item titles, and that order's email history from the
@@ -69,7 +83,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const detailId = url.searchParams.get("order_id");
   if (detailId) {
     const order = await e.DB.prepare(
-      "SELECT id, email, book_slugs, items, amount, currency, status, physical_status, stripe_session_id, created_at, ship_name, ship_address, shipping_cents, quoted_carrier, quoted_service, carrier, carrier_service, tracking_number, label_url, label_cost_cents, shippo_transaction_id, pack_json, pickup_confirmation, pickup_window, pickup_scheduled_at, tracking_status FROM orders WHERE id = ?"
+      "SELECT id, email, book_slugs, items, amount, currency, status, physical_status, stripe_session_id, created_at, ship_name, ship_address, shipping_cents, quoted_carrier, quoted_service, carrier, carrier_service, tracking_number, label_url, label_cost_cents, shippo_transaction_id, shippo_rate_id, shippo_shipment_id, source, admin_note, pack_json, pickup_confirmation, pickup_window, pickup_scheduled_at, tracking_status FROM orders WHERE id = ?"
     ).bind(detailId).first();
     if (!order) return Response.json({ error: "order not found" }, { status: 404 });
     // Opening an order is what clears it from the sidebar badge
@@ -178,10 +192,14 @@ export const GET: APIRoute = async ({ locals, url }) => {
   }
   // The packing shelf ("What do we pack and ship?"): store orders and
   // club boxes awaiting fulfillment, for the section above the tabs.
+  // Finished parcels ride separately (packing_completed) so the shelf
+  // shows waiting work only and completed work gets its own section.
   const packing = await getPackingQueue(e.DB).catch(() => []);
+  const packingCompleted = await getCompletedParcels(e.DB).catch(() => []);
   return Response.json({
     orders: orderRows,
     packing,
+    packing_completed: packingCompleted,
     outbox: counts,
     tab,
     page,
@@ -208,6 +226,35 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const SITE = e.BETTER_AUTH_URL || "https://bigbrainshelf.com";
   const body = await request.json().catch(() => ({}));
   const action = String(body?.action || "");
+
+  if (action === "create_manual_order") {
+    const lines = Array.isArray(body?.lines)
+      ? body.lines.map((l: any) => ({
+          slug: String(l?.slug || ""),
+          format: String(l?.format || "digital"),
+          qty: Number(l?.qty || 1),
+          priceCents: Number(l?.price_cents),
+        }))
+      : [];
+    const a = body?.address || {};
+    const result = await createManualOrder(e.DB, {
+      name: String(body?.name || ""),
+      email: String(body?.email || ""),
+      address: {
+        line1: String(a.line1 || ""),
+        line2: String(a.line2 || ""),
+        city: String(a.city || ""),
+        state: String(a.state || ""),
+        postal_code: String(a.postal_code || ""),
+        country: String(a.country || "US"),
+      },
+      lines,
+      shippingCents: Number(body?.shipping_cents || 0),
+      note: String(body?.note || ""),
+    });
+    if (!result.ok) return Response.json({ error: result.error }, { status: 400 });
+    return Response.json({ ok: true, order_id: result.order.id });
+  }
 
   if (action === "set_physical_status") {
     const orderId = String(body?.order_id || "");

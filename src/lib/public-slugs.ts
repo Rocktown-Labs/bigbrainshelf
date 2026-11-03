@@ -93,6 +93,51 @@ export async function ensureSlugAliasesTable(db: DBLike): Promise<void> {
   });
 }
 
+// The known rename map, seeded idempotently wherever aliases are
+// consulted. Two kinds of retirement live here:
+//  - Retired PUBLIC slugs from the character renames (the fern /
+//    basil / wally title slugs). The 2026-11-02 rename pass wrote
+//    those rows to production by hand; seeding them here makes any
+//    database converge to the same map instead of depending on rows
+//    a person remembered to insert.
+//  - The retired INTERNAL slug "mastery". The Mira slug migration
+//    renamed the books row itself, so no books row answers to
+//    "mastery" anymore, while pre-migration orders still carry it in
+//    their items and book_slugs. Without this alias those orders fall
+//    through slug resolution and render as the neutral "Big Brain
+//    Shelf book" on every admin surface (CG's report, 2026-11-03).
+//    The alias targets the book's CURRENT internal slug (for Mira
+//    the internal and public slugs are the same string).
+// Audited against production 2026-11-03: the distinct slugs present
+// in orders.items, orders.book_slugs, and the four club_cycle_boxes
+// slug columns are exactly the nine live internal slugs plus
+// "mastery"; "mastery" is the only unresolvable one.
+export const RETIRED_SLUG_ALIASES: Record<string, string> = {
+  mastery: "mira-the-heron-and-the-still-water",
+  "fern-the-fox-and-the-clever-trails": "algorithms",
+  "basil-the-beaver-and-the-pattern-book": "designpatterns",
+  "wally-the-whale-and-the-great-harbor": "docker",
+};
+
+/**
+ * Seed the known rename aliases (INSERT OR IGNORE, so an existing
+ * row always wins). Runs once per database through ensureOnce, on
+ * the read paths that consult the alias table, so the fix is in the
+ * code and never a hand-edit of production data.
+ */
+export async function ensureRenameAliases(db: DBLike): Promise<void> {
+  await ensureSlugAliasesTable(db);
+  await ensureOnce(db, "book_slug_aliases.rename_seed", async () => {
+    const ts = Math.floor(Date.now() / 1000);
+    for (const [alias, slug] of Object.entries(RETIRED_SLUG_ALIASES)) {
+      await db
+        .prepare("INSERT OR IGNORE INTO book_slug_aliases (alias, slug, created_at) VALUES (?, ?, ?)")
+        .bind(alias, slug, ts)
+        .run();
+    }
+  });
+}
+
 export interface ResolvedBook {
   book: any;
   /** "public" when the param matched public_slug (or the book's
@@ -120,7 +165,7 @@ export async function resolveBookForPublicRoute(
     .bind(p)
     .first();
   if (byPublic) return { book: byPublic, via: "public" };
-  await ensureSlugAliasesTable(db);
+  await ensureRenameAliases(db);
   const alias: any = await db
     .prepare("SELECT slug FROM book_slug_aliases WHERE alias = ?")
     .bind(p)

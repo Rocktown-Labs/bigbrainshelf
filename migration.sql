@@ -195,6 +195,12 @@ ALTER TABLE orders ADD COLUMN shippo_transaction_id TEXT;
 -- src/lib/shippo.ts, mirrored here like the other runtime columns.
 ALTER TABLE orders ADD COLUMN tracking_status TEXT;
 
+-- Manual orders (2026-11-03): orders created by hand in admin carry
+-- source = 'manual' and an internal admin_note; ensured at runtime by
+-- ensureOrderManualColumns in src/lib/orders.ts, mirrored here.
+ALTER TABLE orders ADD COLUMN source TEXT;
+ALTER TABLE orders ADD COLUMN admin_note TEXT;
+
 -- Pass-through shipping (2026-10-28): checkout quotes the real Shippo
 -- rate for the buyer's address and charges exactly that. The order
 -- stores the quoted carrier + service level and the Shippo rate id
@@ -701,3 +707,12 @@ CREATE TABLE IF NOT EXISTS book_slug_aliases (
   slug TEXT NOT NULL,
   created_at INTEGER
 );
+-- The known rename aliases, mirrored from RETIRED_SLUG_ALIASES in
+-- src/lib/public-slugs.ts (the runtime seed there is authoritative;
+-- these rows are the schema record). "mastery" is the retired
+-- INTERNAL slug of the Mira book: pre-migration orders carry it and
+-- rendered as the neutral fallback label until the alias existed.
+INSERT OR IGNORE INTO book_slug_aliases (alias, slug, created_at) VALUES ('mastery', 'mira-the-heron-and-the-still-water', 1793577600);
+INSERT OR IGNORE INTO book_slug_aliases (alias, slug, created_at) VALUES ('fern-the-fox-and-the-clever-trails', 'algorithms', 1793577600);
+INSERT OR IGNORE INTO book_slug_aliases (alias, slug, created_at) VALUES ('basil-the-beaver-and-the-pattern-book', 'designpatterns', 1793577600);
+INSERT OR IGNORE INTO book_slug_aliases (alias, slug, created_at) VALUES ('wally-the-whale-and-the-great-harbor', 'docker', 1793577600);

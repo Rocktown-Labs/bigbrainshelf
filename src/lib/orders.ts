@@ -21,7 +21,7 @@
 
 import { ensureClubTable, isPaidClubMember } from "./club";
 import { ensureOnce } from "./schema-cache";
-import { publicSlugFor, ensurePublicSlugColumn, ensureSlugAliasesTable } from "./public-slugs";
+import { publicSlugFor, ensurePublicSlugColumn, ensureSlugAliasesTable, ensureRenameAliases, resolveInternalSlug } from "./public-slugs";
 import { bookCodeForTitle } from "./catalog";
 import { coverDerivative, MEDIA_PUBLIC } from "./derivatives";
 import {
@@ -61,6 +61,12 @@ export interface CartItem {
   // order, the receipts, and the emails). Absent means 1; every
   // reader normalizes through itemQty.
   qty?: number;
+  // The per-copy price actually charged for this line, in cents.
+  // Only manual orders set it (an admin types the price); checkout
+  // never does, and every price reader prefers it when present so a
+  // manual order's lines price at what the admin entered instead of
+  // today's store price.
+  priceCents?: number;
 }
 
 // The one quantity rule: an integer from 1 to 99, anything else
@@ -169,6 +175,9 @@ export function parseItems(order: any): CartItem[] {
           format: normalizeFormat(x?.format),
           ...(x?.upgrade ? { upgrade: String(x.upgrade) } : {}),
           qty: itemQty(x),
+          ...(Number.isFinite(Number(x?.priceCents)) && Number(x?.priceCents) >= 0
+            ? { priceCents: Math.round(Number(x.priceCents)) }
+            : {}),
         }))
         .filter((x: CartItem) => x.slug);
     }
@@ -512,6 +521,10 @@ export async function loadBooksByAnySlug(
   if (!missing.length) return out;
   try {
     await ensureSlugAliasesTable(db);
+    // The known rename aliases are seeded in code (public-slugs.ts):
+    // a retired slug like "mastery" must resolve even on a database
+    // whose alias table was never hand-populated for it.
+    await ensureRenameAliases(db);
     const aliasRows = await db
       .prepare(`SELECT alias, slug FROM book_slug_aliases WHERE alias IN (${ph(missing)})`)
       .bind(...missing)
@@ -646,13 +659,20 @@ function groupOrderItems(
   order: { items?: string | null; book_slugs?: string | null },
   books: Map<string, OrderBookRow>
 ): OrderItemGroup[] {
-  let raw: { slug: string; format: string; qty?: number }[] = [];
+  let raw: { slug: string; format: string; qty?: number; priceCents?: number }[] = [];
   try {
     const parsed = JSON.parse(order.items || "[]");
     if (Array.isArray(parsed)) {
       raw = parsed
         .filter((x: any) => x && x.slug)
-        .map((x: any) => ({ slug: String(x.slug), format: String(x.format || "digital"), qty: itemQty(x) }));
+        .map((x: any) => ({
+          slug: String(x.slug),
+          format: String(x.format || "digital"),
+          qty: itemQty(x),
+          ...(Number.isFinite(Number(x?.priceCents)) && Number(x?.priceCents) >= 0
+            ? { priceCents: Math.round(Number(x.priceCents)) }
+            : {}),
+        }));
     }
   } catch { /* fall through to book_slugs */ }
   if (!raw.length) {
@@ -664,7 +684,11 @@ function groupOrderItems(
   const groups: OrderItemGroup[] = [];
   const byKey = new Map<string, OrderItemGroup>();
   for (const i of raw) {
-    const key = i.slug + "|" + i.format;
+    // A stored per-line price (manual orders) is part of the group
+    // identity: two lines for the same book at different prices stay
+    // separate rows, priced as entered. Checkout lines never carry
+    // one, so their keys are unchanged.
+    const key = i.slug + "|" + i.format + "|" + (i.priceCents != null ? String(i.priceCents) : "");
     const existing = byKey.get(key);
     if (existing) {
       existing.count += itemQty(i);
@@ -683,9 +707,11 @@ function groupOrderItems(
             (book.cover_key ? MEDIA_PUBLIC + book.cover_key : null)
           : null,
         href: book ? (i.format === "audio" ? `/audiobooks/${pub}` : `/books/${pub}`) : null,
-        unitCents: book
-          ? checkoutItemPrice(book, i.format, { digital: false, audio: false })?.cents ?? null
-          : null,
+        unitCents: i.priceCents != null
+          ? i.priceCents
+          : book
+            ? checkoutItemPrice(book, i.format, { digital: false, audio: false })?.cents ?? null
+            : null,
       };
       byKey.set(key, g);
       groups.push(g);
@@ -738,11 +764,16 @@ export interface PricedOrderLine {
 // mirror checkoutItemPrice and receipt.astro: per-book price columns
 // win for digital and printed, gift set and audio are the catalog
 // constants, quantities multiply, and an audio-upgrade digital line
-// is credited the audio price its buyer already paid. Lines group by
-// slug + format + credit, the way the confirmation has always grouped.
+// is credited the audio price its buyer already paid. A stored
+// per-line price (manual orders only) wins over all of it. Lines
+// group by slug + format + credit, the way the confirmation has
+// always grouped.
 export function pricedOrderLines(order: any, books: BookFiles[]): PricedOrderLine[] {
   const bookBySlug = new Map(books.map((b) => [b.slug, b]));
-  const unitFor = (item: { slug: string; format: string; upgrade?: string }): number => {
+  const unitFor = (item: { slug: string; format: string; upgrade?: string; priceCents?: number }): number => {
+    // A stored per-line price (manual orders only) is what was
+    // actually charged; it wins over every catalog rule below.
+    if (item.priceCents != null) return item.priceCents;
     const b = bookBySlug.get(item.slug);
     const digital = Math.round(Number(b?.price || 0)) || STANDARD_DIGITAL_PRICE_CENTS;
     if (item.upgrade === "audio-upgrade") return Math.max(0, digital - AUDIO_PRICE_CENTS);
@@ -754,7 +785,7 @@ export function pricedOrderLines(order: any, books: BookFiles[]): PricedOrderLin
   };
   const grouped = new Map<string, PricedOrderLine>();
   for (const i of parseItems(order)) {
-    const key = `${i.slug}|${i.format}|${i.upgrade || ""}`;
+    const key = `${i.slug}|${i.format}|${i.upgrade || ""}|${i.priceCents != null ? i.priceCents : ""}`;
     const found = grouped.get(key);
     if (found) {
       found.qty += itemQty(i);
@@ -1153,6 +1184,170 @@ export async function setOrderPack(db: DBLike, orderId: string, pack: PackState)
     .prepare("UPDATE orders SET pack_json = ? WHERE id = ?")
     .bind(JSON.stringify(pack), orderId)
     .run();
+}
+
+// ---------------------------------------------------------------------------
+// Manual orders (admin redesign fix, 2026-11-03): an operator can
+// create a real order by hand for an offline sale, a replacement, or
+// a comp. The row is an ordinary completed order in every fulfillment
+// respect, marked in its data: source = 'manual', the Stripe session
+// slot carries 'manual:<id>' (manual orders have no Stripe objects),
+// and an internal admin_note rides along for the detail page. No
+// emails are enqueued at creation; the shipped and delivered emails
+// fire through the normal fulfillment actions afterwards, exactly as
+// for a checkout order. Label purchase on a manual order goes through
+// the fresh-quote path (there is no checkout rate to reuse).
+
+export async function ensureOrderManualColumns(db: DBLike): Promise<void> {
+  await ensureOnce(db, "orders.manual_columns", async () => {
+    const { results } = await db
+      .prepare("SELECT name FROM pragma_table_info('orders')")
+      .bind()
+      .all();
+    const have = new Set((results || []).map((r: any) => String(r.name)));
+    if (!have.has("source")) {
+      await db.prepare("ALTER TABLE orders ADD COLUMN source TEXT").bind().run();
+    }
+    if (!have.has("admin_note")) {
+      await db.prepare("ALTER TABLE orders ADD COLUMN admin_note TEXT").bind().run();
+    }
+  });
+}
+
+export interface ManualOrderLineInput {
+  // The book's PUBLIC slug, as picked in the form; the internal slug
+  // is resolved server-side and is what the order row stores.
+  slug: string;
+  format: string;
+  qty: number;
+  priceCents: number;
+}
+
+export interface ManualOrderAddress {
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country?: string;
+}
+
+/** The catalog the manual-order form picks from: sellable books by
+ *  public title, with the store's default price per format (the form
+ *  pre-fills these and the admin may edit them per line). */
+export async function listManualOrderCatalog(db: DBLike): Promise<
+  {
+    slug: string;
+    title: string;
+    prices: { digital: number | null; printed: number | null; giftset: number | null; audio: number | null };
+  }[]
+> {
+  await ensurePublicSlugColumn(db);
+  const { results } = await db
+    .prepare(
+      `SELECT slug, title, price, price_print, picture_book_key, coloring_book_key, audiobook_key, public_slug
+       FROM books WHERE status IN ('complete', 'ready_for_qa') ORDER BY title`
+    )
+    .bind()
+    .all();
+  return ((results || []) as any[]).map((b) => ({
+    slug: publicSlugFor(b),
+    title: String(b.title || b.slug),
+    prices: {
+      digital: checkoutItemPrice(b, "digital", { digital: false, audio: false })?.cents ?? null,
+      printed: checkoutItemPrice(b, "printed", { digital: false, audio: false })?.cents ?? null,
+      giftset: checkoutItemPrice(b, "giftset", { digital: false, audio: false })?.cents ?? null,
+      audio: checkoutItemPrice(b, "audio", { digital: false, audio: false })?.cents ?? null,
+    },
+  }));
+}
+
+export async function createManualOrder(
+  db: DBLike,
+  args: {
+    name?: string;
+    email: string;
+    address?: ManualOrderAddress | null;
+    lines: ManualOrderLineInput[];
+    shippingCents?: number;
+    note?: string;
+  }
+): Promise<{ ok: true; order: any } | { ok: false; error: string }> {
+  await ensureOrderManualColumns(db);
+  const email = String(args.email || "").trim();
+  if (!email || !email.includes("@")) {
+    return { ok: false, error: "A customer email is required." };
+  }
+  const rawLines = Array.isArray(args.lines) ? args.lines : [];
+  if (!rawLines.length) {
+    return { ok: false, error: "Add at least one book to the order." };
+  }
+  const items: CartItem[] = [];
+  for (const line of rawLines) {
+    const format = normalizeFormat(line?.format);
+    const internal = await resolveInternalSlug(db, String(line?.slug || "")).catch(() => null);
+    if (!internal) {
+      return { ok: false, error: `That book is not on the shelf: ${String(line?.slug || "")}` };
+    }
+    const priceCents = Math.round(Number(line?.priceCents));
+    if (!Number.isFinite(priceCents) || priceCents < 0) {
+      return { ok: false, error: "Every line needs a price of zero or more." };
+    }
+    items.push({
+      slug: internal,
+      format,
+      qty: lineQty({ format, qty: line?.qty }),
+      priceCents,
+    });
+  }
+  const physical = items.some((i) => isPhysicalFormat(i.format));
+  let shipAddress: string | null = null;
+  if (args.address && (args.address.line1 || args.address.city || args.address.postal_code)) {
+    shipAddress = JSON.stringify({
+      line1: String(args.address.line1 || ""),
+      line2: String(args.address.line2 || ""),
+      city: String(args.address.city || ""),
+      state: String(args.address.state || ""),
+      postal_code: String(args.address.postal_code || ""),
+      country: String(args.address.country || "US"),
+    });
+  }
+  if (physical && !shipAddress) {
+    return { ok: false, error: "A shipping address is required when the order has printed books." };
+  }
+  const shippingCents = Math.max(0, Math.round(Number(args.shippingCents || 0)) || 0);
+  const amount =
+    items.reduce((sum, i) => sum + (i.priceCents || 0) * itemQty(i), 0) + shippingCents;
+  const id = "ord_" + crypto.randomUUID();
+  const ts = Math.floor(Date.now() / 1000);
+  const bookSlugs = [...new Set(items.map((i) => i.slug))];
+  await db
+    .prepare(
+      `INSERT INTO orders (id, user_id, email, book_slugs, items, stripe_session_id, amount, currency, status,
+         delivery_token, created_at, physical_status, ship_name, ship_address, shipping_cents, source, admin_note)
+       VALUES (?, '', ?, ?, ?, ?, ?, 'usd', 'complete', ?, ?, ?, ?, ?, ?, 'manual', ?)`
+    )
+    .bind(
+      id,
+      email,
+      JSON.stringify(bookSlugs),
+      JSON.stringify(items),
+      "manual:" + id,
+      amount,
+      crypto.randomUUID(),
+      ts,
+      // Physical lines land on the packing shelf at the first stage,
+      // exactly like a completed checkout order; a digital-only
+      // manual order carries no physical status and is fulfilled.
+      physical ? "preorder_received" : null,
+      String(args.name || "").trim() || null,
+      shipAddress,
+      shippingCents,
+      String(args.note || "").trim() || null
+    )
+    .run();
+  const order = await db.prepare("SELECT * FROM orders WHERE id = ?").bind(id).first();
+  return { ok: true, order };
 }
 
 // Enqueue an email. The unique (order_id, kind) index makes this a no-op

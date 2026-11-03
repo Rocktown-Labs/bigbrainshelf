@@ -171,6 +171,23 @@ const orderId = String(Astro.params.id || "");
       if (!shippo || !shippo.configured) return quotedLine + '<p class="text-sm text-stone-400 mt-2">Label buying is not set up yet (see the Shippo note on the orders page).</p>';
       if (!shippo.originConfigured) return quotedLine + '<p class="text-sm text-stone-400 mt-2">Ship-from address not configured yet (see the checklist on the orders page).</p>';
       if (!o.ship_address) return quotedLine + '<p class="text-sm text-stone-400 mt-2">No shipping address on this order.</p>';
+      // The checkout rate is the primary path (admin redesign fix,
+      // 2026-11-03): checkout already quoted this parcel and charged
+      // the buyer, so step 1 is buying THAT label, not a fresh quote.
+      // The quote flow below stays as the fallback for orders with no
+      // stored rate; when a stored-rate purchase fails as expired the
+      // API clears the stored rate and this page reloads into it.
+      if (o.shippo_rate_id) {
+        var via = [o.quoted_carrier, o.quoted_service].filter(Boolean).join(" ");
+        return quotedLine +
+          '<div class="mt-3 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3">' +
+            '<p class="text-sm font-bold">Checkout rate' + (via ? ": " + esc(via) : "") + "</p>" +
+            '<p class="text-[13px] text-stone-500 mt-0.5">Quoted at checkout and already charged to the buyer. Buy this exact label first; the printed-label step follows.</p>' +
+            '<button id="buy-stored-label" class="tap mt-2.5 rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 min-h-[44px]">Buy label at the checkout rate</button>' +
+            '<span id="stored-buy-msg" class="block text-[13px] text-stone-500 mt-1.5" role="status"></span>' +
+          "</div>" +
+          '<div class="mt-3 flex flex-wrap items-center gap-2"><button id="quote-label" class="tap rounded-lg border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">Get a fresh rate instead</button><span id="quote-slot" class="inline-block align-middle"></span></div>';
+      }
       return quotedLine + '<div class="mt-3 flex flex-wrap items-center gap-2"><button id="quote-label" class="tap rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 min-h-[44px]">Get shipping rate</button><span id="quote-slot" class="inline-block align-middle"></span></div>';
     }
 
@@ -372,7 +389,12 @@ const orderId = String(Astro.params.id || "");
           '<h1 class="text-[1.7rem] font-extrabold tracking-tight">' + esc(o.short_id || o.id) + "</h1>" +
           '<span class="chip chip-lg chip-' + esc(o.status) + '">' + esc(o.status) + "</span>" +
           (o.physical_status ? '<span class="chip chip-lg chip-print">' + esc(LABELS[o.physical_status] || o.physical_status) + "</span>" : "") +
+          (o.source === "manual" ? '<span class="chip chip-lg" style="background:#ede9fe;color:#5b21b6">Manual order</span>' : "") +
         "</div>" +
+        (o.source === "manual"
+          ? '<p class="text-sm text-stone-500 mt-1.5">Created by hand in admin. No payment was taken here.' +
+            (o.admin_note ? ' <span class="font-medium text-stone-700">Note: ' + esc(o.admin_note) + "</span>" : "") + "</p>"
+          : "") +
 
         (o.status === "pending"
           ? '<p class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"><strong>Checkout never completed.</strong> This order is unpaid, so nothing ships and nothing delivers until payment lands.</p>'
@@ -504,6 +526,26 @@ const orderId = String(Astro.params.id || "");
         if (!resp.ok) {
           var aerr = await resp.json().catch(function () { return {}; });
           alert(aerr.error || "That step is not ready yet. See the Fulfillment card for what is missing.");
+        }
+        load();
+      });
+      var storedBtn = document.getElementById("buy-stored-label");
+      if (storedBtn) storedBtn.addEventListener("click", async function () {
+        var msg = document.getElementById("stored-buy-msg");
+        storedBtn.disabled = true;
+        storedBtn.textContent = "Buying label...";
+        var resp = await fetch("/api/admin/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "buy_label", order_id: o.id, shipment_id: o.shippo_shipment_id || "", rate_id: o.shippo_rate_id }),
+        });
+        var out = await resp.json().catch(function () { return {}; });
+        if (!resp.ok || !out.ok) {
+          // An expired stored rate is cleared by the API on this
+          // failure; reloading repaints into the fresh-quote fallback.
+          if (msg) msg.textContent = (out.error || "Label purchase failed.") + " Reloading...";
+          setTimeout(load, 900);
+          return;
         }
         load();
       });
