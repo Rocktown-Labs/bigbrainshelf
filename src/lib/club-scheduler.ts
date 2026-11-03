@@ -105,6 +105,7 @@ export interface ScheduledWorkSummary {
   flushedBefore: OutboxFlushSummary;
   club: ClubSchedulerSummary;
   birthdayGifts?: { checkedKids: number; queuedBirthdayEmails: number };
+  adminDigest?: { queued: number; urgentTotal: number };
   tracking: TrackingPollSummary;
   flushedAfter: OutboxFlushSummary;
 }
@@ -138,6 +139,13 @@ export async function runScheduledWork(
   } catch (err: any) {
     console.error("scheduled birthday gift pass failed", err?.message || err);
   }
+  let adminDigest = { queued: 0, urgentTotal: 0 };
+  try {
+    const { runAdminDigest } = await import("./admin-digest");
+    adminDigest = await runAdminDigest(db as any, opts.now || new Date());
+  } catch (err: any) {
+    console.error("scheduled admin digest failed", err?.message || err);
+  }
   let tracking = emptyTracking();
   try {
     tracking = await pollShippedOrderTracking(db, env, site, 25);
@@ -150,5 +158,5 @@ export async function runScheduledWork(
   } catch (err: any) {
     console.error("scheduled outbox flush (after) failed", err?.message || err);
   }
-  return { flushedBefore, club, birthdayGifts, tracking, flushedAfter };
+  return { flushedBefore, club, birthdayGifts, adminDigest, tracking, flushedAfter };
 }

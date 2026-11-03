@@ -12,6 +12,7 @@
 // dashboard reports the book-level gates it can actually see.
 import { orderItemLabels } from "./orders";
 import { ensurePublicSlugColumn, publicSlugFor } from "./public-slugs";
+import { getUrgency, type UrgencyData } from "./urgency";
 
 export interface AdminDashboardData {
   ordersTotal: number;
@@ -19,6 +20,7 @@ export interface AdminDashboardData {
   orders7d: number;
   revenue30dCents: number;
   pendingFulfillment: { printedWaiting: number; boxesNeedAttention: number; total: number };
+  urgent: UrgencyData;
   attention: {
     brokenBooks: { slug: string; adminSlug: string; title: string; state: string }[];
     booksAtGates: number;
@@ -208,11 +210,18 @@ export async function getAdminDashboard(db: any, nowSec: number): Promise<AdminD
     createdAt: Number(o.created_at || 0),
   }));
 
+  // ---- Urgency (time-based; CG, 2026-11-02) ------------------------
+  const urgent = await getUrgency(db, nowSec, isoDay(dayStart)).catch(() => ({
+    overdueBoxes: [], overdueBoxCount: 0, boxesDueSoon: 0,
+    agedOrders: [], agedOrderCount: 0, failedChanges: 0, total: 0,
+  }));
+
   return {
     ordersTotal,
     ordersToday,
     orders7d,
     revenue30dCents,
+    urgent,
     pendingFulfillment: {
       printedWaiting,
       boxesNeedAttention,

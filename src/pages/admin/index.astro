@@ -87,6 +87,10 @@ const attentionEmpty =
       .actions a:hover{border-color:#d6d3d1;color:#1c1917}
     }
 
+    /* Urgent card: time-based trouble, red-tinted so it reads at a glance. */
+    .urgent{border-color:#fecaca;background:#fffafa}
+    .urgent h2{color:#b91c1c}
+
     .cols{display:grid;grid-template-columns:1fr;gap:0 20px}
     @media (min-width:900px){
       .cols{grid-template-columns:repeat(2,1fr)}
@@ -160,6 +164,65 @@ const attentionEmpty =
       <a href="/admin/reviews">Reviews</a>
       <a href="/admin/books/new">+ New story</a>
     </nav>
+
+    {d.urgent.total > 0 && (
+      <div class="card urgent">
+        <h2>Urgent</h2>
+        <ul class="list">
+          {d.urgent.overdueBoxCount > 0 && (
+            <li>
+              <a class="row" href="/admin/club">
+                <span class="badge">{d.urgent.overdueBoxCount}</span>
+                <span class="row-main">
+                  <span class="row-title">Club {d.urgent.overdueBoxCount === 1 ? "box" : "boxes"} past the ship date</span>
+                  {d.urgent.overdueBoxes[0] && (
+                    <span class="row-sub">Oldest was due {d.urgent.overdueBoxes[0].shipDate}, {d.urgent.overdueBoxes[0].daysOverdue} {d.urgent.overdueBoxes[0].daysOverdue === 1 ? "day" : "days"} overdue</span>
+                  )}
+                </span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          )}
+          {d.urgent.agedOrderCount > 0 && (
+            <li>
+              <a class="row" href="/admin/orders">
+                <span class="badge">{d.urgent.agedOrderCount}</span>
+                <span class="row-main">
+                  <span class="row-title">Printed {d.urgent.agedOrderCount === 1 ? "order" : "orders"} waiting 3+ days to ship</span>
+                  {d.urgent.agedOrders[0] && (
+                    <span class="row-sub">Oldest has waited {d.urgent.agedOrders[0].ageDays} days</span>
+                  )}
+                </span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          )}
+          {d.urgent.boxesDueSoon > 0 && (
+            <li>
+              <a class="row" href="/admin/club">
+                <span class="badge">{d.urgent.boxesDueSoon}</span>
+                <span class="row-main">
+                  <span class="row-title">Club {d.urgent.boxesDueSoon === 1 ? "box ships" : "boxes ship"} within 2 days, not yet being prepared</span>
+                </span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          )}
+          {d.urgent.failedChanges > 0 && (
+            <li>
+              <a class="row" href="/admin/books">
+                <span class="badge">{d.urgent.failedChanges}</span>
+                <span class="row-main">
+                  <span class="row-title">Page {d.urgent.failedChanges === 1 ? "fix" : "fixes"} failed</span>
+                  <span class="row-sub">Those pages kept their old art</span>
+                </span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          )}
+        </ul>
+      </div>
+    )}
 
     <div class="cols">
       <div class="card">

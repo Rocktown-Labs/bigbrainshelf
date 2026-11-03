@@ -1047,7 +1047,7 @@ export async function ensureOutboxColumns(db: DBLike): Promise<void> {
 // because email.ts imports from this module). Callers that pass an
 // explicit fromEmail (marketing sends from news@) always win; kinds not
 // listed here send from the orders@ default at flush time.
-const NOREPLY_KINDS = new Set(["magic_link", "password_reset", "contact_form"]);
+const NOREPLY_KINDS = new Set(["magic_link", "password_reset", "contact_form", "admin_digest"]);
 const HELLO_KINDS = new Set([
   "family_onboarding",
   "birthday_gift",
