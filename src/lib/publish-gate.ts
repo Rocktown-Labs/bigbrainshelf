@@ -1,11 +1,12 @@
-import { captureBookRevision, assertRevisionUnchanged } from '../../packages/core/src/book-revision';
+import { captureBookRevision, assertRevisionUnchanged, revisionHash } from '../../packages/core/src/book-revision';
 import { countApprovedInventory } from './book-plans';
 import { getPublishReadiness } from './publish-readiness';
 import { getDeliveryReadiness } from './delivery-readiness';
 import { publishPriceStamp } from './offers';
 
 export class PublishBlocked extends Error {
-  constructor(public gate: string, message: string, public blockers: { id: string; detail: string }[] = [], public status = 409) {
+  constructor(public gate: string, message: string, public blockers: { id: string; detail: string }[] = [], public status = 409,
+    public verification?: string) {
     super(message);
   }
 }
@@ -47,17 +48,22 @@ export async function publishVerifiedBook(
     if (check.id !== 'marketing-assets' && check.state !== 'pass') blockers.push({ id: `delivery:${check.id}`, detail: check.detail });
   }
 
+  // Bind the operator's confirmation to the exact revision and named evidence
+  // shown in the blocked response, not merely reusable check IDs.
+  const verification = revisionHash({ revision: manifest.revision, blockers });
   const override = input.publishOverride;
   if (override !== undefined && (!override || typeof override.reason !== 'string' || !override.reason.trim() ||
     override.reason.length > 2000 || !Array.isArray(override.checks) || !override.checks.length ||
-    override.checks.some((id: unknown) => typeof id !== 'string')))
-    throw new PublishBlocked('override', 'An override requires a reason and explicit check IDs.', blockers, 400);
+    override.checks.some((id: unknown) => typeof id !== 'string') || typeof override.verification !== 'string'))
+    throw new PublishBlocked('override', 'An override requires a reason, explicit check IDs and the verification fingerprint.', blockers, 400);
   if (override && !actor) throw new PublishBlocked('override', 'An authenticated operator is required for an override.', blockers, 403);
+  if (override && override.verification !== verification)
+    throw new PublishBlocked('override', 'Readiness changed. Review the current revision and blockers before overriding.', blockers);
   const waived = new Set<string>(override?.checks ?? []);
   if ([...waived].some(id => !blockers.some(b => b.id === id)))
     throw new PublishBlocked('override', 'Readiness changed. Review the current blockers before overriding.', blockers);
   if (blockers.some(b => !waived.has(b.id)))
-    throw new PublishBlocked('readiness', blockers.map(b => b.detail).join(' '), blockers);
+    throw new PublishBlocked('readiness', blockers.map(b => b.detail).join(' '), blockers, 409, verification);
 
   // Recheck object versions immediately before the DB transaction. This is a
   // race detector, not a substitute for immutable release keys (next slice).
@@ -88,7 +94,7 @@ export async function publishVerifiedBook(
         .bind(slug, ...bookFields.map(field => book[field] ?? null), slug,
           ...manifest.pages.flatMap(p => [p.chapter, p.page]), manifest.pages.length,
           releaseId, slug, manifest.revision, JSON.stringify(manifest), JSON.stringify({ audio, delivery, blockers }),
-          override ? JSON.stringify({ reason: override.reason.trim(), checks: [...waived], waived: blockers }) : null, actor, now),
+          override ? JSON.stringify({ reason: override.reason.trim(), checks: [...waived], waived: blockers, verification }) : null, actor, now),
       db.prepare('UPDATE books SET status = ?, price = ?, price_print = ?, updated_at = ? WHERE slug = ?')
         .bind('complete', prices.price, prices.price_print, now, slug),
     ]);

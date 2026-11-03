@@ -4,7 +4,7 @@ import { publishVerifiedBook, PublishBlocked } from '../../../lib/publish-gate';
 import { stampPublishedAt, enqueueReleaseAnnouncements } from '../../../lib/releases';
 import { ensureBookPublicSlug } from '../../../lib/public-slugs';
 
-// POST { book_slug, publishOverride?: { reason, checks: string[] } }.
+// POST { book_slug, publishOverride?: { reason, checks: string[], verification } }.
 // Inventory and page approvals are mandatory. Readiness exceptions name the
 // exact checks waived and are committed atomically with publication.
 export const POST: APIRoute = async ({ request, locals }) => {
@@ -16,7 +16,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     published = await publishVerifiedBook(db, e.BOOKS, b, (locals as any).user?.email ?? null);
   } catch (error) {
     if (error instanceof PublishBlocked)
-      return Response.json({ ok: false, gate: error.gate, reason: error.message, blockers: error.blockers }, { status: error.status });
+      return Response.json({ ok: false, gate: error.gate, reason: error.message, blockers: error.blockers,
+        verification: error.verification }, { status: error.status });
     return Response.json({ ok: false, reason: 'Publication could not be verified.' }, { status: 503 });
   }
   const book_slug = published.slug;

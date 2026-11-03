@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test';
 import { Database } from 'bun:sqlite';
-import { captureBookRevision, assertRevisionUnchanged, readPlanInventory } from '../packages/core/src/book-revision';
+import { captureBookRevision, assertRevisionUnchanged, readPlanInventory, revisionHash } from '../packages/core/src/book-revision';
 import { publishVerifiedBook } from '../src/lib/publish-gate';
 import { getDeliveryReadiness } from '../src/lib/delivery-readiness';
 
@@ -104,7 +104,11 @@ test('unknown readiness blocks without publishing', async () => {
 test('explicit override records unknown evidence, reason, operator and actual artifact manifest', async () => {
   const f = fixture();
   f.checks.audio = async () => null;
-  const result = await publishVerifiedBook(f.db, f.bucket, { book_slug: 'test', publishOverride: { reason: 'CG accepts unavailable audio', checks: ['audio'] } }, 'cg', f.checks);
+  const blocked = await publishVerifiedBook(f.db, f.bucket, { book_slug: 'test' }, 'cg', f.checks).catch(error => error);
+  expect(blocked.verification).toHaveLength(64);
+  const result = await publishVerifiedBook(f.db, f.bucket, { book_slug: 'test', publishOverride: {
+    reason: 'CG accepts unavailable audio', checks: ['audio'], verification: blocked.verification,
+  } }, 'cg', f.checks);
   expect(f.status()).toBe('complete');
   const saved: any = f.raw.query('SELECT * FROM publish_releases').get();
   expect(saved.actor).toBe('cg');
@@ -180,4 +184,31 @@ test('delivery verification in read-only mode never seeds or creates tables', as
   const result = await getDeliveryReadiness(db, f.bucket, 'test', { readOnly: true });
   expect(result).not.toBeNull();
   expect(statements.some(sql => /\b(CREATE|ALTER|INSERT|UPDATE|DELETE)\b/i.test(sql))).toBe(false);
+});
+
+test('an override cannot confirm a different revision than the operator reviewed', async () => {
+  const f = fixture();
+  f.checks.audio = async () => null;
+  const { manifest } = await captureBookRevision(f.bucket, 'test', [
+    { key: 'books/test/picture-book.pdf', role: 'picture_book_key' },
+    { key: 'books/test/coloring-book.pdf', role: 'coloring_book_key' },
+  ]);
+  const verification = revisionHash({ revision: manifest.revision,
+    blockers: [{ id: 'audio', detail: 'Audio readiness could not be verified.' }] });
+  f.put('books/test/images/S1-page-0.jpg', 'EDIT');
+  await expect(publishVerifiedBook(f.db, f.bucket, { book_slug: 'test', publishOverride: {
+    reason: 'CG reviewed the earlier revision', checks: ['audio'], verification,
+  } }, 'cg', f.checks)).rejects.toThrow('Readiness changed');
+  expect(f.status()).toBe('ready_for_qa');
+});
+
+test('unchanged artifacts do not authorize an override of changed readiness evidence', async () => {
+  const f = fixture();
+  f.checks.audio = async () => null;
+  const blocked = await publishVerifiedBook(f.db, f.bucket, { book_slug: 'test' }, 'cg', f.checks).catch(error => error);
+  f.checks.audio = async () => ({ ready: false, state: 'draft-audio', blockers: ['The voice assignment changed.'] });
+  await expect(publishVerifiedBook(f.db, f.bucket, { book_slug: 'test', publishOverride: {
+    reason: 'CG reviewed the earlier audio evidence', checks: ['audio'], verification: blocked.verification,
+  } }, 'cg', f.checks)).rejects.toThrow('Readiness changed');
+  expect(f.status()).toBe('ready_for_qa');
 });

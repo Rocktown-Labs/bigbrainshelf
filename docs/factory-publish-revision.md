@@ -56,12 +56,16 @@ CG retains an explicit exception:
   "book_slug": "example",
   "publishOverride": {
     "reason": "CG accepts this listed readiness exception for this release",
-    "checks": ["audio", "delivery:audio-production"]
+    "checks": ["audio", "delivery:audio-production"],
+    "verification": "fingerprint returned with the blocked response"
   }
 }
 ```
 
-Use the exact IDs in the current blocked response. Unknown/stale IDs, blank
+Use the exact IDs and verification fingerprint in the current blocked response.
+The fingerprint hashes the captured revision and exact blocker details; changed
+artifacts or changed readiness evidence require a new operator confirmation.
+Unknown/stale IDs, blank
 reasons, anonymous operators and partial coverage of the blockers are refused.
 Inventory and page approvals cannot be waived. The previous blanket
 `audioGateOverride` flag does not authorize an exception. The admin editor now
@@ -126,7 +130,7 @@ seeds Blaze; that failure was reproduced in the untouched audit checkout. The
 fixture now uses the current name. Tests use in-memory SQLite and fake object
 storage, including transactional rollback and multi-chunk artifact hashing.
 
-Results for this slice: 22 focused tests passed, as did the existing
+Results for this slice: 24 focused tests passed, as did the existing
 publish-readiness, delivery-readiness, book-pages, public-slugs, publish-prices,
 and takes script suites. `bun run astro build` passed (including the modified
 endpoint and admin script). `git diff --check` passed.
@@ -139,3 +143,13 @@ Two broader checks remain red independently of these fixes:
 - `bun tests/releases.test.ts`: the fixture lacks the `user` table used by
   notification preferences. The same failure was reproduced in the untouched
   audit checkout. Release-announcement implementation was not changed.
+
+## OpenCodeReview-assisted follow-up
+
+The local CLI's `ocr delegate preview --from main --to HEAD` and
+`ocr delegate rule` were used to select files and apply its review rules.
+This is host-agent review using OCR's offline delegation mode, not an independent
+LLM review. No paid calls were made. The pass found that an override could be
+reused after a revision change. A new offline regression reproduced the bypass
+before the fix; confirmation is now bound to both revision identity and blocker
+details. A second regression covers changed readiness with unchanged artifacts.

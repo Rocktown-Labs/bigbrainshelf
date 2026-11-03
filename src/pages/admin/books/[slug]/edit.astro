@@ -957,7 +957,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
             var details = res.j.blockers.map(function(b) { return b.id + ": " + b.detail; }).join("\n\n");
             if (window.confirm("Publish with these exceptions?\n\n" + details + "\n\nInventory and page approvals cannot be waived. Your reason and these checks will be recorded.")) {
               var reason = window.prompt("Reason for this publish exception:");
-              if (reason && reason.trim()) doPublish({ reason: reason.trim(), checks: res.j.blockers.map(function(b) { return b.id; }) });
+              if (reason && reason.trim()) doPublish({ reason: reason.trim(), checks: res.j.blockers.map(function(b) { return b.id; }), verification: res.j.verification });
             }
             return;
           }

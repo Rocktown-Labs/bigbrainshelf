@@ -15,7 +15,7 @@ async function run(confirm: boolean, reason: string | null) {
     fetch: async (_url: string, options: any) => {
       calls.push(JSON.parse(options.body));
       return calls.length === 1
-        ? { ok: false, status: 409, json: async () => ({ gate: 'readiness', blockers: [{ id: 'audio', detail: 'Unknown audio.' }] }) }
+        ? { ok: false, status: 409, json: async () => ({ gate: 'readiness', verification: 'reviewed-revision', blockers: [{ id: 'audio', detail: 'Unknown audio.' }] }) }
         : { ok: true, status: 200, json: async () => ({ reason: 'Published.', override: { checks: ['audio'], recorded: true } }) };
     },
   };
@@ -33,7 +33,7 @@ test('publish exception requires confirmation and a nonempty reason', async () =
 test('confirmed exception sends only the displayed check IDs and entered reason', async () => {
   const result = await run(true, 'CG accepts unavailable audio');
   expect(result.calls).toEqual([{ book_slug: 'test' }, { book_slug: 'test', publishOverride: {
-    reason: 'CG accepts unavailable audio', checks: ['audio'],
+    reason: 'CG accepts unavailable audio', checks: ['audio'], verification: 'reviewed-revision',
   } }]);
   expect(result.prompts[0]).toContain('audio: Unknown audio.');
   expect(result.alerts[0]).toContain('Publish exceptions recorded: audio');
