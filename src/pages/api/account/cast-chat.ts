@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
+import { catalogLeadName } from "../../../lib/catalog";
 import { getEffectiveSession } from "../../../lib/auth";
 import { askCastCompanion, listCastCompanionBadges } from "../../../lib/family-sync";
 
@@ -27,7 +28,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     userId: String(session.user.id),
     kidProfileId: body.kidProfileId ? Number(body.kidProfileId) : null,
     bookSlug: String(body.bookSlug || "fern-counts-the-forest"),
-    characterName: String(body.characterName || "Fenix"),
+    characterName: String(body.characterName || catalogLeadName("algorithms")),
     questionText: String(body.questionText || "Where did you spot a pattern in the forest?"),
     vercelAiGatewayUrl: e.VERCEL_AI_GATEWAY_URL,
     vercelAiGatewayKey: e.VERCEL_AI_GATEWAY_KEY,

@@ -12,6 +12,7 @@
  */
 
 import { KID_AVATARS } from "./family";
+import { catalogLeadName } from "./catalog";
 import { retrieveCanonContinuity } from "./braintrust";
 
 export type FamilySyncBackendMode = "durable_object" | "d1_polling_scaffolding";
@@ -356,7 +357,7 @@ export async function askCastCompanion(params: {
   vercelAiGatewayUrl?: string;
   vercelAiGatewayKey?: string;
 }): Promise<CastCompanionReply> {
-  const requestedName = (params.characterName || "Fenix").trim();
+  const requestedName = (params.characterName || catalogLeadName("algorithms")).trim();
   const avatar =
     KID_AVATARS.find((a) => a.name.toLowerCase() === requestedName.toLowerCase()) ||
     KID_AVATARS.find((a) => a.id === "fern") ||
@@ -409,12 +410,12 @@ export async function askCastCompanion(params: {
   }
 
   if (!responseText) {
-    if (avatar.name === "Fenix") {
-      responseText = `*Fenix flicks her tail and grins.* When you asked "${cleanQuestion || "how the pattern works"}", it reminded me of the clever trails we follow, one smart step at a time. ${moral}`;
+    if (avatar.name === catalogLeadName("algorithms")) {
+      responseText = `*${avatar.name} flicks her tail and grins.* When you asked "${cleanQuestion || "how the pattern works"}", it reminded me of the clever trails we follow, one smart step at a time. ${moral}`;
     } else if (avatar.name === "Mira") {
       responseText = `*Mira stands tall in the still water and smiles.* Great question! Watching and waiting by the pond, I learned that ${moral}`;
-    } else if (avatar.name === "Wells") {
-      responseText = `*Wells taps a neat wooden container.* Down at the harbour, we tested that exact idea! ${moral}`;
+    } else if (avatar.name === catalogLeadName("docker")) {
+      responseText = `*${avatar.name} taps a neat wooden container.* Down at the harbour, we tested that exact idea! ${moral}`;
     } else {
       responseText = `*${avatar.name} (${avatar.label}) nods thoughtfully.* ${moral}`;
     }

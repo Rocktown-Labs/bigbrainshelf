@@ -11,6 +11,7 @@
  */
 
 import { KID_AVATARS, CURRENT_TOPIC_OPTIONS, FUTURE_TOPIC_OPTIONS } from "./family";
+import { catalogTitle } from "./catalog";
 
 export type BraintrustIndexName = "bbs-canon-lore" | "bbs-curriculum-discovery";
 export type BraintrustBackendMode = "vectorize_edge" | "d1_concept_scaffolding";
@@ -586,12 +587,12 @@ export async function clusterParentTopicDemand(db?: D1Database): Promise<
   // empty sample: that gap is exactly what the demand view exists to
   // show, and an invented title would hide it.
   const sampleTitles: Record<string, string> = {
-    tech: "Wells the Whale and the Great Harbor",
-    money: "Penny the Squirrel and the Acorn Orchard",
-    courage: "Wren the Songbird and the Gray Fog",
-    science: "Fenix the Fox and the Clever Trails",
-    math: "Maisie the Mouse and the Jar That Grew",
-    emotions: "Mira the Heron and the Still Water",
+    tech: catalogTitle("docker"),
+    money: catalogTitle("richdadpoordad"),
+    courage: catalogTitle("thewarofart"),
+    science: catalogTitle("algorithms"),
+    math: catalogTitle("compoundeffect"),
+    emotions: catalogTitle("mira-the-heron-and-the-still-water"),
   };
 
   return Object.entries(categoryCounts)

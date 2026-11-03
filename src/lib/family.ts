@@ -1,5 +1,6 @@
 import { ensureOnce } from "./schema-cache";
 import { enqueueEmail, type DBLike } from "./orders";
+import { catalogLeadName } from "./catalog";
 
 export function chicagoDateString(date: Date = new Date()): string {
   try {
@@ -27,7 +28,7 @@ export interface KidAvatarOption {
   imagePath: string;
 }
 
-export const KID_AVATARS: readonly KidAvatarOption[] = [
+const KID_AVATAR_DEFS: readonly KidAvatarOption[] = [
   {
     id: "mira",
     name: "Mira",
@@ -74,6 +75,23 @@ export const KID_AVATARS: readonly KidAvatarOption[] = [
     imagePath: "/images/characters/basil.webp",
   },
 ] as const;
+
+// Avatar names come from the catalog (src/data/catalog.json): a
+// character rename updates the catalog and lands here on its own.
+// The avatar ids are stable keys and never change.
+const AVATAR_BOOK: Record<string, string> = {
+  mira: "mira-the-heron-and-the-still-water",
+  penny: "richdadpoordad",
+  fern: "algorithms",
+  wally: "docker",
+  basil: "designpatterns",
+};
+
+export const KID_AVATARS: readonly KidAvatarOption[] = KID_AVATAR_DEFS.map((a) => {
+  const book = AVATAR_BOOK[a.id];
+  const lead = book ? catalogLeadName(book) : "";
+  return lead ? { ...a, name: lead } : a;
+});
 
 export const CURRENT_TOPIC_OPTIONS = [
   { id: "tech", label: "Tech & How Computers Work" },

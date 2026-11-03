@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
 import dockerChapters from '../../../data/docker_chapters.json';
+import { catalogTitle } from '../../../lib/catalog';
 import { adminMediaUrl, keyFromMediaValue } from '../../../lib/media';
 import { keyFromImageUrl } from '../../../lib/takes';
 import { loadFullChapters } from '../../../lib/book-pages';
@@ -44,7 +45,7 @@ export const GET: APIRoute = async ({ url }) => {
       const backColor = await e.BOOKS.head('books/docker/back-cover-color.jpg');
       const backLine = await e.BOOKS.head('books/docker/back-cover-line.jpg');
       return Response.json({
-        title: "Wells the Whale and the Great Harbor",
+        title: catalogTitle("docker"),
         slug: "docker", totalPages, chapters,
         backCoverColor: backColor ? adminMediaUrl('books/docker/back-cover-color.jpg') : "",
         backCoverLine: backLine ? adminMediaUrl('books/docker/back-cover-line.jpg') : "",
@@ -53,7 +54,7 @@ export const GET: APIRoute = async ({ url }) => {
     const chapters: any = gatedChapters(await loadFullChapters(e.BOOKS, slug, dockerChapters as any[]));
     const totalPages = chapters.reduce((s: number, c: any) => s + c.pages.length, 0);
     return Response.json({
-      title: "Wells the Whale and the Great Harbor",
+      title: catalogTitle("docker"),
       slug: "docker", totalPages, chapters,
     });
   }

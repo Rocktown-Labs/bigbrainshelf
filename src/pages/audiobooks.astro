@@ -7,6 +7,7 @@ import SectionHero from "../components/SectionHero.astro";
 import SectionNav from "../components/SectionNav.astro";
 import Tracking from "../components/Tracking.astro";
 import { ClientRouter } from "astro:transitions";
+import { catalogLeadDisplayName } from "../lib/catalog";
 import TransitionHooks from "../components/TransitionHooks.astro";
 import SeoHead from "../components/SeoHead.astro";
 import AudiobookBadge from "../components/AudiobookBadge.astro";
@@ -107,7 +108,7 @@ for (const it of items) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Audiobooks — Big Brain Shelf</title>
-  <SeoHead title="Audiobooks — Big Brain Shelf" socialDescription="Audiobooks on tech, money, and courage, told so kids can get it. Hear the introduction and first chapter of every book free." image="https://bigbrainshelf.com/og-image-audiobooks.jpg" imageAlt="Big Brain Shelf audiobooks, including Mira the Heron, Fenix the Fox and Wells the Whale" imageWidth={1200} imageHeight={630} />
+  <SeoHead title="Audiobooks — Big Brain Shelf" socialDescription="Audiobooks on tech, money, and courage, told so kids can get it. Hear the introduction and first chapter of every book free." image="https://bigbrainshelf.com/og-image-audiobooks.jpg" imageAlt={`Big Brain Shelf audiobooks, including ${catalogLeadDisplayName("mira-the-heron-and-the-still-water")}, ${catalogLeadDisplayName("algorithms")} and ${catalogLeadDisplayName("docker")}`} imageWidth={1200} imageHeight={630} />
   <meta name="description" content="Audiobooks on tech, money, and courage, told so kids can get it. Hear the introduction and first chapter of every book free." />
     <ClientRouter />
   <TransitionHooks />

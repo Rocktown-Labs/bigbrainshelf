@@ -1,4 +1,6 @@
 ---
+import { catalogLeadDisplayName } from "../lib/catalog";
+
 // Central social / OpenGraph / Twitter metadata for public pages.
 //
 // Pages keep owning their own <title> and search meta description; this
@@ -25,8 +27,7 @@ const DEFAULT_TITLE = "Big Brain Shelf — Big ideas for little brains";
 const DEFAULT_SOCIAL =
   "Story + coloring books that teach big ideas to little readers. Watch, practice, keep going.";
 const DEFAULT_IMAGE = `${SITE}/og-image.jpg`;
-const DEFAULT_IMAGE_ALT =
-  "Big Brain Shelf book covers, including Mira the Heron, Fenix the Fox and Wells the Whale";
+const DEFAULT_IMAGE_ALT = `Big Brain Shelf book covers, including ${catalogLeadDisplayName("mira-the-heron-and-the-still-water")}, ${catalogLeadDisplayName("algorithms")} and ${catalogLeadDisplayName("docker")}`;
 
 const {
   title = DEFAULT_TITLE,

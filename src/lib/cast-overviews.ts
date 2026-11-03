@@ -1,3 +1,5 @@
+import { CATALOG } from "./catalog";
+
 // Public character overviews for /meet-the-cast: an archetype role label
 // and a short humanizing blurb per character. Keyed by `${bookSlug}:${name}`.
 // Public copy only: no voice or audio information lives here.
@@ -185,17 +187,9 @@ export const STILL_POOL_NOTE = {
 // Story order per book: protagonist first, then the rest of the cast in
 // bible order. Drives the index grouping, castmate rows and prev/next
 // navigation on the character pages.
-export const BOOK_CAST_ORDER: Record<string, string[]> = {
-  "mira-the-heron-and-the-still-water": ["Mira", "Ansel", "Dell", "The Otter"],
-  algorithms: ["Fenix", "Moss", "Orin"],
-  compoundeffect: ["Maisie", "Jasper", "Willa"],
-  designpatterns: ["Blaze", "Ada", "Nox"],
-  docker: ["Wells", "Pip", "Skipper"],
-  motivationmanifesto: ["Juno", "Tempo", "Pell"],
-  richdadpoordad: ["Penny", "Bram", "Hazel"],
-  thewarofart: ["Wren", "Cato", "the Fog"],
-  iwillteach: ["Tilda", "Bix", "Rook"],
-};
+export const BOOK_CAST_ORDER: Record<string, string[]> = Object.fromEntries(
+  CATALOG.books.map((b) => [b.id, b.cast.map((c) => c.name)])
+);
 
 // Longer detail-page copy per character: two short "Meet {name}"
 // paragraphs plus one fun detail line. Keyed like CAST_OVERVIEWS.
