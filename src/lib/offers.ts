@@ -133,7 +133,7 @@ export const AUDIO_CLUB_ANNUAL_PRICE_CENTS = 4900;
 // contents themselves stay operator-chosen; this mapping only drives
 // the day-one digital grant.
 export const CLUB_FIRST_BOX_BOOK: Record<string, string> = {
-  tech: "algorithms", // Fern the Fox and the Clever Trails
+  tech: "algorithms", // Fenix the Fox and the Clever Trails
   money: "richdadpoordad", // Penny the Squirrel and the Acorn Orchard
   courage: "mira-the-heron-and-the-still-water", // Mira the Heron and the Still Water
 };

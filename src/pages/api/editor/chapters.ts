@@ -44,7 +44,7 @@ export const GET: APIRoute = async ({ url }) => {
       const backColor = await e.BOOKS.head('books/docker/back-cover-color.jpg');
       const backLine = await e.BOOKS.head('books/docker/back-cover-line.jpg');
       return Response.json({
-        title: "Wally the Whale and the Great Harbor",
+        title: "Wells the Whale and the Great Harbor",
         slug: "docker", totalPages, chapters,
         backCoverColor: backColor ? adminMediaUrl('books/docker/back-cover-color.jpg') : "",
         backCoverLine: backLine ? adminMediaUrl('books/docker/back-cover-line.jpg') : "",
@@ -53,7 +53,7 @@ export const GET: APIRoute = async ({ url }) => {
     const chapters: any = gatedChapters(await loadFullChapters(e.BOOKS, slug, dockerChapters as any[]));
     const totalPages = chapters.reduce((s: number, c: any) => s + c.pages.length, 0);
     return Response.json({
-      title: "Wally the Whale and the Great Harbor",
+      title: "Wells the Whale and the Great Harbor",
       slug: "docker", totalPages, chapters,
     });
   }

@@ -855,7 +855,7 @@
    "v": 1
   },
   "fern": {
-   "name": "Fern",
+   "name": "Fenix",
    "bookSlug": "algorithms",
    "sheetKey": "characters/fern.png",
    "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/fern/portrait.png",
@@ -1031,7 +1031,7 @@
    "v": 1
   },
   "basil": {
-   "name": "Basil",
+   "name": "Blaze",
    "bookSlug": "designpatterns",
    "sheetKey": "characters/basil.png",
    "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/basil/portrait.png",
@@ -1193,7 +1193,7 @@
    "v": 1
   },
   "wally": {
-   "name": "Wally",
+   "name": "Wells",
    "bookSlug": "docker",
    "sheetKey": "characters/wally-v2.png",
    "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/wally/portrait.png",

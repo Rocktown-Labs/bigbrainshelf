@@ -42,8 +42,8 @@ export interface RegistryRow {
 // other assignment); they seed the registry so it starts truthful.
 export const RECORDED_CASTS: { character: string; voiceId: string; bookSlug: string }[] = [
   { character: "Mira", voiceId: "kore", bookSlug: "mira-the-heron-and-the-still-water" },
-  { character: "Wally", voiceId: "riko", bookSlug: "docker" },
-  { character: "Basil", voiceId: "enzo", bookSlug: "designpatterns" },
+  { character: "Wells", voiceId: "riko", bookSlug: "docker" },
+  { character: "Blaze", voiceId: "enzo", bookSlug: "designpatterns" },
 ];
 
 export async function ensureCastTables(db: any): Promise<void> {

@@ -692,3 +692,12 @@ VALUES ('FOUNDING15', 15, 3000, 10, 12, 1, 1793577600);
 ALTER TABLE orders ADD COLUMN promo_code TEXT;
 ALTER TABLE orders ADD COLUMN promo_discount_cents INTEGER;
 ALTER TABLE club_signups ADD COLUMN comp_until INTEGER;
+
+-- Retired public slugs keep resolving after a rename (2026-11-02):
+-- resolveBookForPublicRoute consults this table after live public
+-- slugs and 301s alias hits to the book's canonical public URL.
+CREATE TABLE IF NOT EXISTS book_slug_aliases (
+  alias TEXT PRIMARY KEY,
+  slug TEXT NOT NULL,
+  created_at INTEGER
+);

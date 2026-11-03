@@ -586,10 +586,10 @@ export async function clusterParentTopicDemand(db?: D1Database): Promise<
   // empty sample: that gap is exactly what the demand view exists to
   // show, and an invented title would hide it.
   const sampleTitles: Record<string, string> = {
-    tech: "Wally the Whale and the Great Harbor",
+    tech: "Wells the Whale and the Great Harbor",
     money: "Penny the Squirrel and the Acorn Orchard",
     courage: "Wren the Songbird and the Gray Fog",
-    science: "Fern the Fox and the Clever Trails",
+    science: "Fenix the Fox and the Clever Trails",
     math: "Maisie the Mouse and the Jar That Grew",
     emotions: "Mira the Heron and the Still Water",
   };

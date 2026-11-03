@@ -342,7 +342,7 @@ export async function updateFamilySyncState(
 
 /**
  * Guardrailed "Talk to the Cast" Story Companion:
- * - Strictly scoped to Big Brain Shelf characters (`Fern`, `Mira`, `Penny`, `Wally`, `Basil`) and book canon.
+ * - Strictly scoped to Big Brain Shelf characters (`Fenix`, `Mira`, `Penny`, `Wells`, `Blaze`) and book canon.
  * - Routes via Vercel AI Gateway (`VERCEL_AI_GATEWAY_URL`) when configured, with deterministic
  *   story-grounded canon responses (`source: "story_canon_scaffolding"`) when offline.
  */
@@ -356,7 +356,7 @@ export async function askCastCompanion(params: {
   vercelAiGatewayUrl?: string;
   vercelAiGatewayKey?: string;
 }): Promise<CastCompanionReply> {
-  const requestedName = (params.characterName || "Fern").trim();
+  const requestedName = (params.characterName || "Fenix").trim();
   const avatar =
     KID_AVATARS.find((a) => a.name.toLowerCase() === requestedName.toLowerCase()) ||
     KID_AVATARS.find((a) => a.id === "fern") ||
@@ -409,12 +409,12 @@ export async function askCastCompanion(params: {
   }
 
   if (!responseText) {
-    if (avatar.name === "Fern") {
-      responseText = `*Fern flicks her tail and grins.* When you asked "${cleanQuestion || "how the pattern works"}", it reminded me of the clever trails we follow, one smart step at a time. ${moral}`;
+    if (avatar.name === "Fenix") {
+      responseText = `*Fenix flicks her tail and grins.* When you asked "${cleanQuestion || "how the pattern works"}", it reminded me of the clever trails we follow, one smart step at a time. ${moral}`;
     } else if (avatar.name === "Mira") {
       responseText = `*Mira stands tall in the still water and smiles.* Great question! Watching and waiting by the pond, I learned that ${moral}`;
-    } else if (avatar.name === "Wally") {
-      responseText = `*Wally taps a neat wooden container.* Down at the harbour, we tested that exact idea! ${moral}`;
+    } else if (avatar.name === "Wells") {
+      responseText = `*Wells taps a neat wooden container.* Down at the harbour, we tested that exact idea! ${moral}`;
     } else {
       responseText = `*${avatar.name} (${avatar.label}) nods thoughtfully.* ${moral}`;
     }

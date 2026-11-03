@@ -39,21 +39,21 @@ export const CAST_OVERVIEWS: Record<string, CastOverview> = {
     blurb:
       "The Otter is charm with a plan. Slick, quick talking, and a little too eager to help, he talks Mira out of her good fishing spot with a story that is not true. He is the temptation of easy success, and the dry ditch at the end of it teaches Mira more than he ever meant to.",
   },
-  // Fern the Fox and the Clever Trails (algorithms)
-  "algorithms:Fern": {
+  // Fenix the Fox and the Clever Trails (algorithms)
+  "algorithms:Fenix": {
     role: "The Pathfinder",
     blurb:
-      "Fern wants every errand done the fastest way there is, and the forest keeps proving that fast is not always smart. Quick and clever, she learns to break big problems into small steps and to choose carefully at every fork in the trail. She is the part of every kid that would rather figure out the way than wander it.",
+      "Fenix wants every errand done the fastest way there is, and the forest keeps proving that fast is not always smart. Quick and clever, she learns to break big problems into small steps and to choose carefully at every fork in the trail. She is the part of every kid that would rather figure out the way than wander it.",
   },
   "algorithms:Moss": {
     role: "The Keeper of Notes",
     blurb:
-      "Moss moves slowly, writes everything down, and never has to solve the same problem twice. While Fern dashes ahead, Moss keeps the book of answers the whole forest can use again. He shows young readers that remembering is a kind of cleverness too.",
+      "Moss moves slowly, writes everything down, and never has to solve the same problem twice. While Fenix dashes ahead, Moss keeps the book of answers the whole forest can use again. He shows young readers that remembering is a kind of cleverness too.",
   },
   "algorithms:Orin": {
     role: "The Big Picture",
     blurb:
-      "Orin the owl sees the whole forest from above and keeps its great map correct, down to the last clearing and trail. Patient and wise, he teaches Fern to split one huge problem into smaller ones she can actually carry. He is the calm voice that asks, before anything else, what the whole trail looks like.",
+      "Orin the owl sees the whole forest from above and keeps its great map correct, down to the last clearing and trail. Patient and wise, he teaches Fenix to split one huge problem into smaller ones she can actually carry. He is the calm voice that asks, before anything else, what the whole trail looks like.",
   },
   // Maisie the Mouse and the Jar That Grew (compoundeffect)
   "compoundeffect:Maisie": {
@@ -71,11 +71,11 @@ export const CAST_OVERVIEWS: Record<string, CastOverview> = {
     blurb:
       "Willa speaks in small numbers, counts everything, and is in no hurry at all. She has watched tiny grains become full granaries for more winters than anyone can remember. She teaches Maisie, and young readers, what time does to small things done faithfully.",
   },
-  // Basil the Beaver and the Pattern Book (designpatterns)
-  "designpatterns:Basil": {
+  // Blaze the Beaver and the Pattern Book (designpatterns)
+  "designpatterns:Blaze": {
     role: "The Builder",
     blurb:
-      "Basil is an enthusiastic young builder who is strong first and thoughtful second, and proud of every dam he raises. He wants the whole creek to trust his work the way it trusts Ada's. His story is about learning that good builders do not start from scratch. They reach for proven shapes and adapt them with care.",
+      "Blaze is an enthusiastic young builder who is strong first and thoughtful second, and proud of every dam he raises. He wants the whole creek to trust his work the way it trusts Ada's. His story is about learning that good builders do not start from scratch. They reach for proven shapes and adapt them with care.",
   },
   "designpatterns:Ada": {
     role: "The Teacher",
@@ -85,13 +85,13 @@ export const CAST_OVERVIEWS: Record<string, CastOverview> = {
   "designpatterns:Nox": {
     role: "The Neighbor",
     blurb:
-      "Nox is hopeful, a bit oblivious, and always in the middle of an errand when his lamp, his oven, or his flood bell lets him down. Every one of Basil's designs exists because a neighbor like Nox needed something to work. He reminds readers that good building starts with a real someone and a real problem.",
+      "Nox is hopeful, a bit oblivious, and always in the middle of an errand when his lamp, his oven, or his flood bell lets him down. Every one of Blaze's designs exists because a neighbor like Nox needed something to work. He reminds readers that good building starts with a real someone and a real problem.",
   },
-  // Wally the Whale and the Great Harbor (docker)
-  "docker:Wally": {
+  // Wells the Whale and the Great Harbor (docker)
+  "docker:Wells": {
     role: "The Heavy Lifter",
     blurb:
-      "Wally is the kind, slightly impatient whale who does the harbor's heavy work, carrying everyone's cargo to every island. His one wish is that each crate arrives exactly as it was packed, with no surprises along the way. He shows kids the quiet power of a helper who takes a job, does it the same way every time, and can be counted on.",
+      "Wells is the kind, slightly impatient whale who does the harbor's heavy work, carrying everyone's cargo to every island. His one wish is that each crate arrives exactly as it was packed, with no surprises along the way. He shows kids the quiet power of a helper who takes a job, does it the same way every time, and can be counted on.",
   },
   "docker:Pip": {
     role: "The Packer",
@@ -101,7 +101,7 @@ export const CAST_OVERVIEWS: Record<string, CastOverview> = {
   "docker:Skipper": {
     role: "The Harbor Caller",
     blurb:
-      "Skipper is loud, bossy, and kind underneath it all, and the whole harbor runs on his calls. His job is to give clear orders, so Wally knows what to carry and where it needs to go. He shows young readers that good instructions are a kindness: say it plainly, and everyone can do their part.",
+      "Skipper is loud, bossy, and kind underneath it all, and the whole harbor runs on his calls. His job is to give clear orders, so Wells knows what to carry and where it needs to go. He shows young readers that good instructions are a kindness: say it plainly, and everyone can do their part.",
   },
   // Juno the Swift and the Wide Sky (motivationmanifesto)
   "motivationmanifesto:Juno": {
@@ -187,10 +187,10 @@ export const STILL_POOL_NOTE = {
 // navigation on the character pages.
 export const BOOK_CAST_ORDER: Record<string, string[]> = {
   "mira-the-heron-and-the-still-water": ["Mira", "Ansel", "Dell", "The Otter"],
-  algorithms: ["Fern", "Moss", "Orin"],
+  algorithms: ["Fenix", "Moss", "Orin"],
   compoundeffect: ["Maisie", "Jasper", "Willa"],
-  designpatterns: ["Basil", "Ada", "Nox"],
-  docker: ["Wally", "Pip", "Skipper"],
+  designpatterns: ["Blaze", "Ada", "Nox"],
+  docker: ["Wells", "Pip", "Skipper"],
   motivationmanifesto: ["Juno", "Tempo", "Pell"],
   richdadpoordad: ["Penny", "Bram", "Hazel"],
   thewarofart: ["Wren", "Cato", "the Fog"],
@@ -233,24 +233,24 @@ export const CAST_BIOS: Record<string, CastBio> = {
     ],
     fun: "The Otter knows every shortcut on the pond. He also knows every dry ditch at the end of them, personally.",
   },
-  "algorithms:Fern": {
+  "algorithms:Fenix": {
     bio: [
-      "Fern plans an errand the way generals plan marches, except faster and with more tail. She can name the three quickest ways to the blackberry hedge and the exact stump where each route bogs down, because she has personally bogged down at all of them. Experience, for Fern, is mostly a list of shortcuts that betrayed her.",
-      "Her den is where the thinking happens after the running: scratch maps in the dirt, pebbles lined up for the forks she cannot decide between, Moss's careful notes borrowed and returned with berry stains. Fern's story is about a mind that learns to love the planning as much as the dash, and about how a clever trail is usually just a lot of small, unglamorous decisions made in the right order.",
+      "Fenix plans an errand the way generals plan marches, except faster and with more tail. She can name the three quickest ways to the blackberry hedge and the exact stump where each route bogs down, because she has personally bogged down at all of them. Experience, for Fenix, is mostly a list of shortcuts that betrayed her.",
+      "Her den is where the thinking happens after the running: scratch maps in the dirt, pebbles lined up for the forks she cannot decide between, Moss's careful notes borrowed and returned with berry stains. Fenix's story is about a mind that learns to love the planning as much as the dash, and about how a clever trail is usually just a lot of small, unglamorous decisions made in the right order.",
     ],
-    fun: "Fern once raced a river. The river was not racing. She still tells everyone she nearly won.",
+    fun: "Fenix once raced a river. The river was not racing. She still tells everyone she nearly won.",
   },
   "algorithms:Moss": {
     bio: [
       "Moss writes things down the way other animals breathe: constantly, and without making a speech about it. His notebook rides along on every trip, and its pages hold the forest's practical memory: which berries ripen first, which log bridge ices over, which shortcut is only a shortcut in summer.",
-      "Fern teases him about the pencil stubs. She also asks, at least once a week, to look something up. That is the friendship at the center of the trails: the fastest mind in the forest and the most careful one, checking each other's work. Moss shows readers that a good memory is not the opposite of cleverness. It is cleverness, saved up.",
+      "Fenix teases him about the pencil stubs. She also asks, at least once a week, to look something up. That is the friendship at the center of the trails: the fastest mind in the forest and the most careful one, checking each other's work. Moss shows readers that a good memory is not the opposite of cleverness. It is cleverness, saved up.",
     ],
     fun: "Moss's notebook has a waiting list. The other animals keep asking him to write their answers down too.",
   },
   "algorithms:Orin": {
     bio: [
       "Orin's great map hangs in a hollow at the top of the tallest pine, and half the forest assumes he simply knows everything from up there. The truth is less magical and more impressive: he checks. Every season he flies the boundary slowly, notes what the storms moved, and corrects the map line by line.",
-      "Young animals bring him emergencies, and Orin has a habit that feels almost rude in a crisis: he asks about everything else first. Where does the trail start? Where does it need to end? What is in between? By the time Fern has answered, the huge problem is usually sitting in front of her in pieces small enough to carry, and she cannot quite say when that happened.",
+      "Young animals bring him emergencies, and Orin has a habit that feels almost rude in a crisis: he asks about everything else first. Where does the trail start? Where does it need to end? What is in between? By the time Fenix has answered, the huge problem is usually sitting in front of her in pieces small enough to carry, and she cannot quite say when that happened.",
     ],
     fun: "Orin can name every clearing in the forest. On quiet nights he names the clouds too, just to stay in practice.",
   },
@@ -275,33 +275,33 @@ export const CAST_BIOS: Record<string, CastBio> = {
     ],
     fun: "Willa has never been in a hurry in her life, including the winter the granary roof leaked. The roof waited too.",
   },
-  "designpatterns:Basil": {
+  "designpatterns:Blaze": {
     bio: [
-      "Ask Basil about building and he will show you his paws, his tail, and whatever he is working on, in that order. He treats every job like the whole creek is watching, from a grand dam down to a wobbly footbridge for Nox, because that is how he understands trust: not one big triumph, but every small repair done right.",
-      "The patterns in Ada's book are old because they survived every season that tried to wash them out. Basil's story follows him from copying those shapes exactly to understanding them well enough to change one on purpose, and that is when Ada starts watching him the way the whole creek watches her.",
+      "Ask Blaze about building and he will show you his paws, his tail, and whatever he is working on, in that order. He treats every job like the whole creek is watching, from a grand dam down to a wobbly footbridge for Nox, because that is how he understands trust: not one big triumph, but every small repair done right.",
+      "The patterns in Ada's book are old because they survived every season that tried to wash them out. Blaze's story follows him from copying those shapes exactly to understanding them well enough to change one on purpose, and that is when Ada starts watching him the way the whole creek watches her.",
     ],
-    fun: "Basil names his dams. The current one is called Perseverance, because the first name he picked did not hold water.",
+    fun: "Blaze names his dams. The current one is called Perseverance, because the first name he picked did not hold water.",
   },
   "designpatterns:Ada": {
     bio: [
       "Ada's workshop is the calmest place on the creek, and also the hardest to impress. Builders bring her their proudest work, and she looks at it the way water looks at a dam: patiently, and entirely concerned with where it will give. Then she asks the one question they were hoping nobody would ask, and the room goes quiet in the useful way.",
-      "Her Pattern Book mostly stays closed on its shelf, which drives the young builders half mad. Ada is not hoarding it. She is reading them the way she reads joinery, looking for the one who will treat the old shapes as a beginning instead of a cage. Basil, who would like the book handed over by Friday, is learning that some tests you pass by not asking about the test.",
+      "Her Pattern Book mostly stays closed on its shelf, which drives the young builders half mad. Ada is not hoarding it. She is reading them the way she reads joinery, looking for the one who will treat the old shapes as a beginning instead of a cage. Blaze, who would like the book handed over by Friday, is learning that some tests you pass by not asking about the test.",
     ],
     fun: "Ada's Pattern Book has a waiting list of builders hoping to be the one she finally gives it to.",
   },
   "designpatterns:Nox": {
     bio: [
       "Nox starts every day with a list, and the list is excellent. By midmorning the list is usually in a different burrow from Nox, and Nox is doing an errand that was scheduled for Thursday with a lamp that gave up sometime in March. His neighbors have stopped being surprised. They have also, quietly, started building a little Nox room into their plans.",
-      "He is Basil's best argument without knowing it. Every design meeting at the creek eventually comes down to the same question: would this work for Nox, on a wet Tuesday, in a hurry, with one paw full? If the answer is yes, the design is probably honest. Nox shows readers that the neighbor whose things keep breaking is not the problem with the system. He is the reason the system exists.",
+      "He is Blaze's best argument without knowing it. Every design meeting at the creek eventually comes down to the same question: would this work for Nox, on a wet Tuesday, in a hurry, with one paw full? If the answer is yes, the design is probably honest. Nox shows readers that the neighbor whose things keep breaking is not the problem with the system. He is the reason the system exists.",
     ],
     fun: "Nox owns three lamps, two ovens and one flood bell. On any given day, exactly two of them work. It is never the same two.",
   },
-  "docker:Wally": {
+  "docker:Wells": {
     bio: [
-      "Wally loads at dawn, when the harbor water is flat and the gulls are still arguing about who gets the good post. He knows every island's dock by its squeak, every captain's handwriting, and exactly how a crate should feel when it is balanced right on his back. The crooked cap is not carelessness. It has survived hundreds of crossings, and he considers it crew.",
-      "What the harbor folk understand, and visitors sometimes miss, is that Wally is not really in the carrying business. He is in the keeping business: your crate, kept sealed, kept dry, kept exactly itself, from your dock to the far dock. That is why a whole harbor trusts one whale with everything it owns, and why his rare bad mood is treated like weather: noted, respected, and waited out.",
+      "Wells loads at dawn, when the harbor water is flat and the gulls are still arguing about who gets the good post. He knows every island's dock by its squeak, every captain's handwriting, and exactly how a crate should feel when it is balanced right on his back. The crooked cap is not carelessness. It has survived hundreds of crossings, and he considers it crew.",
+      "What the harbor folk understand, and visitors sometimes miss, is that Wells is not really in the carrying business. He is in the keeping business: your crate, kept sealed, kept dry, kept exactly itself, from your dock to the far dock. That is why a whole harbor trusts one whale with everything it owns, and why his rare bad mood is treated like weather: noted, respected, and waited out.",
     ],
-    fun: "Wally can carry forty crates at once, and he has strong opinions about how lids should fit.",
+    fun: "Wells can carry forty crates at once, and he has strong opinions about how lids should fit.",
   },
   "docker:Pip": {
     bio: [

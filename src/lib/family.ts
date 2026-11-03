@@ -48,7 +48,7 @@ export const KID_AVATARS: readonly KidAvatarOption[] = [
   },
   {
     id: "fern",
-    name: "Fern",
+    name: "Fenix",
     label: "Garden Dreamer",
     color: "#15803d",
     bg: "#dcfce7",
@@ -57,7 +57,7 @@ export const KID_AVATARS: readonly KidAvatarOption[] = [
   },
   {
     id: "wally",
-    name: "Wally",
+    name: "Wells",
     label: "Gentle Giant",
     color: "#1d4ed8",
     bg: "#dbeafe",
@@ -66,7 +66,7 @@ export const KID_AVATARS: readonly KidAvatarOption[] = [
   },
   {
     id: "basil",
-    name: "Basil",
+    name: "Blaze",
     label: "Night Sky Listener",
     color: "#6d28d9",
     bg: "#ede9fe",

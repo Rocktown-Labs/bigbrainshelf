@@ -69,6 +69,30 @@ export async function ensurePublicSlugColumn(db: DBLike): Promise<void> {
   });
 }
 
+/**
+ * Retired public slugs (renames): when a book's public slug changes,
+ * the old slug is recorded here so old links keep working. An alias
+ * resolves to the book and reports via="internal", so every public
+ * route 301s to the book's current canonical public URL with its
+ * existing redirect behavior. Aliases are consulted only after live
+ * public slugs, so a slug a book later legitimately owns always wins
+ * over a stale alias.
+ */
+export async function ensureSlugAliasesTable(db: DBLike): Promise<void> {
+  await ensureOnce(db, "book_slug_aliases", async () => {
+    await db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS book_slug_aliases (
+           alias TEXT PRIMARY KEY,
+           slug TEXT NOT NULL,
+           created_at INTEGER
+         )`
+      )
+      .bind()
+      .run();
+  });
+}
+
 export interface ResolvedBook {
   book: any;
   /** "public" when the param matched public_slug (or the book's
@@ -96,6 +120,18 @@ export async function resolveBookForPublicRoute(
     .bind(p)
     .first();
   if (byPublic) return { book: byPublic, via: "public" };
+  await ensureSlugAliasesTable(db);
+  const alias: any = await db
+    .prepare("SELECT slug FROM book_slug_aliases WHERE alias = ?")
+    .bind(p)
+    .first();
+  if (alias) {
+    const aliased: any = await db
+      .prepare("SELECT * FROM books WHERE slug = ?")
+      .bind(String(alias.slug))
+      .first();
+    if (aliased) return { book: aliased, via: "internal" };
+  }
   const byInternal: any = await db
     .prepare("SELECT * FROM books WHERE slug = ?")
     .bind(p)
