@@ -338,8 +338,26 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
         '<p class="captext" style="text-align:left"><em>Every Big Brain Shelf book turns one real grown-up idea into a story little kids can follow, with the real words saved at the back for grown-ups to share.</em></p></div>';
     }
 
+    function dedicationCardHtml() {
+      // The dedication page as the download stamper draws it
+      // (lib/pdf-stamp): inserted after the cover on every stamped
+      // download, name filled from the family's reader profile or
+      // left as a blank write-in line. Sample name: Ruby.
+      var t = ((book && book.title) || "").toUpperCase();
+      return '<div class="toccard" style="text-align:center">' +
+        '<p style="font-weight:800;letter-spacing:.02em;margin:6px 0 2px">BIG <span style="color:#ea580c">BRAIN</span> SHELF</p>' +
+        '<p style="font-size:.8rem;letter-spacing:.28em;margin:0 0 10px">PRESENTS</p>' +
+        (t ? '<h3 style="margin:0">' + esc(t) + '</h3><div style="width:54px;height:3px;background:#ea580c;margin:10px auto"></div>' : '') +
+        '<p style="margin:14px 0 0">This book belongs to</p>' +
+        '<p style="font-size:2rem;font-weight:800;color:#ea580c;margin:6px 0 0;text-decoration:underline;text-underline-offset:8px">Ruby</p>' +
+        '<p class="captext" style="margin-top:18px"><em>To a curious reader: every big idea starts as a small question. May you ask a thousand more.</em></p>' +
+        '<p style="margin:10px 0 0">Happy reading!</p>' +
+        '<p class="captext" style="margin-top:22px">Made in the USA<br/>Designed, assembled and packaged in Searcy, Arkansas</p></div>';
+    }
+
     function pageLabel(p) {
       if (p.cover) return "Cover";
+      if (p.dedication) return "Dedication";
       if (p.toc) return "Contents";
       if (p.copyright) return "Copyright";
       if (p.backcover) return "Back cover";
@@ -352,6 +370,9 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       }
       if (p.toc) {
         return '<div class="captext">Contents · the story book\'s table of contents, as the book prints it</div>';
+      }
+      if (p.dedication) {
+        return '<div class="captext">Dedication · added at download time, right after the cover. The name fills from the family\'s reader profile; with no name set, the line prints blank to write in by hand. Sample shows Ruby. <a href="/api/admin/books/' + esc(adminSlug) + '/sample-stamped">Download the real sample copy (PDF)</a> to see this exact page as a buyer gets it.</div>';
       }
       if (p.copyright) {
         return '<div class="captext">Copyright · page 2 of the printed book, as it prints</div>';
@@ -391,8 +412,11 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
           ? '<span class="tocthumb">Contents</span>'
           : p.copyright
           ? '<span class="tocthumb">&copy;</span>'
+          : p.dedication
+          ? '<span class="tocthumb">Belongs to</span>'
           : '<img loading="lazy" src="' + esc(imgFor(p)) + '" alt="" />';
         var lbl = p.cover ? 'Cover<span class="ch">Front cover</span>'
+          : p.dedication ? 'Dedication<span class="ch">Download page</span>'
           : p.copyright ? 'Copyright<span class="ch">Page 2</span>'
           : p.toc ? 'Contents<span class="ch">Table of contents</span>'
           : p.backcover ? 'Back cover<span class="ch">Back cover</span>'
@@ -408,7 +432,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       var p = pages[cur];
       if (!p) { main.innerHTML = '<p id="msg">No pages yet.</p>'; return; }
       main.innerHTML = '<div class="stage">' +
-        (p.toc ? tocCardHtml() : p.copyright ? copyrightCardHtml() : '<img class="page" src="' + esc(imgFor(p)) + '" alt="page art" />') +
+        (p.toc ? tocCardHtml() : p.copyright ? copyrightCardHtml() : p.dedication ? dedicationCardHtml() : '<img class="page" src="' + esc(imgFor(p)) + '" alt="page art" />') +
         pageTextHtml(p) +
         '<div class="nav">' +
           '<button id="prev"' + (cur === 0 ? " disabled" : "") + ">&larr; Prev</button>" +
@@ -428,7 +452,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       main.innerHTML = pages.map(function (p, i) {
         return '<div class="pageblock" id="pb-' + i + '">' +
           '<p class="cap">' + pageLabel(p) + "</p>" +
-          (p.toc ? tocCardHtml() : p.copyright ? copyrightCardHtml() : '<img class="page" loading="lazy" src="' + esc(imgFor(p)) + '" alt="page art" />') +
+          (p.toc ? tocCardHtml() : p.copyright ? copyrightCardHtml() : p.dedication ? dedicationCardHtml() : '<img class="page" loading="lazy" src="' + esc(imgFor(p)) + '" alt="page art" />') +
           pageTextHtml(p) + markBarHtml("s" + i, p.chapterNum, p.pageIndex) + reqBoxHtml("s" + i, p.chapterNum, p.pageIndex) + "</div>";
       }).join("");
       pages.forEach(function (p, i) { wireReq("s" + i); wireMark("s" + i); });
@@ -726,6 +750,16 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
           });
         }
         pages.splice(pages.length && pages[0].cover ? 1 : 0, 0, {
+          dedication: true,
+          chapterNum: 0,
+          chapterTitle: "Dedication",
+          pageIndex: 4,
+          text: "",
+          character: "",
+          concept: "",
+          image: ""
+        });
+        pages.splice(pages.length && pages[0].cover ? 2 : 1, 0, {
           copyright: true,
           chapterNum: 0,
           chapterTitle: "Copyright",
@@ -735,7 +769,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
           concept: "",
           image: ""
         });
-        pages.splice(pages.length && pages[0].cover ? 2 : 1, 0, {
+        pages.splice(pages.length && pages[0].cover ? 3 : 2, 0, {
           toc: true,
           chapterNum: 0,
           chapterTitle: "Contents",
