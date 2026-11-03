@@ -61,6 +61,7 @@ const EDITOR_PATTERNS: RegExp[] = [
   /^\/admin\/characters\/[^/]+/, // character editor, cast crop editor
   /^\/admin\/cast\/?$/, // cast studio
   /^\/admin\/cast-gemini(\/|$)/, // casting shelf + per-book casting pages (S3)
+  /^\/admin\/bibles\/[^/]+/, // per-book bible view (the shelf itself stays expanded)
 ];
 
 export function isEditorRoute(pathname: string): boolean {

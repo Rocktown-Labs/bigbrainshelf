@@ -36,6 +36,25 @@ if (!Astro.locals.user) {
     .tabs{margin:16px 0}.tabs button{padding:8px 16px;margin-right:8px;border:1px solid #d6d3d1;border-radius:999px;background:#fff;cursor:pointer;font-size:.95em}
     .tabs button.active{background:#1a3454;color:#fff;border-color:#1a3454}
     .group-title{margin:32px 0 12px;font-size:1.3em;font-weight:700}
+    /* Bible shelf (2026-11-03): the same shelf as /admin/books and
+       /admin/characters, which is the customer /account library
+       pattern. Covers rest on wooden planks, four to a board; the
+       public title and the bible's gate chip sit under each cover;
+       the whole cover links to that book's bible page. The cover box
+       is display:block: aspect-ratio forms no box on an inline
+       element, which is what let covers overflow their rows on the
+       first books shelf. */
+    .shelf-board{margin-top:26px}
+    .shelf-board:first-of-type{margin-top:10px}
+    .shelf-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;padding:0 4px}
+    @media (max-width:640px){.shelf-row{grid-template-columns:repeat(2,1fr)}}
+    .shelf-plank{height:.65rem;margin-top:.55rem;border-radius:.3rem;background:linear-gradient(180deg,#b08954 0%,#8a6844 55%,#6f5133 100%);box-shadow:0 10px 14px -8px rgba(90,62,27,.55),inset 0 1px 0 rgba(255,235,200,.5)}
+    .shelf-item{display:block;text-decoration:none;color:inherit}
+    .shelf-cover{display:block;aspect-ratio:3/4;border-radius:10px;overflow:hidden;border:1px solid #e7e5e4;background:#f5f5f4;box-shadow:0 1px 2px rgba(28,25,23,.06)}
+    .shelf-cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s ease}
+    .shelf-item:hover .shelf-cover img{transform:scale(1.02)}
+    .shelf-title{display:block;font-weight:700;font-size:.95rem;line-height:1.3;margin-top:10px}
+    .shelf-chip{display:block;margin-top:6px;min-height:24px}
     .card img{max-width:100%;border-radius:8px;background:#f5f5f4}
     label{display:block;margin:16px 0 6px;font-weight:600;font-size:14px}
     input,select,textarea{width:100%;padding:10px 12px;font-size:14px;border:1px solid #d6d3d1;border-radius:8px;box-sizing:border-box;background:#fff}
@@ -46,7 +65,7 @@ if (!Astro.locals.user) {
   <AdminShell current="/admin/bibles" />
   <main class="wrap">
   <h1>Story Bibles</h1>
-  <div class="card">
+  <div class="card" id="attach">
     <h2>Attach a bible to a book</h2>
     <p class="hint">Bibles arrive as .json files (RGM authors them). Pick the book, pick the file, attach. When the factory builds that book it uses this bible instead of inventing one, so the framing, cast, and chapter ladder are the approved ones.</p>
     <label for="attach-book">Book</label>
@@ -107,68 +126,108 @@ if (!Astro.locals.user) {
       submitBible(slug, data);
     });
   </script>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:4px 0 8px">
+    <input id="bible-q" type="text" placeholder="Search title or slug..." style="flex:1;min-width:170px;width:auto" />
+  </div>
   <div id="bibles"><p>Loading...</p></div>
   <script is:inline>
+    var R2 = "https://media.bigbrainshelf.com/";
+    var shelfItems = [];
     function escH(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-    function trunc(s, n) { s = String(s == null ? "" : s); return s.length > n ? s.slice(0, n).trimEnd() + "..." : s; }
-    // Admin book links wear the PUBLIC slug (owner, 2026-10-29), so
-    // the render waits for the books payload too and maps each
-    // bible's internal book_slug to its public slug for the link.
+    // The chip under each cover is the bible's factory-gate state,
+    // in the same words the old stacked cards used. A book with no
+    // bible says so instead of borrowing a gate state.
+    function chipFor(bible) {
+      if (!bible) return { cls: "draft", label: "No bible yet" };
+      if (bible.gate === null || bible.gate === undefined) return { cls: "draft", label: "Gate: not checked" };
+      if (bible.gate.ok) return { cls: "complete", label: "Passes the factory gate" };
+      return { cls: "failed", label: "Gate fails" };
+    }
+    function shelfItemHtml(it) {
+      var chip = chipFor(it.bible);
+      var cover = it.cover
+        ? '<img src="' + R2 + it.cover + '" alt="' + escH(it.title) + '" loading="lazy" />'
+        : '';
+      return '<a class="shelf-item" href="/admin/bibles/' + escH(it.pub) + '">' +
+        '<span class="shelf-cover">' + cover + '</span>' +
+        '<span class="shelf-title">' + escH(it.title) + '</span>' +
+        '<span class="shelf-chip"><span class="status ' + chip.cls + '">' + chip.label + '</span></span>' +
+        '</a>';
+    }
+    function shelfBoardsHtml(items) {
+      // Four covers to a board, a wooden plank under each board:
+      // the customer library shelf pattern.
+      var html = '';
+      for (var i = 0; i < items.length; i += 4) {
+        html += '<div class="shelf-board"><div class="shelf-row">' +
+          items.slice(i, i + 4).map(shelfItemHtml).join('') +
+          '</div><div class="shelf-plank" aria-hidden="true"></div></div>';
+      }
+      return html;
+    }
+    function renderShelf() {
+      var q = document.getElementById('bible-q').value.trim().toLowerCase();
+      var el = document.getElementById('bibles');
+      if (!shelfItems.length) {
+        el.innerHTML = '<div class="card"><h2 style="margin-top:0">No books yet</h2><p class="meta">The shelf is empty. Start the first book and it will appear here.</p><p style="margin-bottom:0"><a class="btn" href="/admin/books/new">+ New book</a></p></div>';
+        return;
+      }
+      var list = shelfItems.filter(function (it) {
+        return !q || (it.title + " " + it.slug + " " + it.pub).toLowerCase().indexOf(q) >= 0;
+      });
+      if (!list.length) {
+        el.innerHTML = '<div class="card shelf-noresults"><h2 style="margin-top:0">No books match your search</h2><p class="meta">Nothing on the shelf matches that search.</p><p style="margin-bottom:0"><button class="btn" id="bible-clear-search" type="button">Clear search</button></p></div>';
+        document.getElementById('bible-clear-search').addEventListener('click', function () {
+          document.getElementById('bible-q').value = '';
+          renderShelf();
+        });
+        return;
+      }
+      el.innerHTML = shelfBoardsHtml(list);
+    }
+    // One shelf slot per BOOK (the books payload drives the shelf,
+    // like the sibling shelves), with the bible for that book joined
+    // in for its chip. Admin bible links wear the PUBLIC slug
+    // (owner, 2026-10-29); the join and the APIs key on the
+    // internal slug.
     Promise.all([
-      fetch('/api/bibles').then(r => r.json()),
-      fetch('/api/books').then(r => r.json()).catch(function () { return []; })
+      fetch('/api/bibles').then(function (r) { return r.json(); }).catch(function () { return []; }),
+      fetch('/api/books').then(function (r) { return r.json(); }).catch(function () { return []; })
     ]).then(function (pair) {
-      var bibles = pair[0];
+      var bibles = pair[0] || [];
+      var books = pair[1] || [];
+      var biblesBySlug = {};
+      bibles.forEach(function (b) { if (b.book_slug) biblesBySlug[b.book_slug] = b; });
       var pubByInternal = {};
-      (pair[1] || []).forEach(function (bk) { if (bk.public_slug) pubByInternal[bk.slug] = bk.public_slug; });
-      const el = document.getElementById('bibles');
-      if (!bibles.length) { el.innerHTML = '<p>No bibles yet.</p>'; return; }
-      el.innerHTML = bibles.map(function (b) {
-        var s = b.summary || { cast: [], ladder: [], chapters: 0 };
-        var gate = '';
-        if (b.gate === null || b.gate === undefined) {
-          gate = '<span class="status draft">Gate: not checked</span>';
-        } else if (b.gate.ok) {
-          gate = '<span class="status complete">Passes the factory gate</span>';
-        } else {
-          gate = '<span class="status failed">Gate fails</span>';
-          if (b.gate.reasons && b.gate.reasons.length) {
-            gate += '<ul style="margin:8px 0 0;padding-left:18px" class="meta">' + b.gate.reasons.map(function (r) { return '<li>' + escH(r) + '</li>'; }).join('') + '</ul>';
-          }
-        }
-        var cast = s.cast.length ? '<p style="margin:8px 0"><strong>Cast:</strong> ' + s.cast.map(function (c) { return escH(c.name) + (c.species ? ' <span class="meta">(' + escH(c.species) + ')</span>' : ''); }).join(' · ') + '</p>' : '';
-        var ladder = s.ladder.length ? '<details style="margin-top:10px"><summary class="hint" style="cursor:pointer">Chapters (' + s.chapters + ')</summary><div style="margin:8px 0">' + s.ladder.map(function (e) {
-          return '<p class="meta" style="margin:3px 0">' + escH(e.ch) + (e.title ? ' · ' + escH(e.title) : '') + (e.metaphor ? ' · <em>' + escH(e.metaphor) + '</em>' : '') + '</p>';
-        }).join('') + '</div></details>' : '';
-        var fullText = (b.big_idea || b.setting) ? '<details style="margin-top:10px"><summary class="hint" style="cursor:pointer">Full big idea and setting</summary>' +
-          (b.big_idea ? '<p><strong>Big idea:</strong> ' + escH(b.big_idea) + '</p>' : '') +
-          (b.setting ? '<p><strong>Setting:</strong> ' + escH(b.setting) + '</p>' : '') +
-          '</details>' : '';
-        return '<div class="card">' +
-          '<h2 style="margin-bottom:6px">' + escH(b.book_title || "Untitled bible") + '</h2>' +
-          '<p style="margin:4px 0">' + gate + '</p>' +
-          (b.big_idea ? '<p><strong>Big idea:</strong> ' + escH(trunc(b.big_idea, 160)) + '</p>' : '') +
-          (b.setting ? '<p><strong>Setting:</strong> ' + escH(trunc(b.setting, 140)) + '</p>' : '') +
-          cast +
-          '<p class="meta" style="margin:8px 0">' + (s.chapters ? s.chapters + ' chapters' : 'No chapters yet') + '</p>' +
-          ladder + fullText +
-          (b.book_slug ? '<p><a href="/admin/books/' + escH(pubByInternal[b.book_slug] || b.book_slug) + '">Open the book</a></p>' : '') +
-          '<details><summary class="hint" style="cursor:pointer">View raw JSON</summary><pre class="bible-raw" data-slug="' + escH(b.book_slug || "") + '" style="white-space:pre-wrap;font-size:12px;max-height:320px;overflow:auto;background:#f5f5f4;border-radius:8px;padding:10px">Loading...</pre></details>' +
-        '</div>';
-      }).join('');
-      el.querySelectorAll('details').forEach(function (d) {
-        d.addEventListener('toggle', function () {
-          if (!d.open) return;
-          var pre = d.querySelector('.bible-raw');
-          if (!pre || pre.getAttribute('data-loaded')) return;
-          pre.setAttribute('data-loaded', '1');
-          fetch('/api/bibles?slug=' + encodeURIComponent(pre.getAttribute('data-slug'))).then(function (r) { return r.json(); }).then(function (row) {
-            var data = row && row.data ? (typeof row.data === 'string' ? JSON.parse(row.data) : row.data) : row;
-            pre.textContent = JSON.stringify(data, null, 1);
-          }).catch(function (e) { pre.textContent = 'Could not load: ' + e.message; });
+      books.forEach(function (bk) { if (bk.public_slug) pubByInternal[bk.slug] = bk.public_slug; });
+      var seen = {};
+      books.forEach(function (bk) {
+        seen[bk.slug] = 1;
+        shelfItems.push({
+          title: bk.title || "Untitled book",
+          slug: bk.slug,
+          pub: bk.public_slug || bk.slug,
+          cover: bk.cover_key || "",
+          bible: biblesBySlug[bk.slug] || null
         });
       });
+      bibles.forEach(function (b) {
+        if (!b.book_slug || seen[b.book_slug]) return;
+        // A bible whose book has left the books table still gets a
+        // shelf slot (no cover) so it stays reachable; its link maps
+        // to the public slug when one is known.
+        shelfItems.push({
+          title: b.book_title || "Untitled bible",
+          slug: b.book_slug,
+          pub: pubByInternal[b.book_slug] || b.book_slug,
+          cover: "",
+          bible: b
+        });
+      });
+      shelfItems.sort(function (a, b) { return String(a.title).localeCompare(String(b.title)); });
+      renderShelf();
     });
+    document.getElementById('bible-q').addEventListener('input', renderShelf);
   </script>
   </main>
   <script is:inline>
