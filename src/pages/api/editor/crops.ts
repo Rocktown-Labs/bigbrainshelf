@@ -2,8 +2,9 @@ import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
 import {
   getCropsManifest, saveCropsManifest, cropImagePng, makeTag,
-  nextPoseNumber, actionSlug, type CropEntry,
+  nextPoseNumber, actionSlug, decodeImage, type CropEntry,
 } from '../../../lib/crops';
+import UPNG from "upng-js";
 import { nameKey } from '../../../lib/character-sheets';
 
 // Pose crops (Crop Mode). Admin-gated by the middleware like every
@@ -172,4 +173,78 @@ export const DELETE: APIRoute = async ({ request }) => {
   await e.BOOKS.delete(entry.key);
   await saveCropsManifest(e.BOOKS, slug, crops.filter((c) => c.tag !== tag));
   return Response.json({ ok: true, deleted: tag });
+};
+
+// PUT /api/editor/crops (multipart form): manual pose upload.
+// CG cuts the sheet himself (the auto splicer's boxes are not
+// always right) and uploads one whole-character cut per pose.
+// Fields: slug, file (PNG or JPEG), and either
+//   tag                  -> replace that slot's image, or
+//   character + action   -> create a new slot from this upload.
+// The manifest entry keeps the factory's shape; source becomes
+// "manual" so a hand cut is distinguishable from a splicer crop.
+export const PUT: APIRoute = async ({ request }) => {
+  const e = env as any;
+  const form = await request.formData().catch(() => null);
+  if (!form) return Response.json({ error: 'multipart form required' }, { status: 400 });
+  const slug = String(form.get('slug') || '').trim();
+  if (!slug || badSlug(slug)) return Response.json({ error: 'slug required' }, { status: 400 });
+  const file = form.get('file');
+  if (!file || typeof file === 'string') {
+    return Response.json({ error: 'a pose image file is required' }, { status: 400 });
+  }
+  const raw = new Uint8Array(await (file as File).arrayBuffer());
+  if (raw.length === 0) return Response.json({ error: 'the uploaded file is empty' }, { status: 400 });
+  if (raw.length > 12 * 1024 * 1024) {
+    return Response.json({ error: 'pose image is over 12 MB; export a smaller PNG' }, { status: 413 });
+  }
+  let png: Uint8Array;
+  try {
+    const img = decodeImage(raw);
+    png = new Uint8Array(UPNG.encode([img.data.buffer as ArrayBuffer], img.width, img.height, 0));
+  } catch (err: any) {
+    return Response.json({ error: `could not read that image (PNG or JPEG expected): ${String(err?.message || err)}` }, { status: 422 });
+  }
+
+  const crops = await getCropsManifest(e.BOOKS, slug);
+  const tag = String(form.get('tag') || '').trim().toLowerCase();
+  const now = Math.floor(Date.now() / 1000);
+
+  if (tag) {
+    const entry = crops.find((c) => c.tag === tag);
+    if (!entry) return Response.json({ error: `no crop tagged ${tag} in this book` }, { status: 404 });
+    await e.BOOKS.put(entry.key, png, { httpMetadata: { contentType: 'image/png' } });
+    entry.source = 'manual';
+    entry.createdAt = now;
+    await saveCropsManifest(e.BOOKS, slug, crops);
+    return Response.json({ ok: true, crop: publicEntry(entry) });
+  }
+
+  const character = String(form.get('character') || '').trim();
+  const action = actionSlug(String(form.get('action') || ''));
+  if (!character) return Response.json({ error: 'character required' }, { status: 400 });
+  if (!action) return Response.json({ error: 'an action is required (e.g. standing, flying, megaphone)' }, { status: 400 });
+  const characters = await bookCharacters(e, slug);
+  const ch = characters.find((c) => c.name.toLowerCase() === character.toLowerCase());
+  if (!ch) return Response.json({ error: `no character '${character}' in this book's bible` }, { status: 404 });
+  const poseNum = nextPoseNumber(crops, ch.name);
+  const newTag = makeTag(ch.name, poseNum, action);
+  if (crops.some((c) => c.tag === newTag)) {
+    return Response.json({ error: `tag ${newTag} already exists` }, { status: 409 });
+  }
+  const key = `books/${slug}/crops/${newTag}.png`;
+  await e.BOOKS.put(key, png, { httpMetadata: { contentType: 'image/png' } });
+  const entry: CropEntry = {
+    tag: newTag,
+    character: ch.name,
+    action,
+    source: 'manual',
+    bbox: { x: 0, y: 0, w: 1, h: 1 },
+    createdAt: now,
+    key,
+    sheetKey: ch.sheetKey ?? undefined,
+  };
+  crops.push(entry);
+  await saveCropsManifest(e.BOOKS, slug, crops);
+  return Response.json({ ok: true, crop: publicEntry(entry) });
 };

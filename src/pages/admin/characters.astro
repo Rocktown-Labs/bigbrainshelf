@@ -1,9 +1,25 @@
 ---
 import "../../styles/global.css";
+import { env } from "cloudflare:workers";
 import AdminShell from "../../components/AdminShell.astro";
+import { adminMediaUrl } from "../../lib/media";
+import { publicSlugFor } from "../../lib/public-slugs";
 if (!Astro.locals.user) {
   return Astro.redirect("/admin/login");
 }
+export const prerender = false;
+// Books on the shelf (CG, 2026-11-02): tap a book for its options,
+// including the by-hand pose upload.
+const e = env as any;
+const bookRows = await e.DB.prepare(
+  "SELECT slug, public_slug, title, cover_key, status FROM books ORDER BY title"
+).all().catch(() => ({ results: [] }));
+const shelfBooks = ((bookRows.results || []) as any[]).map((b) => ({
+  title: String(b.title || "Untitled book"),
+  status: String(b.status || ""),
+  adminSlug: publicSlugFor(b),
+  coverUrl: b.cover_key ? adminMediaUrl(String(b.cover_key)) : null,
+}));
 ---
 
 <html lang="en">
@@ -40,6 +56,15 @@ if (!Astro.locals.user) {
     label{display:block;margin:16px 0 6px;font-weight:600;font-size:14px}
     input,select,textarea{width:100%;padding:10px 12px;font-size:14px;border:1px solid #d6d3d1;border-radius:8px;box-sizing:border-box;background:#fff}
     .hint{color:#78716c;font-size:.85em}
+    .shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;margin-top:14px}
+    .tile{border:1px solid #e7e5e4;border-radius:12px;padding:10px;background:#fff;position:relative}
+    .tile img{width:100%;height:170px;object-fit:cover;border-radius:8px;background:#f5f5f4}
+    .tile .t-title{font-weight:700;font-size:.92rem;margin:8px 0 2px;line-height:1.25}
+    .tile .t-menu-btn{width:100%;margin-top:10px;background:#1a3454;color:#fff;border:0;border-radius:999px;padding:10px;font-weight:600;cursor:pointer;font-size:14px;min-height:44px}
+    .tile .t-menu{display:none;border-top:1px solid #f5f5f4;margin-top:10px;padding-top:6px}
+    .tile.open .t-menu{display:block}
+    .tile .t-menu a{display:flex;align-items:center;min-height:44px;padding:4px 6px;text-decoration:none;color:#1c1917;font-weight:600;font-size:.92rem;border-radius:8px}
+    .tile .t-menu a:active{background:#f5f5f4}
   </style>
   </head>
 <body>
@@ -60,6 +85,36 @@ if (!Astro.locals.user) {
     <p class="meta">Adjust the portrait and pose framing used on the public Meet the Cast pages. The automatic sheet split is a starting point; here you can move and resize every pose box yourself, choose the portrait, and restore the previous gallery if a save goes wrong.</p>
     <p style="margin:12px 0 0"><a class="btn" href="/admin/characters/cast-crops" style="text-decoration:none">Open the cast crop editor</a></p>
   </div>
+  <div class="card">
+    <h2 style="margin-top:0">Books on the shelf</h2>
+    <p class="meta">Tap a book for its options: check the pages, fix pose crops with the automatic boxes, or upload poses you cut yourself from the sheet.</p>
+    <div class="shelf">
+      {shelfBooks.map((b) => (
+        <div class="tile">
+          {b.coverUrl ? <img src={b.coverUrl} alt="" loading="lazy" /> : null}
+          <p class="t-title">{b.title}</p>
+          <span class={`status ${b.status}`}>{b.status.replace(/_/g, " ")}</span>
+          <button type="button" class="t-menu-btn">Options</button>
+          <div class="t-menu">
+            <a href={`/admin/books/${b.adminSlug}`}>QC viewer</a>
+            <a href={`/admin/books/${b.adminSlug}/crops`}>Pose crops (automatic)</a>
+            <a href={`/admin/books/${b.adminSlug}/poses`}>Upload poses by hand</a>
+            <a href={`/books/${b.adminSlug}`}>Public book page</a>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+  <script is:inline>
+    document.querySelectorAll(".tile .t-menu-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var tile = btn.closest(".tile");
+        var wasOpen = tile.classList.contains("open");
+        document.querySelectorAll(".tile.open").forEach(function (t) { t.classList.remove("open"); });
+        if (!wasOpen) tile.classList.add("open");
+      });
+    });
+  </script>
   <div class="tabs" id="tabs"></div>
   <div id="groups"><p>Loading...</p></div>
   <script is:inline>

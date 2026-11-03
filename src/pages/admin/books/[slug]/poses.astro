@@ -1,0 +1,200 @@
+---
+import "../../../../styles/global.css";
+import { env } from "cloudflare:workers";
+import AdminShell from "../../../../components/AdminShell.astro";
+import { resolveBookForPublicRoute, publicSlugFor } from "../../../../lib/public-slugs";
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+export const prerender = false;
+// Manual pose upload (CG, 2026-11-02): the auto splicer's boxes
+// are not always right, so this is the by-hand path. Download the
+// sheet, cut one WHOLE character per file on your own machine,
+// then upload each cut into its slot. The slots are exactly the
+// poses the cropper highlighted (the book's crops manifest); the
+// count per character is the expectation. A slot the cropper
+// missed can be added at the bottom of each character's card.
+const param = String(Astro.params.slug || "");
+const resolvedBook = await resolveBookForPublicRoute(env.DB as any, param).catch(() => null);
+const slug = resolvedBook ? String(resolvedBook.book.slug) : param;
+const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Upload Poses · Big Brain Shelf admin</title>
+  <style is:global>
+    :root { --bg: #f7f5f0; --surface: #ffffff; --text: #1c2733; --dim: #6b7280; --border: #e2ddd4; --accent: #2563eb; --accent-strong: #1d4ed8; --qa: #1f9d66; --bad: #b91c1c; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #14181d; --surface: #1e242b; --text: #e8e6e1; --dim: #9aa0a8; --border: #333b44; } }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0 12px 40px; }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    .topbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 0; }
+    .topbar h1 { font-size: 1.15rem; margin: 0; }
+    .sub { font-size: 0.85rem; color: var(--dim); margin: 4px 0 0; max-width: 46rem; }
+    .backlink { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+    .card { border: 1px solid var(--border); background: var(--surface); border-radius: 16px; padding: 16px; margin-top: 16px; }
+    .card h2 { margin: 0; font-size: 1rem; }
+    .card .desc { font-size: 0.8rem; color: var(--dim); margin: 4px 0 0; }
+    .btn { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 10px 14px; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .sheet-img { width: 100%; max-width: 640px; display: block; border: 1px solid var(--border); border-radius: 8px; margin-top: 12px; background: #fff; }
+    .frow { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .frow input[type="text"] { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 12px; padding: 10px 12px; font-size: 1rem; }
+    .slotgrid { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+    .slot { width: 220px; border: 1px solid var(--border); border-radius: 12px; padding: 10px; background: var(--surface); }
+    .slot img { width: 100%; height: 130px; object-fit: contain; background: #fff; border-radius: 6px; display: block; }
+    .slot .tag { font-size: 0.75rem; font-weight: 700; margin-top: 6px; word-break: break-all; }
+    .slot .who { font-size: 0.72rem; color: var(--dim); }
+    .slot input[type="file"] { width: 100%; margin-top: 8px; font-size: 0.78rem; }
+    .slot button { margin-top: 8px; width: 100%; padding: 8px; font-size: 0.8rem; }
+    .slot .st { font-size: 0.75rem; margin-top: 6px; min-height: 1em; }
+    .pill { font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #f5f5f4; color: #57534e; }
+    .pill-manual { background: #ecfdf5; color: #047857; }
+    .note { border-radius: 12px; padding: 10px 12px; font-size: 0.85rem; margin-top: 12px; background: #f0fdf4; color: #14532d; }
+    .warn { border-radius: 12px; padding: 10px 12px; font-size: 0.85rem; margin-top: 12px; background: #fef2f2; color: #7f1d1d; }
+    @media (prefers-color-scheme: dark) { .note { background: #052e16; color: #bbf7d0; } .warn { background: #450a0a; color: #fecaca; } }
+    .hidden { display: none !important; }
+    #loading { text-align: center; padding: 64px 16px; color: var(--dim); }
+  </style>
+</head>
+<body>
+  <AdminShell current="/admin/books" />
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <a class="backlink" href={`/admin/books/${adminSlug}`}>&larr; Back to book</a>
+        <h1>Upload poses by hand</h1>
+        <p class="sub">Download a character's sheet, cut it yourself (one file per pose, the WHOLE character in each cut), then upload each cut into its slot below. The slots are the poses the cropper highlighted, so the count per character is what to aim for. Prefer the automatic boxes instead? <a href={`/admin/books/${adminSlug}/crops`}>Open pose crops</a>.</p>
+      </div>
+    </div>
+    <div id="loading">Loading sheets and pose slots...</div>
+    <div id="coverage"></div>
+    <div id="characters"></div>
+  </div>
+
+  <script is:inline define:vars={{ slug, adminSlug }}>
+    const state = { data: null };
+
+    function esc(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    async function load() {
+      const r = await fetch("/api/editor/crops?slug=" + encodeURIComponent(slug));
+      if (!r.ok) {
+        document.getElementById("loading").textContent = "Could not load pose slots (" + r.status + ").";
+        return;
+      }
+      state.data = await r.json();
+      document.getElementById("loading").classList.add("hidden");
+      render();
+    }
+
+    async function putPose(form, stEl, btn) {
+      btn.disabled = true;
+      stEl.textContent = "Uploading...";
+      try {
+        const r = await fetch("/api/editor/crops", { method: "PUT", body: form });
+        const out = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(out.error || ("HTTP " + r.status));
+        stEl.textContent = "Saved as " + out.crop.tag + ".";
+        load();
+      } catch (err) {
+        stEl.textContent = "Upload failed: " + err.message;
+        btn.disabled = false;
+      }
+    }
+
+    function slotHtml(c) {
+      return '<div class="slot">' +
+        '<img src="' + esc(c.url) + '" alt="">' +
+        '<div class="tag">' + esc(c.tag) + '</div>' +
+        '<div class="who">' + esc(c.action) + ' · <span class="pill' + (c.source === "manual" ? " pill-manual" : "") + '">' + (c.source === "manual" ? "your cut" : "auto crop") + '</span></div>' +
+        '<input type="file" accept="image/png,image/jpeg">' +
+        '<button type="button" class="btn" data-replace="' + esc(c.tag) + '">Replace with my cut</button>' +
+        '<div class="st"></div></div>';
+    }
+
+    function render() {
+      const d = state.data;
+      const cov = document.getElementById("coverage");
+      if (d.crops.length === 0) {
+        cov.innerHTML = '<div class="note">No pose slots yet for this book: the cropper has not highlighted any poses, and the book still uses full sheets. Adding the first pose below turns the crops gate on for this book.</div>';
+      } else if (d.coverage.untagged.length) {
+        cov.innerHTML = '<div class="warn">Crops gate is ON for this book and these characters still need at least one pose before the factory draws art: <b>' + d.coverage.untagged.map(esc).join(", ") + "</b></div>";
+      } else {
+        cov.innerHTML = '<div class="note">Crops gate satisfied: all ' + d.coverage.total + ' characters have at least one pose.</div>';
+      }
+
+      const host = document.getElementById("characters");
+      host.innerHTML = "";
+      for (const ch of d.characters) {
+        const mine = d.crops.filter((c) => c.character.toLowerCase() === ch.name.toLowerCase());
+        const card = document.createElement("div");
+        card.className = "card";
+        let html = "<h2>" + esc(ch.name) + (ch.species ? ' <span style="color:var(--dim);font-weight:400">(' + esc(ch.species) + ")</span>" : "") + "</h2>";
+        if (!ch.sheetUrl) {
+          html += '<p class="desc">No sheet on file for this character yet, so there is nothing to download or cut. Generate and approve a sheet first.</p>';
+          card.innerHTML = html;
+          host.appendChild(card);
+          continue;
+        }
+        html += '<p class="desc">' + (ch.sheetKind === "line" ? "Line sheet" : "Color sheet") + '. Poses expected: <b>' + mine.length + '</b> (highlighted by the cropper).</p>' +
+          '<img class="sheet-img" src="' + esc(ch.sheetUrl) + '" alt="">' +
+          '<div class="frow"><a class="btn" href="' + esc(ch.sheetUrl) + '" download="' + esc(ch.name) + '-sheet">Download this sheet</a></div>';
+        if (mine.length) {
+          html += '<div class="slotgrid">' + mine.map(slotHtml).join("") + "</div>";
+        } else {
+          html += '<p class="desc" style="margin-top:12px">The cropper highlighted no poses on this sheet. Add the first one below.</p>';
+        }
+        html += '<div class="frow"><input type="text" placeholder="action for a new pose (e.g. flying)" size="26">' +
+          '<input type="file" accept="image/png,image/jpeg">' +
+          '<button type="button" class="btn btn-primary">Add this pose</button></div>' +
+          '<div class="st" style="font-size:0.8rem;min-height:1em"></div>';
+        card.innerHTML = html;
+        host.appendChild(card);
+        wireCard(card, ch);
+      }
+    }
+
+    function wireCard(card, ch) {
+      card.querySelectorAll("[data-replace]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const slot = btn.closest(".slot");
+          const file = slot.querySelector('input[type="file"]').files[0];
+          const st = slot.querySelector(".st");
+          if (!file) { st.textContent = "Choose your cut file first."; return; }
+          const form = new FormData();
+          form.set("slug", slug);
+          form.set("tag", btn.getAttribute("data-replace"));
+          form.set("file", file);
+          putPose(form, st, btn);
+        });
+      });
+      const addBtn = card.querySelector(".btn-primary");
+      addBtn.addEventListener("click", () => {
+        const frow = addBtn.closest(".frow");
+        const action = frow.querySelector('input[type="text"]').value.trim();
+        const file = frow.querySelector('input[type="file"]').files[0];
+        const st = card.querySelector(".st");
+        if (!action) { st.textContent = "Name the action for the new pose first."; return; }
+        if (!file) { st.textContent = "Choose your cut file first."; return; }
+        const form = new FormData();
+        form.set("slug", slug);
+        form.set("character", ch.name);
+        form.set("action", action);
+        form.set("file", file);
+        putPose(form, st, addBtn);
+      });
+    }
+
+    load();
+  </script>
+</body>
+</html>
