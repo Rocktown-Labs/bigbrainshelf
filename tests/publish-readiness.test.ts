@@ -94,7 +94,7 @@ const keyButFileGone = mk({ castVoiceId: "kore", audiobookFileExists: false });
 assert(keyButFileGone.state === "no-audiobook", "audiobook key set but file missing counts as no audiobook");
 
 /* ---------- override decision (pure) ---------- */
-assert(audioGateDecision(null, false).block === false, "no readiness = no audio block");
+assert(audioGateDecision(null, false).block === true, "unknown readiness blocks audio publish");
 assert(audioGateDecision(finalKore, false).block === false && !audioGateDecision(finalKore, true).recordOverride, "a ready book publishes plainly, flag or not");
 const blockedDecision = audioGateDecision(uncast, false);
 assert(blockedDecision.block && !blockedDecision.recordOverride, "default path blocks the draft book");
@@ -108,12 +108,12 @@ CREATE TABLE books (slug TEXT PRIMARY KEY, title TEXT, status TEXT, audiobook_ke
 CREATE TABLE bibles (id TEXT, book_slug TEXT, data TEXT, created_at INTEGER);
 INSERT INTO books (slug, title, status, audiobook_key) VALUES
   ('mastery', 'Mira the Heron and the Still Water', 'complete', 'books/mastery/audiobook.m4b'),
-  ('designpatterns', 'Basil the Beaver and the Pattern Book', 'ready_for_qa', 'books/designpatterns/audiobook.m4b'),
+  ('designpatterns', 'Blaze the Beaver and the Pattern Book', 'ready_for_qa', 'books/designpatterns/audiobook.m4b'),
   ('richdadpoordad', 'Penny the Squirrel and the Acorn Orchard', 'ready_for_qa', 'books/richdadpoordad/audiobook.m4b'),
   ('quietbook', 'No Sound Yet', 'ready_for_qa', NULL);
 INSERT INTO bibles (id, book_slug, data, created_at) VALUES
   ('b1', 'mastery', '{"characters":[{"name":"Mira","species":"heron"},{"name":"Ansel","species":"heron"}]}', 1),
-  ('b2', 'designpatterns', '{"characters":[{"name":"Basil","species":"beaver"}]}', 1),
+  ('b2', 'designpatterns', '{"characters":[{"name":"Blaze","species":"beaver"}]}', 1),
   ('b3', 'richdadpoordad', '{"characters":[{"name":"Penny","species":"squirrel"},{"name":"Hazel","species":"squirrel"}]}', 1),
   ('b4', 'quietbook', '{"characters":[{"name":"Noor","species":"newt"}]}', 1);
 `);
@@ -169,6 +169,23 @@ const quiet = await getPublishReadiness(db, bucket, "quietbook");
 assert(quiet && quiet.state === "no-cast" && quiet.blockers[0].includes("no audiobook has been generated"), "quietbook: uncast + no audiobook = no-cast with the combined fix");
 
 assert((await getPublishReadiness(db, bucket, "nosuchbook")) === null, "unknown book = null readiness");
+
+// An object-store outage is unknown, not evidence that a declared file exists.
+let failedHeadThrew = false;
+try {
+  await getPublishReadiness(db, { ...bucket, head: async () => { throw new Error('outage'); } }, 'mastery', { readOnly: true });
+} catch { failedHeadThrew = true; }
+assert(failedHeadThrew, 'failed audiobook HEAD cannot pass readiness');
+const noHead = await getPublishReadiness(db, { get: bucket.get }, 'mastery', { readOnly: true });
+assert(noHead?.ready === false, 'missing HEAD capability cannot establish audio readiness');
+
+const readOnlyDb = {
+  prepare(sql: string) {
+    assert(!/\b(CREATE|ALTER|INSERT|UPDATE|DELETE)\b/i.test(sql), 'read-only audio readiness issues no mutation SQL');
+    return db.prepare(sql);
+  },
+};
+await getPublishReadiness(readOnlyDb, bucket, 'mastery', { readOnly: true });
 
 // --- Override record round-trip
 assert((await getPublishOverrides(db, "richdadpoordad")).length === 0, "no overrides before any let-it-ride");

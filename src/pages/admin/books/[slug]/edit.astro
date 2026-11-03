@@ -935,17 +935,11 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       lw.style.cssText = "margin-top:12px;border-top:1px dashed var(--border);padding-top:10px";
       var lp = document.createElement("p");
       lp.style.cssText = "font-size:0.9rem;color:var(--dim);margin:0";
-      lp.textContent = "Or let it ride: publish now with the audiobook as it stands (" + r.statusLabel.toLowerCase() +
-        ") instead of waiting for the final cast-voice read. The override is recorded on the book.";
+      lp.textContent = "Publishing checks the full delivery bundle. You can review any blocked readiness checks and explicitly record an exception with a reason.";
       var lb = document.createElement("button");
       lb.type = "button"; lb.className = "btn"; lb.style.marginTop = "8px";
-      lb.textContent = "Publish anyway: let it ride";
-      lb.addEventListener("click", function() {
-        var ok = window.confirm("Let it ride and publish " + (S.title || "this book") + "?\n\n" +
-          "It will go live with the current audiobook (" + r.statusLabel + ") instead of a final cast-voice read. " +
-          "This override is recorded on the book.");
-        if (ok) doPublish(true);
-      });
+      lb.textContent = "Review publish checks";
+      lb.addEventListener("click", function() { doPublish(); });
       lw.appendChild(lp); lw.appendChild(lb);
       zone.appendChild(lw);
     }
@@ -953,21 +947,28 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
 
   function doPublish(override) {
     fetch("/api/editor/publish", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ book_slug: BOOK_SLUG, audioGateOverride: override === true }) })
+      body: JSON.stringify({ book_slug: BOOK_SLUG, ...(override && typeof override === "object" ? { publishOverride: override } : {}) }) })
       .then(function(r) {
         return r.json().catch(function() { return {}; }).then(function(j) { return { ok: r.ok, status: r.status, j: j }; });
       })
       .then(function(res) {
         if (!res.ok) {
+          if (res.j.gate === "readiness" && Array.isArray(res.j.blockers) && res.j.blockers.length) {
+            var details = res.j.blockers.map(function(b) { return b.id + ": " + b.detail; }).join("\n\n");
+            if (window.confirm("Publish with these exceptions?\n\n" + details + "\n\nInventory and page approvals cannot be waived. Your reason and these checks will be recorded.")) {
+              var reason = window.prompt("Reason for this publish exception:");
+              if (reason && reason.trim()) doPublish({ reason: reason.trim(), checks: res.j.blockers.map(function(b) { return b.id; }) });
+            }
+            return;
+          }
           alert(res.j.reason || ("Publish failed (" + res.status + ")."));
           return;
         }
         var msg = res.j.reason || "Book published.";
-        if (res.j.audioOverride) {
-          msg += "\n\nPublished with a let-it-ride audio override (" + String(res.j.audioOverride.state || "").replace(/-/g, " ") + ")" +
-            (res.j.audioOverride.recorded ? ", recorded on the book." : ". Warning: the override could not be recorded.");
+        if (res.j.override) {
+          msg += "\n\nPublish exceptions recorded: " + res.j.override.checks.join(", ") + ".";
         }
-        if (res.j.pdfStaleWarning) msg += "\n\nHeads up: " + res.j.pdfStaleWarning;
+
         alert(msg);
         location.reload();
       })

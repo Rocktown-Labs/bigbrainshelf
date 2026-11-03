@@ -166,7 +166,7 @@ export function audioGateDecision(
   readiness: PublishReadiness | null,
   override: boolean
 ): { block: boolean; recordOverride: boolean } {
-  if (!readiness || readiness.ready) return { block: false, recordOverride: false };
+  if (readiness?.ready) return { block: false, recordOverride: false };
   if (override) return { block: false, recordOverride: true };
   return { block: true, recordOverride: false };
 }
@@ -300,12 +300,12 @@ async function assembleReadiness(
   castVoiceId: string | null
 ): Promise<PublishReadiness> {
   const key = book.audiobook_key ? String(book.audiobook_key) : null;
-  let fileExists = !!key;
+  let fileExists = false;
   if (key && books && typeof books.head === "function") {
     try {
       fileExists = !!(await books.head(key));
     } catch {
-      fileExists = !!key; // a flaky head must not invent a missing book
+      throw new Error("Audiobook existence could not be verified");
     }
   }
   const stamp = key ? await readVoiceStamp(books, key) : null;
@@ -331,10 +331,13 @@ async function assembleReadiness(
 export async function getPublishReadiness(
   db: any,
   books: any,
-  slug: string
+  slug: string,
+  options: { readOnly?: boolean } = {}
 ): Promise<PublishReadiness | null> {
-  try { await ensureCastTables(db); } catch { /* registry reads tolerate absence */ }
-  try { await seedRecordedCasts(db); } catch { /* seeding is best-effort here */ }
+  if (!options.readOnly) {
+    try { await ensureCastTables(db); } catch { /* reads below expose missing state */ }
+    try { await seedRecordedCasts(db); } catch { /* reads below expose missing state */ }
+  }
   const book = await db
     .prepare(`SELECT slug, title, status, audiobook_key FROM books WHERE slug = ?`)
     .bind(slug)
