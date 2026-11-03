@@ -243,6 +243,206 @@ export function findCharacterLine(pages: string[], name: string): string | null 
   return null;
 }
 
+/* ---------- scenes (redesign S3, 2026-11-03) ----------
+ * A scene is one stored page parsed into speaking turns: narration
+ * segments (speaker "Narrator", read in the protagonist's voice) and
+ * dialogue segments attributed to a cast member by the same said-after /
+ * said-before patterns findCharacterLine uses. Scene auditions play the
+ * turns in order, so a supporting character is heard in context against
+ * the locked cast voices instead of as an isolated line. */
+
+export interface CastSceneSegment {
+  speaker: string; // a character name, or "Narrator"
+  text: string;
+}
+
+export interface CastScene {
+  id: string;
+  label: string;
+  chapter: number;
+  segments: CastSceneSegment[];
+}
+
+const SPEECH_VERBS =
+  "said|asked|whispered|called|cried|murmured|replied|answered|shouted|laughed|purred|growled|sang|hissed|barked";
+
+// Who speaks a quoted span, from the narration touching it. The text
+// AFTER the quote is the stronger signal ("...", said Mira), then the
+// text before it (Mira said, "..."). Returns null when neither names a
+// cast member.
+function attributeQuote(before: string, after: string, names: string[]): string | null {
+  const afterHead = after.slice(0, 160);
+  const beforeTail = before.slice(-160);
+  for (const name of names) {
+    const n = escapeRe(name);
+    if (
+      new RegExp(`^[\\s,;:]*?(?:${SPEECH_VERBS})\\s+${n}\\b`, "i").test(afterHead) ||
+      new RegExp(`^[\\s,;:]*?${n}\\s+(?:${SPEECH_VERBS})\\b`, "i").test(afterHead)
+    ) {
+      return name;
+    }
+  }
+  for (const name of names) {
+    const n = escapeRe(name);
+    if (
+      new RegExp(`\\b${n}\\s+(?:${SPEECH_VERBS})[,:]?\\s*$`, "i").test(beforeTail) ||
+      new RegExp(`(?:${SPEECH_VERBS})\\s+${n}[,:]?\\s*$`, "i").test(beforeTail)
+    ) {
+      return name;
+    }
+  }
+  return null;
+}
+
+// Remove an attribution phrase ("said Mira.", "Mira said,") from the
+// edge of a narration chunk so it is never read aloud as narration.
+function stripAttribution(chunk: string, names: string[], edge: "start" | "end"): string {
+  const alt = names.map(escapeRe).join("|");
+  if (!alt) return chunk;
+  if (edge === "start") {
+    return chunk
+      .replace(new RegExp(`^[\\s,;:]*?(?:${alt})\\s+(?:${SPEECH_VERBS})\\b[.,;:]?\\s*`, "i"), "")
+      .replace(new RegExp(`^[\\s,;:]*?(?:${SPEECH_VERBS})\\s+(?:${alt})\\b[.,;:]?\\s*`, "i"), "");
+  }
+  return chunk
+    .replace(new RegExp(`[\\s,]*?(?:${alt})\\s+(?:${SPEECH_VERBS})[,:]?\\s*$`, "i"), "")
+    .replace(new RegExp(`[\\s,]*(?:${SPEECH_VERBS})\\s+(?:${alt})[,:]?\\s*$`, "i"), "");
+}
+
+// Parse one page of story text into speaking turns. Quotes no cast
+// member claims fold into the narration around them.
+export function parsePageSegments(pageText: string, names: string[]): CastSceneSegment[] {
+  const text = String(pageText || "").replace(/\s+/g, " ").trim();
+  if (!text) return [];
+  const chunks: { quote: boolean; value: string }[] = [];
+  const re = /"([^"]{1,900})"/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    if (m.index > last) chunks.push({ quote: false, value: text.slice(last, m.index) });
+    chunks.push({ quote: true, value: m[1] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) chunks.push({ quote: false, value: text.slice(last) });
+
+  const speakers: (string | null)[] = chunks.map((c) => (c.quote ? null : "Narrator"));
+  for (let i = 0; i < chunks.length; i++) {
+    if (!chunks[i].quote) continue;
+    const before = i > 0 && !chunks[i - 1].quote ? chunks[i - 1].value : "";
+    const after = i + 1 < chunks.length && !chunks[i + 1].quote ? chunks[i + 1].value : "";
+    const speaker = attributeQuote(before, after, names);
+    speakers[i] = speaker;
+    if (speaker) {
+      // The attribution phrase belongs to this quote, not to the
+      // narration: cut it from whichever edge of the neighbor named it.
+      if (after && attributeQuote("", after, names) === speaker) {
+        chunks[i + 1].value = stripAttribution(chunks[i + 1].value, names, "start");
+      } else if (before) {
+        chunks[i - 1].value = stripAttribution(chunks[i - 1].value, names, "end");
+      }
+    }
+  }
+  // Continuation: a quote separated from an attributed quote only by
+  // its (now stripped) attribution phrase is the same speaker talking
+  // on: "...," said Dell. "Staring at the water."
+  for (let i = 2; i < chunks.length; i++) {
+    if (!chunks[i].quote || speakers[i]) continue;
+    if (!chunks[i - 2].quote || !speakers[i - 2]) continue;
+    if (chunks[i - 1].quote) continue;
+    if (chunks[i - 1].value.replace(/[^A-Za-z0-9]/g, "").length === 0) {
+      speakers[i] = speakers[i - 2];
+    }
+  }
+
+  const segments: CastSceneSegment[] = [];
+  const push = (speaker: string, raw: string) => {
+    const t = raw.replace(/\s+/g, " ").trim();
+    if (t.replace(/[^A-Za-z0-9]/g, "").length < 2) return;
+    const prev = segments[segments.length - 1];
+    if (prev && prev.speaker === speaker) {
+      prev.text = trimToSentence(prev.text + " " + t, 460);
+      return;
+    }
+    segments.push({ speaker, text: trimToSentence(t, 460) });
+  };
+  chunks.forEach((c, i) => {
+    if (!c.quote) push("Narrator", c.value);
+    else if (speakers[i]) push(speakers[i] as string, c.value);
+    else push("Narrator", c.value);
+  });
+  return segments.slice(0, 10);
+}
+
+// One scene per supporting character: the earliest page where they
+// speak alongside someone else (narration counts), else the earliest
+// page where they speak at all. The protagonist auditions through the
+// free sample instead, so she gets no scene.
+export async function sceneSetForBook(
+  books: any,
+  slug: string,
+  characters: CastCharacter[]
+): Promise<Record<string, CastScene>> {
+  const scenes: Record<string, CastScene> = {};
+  const names = characters.map((c) => c.name);
+  if (!names.length || !books || typeof books.get !== "function") return scenes;
+  try {
+    const obj = await books.get(`books/${slug}/editor_chapters.json`);
+    if (!obj) return scenes;
+    const chapters = JSON.parse(await obj.text());
+    const shared: Record<string, CastScene> = {};
+    const solo: Record<string, CastScene> = {};
+    (chapters || []).forEach((ch: any, ci: number) => {
+      const chapterNo = Number(ch?.num) || ci + 1;
+      const title = String(ch?.title || "").trim();
+      const label =
+        `Chapter ${chapterNo} scene` +
+        (title && title.toLowerCase() !== `chapter ${chapterNo}` ? `: ${title}` : "");
+      (ch?.pages || []).forEach((p: any, pi: number) => {
+        if (!p?.text) return;
+        const segments = parsePageSegments(String(p.text), names);
+        if (segments.length < 2) return;
+        const speakers = new Set(segments.map((s) => s.speaker));
+        for (const c of characters) {
+          if (c.role === "protagonist") continue;
+          if (!segments.some((s) => s.speaker === c.name)) continue;
+          const scene: CastScene = {
+            id: `s${chapterNo}p${pi + 1}`,
+            label,
+            chapter: chapterNo,
+            segments,
+          };
+          if ([...speakers].some((s) => s !== c.name)) {
+            if (!shared[c.name]) shared[c.name] = scene;
+          } else if (!solo[c.name]) {
+            solo[c.name] = scene;
+          }
+        }
+      });
+    });
+    for (const c of characters) {
+      if (c.role === "protagonist") continue;
+      const scene = shared[c.name] || solo[c.name];
+      if (scene) scenes[c.name] = scene;
+    }
+  } catch { /* a book without usable chapter text simply has no scenes */ }
+  return scenes;
+}
+
+// The protagonist's free sample as speaking turns: the presents intro
+// and the Chapter 1 narration (both in her voice, as narrator) plus her
+// own first line. Built from the book's line set so Mira's curated
+// snippets and the derived sets share one shape.
+export function sampleSegmentsFor(lines: CastLine[], protagonistName: string | null): CastSceneSegment[] {
+  const out: CastSceneSegment[] = [];
+  const presents = lines.find((l) => l.id === "presents");
+  const narrator = lines.find((l) => l.id === "narrator");
+  const own = protagonistName ? lines.find((l) => l.character === protagonistName) : null;
+  if (presents) out.push({ speaker: "Narrator", text: presents.text });
+  if (narrator) out.push({ speaker: "Narrator", text: narrator.text });
+  if (own && protagonistName) out.push({ speaker: protagonistName, text: own.text });
+  return out;
+}
+
 // The audition line set for a book. Mira keeps her curated snippet set
 // (the featured auditions are pre-generated against those exact texts);
 // every other book derives its lines from its stored chapter texts.

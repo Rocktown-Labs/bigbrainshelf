@@ -15,6 +15,9 @@ import {
   exportRegistry,
   bibleCast,
   findCharacterLine,
+  parsePageSegments,
+  sceneSetForBook,
+  sampleSegmentsFor,
   RECORDED_CASTS,
 } from "../src/lib/cast-registry";
 
@@ -166,6 +169,78 @@ assert(ansel && ansel.includes("My feet made that"), "lines: Ansel's said-before
 const miraLine = findCharacterLine(pages, "Mira");
 assert(miraLine && miraLine.includes("wanted a thing of her own"), "lines: fallback is a narration page naming the character");
 assert(findCharacterLine(pages, "Nobody") === null, "lines: unknown character yields null");
+
+/* ---------- parsePageSegments: scene derivation (S3) ---------- */
+const castNames = ["Mira", "Ansel", "Dell"];
+const dellSegs = parsePageSegments(pages[1], castNames);
+assert(dellSegs.length === 2 && dellSegs[0].speaker === "Narrator" && dellSegs[1].speaker === "Dell",
+  "scenes: Dell page splits into narration plus Dell");
+assert(dellSegs[0].text.includes("muddy end") && !/said/i.test(dellSegs[0].text),
+  "scenes: attribution phrase is stripped from the narration, never read aloud");
+assert(dellSegs[1].text.includes("end up here") && dellSegs[1].text.includes("fuzzy chick"),
+  "scenes: a continued quote after 'said Dell.' stays with Dell and merges");
+const anselSegs = parsePageSegments(pages[2], castNames);
+assert(anselSegs.length === 1 && anselSegs[0].speaker === "Ansel" && anselSegs[0].text.includes("My feet made that"),
+  "scenes: Ansel's said-before page is one merged Ansel turn");
+const mixedSegs = parsePageSegments(
+  'The sun climbed over the marsh. "My feet made that," said Ansel, "one walk every morning for many years." Mira watched the path appear in the mud.',
+  castNames
+);
+assert(
+  mixedSegs.length === 3 && mixedSegs[0].speaker === "Narrator" && mixedSegs[1].speaker === "Ansel" && mixedSegs[2].speaker === "Narrator",
+  "scenes: narration, dialogue, narration stay in order"
+);
+
+/* ---------- sceneSetForBook: earliest shared page wins ---------- */
+const sceneChars = [
+  { name: "Mira", species: "heron", role: "protagonist" as const },
+  { name: "Ansel", species: "heron", role: "supporting" as const },
+  { name: "Dell", species: "duck", role: "supporting" as const },
+];
+const sceneChapters = [
+  {
+    num: 1,
+    title: "The Small Sky",
+    pages: [
+      { text: pages[0] },
+      { text: pages[1] },
+      { text: 'The sun climbed over the marsh. "My feet made that," said Ansel, "one walk every morning for many years." Mira watched the path appear in the mud.' },
+    ],
+  },
+];
+const sceneBooks = {
+  async get(key: string) {
+    if (key.endsWith("editor_chapters.json")) {
+      return { text: async () => JSON.stringify(sceneChapters) };
+    }
+    return null;
+  },
+};
+const scenes = await sceneSetForBook(sceneBooks as any, "any-book", sceneChars);
+assert(!scenes.Mira, "scenes: the protagonist never gets a scene of her own");
+assert(scenes.Dell && scenes.Dell.label === "Chapter 1 scene: The Small Sky" && scenes.Dell.id === "s1p2",
+  "scenes: Dell's scene is the shared Chapter 1 page with its title");
+assert(scenes.Dell && scenes.Dell.segments.some((s) => s.speaker === "Narrator"),
+  "scenes: Dell's scene keeps the narration turns for the locked narrator voice");
+assert(scenes.Ansel && scenes.Ansel.id === "s1p3" && scenes.Ansel.segments.some((s) => s.speaker === "Ansel"),
+  "scenes: Ansel's scene is his shared page with the narrator");
+const noTextScenes = await sceneSetForBook({ async get() { return null; } } as any, "x", sceneChars);
+assert(Object.keys(noTextScenes).length === 0, "scenes: a book without chapter text yields no scenes, not an error");
+
+/* ---------- sampleSegmentsFor: the free sample (S3) ---------- */
+const sampleLines = [
+  { id: "presents", character: "Promo", label: "Presents intro", text: "Big Brain Shelf presents: Mira.", cacheBook: "x" },
+  { id: "narrator", character: "Narrator", label: "Chapter 1", text: "Mira wanted a thing of her own.", cacheBook: "x" },
+  { id: "mira", character: "Mira", label: "Mira", text: "I can learn this.", cacheBook: "x" },
+  { id: "dell", character: "Dell", label: "Dell", text: "You always end up here too.", cacheBook: "x" },
+];
+const sample = sampleSegmentsFor(sampleLines as any, "Mira");
+assert(
+  sample.length === 3 && sample[0].speaker === "Narrator" && sample[1].speaker === "Narrator" && sample[2].speaker === "Mira",
+  "sample: presents and Chapter 1 narration, then the protagonist's own line"
+);
+assert(sampleSegmentsFor(sampleLines as any, null).length === 2,
+  "sample: without a protagonist name the sample is narration only");
 
 if (failures) { console.error(failures + " FAILURES"); process.exit(1); }
 console.log("ALL PASS");

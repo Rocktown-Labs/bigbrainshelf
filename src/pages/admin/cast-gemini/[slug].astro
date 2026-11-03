@@ -1,0 +1,913 @@
+---
+import "../../../styles/global.css";
+import AdminShell from "../../../components/AdminShell.astro";
+export const prerender = false;
+// Per-book casting page (redesign S3, 2026-11-03). Reached by tapping
+// a cover on the casting shelf (/admin/cast-gemini). The route param
+// is the book's public slug; the registry API resolves it to the
+// internal slug the registry keys on.
+//
+// Shape, per the approved spec: protagonist first, with ONLY the
+// Narrator and Main character chips. Her audition is the free sample
+// (Intro + Chapter 1). Supporting characters audition inside a scene:
+// their lines take the candidate voice, everyone else's lines stay in
+// their locked cast voices, narration in the protagonist's. Scenes
+// stay locked until the protagonist is cast. Play is what generates a
+// clip (through /api/admin/cast-gemini-audition, cached in R2);
+// saving a pick regenerates nothing.
+import geminiVoicesData from "../../../data/cast/gemini-voices.json";
+
+const slugParam = Astro.params.slug ?? "";
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Casting · Big Brain Shelf Admin</title>
+  <style>
+    /* Last-played voice highlight: set when a play starts, cleared only
+       when a different voice is played. */
+    .lp-on { background: #fff7ed; box-shadow: inset 0 0 0 2px #ea580c; border-radius: 0.5rem; }
+    .char-img { width: 72px; height: 72px; border-radius: 10px; overflow: hidden; flex: none; background: #f5f5f4; border: 1px solid #e7e5e4; }
+    .char-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .char-img-fallback { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 24px; color: #78716c; }
+    .seg-row { border-radius: 0.5rem; padding: 6px 8px; }
+    .seg-on { background: #fff7ed; box-shadow: inset 0 0 0 2px #ea580c; }
+    .vtag { display: inline-block; border-radius: 9999px; font-size: 10px; font-weight: 700; padding: 1px 7px; margin-left: 8px; vertical-align: middle; }
+    .vtag.locked { background: #dcfce7; color: #166534; }
+    .vtag.trying { background: #ffedd5; color: #9a3412; }
+    .vtag.missing { background: #f5f5f4; color: #78716c; }
+    .cand { border-radius: 9999px; padding: 4px 12px; font-size: 12px; font-weight: 600; border: 1px solid #d6d3d1; background: #fff; color: #44403c; cursor: pointer; }
+    .cand:hover { border-color: #78716c; }
+    .cand.on { background: #1a3454; color: #fff; border-color: #1a3454; }
+  </style>
+  </head>
+<body class="bg-stone-50 text-stone-900 antialiased">
+  <AdminShell current="/admin/cast-gemini" />
+
+  <main class="mx-auto max-w-6xl px-4 py-8">
+    <a href="/admin/cast-gemini" class="text-sm font-semibold text-[#1a3454] hover:underline">&larr; Back to the casting shelf</a>
+    <h1 class="text-2xl font-bold tracking-tight mt-2" id="book-title">Casting</h1>
+    <p class="text-sm text-red-600 mt-1" id="cast-status"></p>
+    <p class="mt-1 text-xs text-stone-400" id="generation-note">Checking the voice generation key...</p>
+    <p class="mt-2 text-sm" id="book-audio-state"></p>
+
+    <div id="protagonist-banner" class="hidden mt-4 rounded-lg bg-amber-50 border border-amber-300 px-4 py-3 text-sm text-amber-900"></div>
+
+    <div class="mt-4 rounded-lg bg-white border border-stone-200 px-4 py-4 sticky top-2 z-20 shadow">
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="text-sm font-semibold" id="now-playing">Nothing playing</span>
+        <span class="text-sm font-semibold text-orange-700" id="last-played"></span>
+      </div>
+      <audio id="player" controls class="mt-3 w-full"></audio>
+    </div>
+
+    <div class="mt-4 grid gap-3" id="cast-sheet"></div>
+  </main>
+
+  <script is:inline define:vars={{ geminiVoicesData, slugParam }}>
+    var state = {
+      slugParam: slugParam,
+      slug: "",
+      title: "",
+      characters: [],
+      lines: [],
+      scenes: {},
+      sample: [],
+      registry: {}, // character_name -> row
+      audio: null,
+      openPicker: null,
+      pickerSearch: "",
+      cardLine: {}, // character name -> line id (fallback auditions)
+      candidate: {}, // character name -> voice id being tried in their scene
+      generation: "unknown",
+      lastPlayed: null, // { character, voiceId } of the voice most recently played
+    };
+    var blobCache = {};
+    var player = document.getElementById("player");
+    var statusEl = document.getElementById("cast-status");
+    var nowPlayingEl = document.getElementById("now-playing");
+    var lastPlayedEl = document.getElementById("last-played");
+    var playToken = 0;
+
+    function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+    function setStatus(msg) { statusEl.textContent = msg || ""; }
+    function allVoices() { return (geminiVoicesData.voices || []).slice(); }
+    function voiceById(id) {
+      return allVoices().find(function (v) { return v.id === id; }) || null;
+    }
+    function usedBy(voiceId) {
+      var names = Object.keys(state.registry);
+      for (var i = 0; i < names.length; i++) {
+        var row = state.registry[names[i]];
+        if (row && row.voice_id === voiceId) return names[i];
+      }
+      return null;
+    }
+    function sortedVoices(forCharacter) {
+      var current = state.registry[forCharacter];
+      var currentId = current ? current.voice_id : null;
+      return allVoices().sort(function (a, b) {
+        if (a.id === currentId) return -1;
+        if (b.id === currentId) return 1;
+        var au = usedBy(a.id) ? 1 : 0;
+        var bu = usedBy(b.id) ? 1 : 0;
+        if (au !== bu) return au - bu;
+        return a.name.localeCompare(b.name);
+      });
+    }
+    function castVoiceId(name) {
+      var row = state.registry[name];
+      return row && row.voice_id ? row.voice_id : null;
+    }
+    function protagonist() {
+      return state.characters.find(function (c) { return c.role === "protagonist"; }) || null;
+    }
+    function protagonistCast() {
+      var p = protagonist();
+      return !!(p && castVoiceId(p.name));
+    }
+
+    function linesFor(character) {
+      var own = state.lines.filter(function (l) { return l.character === character.name; });
+      if (character.role === "protagonist") {
+        var claimed = {};
+        state.characters.forEach(function (c) {
+          state.lines.forEach(function (l) { if (l.character === c.name) claimed[l.id] = true; });
+        });
+        var extra = state.lines.filter(function (l) {
+          return l.character === "Narrator" || l.character === "Promo" || !claimed[l.id];
+        });
+        return own.concat(extra.filter(function (l) { return own.indexOf(l) === -1; }));
+      }
+      if (own.length) return own;
+      var narrator = state.lines.filter(function (l) { return l.character === "Narrator"; });
+      return narrator.length ? narrator : state.lines.slice(0, 1);
+    }
+    function lineFor(character) {
+      var list = linesFor(character);
+      if (!list.length) return null;
+      var id = state.cardLine[character.name];
+      return list.find(function (l) { return l.id === id; }) || list[0];
+    }
+
+    // ---------- playback ----------
+    function audioUrlFor(v, line) {
+      var ck = v.id + "|" + state.slug + "|" + line.id;
+      if (blobCache[ck]) return Promise.resolve(blobCache[ck]);
+      var body = { voice: v.id, text: line.text };
+      if (line.cacheBook) body.book = line.cacheBook;
+      return fetch("/api/admin/cast-gemini-audition", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).then(function (r) {
+        if (!r.ok) {
+          return r.json().catch(function () { return {}; }).then(function (j) {
+            if (j.code === "generation_not_connected") {
+              state.generation = "not_connected";
+              renderGenerationNote();
+            }
+            throw new Error(j.error || ("Generation failed (" + r.status + ")"));
+          });
+        }
+        return r.blob();
+      }).then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        blobCache[ck] = url;
+        return url;
+      });
+    }
+
+    // Marks the row the voice was played from (in that character's card)
+    // and mirrors the name into the player bar. The mark is set only when
+    // a play actually starts, and nothing clears it: it moves only when a
+    // different voice is played.
+    function applyLastPlayedHighlight() {
+      document.querySelectorAll(".lp-on").forEach(function (el) { el.classList.remove("lp-on"); });
+      document.querySelectorAll(".lp-badge").forEach(function (el) { el.remove(); });
+      if (!state.lastPlayed) return;
+      var el = document.querySelector(
+        '[data-lp-char="' + state.lastPlayed.character + '"][data-lp-voice="' + state.lastPlayed.voiceId + '"][data-lp-kind="' + state.lastPlayed.from + '"]'
+      ) || document.querySelector(
+        '[data-lp-char="' + state.lastPlayed.character + '"][data-lp-voice="' + state.lastPlayed.voiceId + '"]'
+      );
+      if (!el) return;
+      el.classList.add("lp-on");
+      var badge = document.createElement("span");
+      badge.className = "lp-badge rounded-full bg-orange-600 text-white text-[11px] font-semibold px-2 py-0.5";
+      badge.textContent = "\uD83D\uDD0A Last played";
+      el.appendChild(badge);
+    }
+
+    function playVoice(v, line, btn, characterName, fromKind) {
+      if (!line) { setStatus("No audition line for this card yet."); return Promise.resolve(); }
+      playToken++; // a single-line play supersedes any scene queue
+      player.onended = null;
+      if (btn) { btn.disabled = true; btn.textContent = "Voicing..."; }
+      setStatus("");
+      return audioUrlFor(v, line).then(function (url) {
+        state.lastPlayed = { character: characterName || "", voiceId: v.id, from: fromKind || "picker" };
+        applyLastPlayedHighlight();
+        if (lastPlayedEl) lastPlayedEl.textContent = "Last played: " + v.name;
+        player.src = url;
+        nowPlayingEl.textContent = "Now playing: " + v.name + " reading " + line.label;
+        return player.play().catch(function () {});
+      }).catch(function (err) {
+        setStatus(err.message || "Generation failed.");
+      }).finally(function () {
+        if (btn) { btn.disabled = false; btn.textContent = "Play"; }
+      });
+    }
+
+    // Play a sequence of turns (a scene, or the free sample) in order.
+    // items: [{ voice, text, segId, segIndex, scope }] where scope is
+    // the container whose [data-seg] rows highlight as they speak.
+    // Clips resolve through the same cached audition endpoint, so a
+    // replay is all cache hits.
+    function playItems(items, btn, label, scope) {
+      if (!items.length) { setStatus("Nothing in that scene can play yet."); return Promise.resolve(); }
+      var token = ++playToken;
+      var btnLabel = btn ? btn.textContent : "";
+      if (btn) { btn.disabled = true; btn.textContent = "Generating..."; }
+      setStatus("");
+      var fetches = items.map(function (it) {
+        return audioUrlFor(it.voice, { id: it.segId, text: it.text, cacheBook: state.slug });
+      });
+      return Promise.all(fetches).then(function (urls) {
+        if (token !== playToken) return;
+        if (btn) { btn.textContent = "Playing..."; }
+        nowPlayingEl.textContent = "Now playing: " + label;
+        var idx = 0;
+        var clearSeg = function () {
+          if (scope) scope.querySelectorAll(".seg-on").forEach(function (el) { el.classList.remove("seg-on"); });
+        };
+        var finish = function () {
+          clearSeg();
+          player.onended = null;
+          if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
+        };
+        var step = function () {
+          if (token !== playToken) { finish(); return; }
+          if (idx >= urls.length) { finish(); return; }
+          clearSeg();
+          if (scope) {
+            var row = scope.querySelector('[data-seg="' + items[idx].segIndex + '"]');
+            if (row) row.classList.add("seg-on");
+          }
+          player.src = urls[idx];
+          idx++;
+          player.play().catch(function () {});
+        };
+        player.onended = step;
+        step();
+      }).catch(function (err) {
+        if (btn) { btn.disabled = false; btn.textContent = btnLabel; }
+        setStatus(err.message || "Generation failed.");
+      });
+    }
+
+    // The turns of a scene resolved to voices: the auditioned
+    // character takes the candidate voice, narration takes the
+    // protagonist's locked cast voice, everyone else takes their own
+    // locked cast voice. Turns whose voice is not cast yet are skipped
+    // and reported, never faked.
+    function sceneItems(c, candidateId, scope) {
+      var scene = state.scenes[c.name];
+      var items = [];
+      var skipped = [];
+      (scene ? scene.segments : []).forEach(function (seg, idx) {
+        var vid = null;
+        if (seg.speaker === c.name) vid = candidateId;
+        else if (seg.speaker === "Narrator") { var p = protagonist(); vid = p ? castVoiceId(p.name) : null; }
+        else vid = castVoiceId(seg.speaker);
+        var v = vid ? voiceById(vid) : null;
+        if (v) items.push({ voice: v, text: seg.text, segId: "scene-" + scene.id + "-" + idx, segIndex: idx, scope: scope });
+        else skipped.push(seg.speaker);
+      });
+      return { items: items, skipped: skipped };
+    }
+
+    function playScene(c, candidateId, btn) {
+      var scene = state.scenes[c.name];
+      if (!scene) return;
+      var scope = document.getElementById("scene-" + c.name.replace(/[^A-Za-z0-9]+/g, "-"));
+      var resolved = sceneItems(c, candidateId, scope);
+      if (resolved.skipped.length) {
+        setStatus("Skipped lines for " + resolved.skipped.join(", ") + ": not cast yet.");
+      }
+      var v = voiceById(candidateId);
+      playItems(resolved.items, btn, scene.label + " with " + (v ? v.name : candidateId) + " as " + c.name, scope);
+    }
+
+    function playSample(voiceId, btn) {
+      var v = voiceById(voiceId);
+      if (!v) { setStatus("Pick a voice first."); return; }
+      var scope = document.getElementById("sample-scope");
+      var items = state.sample.map(function (seg, idx) {
+        return { voice: v, text: seg.text, segId: "sample-" + idx, segIndex: idx, scope: scope };
+      });
+      playItems(items, btn, "Free sample: Intro + Chapter 1 in " + v.name, scope);
+    }
+
+    // One Play behavior per card: the protagonist auditions through
+    // the free sample; a supporting character auditions inside their
+    // scene (when scenes are unlocked); otherwise the single line.
+    function playAudition(c, v, btn, fromKind) {
+      if (c.role === "protagonist") { playSample(v.id, btn); return; }
+      if (state.scenes[c.name] && protagonistCast()) {
+        state.candidate[c.name] = v.id;
+        syncCandidateChips(c);
+        playScene(c, v.id, btn);
+        return;
+      }
+      playVoice(v, lineFor(c), btn, c.name, fromKind);
+    }
+
+    // ---------- cast sheet ----------
+    function orderedCharacters() {
+      return state.characters.slice().sort(function (a, b) {
+        return (a.role === "protagonist" ? 0 : 1) - (b.role === "protagonist" ? 0 : 1);
+      });
+    }
+
+    function renderSheet() {
+      var wrap = document.getElementById("cast-sheet");
+      wrap.innerHTML = "";
+      var banner = document.getElementById("protagonist-banner");
+      var p = protagonist();
+      if (p && !castVoiceId(p.name)) {
+        banner.classList.remove("hidden");
+        banner.textContent = "Cast " + p.name + " first. " + p.name + " is the narrator and the main character, so every scene in this book uses " +
+          p.name + "'s voice for the narration and for " + p.name + "'s lines. Until " + p.name + " has a voice, the scenes below cannot play and nobody else can be auditioned against the real narrator.";
+      } else {
+        banner.classList.add("hidden");
+        banner.textContent = "";
+      }
+      if (!state.characters.length) {
+        var empty = document.createElement("div");
+        empty.className = "rounded-lg bg-white border border-stone-200 p-4";
+        empty.innerHTML = '<p class="text-sm text-stone-500" style="margin-top:0">No cast found in this book\'s bible yet.</p>' +
+          '<p style="margin-bottom:0"><a class="rounded-md bg-[#1a3454] text-white text-sm font-semibold px-3 py-1.5 inline-block" href="/admin/cast-gemini">Back to the casting shelf</a></p>';
+        wrap.appendChild(empty);
+        return;
+      }
+      orderedCharacters().forEach(function (c) { wrap.appendChild(characterCard(c)); });
+      applyLastPlayedHighlight();
+    }
+
+    function charImageEl(c) {
+      var wrapEl = document.createElement("div");
+      wrapEl.className = "char-img" + (c.image_key ? "" : " char-img-fallback");
+      if (c.image_key) {
+        var img = document.createElement("img");
+        img.src = "/api/admin/media?key=" + encodeURIComponent(c.image_key);
+        img.alt = c.name;
+        img.loading = "lazy";
+        img.addEventListener("error", function () {
+          wrapEl.classList.add("char-img-fallback");
+          wrapEl.textContent = c.name.charAt(0);
+        });
+        wrapEl.appendChild(img);
+      } else {
+        wrapEl.textContent = c.name.charAt(0);
+      }
+      return wrapEl;
+    }
+
+    function characterCard(c) {
+      var row = state.registry[c.name] || null;
+      var voice = row && row.voice_id ? voiceById(row.voice_id) : null;
+      var isLead = c.role === "protagonist";
+      var card = document.createElement("div");
+      card.className = "rounded-lg bg-white p-4 " +
+        (isLead ? "border-2 border-[#1a3454]" : "border border-stone-200");
+
+      var layout = document.createElement("div");
+      layout.className = "flex gap-4";
+      layout.appendChild(charImageEl(c));
+      var body = document.createElement("div");
+      body.className = "flex-1 min-w-0";
+      layout.appendChild(body);
+      card.appendChild(layout);
+
+      var top = document.createElement("div");
+      top.className = "flex flex-wrap items-center gap-2";
+      var name = document.createElement("span");
+      name.className = "text-lg font-bold";
+      name.textContent = c.name;
+      top.appendChild(name);
+      if (c.species) {
+        var sp = document.createElement("span");
+        sp.className = "text-sm text-stone-500";
+        sp.textContent = "the " + c.species;
+        top.appendChild(sp);
+      }
+      var badge = document.createElement("span");
+      badge.className = "rounded-full text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide " +
+        (isLead ? "bg-[#1a3454] text-white" : "bg-stone-100 text-stone-600");
+      badge.textContent = isLead ? "Protagonist" : "Supporting";
+      top.appendChild(badge);
+      body.appendChild(top);
+
+      if (isLead) {
+        var chips = document.createElement("div");
+        chips.className = "mt-2 flex flex-wrap gap-1.5";
+        ["Narrator", "Main character"].forEach(function (r) {
+          var chip = document.createElement("span");
+          chip.className = "rounded-full bg-orange-100 text-orange-800 text-[11px] font-semibold px-2 py-0.5";
+          chip.textContent = r;
+          chips.appendChild(chip);
+        });
+        var note = document.createElement("span");
+        note.className = "text-[11px] text-stone-400 self-center";
+        note.textContent = "one voice locks both roles";
+        chips.appendChild(note);
+        body.appendChild(chips);
+      }
+
+      var current = document.createElement("div");
+      current.className = "mt-3 flex flex-wrap items-center gap-2";
+      if (voice || (row && row.voice_id)) {
+        current.setAttribute("data-lp-char", c.name);
+        current.setAttribute("data-lp-voice", voice ? voice.id : row.voice_id);
+        current.setAttribute("data-lp-kind", "current");
+      }
+      var vlabel = document.createElement("span");
+      vlabel.className = "text-sm";
+      if (voice) {
+        var strong = document.createElement("strong");
+        strong.textContent = "Voice: " + voice.name;
+        vlabel.appendChild(strong);
+        var meta = document.createElement("span");
+        meta.className = "text-stone-500";
+        meta.textContent = " (" + [cap(voice.gender), voice.pitch, (voice.traits || []).join(", ")].filter(Boolean).join(" · ") + ")";
+        vlabel.appendChild(meta);
+      } else if (row && row.voice_id) {
+        vlabel.textContent = "Voice: " + (row.voice_name || row.voice_id);
+      } else {
+        vlabel.className = "text-sm text-stone-400";
+        vlabel.textContent = "Not yet cast";
+      }
+      current.appendChild(vlabel);
+      if (row && row.source === "recorded") {
+        var rec = document.createElement("span");
+        rec.className = "rounded-full bg-green-100 text-green-800 text-[11px] font-semibold px-2 py-0.5";
+        rec.textContent = "Recorded cast";
+        rec.title = "This voice reads the published audiobook. It can still be changed here.";
+        current.appendChild(rec);
+      }
+      if (voice) {
+        var playCurrent = document.createElement("button");
+        playCurrent.className = "rounded-md bg-[#1a3454] text-white text-sm font-semibold px-3 py-1.5 hover:bg-[#24466e]";
+        playCurrent.textContent = "Play";
+        playCurrent.addEventListener("click", function () { playAudition(c, voice, playCurrent, "current"); });
+        current.appendChild(playCurrent);
+      }
+      var toggle = document.createElement("button");
+      toggle.className = "rounded-md bg-white border border-stone-300 text-sm font-semibold px-3 py-1.5 hover:border-stone-500";
+      toggle.textContent = state.openPicker === c.name ? "Close voices" : (voice ? "Change voice" : "Pick a voice");
+      toggle.addEventListener("click", function () {
+        state.openPicker = state.openPicker === c.name ? null : c.name;
+        state.pickerSearch = "";
+        renderSheet();
+      });
+      current.appendChild(toggle);
+      body.appendChild(current);
+
+      if (isLead) body.appendChild(sampleBlock(c));
+      else body.appendChild(auditionBlock(c));
+
+      if (state.openPicker === c.name) body.appendChild(picker(c));
+      return card;
+    }
+
+    // The protagonist's player: the free sample (Intro + Chapter 1),
+    // the same preview families hear free on the store, read here in
+    // the cast voice. Before she is cast it explains itself instead.
+    function sampleBlock(c) {
+      var box = document.createElement("div");
+      box.className = "mt-4 rounded-lg bg-[#1a3454] text-white px-4 py-3";
+      box.id = "sample-scope";
+      var label = document.createElement("div");
+      label.className = "text-xs font-bold uppercase tracking-wide text-orange-300";
+      label.textContent = "Free sample: Intro + Chapter 1";
+      box.appendChild(label);
+      var voiceId = castVoiceId(c.name);
+      if (!state.sample.length) {
+        var none = document.createElement("p");
+        none.className = "mt-2 text-sm text-stone-300";
+        none.textContent = "No sample lines yet for this book.";
+        box.appendChild(none);
+        return box;
+      }
+      state.sample.forEach(function (seg, idx) {
+        var rowEl = document.createElement("div");
+        rowEl.className = "seg-row mt-1 text-sm leading-relaxed";
+        rowEl.setAttribute("data-seg", String(idx));
+        var who = document.createElement("span");
+        who.className = "font-semibold";
+        who.textContent = (seg.speaker === "Narrator" ? "Narrator" : seg.speaker) + ": ";
+        rowEl.appendChild(who);
+        var txt = document.createElement("span");
+        txt.className = "text-stone-200";
+        txt.textContent = seg.speaker === "Narrator" ? seg.text : '"' + seg.text + '"';
+        rowEl.appendChild(txt);
+        box.appendChild(rowEl);
+      });
+      var rowBtns = document.createElement("div");
+      rowBtns.className = "mt-3 flex flex-wrap items-center gap-2";
+      var play = document.createElement("button");
+      play.className = "rounded-md bg-orange-600 text-white text-sm font-semibold px-3 py-1.5 hover:bg-orange-700 disabled:opacity-50";
+      play.textContent = "Play the sample";
+      if (voiceId) {
+        play.addEventListener("click", function () { playSample(voiceId, play); });
+      } else {
+        play.disabled = true;
+      }
+      rowBtns.appendChild(play);
+      var note = document.createElement("span");
+      note.className = "text-xs text-stone-300";
+      note.textContent = voiceId
+        ? "The same preview families hear free on the store, in " + c.name + "'s cast voice. It is set before anyone else is auditioned against it."
+        : "Once " + c.name + " is cast, the free sample plays here in that voice, set and ready before anyone else is auditioned against it.";
+      rowBtns.appendChild(note);
+      box.appendChild(rowBtns);
+      return box;
+    }
+
+    // A supporting character's audition: their scene, or (when the
+    // book has no usable scene for them) the single-line audition the
+    // casting page has always offered.
+    function auditionBlock(c) {
+      var scene = state.scenes[c.name];
+      if (!protagonistCast()) {
+        var p = protagonist();
+        var locked = document.createElement("div");
+        locked.className = "mt-3 rounded-lg bg-stone-50 border border-stone-200 px-3 py-2 text-sm text-stone-500";
+        locked.textContent = p
+          ? "Scenes unlock the moment " + p.name + " is cast, so you hear " + c.name + " against the real narrator."
+          : "Scenes unlock once the protagonist is cast.";
+        return locked;
+      }
+      if (!scene) return fallbackLineBlock(c);
+
+      var box = document.createElement("div");
+      box.className = "mt-4 rounded-lg border border-stone-200 px-3 py-3";
+      box.id = "scene-" + c.name.replace(/[^A-Za-z0-9]+/g, "-");
+      var label = document.createElement("div");
+      label.className = "text-xs font-bold uppercase tracking-wide text-stone-500";
+      label.textContent = scene.label + ", hear the pass off";
+      box.appendChild(label);
+
+      var castId = castVoiceId(c.name);
+      if (!state.candidate[c.name]) state.candidate[c.name] = castId || firstCandidateId(c);
+      scene.segments.forEach(function (seg, idx) {
+        var rowEl = document.createElement("div");
+        rowEl.className = "seg-row mt-1 text-sm leading-relaxed";
+        rowEl.setAttribute("data-seg", String(idx));
+        var who = document.createElement("span");
+        who.className = "font-semibold";
+        who.textContent = seg.speaker + ": ";
+        rowEl.appendChild(who);
+        var txt = document.createElement("span");
+        txt.textContent = seg.speaker === "Narrator" ? seg.text : '"' + seg.text + '"';
+        rowEl.appendChild(txt);
+        var tag = document.createElement("span");
+        if (seg.speaker === c.name) {
+          tag.className = "vtag trying";
+          tag.setAttribute("data-trytag", c.name);
+          var cv = voiceById(state.candidate[c.name]);
+          tag.textContent = "trying: " + (cv ? cv.name : state.candidate[c.name]);
+        } else {
+          var sv = seg.speaker === "Narrator" ? castVoiceId((protagonist() || {}).name || "") : castVoiceId(seg.speaker);
+          var svObj = sv ? voiceById(sv) : null;
+          tag.className = "vtag " + (svObj ? "locked" : "missing");
+          tag.textContent = svObj ? svObj.name + ", cast, locked" : "not cast yet";
+        }
+        rowEl.appendChild(tag);
+        box.appendChild(rowEl);
+      });
+
+      var candRow = document.createElement("div");
+      candRow.className = "mt-3 flex flex-wrap items-center gap-1.5";
+      var candLabel = document.createElement("span");
+      candLabel.className = "text-xs font-semibold text-stone-500 mr-1";
+      candLabel.textContent = "Audition against " + (protagonist() ? protagonist().name : "the narrator") + ":";
+      candRow.appendChild(candLabel);
+      candidateVoicesFor(c).forEach(function (cand) {
+        var b = document.createElement("button");
+        b.className = "cand" + (state.candidate[c.name] === cand.id ? " on" : "");
+        b.setAttribute("data-cand-for", c.name);
+        b.setAttribute("data-cand-voice", cand.id);
+        var v = voiceById(cand.id);
+        b.textContent = (v ? v.name : cand.id) + (cand.cast ? " (cast)" : "");
+        b.addEventListener("click", function () {
+          state.candidate[c.name] = cand.id;
+          syncCandidateChips(c);
+          playScene(c, cand.id, null);
+        });
+        candRow.appendChild(b);
+      });
+      var playBtn = document.createElement("button");
+      playBtn.className = "rounded-md bg-[#1a3454] text-white text-xs font-semibold px-3 py-1.5 hover:bg-[#24466e] ml-2";
+      playBtn.textContent = "Play scene";
+      playBtn.addEventListener("click", function () {
+        playScene(c, state.candidate[c.name] || castId || firstCandidateId(c), playBtn);
+      });
+      candRow.appendChild(playBtn);
+      box.appendChild(candRow);
+
+      var note = document.createElement("p");
+      note.className = "mt-2 text-xs text-stone-400";
+      var pName = protagonist() ? protagonist().name : "The narrator";
+      note.textContent = "Tap a candidate and only " + c.name + "'s lines change. " + pName + "'s lines stay locked to the cast voice, so every audition is judged against the real thing.";
+      box.appendChild(note);
+      return box;
+    }
+
+    function fallbackLineBlock(c) {
+      var frag = document.createElement("div");
+      var list = linesFor(c);
+      if (!list.length) return frag;
+      var lineRow = document.createElement("div");
+      lineRow.className = "mt-3 flex flex-wrap gap-1.5";
+      list.forEach(function (l) {
+        var active = lineFor(c) && lineFor(c).id === l.id;
+        var b = document.createElement("button");
+        b.className = "rounded-md px-2.5 py-1 text-xs font-semibold border " +
+          (active ? "bg-[#1a3454] text-white border-[#1a3454]" : "bg-white text-stone-600 border-stone-300 hover:border-stone-500");
+        b.textContent = l.label;
+        b.addEventListener("click", function () {
+          state.cardLine[c.name] = l.id;
+          renderSheet();
+        });
+        lineRow.appendChild(b);
+      });
+      frag.appendChild(lineRow);
+      var preview = document.createElement("p");
+      preview.className = "mt-2 text-sm text-stone-500 leading-relaxed";
+      var lf = lineFor(c);
+      preview.textContent = lf ? '"' + lf.text + '"' : "";
+      frag.appendChild(preview);
+      return frag;
+    }
+
+    function candidateVoicesFor(c) {
+      var out = [];
+      var castId = castVoiceId(c.name);
+      if (castId) out.push({ id: castId, cast: true });
+      allVoices().filter(function (v) {
+        return v.featured && v.id !== castId && !usedBy(v.id);
+      }).slice(0, 4).forEach(function (v) { out.push({ id: v.id, cast: false }); });
+      return out;
+    }
+    function firstCandidateId(c) {
+      var list = candidateVoicesFor(c);
+      return list.length ? list[0].id : null;
+    }
+    function syncCandidateChips(c) {
+      document.querySelectorAll('[data-cand-for="' + c.name + '"]').forEach(function (b) {
+        b.classList.toggle("on", b.getAttribute("data-cand-voice") === state.candidate[c.name]);
+      });
+      var cv = voiceById(state.candidate[c.name]);
+      document.querySelectorAll('[data-trytag="' + c.name + '"]').forEach(function (t) {
+        t.textContent = "trying: " + (cv ? cv.name : state.candidate[c.name]);
+      });
+    }
+
+    // Voice exclusivity (CG, 2026-10-31): a voice already cast to
+    // another character is not a picker option. The override below
+    // reveals cast voices; assigning one still confirms, and the
+    // API refuses a reuse without the override flag.
+    var showCastVoices = false;
+
+    function picker(c) {
+      var box = document.createElement("div");
+      box.className = "mt-3 border-t border-stone-100 pt-3";
+      var search = document.createElement("input");
+      search.type = "search";
+      search.placeholder = "Search voices or traits";
+      search.className = "rounded-lg border border-stone-300 px-3 py-2 text-sm w-64";
+      search.value = state.pickerSearch;
+      search.addEventListener("input", function (ev) {
+        state.pickerSearch = ev.target.value;
+        var listEl = box.querySelector("[data-voice-list]");
+        if (listEl) { listEl.innerHTML = ""; fillVoiceList(listEl, c); }
+      });
+      box.appendChild(search);
+
+      var overrideLabel = document.createElement("label");
+      overrideLabel.className = "flex items-center gap-2 mt-2 text-xs text-stone-500 cursor-pointer select-none";
+      var overrideBox = document.createElement("input");
+      overrideBox.type = "checkbox";
+      overrideBox.checked = showCastVoices;
+      overrideBox.addEventListener("change", function (ev) {
+        showCastVoices = !!ev.target.checked;
+        var listEl = box.querySelector("[data-voice-list]");
+        if (listEl) { listEl.innerHTML = ""; fillVoiceList(listEl, c); }
+      });
+      overrideLabel.appendChild(overrideBox);
+      var overrideText = document.createElement("span");
+      overrideText.textContent = "Override: show voices already cast to other characters";
+      overrideLabel.appendChild(overrideText);
+      box.appendChild(overrideLabel);
+
+      var help = document.createElement("p");
+      help.className = "mt-2 text-xs text-stone-400";
+      help.textContent = c.role === "protagonist"
+        ? "Play reads the free sample (Intro + Chapter 1) in that voice. Saving a pick with Use this voice regenerates nothing and costs nothing; the audiobook re-record is its own separate step."
+        : "Play hears that voice inside " + c.name + "'s scene, against the locked cast voices. Saving a pick with Use this voice regenerates nothing and costs nothing.";
+      box.appendChild(help);
+
+      var listEl = document.createElement("div");
+      listEl.className = "mt-2 max-h-80 overflow-y-auto divide-y divide-stone-100";
+      listEl.setAttribute("data-voice-list", "");
+      fillVoiceList(listEl, c);
+      box.appendChild(listEl);
+      return box;
+    }
+
+    function fillVoiceList(listEl, c) {
+      var q = state.pickerSearch.trim().toLowerCase();
+      var current = state.registry[c.name];
+      var currentId = current ? current.voice_id : null;
+      sortedVoices(c.name).forEach(function (v) {
+        if (q) {
+          var hay = (v.name + " " + (v.traits || []).join(" ") + " " + (v.description || "") + " " + v.kind + " " + v.gender + " " + v.pitch).toLowerCase();
+          if (hay.indexOf(q) === -1) return;
+        }
+        // Cast voices are hidden unless the override is on.
+        var ownerEarly = usedBy(v.id);
+        if (ownerEarly && ownerEarly !== c.name && !showCastVoices) return;
+        var rowEl = document.createElement("div");
+        rowEl.className = "flex flex-wrap items-center gap-2 py-2";
+        rowEl.setAttribute("data-lp-char", c.name);
+        rowEl.setAttribute("data-lp-voice", v.id);
+        rowEl.setAttribute("data-lp-kind", "picker");
+        var nm = document.createElement("span");
+        nm.className = "font-semibold text-sm";
+        nm.textContent = v.name;
+        rowEl.appendChild(nm);
+        var kind = document.createElement("span");
+        kind.className = "rounded-full text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide " +
+          (v.kind === "storyteller" ? "bg-orange-100 text-orange-800" : "bg-stone-100 text-stone-600");
+        kind.textContent = v.kind === "storyteller" ? "Storyteller" : "Studio";
+        rowEl.appendChild(kind);
+        var meta = document.createElement("span");
+        meta.className = "text-xs text-stone-500";
+        meta.textContent = [cap(v.gender), v.pitch, v.accent, (v.traits || []).join(", ")].filter(Boolean).join(" · ");
+        rowEl.appendChild(meta);
+        var owner = usedBy(v.id);
+        if (v.id === currentId) {
+          var cur = document.createElement("span");
+          cur.className = "rounded-full bg-green-100 text-green-800 text-[11px] font-semibold px-2 py-0.5";
+          cur.textContent = "Current voice";
+          rowEl.appendChild(cur);
+        } else if (owner) {
+          var inUse = document.createElement("span");
+          inUse.className = "rounded-full bg-amber-100 text-amber-800 text-[11px] font-semibold px-2 py-0.5";
+          inUse.textContent = "In use: " + owner;
+          rowEl.appendChild(inUse);
+        }
+        var spacer = document.createElement("span");
+        spacer.className = "ml-auto";
+        rowEl.appendChild(spacer);
+        var play = document.createElement("button");
+        play.className = "rounded-md bg-[#1a3454] text-white text-xs font-semibold px-3 py-1.5 hover:bg-[#24466e]";
+        play.textContent = "Play";
+        play.addEventListener("click", function () { playAudition(c, v, play, "picker"); });
+        rowEl.appendChild(play);
+        if (v.id !== currentId) {
+          var assign = document.createElement("button");
+          assign.className = "rounded-md bg-orange-600 text-white text-xs font-semibold px-3 py-1.5 hover:bg-orange-700";
+          assign.textContent = "Use this voice";
+          assign.addEventListener("click", function () { assignVoice(c, v); });
+          rowEl.appendChild(assign);
+        }
+        listEl.appendChild(rowEl);
+      });
+      if (!listEl.children.length) {
+        var none = document.createElement("div");
+        none.className = "py-2 text-sm text-stone-400";
+        none.textContent = "No voices match that search.";
+        listEl.appendChild(none);
+      }
+      applyLastPlayedHighlight();
+    }
+
+    // ---------- assignment ----------
+    function assignVoice(c, v) {
+      var owner = usedBy(v.id);
+      if (owner && owner !== c.name) {
+        if (!window.confirm(v.name + " is already the voice of " + owner + ". Cast " + c.name + " with the same voice anyway? Fresh voices keep characters distinct.")) return;
+      }
+      setStatus("");
+      fetch("/api/admin/cast-registry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ character_name: c.name, voice_id: v.id, book_slug: state.slug, override: !!(owner && owner !== c.name) }),
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) {
+          if (!r.ok) throw new Error(j.error || ("Save failed (" + r.status + ")"));
+          return j;
+        });
+      }).then(function (j) {
+        if (j.row) state.registry[j.row.character_name] = j.row;
+        state.openPicker = null;
+        setStatus(c.name + " is now voiced by " + v.name + ".");
+        return loadBook();
+      }).catch(function (err) {
+        setStatus(err.message || "Could not save that assignment.");
+      });
+    }
+
+    // ---------- per-book audio state (publish gate view) ----------
+    function renderBookAudio() {
+      var el = document.getElementById("book-audio-state");
+      if (!el) return;
+      var a = state.audio;
+      if (!a) { el.textContent = ""; return; }
+      var hero = a.protagonist || "The protagonist";
+      if (a.state === "final") {
+        el.className = "mt-2 text-sm text-green-700";
+        el.textContent = "Audiobook: Final, read in " + a.audiobookVoiceName + ", matching " +
+          hero + "'s cast voice. This book passes the audio gate.";
+      } else if (a.state === "draft-audio") {
+        el.className = "mt-2 text-sm text-amber-700";
+        el.textContent = "Audiobook: Draft read in " + (a.audiobookVoiceName || "an unstamped voice") + ". " +
+          hero + " is cast as " + a.castVoiceName + ", so publishing is blocked until the final audiobook exists. " +
+          "Ask RGM to regenerate in the cast voice, about $0.20.";
+      } else if (a.state === "no-audiobook") {
+        el.className = "mt-2 text-sm text-amber-700";
+        el.textContent = "Audiobook: Not generated yet. Once " + hero + "'s voice is set here, " +
+          "ask RGM to generate the final audiobook in that voice, about $0.20.";
+      } else {
+        el.className = "mt-2 text-sm text-amber-700";
+        el.textContent = "Audiobook: " +
+          (a.audiobookVoiceName ? "Draft read in " + a.audiobookVoiceName + ", a QC read-back in a placeholder voice. " : "Not generated. ") +
+          hero + " is not cast yet, so there is no final audiobook. Publishing is blocked until the final is generated, " +
+          "unless it is deliberately let ride from the book's publish page.";
+      }
+    }
+
+    // ---------- loading ----------
+    function applyRegistry(rows) {
+      state.registry = {};
+      (rows || []).forEach(function (r) { state.registry[r.character_name] = r; });
+    }
+
+    function loadBook() {
+      return fetch("/api/admin/cast-registry?slug=" + encodeURIComponent(state.slugParam))
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j.error) { setStatus("Could not load that book's cast sheet: " + j.error); return; }
+          state.slug = j.slug;
+          state.title = j.title || "";
+          state.characters = j.characters || [];
+          state.lines = j.lines || [];
+          state.scenes = j.scenes || {};
+          state.sample = j.sample || [];
+          state.audio = j.audio || null;
+          if (j.registry) applyRegistry(j.registry);
+          document.getElementById("book-title").textContent = state.title ? state.title + ": casting" : "Casting";
+          renderBookAudio();
+          renderSheet();
+        })
+        .catch(function () { setStatus("Could not load that book's cast sheet."); });
+    }
+
+    function renderGenerationNote() {
+      var note = document.getElementById("generation-note");
+      if (state.generation === "connected") {
+        note.textContent = "Generation key connected: every voice can be voiced on demand, and plays cache after the first generation.";
+      } else if (state.generation === "not_connected") {
+        note.textContent = "Voice generation key not connected yet: add the AI_GATEWAY_API_KEY worker secret to voice new auditions on demand. Pre-generated Mira auditions still play.";
+      } else {
+        note.textContent = "";
+      }
+    }
+
+    function loadGenerationState() {
+      fetch("/api/admin/cast-gemini-audition").then(function (r) { return r.json(); }).then(function (j) {
+        if (j && j.generation) state.generation = j.generation;
+        renderGenerationNote();
+      }).catch(function () { /* the note is a courtesy */ });
+    }
+
+    loadBook();
+    loadGenerationState();
+  </script>
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>
