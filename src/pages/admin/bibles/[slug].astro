@@ -1,0 +1,159 @@
+---
+import "../../../styles/global.css";
+import { env } from "cloudflare:workers";
+import AdminShell from "../../../components/AdminShell.astro";
+import { resolveInternalSlug, publicSlugFor } from "../../../lib/public-slugs";
+export const prerender = false;
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+// Bible URLs wear the book's PUBLIC slug (owner, 2026-10-29): the
+// route param resolves to the internal slug the bibles table and
+// the /api/bibles calls key on. An unresolvable param keeps its raw
+// value and the page shows its not-found state below instead of
+// another book's bible.
+const param = String(Astro.params.slug || "");
+const db = env.DB as any;
+const internal = await resolveInternalSlug(db, param).catch(() => null);
+let book: any = null;
+if (internal) {
+  book = await db
+    .prepare("SELECT slug, title, public_slug, cover_key FROM books WHERE slug = ?")
+    .bind(internal)
+    .first()
+    .catch(() => null);
+}
+const bookSlug = internal || param;
+const publicSlug = book ? publicSlugFor(book) : param;
+const bookTitle = book ? String(book.title || "") : "";
+const coverKey = book ? String(book.cover_key || "") : "";
+const R2 = "https://media.bigbrainshelf.com/";
+---
+
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>{bookTitle ? `${bookTitle} · Bible · Big Brain Shelf admin` : "Bible · Big Brain Shelf admin"}</title>
+  <style is:global>
+    body{font-family:ui-sans-serif,system-ui,sans-serif;background:#fafaf9;color:#1c1917;margin:0}
+    .wrap{max-width:64rem;margin:0 auto;padding:1.75rem 1rem 4rem}
+    h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 1rem}
+    .card{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:20px;margin:16px 0;box-shadow:0 1px 2px rgba(28,25,23,.05)}
+    .card h2,.card h3{margin-top:0}
+    .status{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.85em;font-weight:600}
+    .draft{background:#f5f5f4;color:#44403c}.queued{background:#dbeafe;color:#1e40af}.building{background:#fef3c7;color:#92400e}.ready_for_qa{background:#cffafe;color:#155e75}.in_progress{background:#fef3c7;color:#92400e}.complete{background:#dcfce7;color:#166534}.failed{background:#fee2e2;color:#991b1b}
+    .meta{color:#78716c;font-size:.88em}
+    a{color:#c2410c}
+    .btn{display:inline-block;background:#ea580c;color:#fff;padding:10px 22px;border-radius:999px;font-weight:600;text-decoration:none;border:0;cursor:pointer;font-size:14px}
+    .btn:hover{background:#c2410c}
+    .backlink{margin:0 0 10px;font-weight:600}
+    .bookhead{display:flex;gap:16px;align-items:flex-start}
+    .bookhead img{width:72px;aspect-ratio:3/4;object-fit:cover;border-radius:8px;border:1px solid #e7e5e4;background:#f5f5f4;display:block}
+    .hint{color:#78716c;font-size:.85em}
+  </style>
+  </head>
+<body>
+  <AdminShell current="/admin/bibles" />
+  <main class="wrap">
+  <p class="backlink"><a href="/admin/bibles">&larr; Back to the bible shelf</a></p>
+  <div class="bookhead">
+    {coverKey ? <img src={R2 + coverKey} alt={bookTitle} /> : null}
+    <div>
+      <h1 style="margin-bottom:4px">{bookTitle || "Story Bible"}</h1>
+      <p class="meta" style="margin:0">Story bible</p>
+    </div>
+  </div>
+  <div
+    id="bible-view"
+    data-slug={bookSlug}
+    data-public={publicSlug}
+    data-found={book ? "1" : ""}
+  >
+    <p>Loading...</p>
+  </div>
+  <script is:inline>
+    function escH(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+    var view = document.getElementById('bible-view');
+    var slug = view.getAttribute('data-slug');
+    var pub = view.getAttribute('data-public');
+    var bookFound = view.getAttribute('data-found') === '1';
+    fetch('/api/bibles').then(function (r) { return r.json(); }).then(function (bibles) {
+      var b = null;
+      (bibles || []).forEach(function (x) { if (x.book_slug === slug) b = x; });
+      if (!b) {
+        if (bookFound) {
+          view.innerHTML = '<div class="card"><h2 style="margin-top:0">No bible for this book yet</h2>' +
+            '<p class="meta">This book has no story bible attached. Attach one and the factory builds from it instead of inventing one, so the framing, cast, and chapter ladder are the approved ones.</p>' +
+            '<p style="margin-bottom:0"><a class="btn" href="/admin/bibles#attach">Attach a bible</a></p></div>';
+        } else {
+          view.innerHTML = '<div class="card"><h2 style="margin-top:0">Book not found</h2>' +
+            '<p class="meta">No book answers to this address, so there is no bible to show for it.</p>' +
+            '<p style="margin-bottom:0"><a class="btn" href="/admin/bibles">Back to the bible shelf</a></p></div>';
+        }
+        return;
+      }
+      var s = b.summary || { cast: [], ladder: [], chapters: 0 };
+      var gate = '';
+      if (b.gate === null || b.gate === undefined) {
+        gate = '<span class="status draft">Gate: not checked</span>';
+      } else if (b.gate.ok) {
+        gate = '<span class="status complete">Passes the factory gate</span>';
+      } else {
+        gate = '<span class="status failed">Gate fails</span>';
+        if (b.gate.reasons && b.gate.reasons.length) {
+          gate += '<ul style="margin:8px 0 0;padding-left:18px" class="meta">' + b.gate.reasons.map(function (r) { return '<li>' + escH(r) + '</li>'; }).join('') + '</ul>';
+        }
+      }
+      var cast = s.cast.length ? '<p style="margin:8px 0"><strong>Cast:</strong> ' + s.cast.map(function (c) { return escH(c.name) + (c.species ? ' <span class="meta">(' + escH(c.species) + ')</span>' : ''); }).join(' · ') + '</p>' : '';
+      var ladder = s.ladder.length ? '<details style="margin-top:10px"><summary class="hint" style="cursor:pointer">Chapters (' + s.chapters + ')</summary><div style="margin:8px 0">' + s.ladder.map(function (e) {
+        return '<p class="meta" style="margin:3px 0">' + escH(e.ch) + (e.title ? ' · ' + escH(e.title) : '') + (e.metaphor ? ' · <em>' + escH(e.metaphor) + '</em>' : '') + '</p>';
+      }).join('') + '</div></details>' : '';
+      view.innerHTML = '<div class="card">' +
+        '<h2 style="margin-bottom:6px">' + escH(b.book_title || "Untitled bible") + '</h2>' +
+        '<p style="margin:4px 0">' + gate + '</p>' +
+        (b.big_idea ? '<p><strong>Big idea:</strong> ' + escH(b.big_idea) + '</p>' : '') +
+        (b.setting ? '<p><strong>Setting:</strong> ' + escH(b.setting) + '</p>' : '') +
+        cast +
+        '<p class="meta" style="margin:8px 0">' + (s.chapters ? s.chapters + ' chapters' : 'No chapters yet') + '</p>' +
+        ladder +
+        '<p><a href="/admin/books/' + escH(pub) + '">Open the book</a></p>' +
+        '<details><summary class="hint" style="cursor:pointer">View raw JSON</summary><pre class="bible-raw" data-slug="' + escH(b.book_slug || "") + '" style="white-space:pre-wrap;font-size:12px;max-height:320px;overflow:auto;background:#f5f5f4;border-radius:8px;padding:10px">Loading...</pre></details>' +
+      '</div>';
+      view.querySelectorAll('details').forEach(function (d) {
+        d.addEventListener('toggle', function () {
+          if (!d.open) return;
+          var pre = d.querySelector('.bible-raw');
+          if (!pre || pre.getAttribute('data-loaded')) return;
+          pre.setAttribute('data-loaded', '1');
+          fetch('/api/bibles?slug=' + encodeURIComponent(pre.getAttribute('data-slug'))).then(function (r) { return r.json(); }).then(function (row) {
+            var data = row && row.data ? (typeof row.data === 'string' ? JSON.parse(row.data) : row.data) : row;
+            pre.textContent = JSON.stringify(data, null, 1);
+          }).catch(function (e) { pre.textContent = 'Could not load: ' + e.message; });
+        });
+      });
+    }).catch(function (e) {
+      view.innerHTML = '<div class="card"><p style="margin:0">Could not load this bible: ' + escH(e.message) + '</p></div>';
+    });
+  </script>
+  </main>
+  <script is:inline>
+    document.querySelectorAll(".js-signout").forEach(function (el) {
+      el.addEventListener("click", async function (e) {
+        e.preventDefault();
+        await fetch("/api/admin-auth/logout", { method: "POST" });
+        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
+        window.location.href = "/login";
+      });
+    });
+  </script>
+</body>
+</html>

@@ -27,7 +27,7 @@ for (const h of ["/admin", "/admin/books", "/admin/audiobooks", "/admin/bibles",
 }
 
 // ---- Editor routes start collapsed ------------------------------------
-for (const p of ["/admin/books/mastery/edit", "/admin/books/mastery/crops", "/admin/books/mastery/review", "/admin/books/mastery", "/admin/characters/char-mira", "/admin/characters/cast-crops", "/admin/cast", "/admin/cast-gemini", "/admin/cast-gemini/wells-the-whale-and-the-great-harbor"]) {
+for (const p of ["/admin/books/mastery/edit", "/admin/books/mastery/crops", "/admin/books/mastery/review", "/admin/books/mastery", "/admin/characters/char-mira", "/admin/characters/cast-crops", "/admin/cast", "/admin/cast-gemini", "/admin/cast-gemini/wells-the-whale-and-the-great-harbor", "/admin/bibles/mira-the-heron-and-the-still-water"]) {
   assert(isEditorRoute(p), `editor route (starts collapsed): ${p}`);
 }
 for (const p of ["/admin", "/admin/books", "/admin/orders", "/admin/club", "/admin/characters", "/admin/bibles", "/admin/reviews", "/admin/video", "/admin/audiobooks"]) {
