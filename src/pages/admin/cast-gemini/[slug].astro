@@ -16,6 +16,25 @@ export const prerender = false;
 // clip (through /api/admin/cast-gemini-audition, cached in R2);
 // saving a pick regenerates nothing.
 import geminiVoicesData from "../../../data/cast/gemini-voices.json";
+import castGalleryData from "../../../data/cast-gallery.json";
+import { nameKey } from "../../../lib/character-sheets";
+
+// Single-pose portraits for the cast rows: the Meet the Cast gallery
+// keeps one portrait crop per character at
+// cast-gallery/{gallerySlug}/portrait.png in R2. Map each gallery
+// entry by its book's internal slug + normalized character name so
+// the page script can find the portrait for the character it is
+// rendering (gallery record keys still carry a few retired names,
+// so the entry's current display name is what gets keyed on).
+const portraitByBookName: Record<string, string> = {};
+for (const [gallerySlug, entry] of Object.entries(
+  (castGalleryData as any).characters || {}
+)) {
+  const e = entry as any;
+  if (e && e.bookSlug && e.name) {
+    portraitByBookName[e.bookSlug + "|" + nameKey(e.name)] = gallerySlug;
+  }
+}
 
 const slugParam = Astro.params.slug ?? "";
 ---
@@ -25,8 +44,12 @@ const slugParam = Astro.params.slug ?? "";
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Casting · Big Brain Shelf Admin</title>
-  <style>
-    /* Last-played voice highlight: set when a play starts, cleared only
+  <style is:global>
+    /* Global to this page on purpose: every card below is built by
+       the page script, and Astro scoped styles never match
+       script-created DOM, so as a scoped block these rules silently
+       never applied (the character sheets rendered at natural size).
+       Last-played voice highlight: set when a play starts, cleared only
        when a different voice is played. */
     .lp-on { background: #fff7ed; box-shadow: inset 0 0 0 2px #ea580c; border-radius: 0.5rem; }
     .char-img { width: 72px; height: 72px; border-radius: 10px; overflow: hidden; flex: none; background: #f5f5f4; border: 1px solid #e7e5e4; }
@@ -66,7 +89,7 @@ const slugParam = Astro.params.slug ?? "";
     <div class="mt-4 grid gap-3" id="cast-sheet"></div>
   </main>
 
-  <script is:inline define:vars={{ geminiVoicesData, slugParam }}>
+  <script is:inline define:vars={{ geminiVoicesData, slugParam, portraitByBookName }}>
     var state = {
       slugParam: slugParam,
       slug: "",
@@ -357,22 +380,40 @@ const slugParam = Astro.params.slug ?? "";
       applyLastPlayedHighlight();
     }
 
+    // The row picture is ONE pose of the character, never the whole
+    // sheet: the Meet the Cast portrait crop when the gallery has one
+    // for this character, else the sheet itself, held to the same
+    // modest frame either way. A failed source falls through to the
+    // next, and the last resort is the initial tile.
+    function nameKeyClient(name) {
+      return String(name == null ? "" : name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    }
     function charImageEl(c) {
       var wrapEl = document.createElement("div");
-      wrapEl.className = "char-img" + (c.image_key ? "" : " char-img-fallback");
-      if (c.image_key) {
-        var img = document.createElement("img");
-        img.src = "/api/admin/media?key=" + encodeURIComponent(c.image_key);
-        img.alt = c.name;
-        img.loading = "lazy";
-        img.addEventListener("error", function () {
+      var sources = [];
+      var gallerySlug = portraitByBookName[state.slug + "|" + nameKeyClient(c.name)];
+      if (gallerySlug) sources.push("cast-gallery/" + gallerySlug + "/portrait.png");
+      if (c.image_key) sources.push(c.image_key);
+      wrapEl.className = "char-img" + (sources.length ? "" : " char-img-fallback");
+      if (!sources.length) {
+        wrapEl.textContent = c.name.charAt(0);
+        return wrapEl;
+      }
+      var img = document.createElement("img");
+      img.alt = c.name;
+      img.loading = "lazy";
+      var step = 0;
+      img.addEventListener("error", function () {
+        step++;
+        if (step < sources.length) {
+          img.src = "/api/admin/media?key=" + encodeURIComponent(sources[step]);
+        } else {
           wrapEl.classList.add("char-img-fallback");
           wrapEl.textContent = c.name.charAt(0);
-        });
-        wrapEl.appendChild(img);
-      } else {
-        wrapEl.textContent = c.name.charAt(0);
-      }
+        }
+      });
+      img.src = "/api/admin/media?key=" + encodeURIComponent(sources[0]);
+      wrapEl.appendChild(img);
       return wrapEl;
     }
 
