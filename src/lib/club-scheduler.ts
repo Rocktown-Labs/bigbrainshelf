@@ -106,6 +106,7 @@ export interface ScheduledWorkSummary {
   club: ClubSchedulerSummary;
   birthdayGifts?: { checkedKids: number; queuedBirthdayEmails: number };
   adminDigest?: { queued: number; urgentTotal: number };
+  delayEmails?: { ordersQueued: number; boxesQueued: number };
   tracking: TrackingPollSummary;
   flushedAfter: OutboxFlushSummary;
 }
@@ -146,6 +147,16 @@ export async function runScheduledWork(
   } catch (err: any) {
     console.error("scheduled admin digest failed", err?.message || err);
   }
+  // Running-late apologies (S5): printed orders and settled club
+  // boxes past their promised ship-by date get their one delay
+  // email. Dedupe-guarded, so repeat ticks never re-send.
+  let delayEmails = { ordersQueued: 0, boxesQueued: 0 };
+  try {
+    const { runDelayEmailScheduler } = await import("./delay-emails");
+    delayEmails = await runDelayEmailScheduler(db, site, opts.now || new Date());
+  } catch (err: any) {
+    console.error("scheduled delay email pass failed", err?.message || err);
+  }
   let tracking = emptyTracking();
   try {
     tracking = await pollShippedOrderTracking(db, env, site, 25);
@@ -158,5 +169,5 @@ export async function runScheduledWork(
   } catch (err: any) {
     console.error("scheduled outbox flush (after) failed", err?.message || err);
   }
-  return { flushedBefore, club, birthdayGifts, adminDigest, tracking, flushedAfter };
+  return { flushedBefore, club, birthdayGifts, adminDigest, delayEmails, tracking, flushedAfter };
 }

@@ -25,6 +25,7 @@ import {
   CLUB_FOLLOWUP_KIND,
 } from "./marketing";
 import { isClubCycleEmailKind, loadClubCycleEmailModel } from "./club-emails";
+import { isDelayEmailKind, loadDelayEmailModel } from "./delay-emails";
 import { isReleaseKind, loadReleaseEmailModel } from "./releases";
 import OrderConfirmationEmail from "../../emails/OrderConfirmationEmail";
 import OwnerOrderEmail, { type OwnerOrderEmailModel } from "../../emails/OwnerOrderEmail";
@@ -32,6 +33,7 @@ import SimpleEmail, { type SimpleEmailModel } from "../../emails/SimpleEmail";
 import PhysicalUpdateEmail from "../../emails/PhysicalUpdateEmail";
 import ClubFollowupEmail from "../../emails/ClubFollowupEmail";
 import ClubCycleEmail from "../../emails/ClubCycleEmail";
+import DelayEmail from "../../emails/DelayEmail";
 import ReleaseEmail from "../../emails/ReleaseEmail";
 import WelcomeOnboardingEmail from "../../emails/WelcomeOnboardingEmail";
 import BirthdayGiftEmail from "../../emails/BirthdayGiftEmail";
@@ -62,7 +64,7 @@ async function renderFallbackHtml(row: {
 export async function renderOutboxEmailHtml(
   db: DBLike,
   site: string,
-  row: { order_id?: string | null; kind: string; to_email?: string; club_box_id?: string | null; dedupe_key?: string | null; subject?: string | null; body_text?: string | null }
+  row: { order_id?: string | null; kind: string; to_email?: string; club_box_id?: string | null; dedupe_key?: string | null; subject?: string | null; body_text?: string | null; created_at?: number | null }
 ): Promise<string | null> {
   if (row.kind === "magic_link") {
     // Passwordless sign-in: pull the one-time URL out of the
@@ -148,6 +150,14 @@ export async function renderOutboxEmailHtml(
     const model = await loadClubCycleEmailModel(db, site, row);
     if (!model) return null;
     return await render(createElement(ClubCycleEmail, { model }));
+  }
+  if (isDelayEmailKind(row.kind)) {
+    // Running-late apologies: the order kind models from its order,
+    // the club box kind from its box (club rows carry no order_id,
+    // so this branch must sit before the order gate below).
+    const model = await loadDelayEmailModel(db, site, row);
+    if (!model) return await renderFallbackHtml(row);
+    return await render(createElement(DelayEmail, { model }));
   }
   if (row.kind === CLUB_FOLLOWUP_KIND) {
     // Marketing follow-up: no order model needed; the unsubscribe token
