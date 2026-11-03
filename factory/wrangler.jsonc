@@ -1,0 +1,1 @@
+{"$schema":"node_modules/wrangler/config-schema.json","ai":{"binding":"AI"},"compatibility_date":"2026-10-15","main":"src/index.ts","name":"kidsbook-factory","observability":{"enabled":true},"r2_buckets":[{"binding":"BOOKS","bucket_name":"kidsbook-factory"}],"workflows":[{"binding":"KIDSBOOK_WORKFLOW","class_name":"KidsBookWorkflow","name":"kidsbook"}]}

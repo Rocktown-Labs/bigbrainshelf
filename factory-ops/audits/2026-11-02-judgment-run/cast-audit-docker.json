@@ -1,0 +1,2161 @@
+{
+ "slug": "docker",
+ "edition": "line",
+ "flags": [
+  {
+   "page": "S1p1",
+   "kind": "count",
+   "detail": "more than 0 seagull in scene",
+   "cls": "extra-review",
+   "score": 0.943,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S1-page-1.jpg"
+  },
+  {
+   "page": "S1p3",
+   "kind": "count",
+   "detail": "more than 1 seagull in scene",
+   "cls": "clone-likely",
+   "score": 0.952,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S1-page-3.jpg"
+  },
+  {
+   "page": "S1p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.398,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S1-page-3.jpg"
+  },
+  {
+   "page": "S1 finale",
+   "kind": "count",
+   "detail": "more than 0 seagull in scene",
+   "cls": "extra-review",
+   "score": 0.971,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S1-finale.jpg"
+  },
+  {
+   "page": "S2p0",
+   "kind": "count",
+   "detail": "more than 1 seagull in scene",
+   "cls": "clone-likely",
+   "score": 0.976,
+   "expected": [
+    "Skipper"
+   ],
+   "key": "books/docker/images/S2-page-0.jpg"
+  },
+  {
+   "page": "S2p2",
+   "kind": "count",
+   "detail": "more than 1 seagull in scene",
+   "cls": "clone-likely",
+   "score": 0.584,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S2-page-2.jpg"
+  },
+  {
+   "page": "S2p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.428,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S2-page-2.jpg"
+  },
+  {
+   "page": "S2p3",
+   "kind": "count",
+   "detail": "more than 1 seagull in scene",
+   "cls": "clone-likely",
+   "score": 0.623,
+   "expected": [
+    "Skipper"
+   ],
+   "key": "books/docker/images/S2-page-3.jpg"
+  },
+  {
+   "page": "S2p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.228,
+   "expected": [
+    "Skipper"
+   ],
+   "key": "books/docker/images/S2-page-3.jpg"
+  },
+  {
+   "page": "S2 finale",
+   "kind": "count",
+   "detail": "more than 0 seagull in scene",
+   "cls": "extra-review",
+   "score": 0.731,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S2-finale.jpg"
+  },
+  {
+   "page": "S2 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.309,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S2-finale.jpg"
+  },
+  {
+   "page": "S3p0",
+   "kind": "count",
+   "detail": "more than 1 whale in scene",
+   "cls": "clone-likely",
+   "score": 0.93,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S3-page-0.jpg"
+  },
+  {
+   "page": "S3p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.406,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S3-page-0.jpg"
+  },
+  {
+   "page": "S3p1",
+   "kind": "count",
+   "detail": "more than 1 seagull in scene",
+   "cls": "clone-likely",
+   "score": 0.932,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S3-page-1.jpg"
+  },
+  {
+   "page": "S3p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.405,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S3-page-1.jpg"
+  },
+  {
+   "page": "S3p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.348,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S3-page-3.jpg"
+  },
+  {
+   "page": "S3 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.369,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S3-finale.jpg"
+  },
+  {
+   "page": "S4p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.489,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S4-page-3.jpg"
+  },
+  {
+   "page": "S5p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.437,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S5-page-2.jpg"
+  },
+  {
+   "page": "S5 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.333,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S5-finale.jpg"
+  },
+  {
+   "page": "S6p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.313,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S6-page-0.jpg"
+  },
+  {
+   "page": "S6p0",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.542,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S6-page-0.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.312,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p2",
+   "kind": "missing",
+   "detail": "Skipper (seagull) expected but not found",
+   "cls": "review",
+   "score": 0.225,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S6-page-2.jpg"
+  },
+  {
+   "page": "S6p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.229,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S6-page-2.jpg"
+  },
+  {
+   "page": "S7p0",
+   "kind": "count",
+   "detail": "more than 1 seagull in scene",
+   "cls": "clone-likely",
+   "score": 0.975,
+   "expected": [
+    "Skipper"
+   ],
+   "key": "books/docker/images/S7-page-0.jpg"
+  },
+  {
+   "page": "S7p1",
+   "kind": "count",
+   "detail": "more than 1 seagull in scene",
+   "cls": "clone-likely",
+   "score": 0.946,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S7-page-1.jpg"
+  },
+  {
+   "page": "S7p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.287,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S7-page-1.jpg"
+  },
+  {
+   "page": "S7p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.442,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S7-page-2.jpg"
+  },
+  {
+   "page": "S7p3",
+   "kind": "count",
+   "detail": "more than 1 seagull in scene",
+   "cls": "clone-likely",
+   "score": 0.973,
+   "expected": [
+    "Skipper"
+   ],
+   "key": "books/docker/images/S7-page-3.jpg"
+  },
+  {
+   "page": "S8p0",
+   "kind": "count",
+   "detail": "more than 0 seagull in scene",
+   "cls": "extra-review",
+   "score": 0.875,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S8-page-0.jpg"
+  },
+  {
+   "page": "S8p1",
+   "kind": "count",
+   "detail": "more than 1 seagull in scene",
+   "cls": "clone-likely",
+   "score": 0.977,
+   "expected": [
+    "Skipper"
+   ],
+   "key": "books/docker/images/S8-page-1.jpg"
+  },
+  {
+   "page": "S8p3",
+   "kind": "count",
+   "detail": "more than 0 seagull in scene",
+   "cls": "extra-review",
+   "score": 0.905,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S8-page-3.jpg"
+  },
+  {
+   "page": "S8p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.444,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S8-page-3.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.481,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S8-finale.jpg"
+  },
+  {
+   "page": "S9p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.459,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S9-page-0.jpg"
+  },
+  {
+   "page": "S9p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.359,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S9-page-1.jpg"
+  },
+  {
+   "page": "S9p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.275,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S9-page-2.jpg"
+  },
+  {
+   "page": "S9p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.321,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S9-page-3.jpg"
+  },
+  {
+   "page": "S9 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.281,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S9-finale.jpg"
+  },
+  {
+   "page": "S10p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.372,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S10-page-0.jpg"
+  },
+  {
+   "page": "S10p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.263,
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "key": "books/docker/images/S10-page-2.jpg"
+  },
+  {
+   "page": "S11p0",
+   "kind": "count",
+   "detail": "more than 0 seagull in scene",
+   "cls": "extra-review",
+   "score": 0.963,
+   "expected": [
+    "Pip"
+   ],
+   "key": "books/docker/images/S11-page-0.jpg"
+  },
+  {
+   "page": "S11p1",
+   "kind": "count",
+   "detail": "more than 1 seagull in scene",
+   "cls": "clone-likely",
+   "score": 0.976,
+   "expected": [
+    "Skipper"
+   ],
+   "key": "books/docker/images/S11-page-1.jpg"
+  },
+  {
+   "page": "S11p3",
+   "kind": "count",
+   "detail": "more than 1 whale in scene",
+   "cls": "clone-likely",
+   "score": 0.957,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S11-page-3.jpg"
+  },
+  {
+   "page": "S11p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.4,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S11-page-3.jpg"
+  },
+  {
+   "page": "S11 finale",
+   "kind": "count",
+   "detail": "more than 0 seagull in scene",
+   "cls": "extra-review",
+   "score": 0.958,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S11-finale.jpg"
+  },
+  {
+   "page": "S12p0",
+   "kind": "count",
+   "detail": "more than 1 whale in scene",
+   "cls": "clone-likely",
+   "score": 0.931,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S12-page-0.jpg"
+  },
+  {
+   "page": "S12p0",
+   "kind": "missing",
+   "detail": "Wells (whale) expected but not found",
+   "cls": "review",
+   "score": 0.379,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S12-page-0.jpg"
+  },
+  {
+   "page": "S12p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.406,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S12-page-0.jpg"
+  },
+  {
+   "page": "S12p2",
+   "kind": "count",
+   "detail": "more than 0 seagull in scene",
+   "cls": "extra-review",
+   "score": 0.947,
+   "expected": [
+    "Pip"
+   ],
+   "key": "books/docker/images/S12-page-2.jpg"
+  },
+  {
+   "page": "S12p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.474,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S12-page-3.jpg"
+  },
+  {
+   "page": "S12 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.359,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S12-finale.jpg"
+  },
+  {
+   "page": "S13p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.496,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S13-page-1.jpg"
+  },
+  {
+   "page": "S13p2",
+   "kind": "count",
+   "detail": "more than 1 seagull in scene",
+   "cls": "clone-likely",
+   "score": 0.972,
+   "expected": [
+    "Skipper"
+   ],
+   "key": "books/docker/images/S13-page-2.jpg"
+  },
+  {
+   "page": "S13p3",
+   "kind": "count",
+   "detail": "more than 1 sea otter in scene",
+   "cls": "clone-likely",
+   "score": 0.976,
+   "expected": [
+    "Pip"
+   ],
+   "key": "books/docker/images/S13-page-3.jpg"
+  },
+  {
+   "page": "S13 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.429,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S13-finale.jpg"
+  },
+  {
+   "page": "S14p0",
+   "kind": "count",
+   "detail": "more than 0 seagull in scene",
+   "cls": "extra-review",
+   "score": 0.873,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S14-page-0.jpg"
+  },
+  {
+   "page": "S14p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.474,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S14-page-0.jpg"
+  },
+  {
+   "page": "S14p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.413,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S14-page-1.jpg"
+  },
+  {
+   "page": "S14p1",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.355,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S14-page-1.jpg"
+  },
+  {
+   "page": "S14p2",
+   "kind": "count",
+   "detail": "more than 0 seagull in scene",
+   "cls": "extra-review",
+   "score": 0.95,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S14-page-2.jpg"
+  },
+  {
+   "page": "S14p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.437,
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "key": "books/docker/images/S14-page-2.jpg"
+  },
+  {
+   "page": "S15p0",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.143,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S15-page-0.jpg"
+  },
+  {
+   "page": "S15p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.477,
+   "expected": [
+    "Wells"
+   ],
+   "key": "books/docker/images/S15-page-1.jpg"
+  },
+  {
+   "page": "S15p2",
+   "kind": "count",
+   "detail": "more than 1 seagull in scene",
+   "cls": "clone-likely",
+   "score": 0.967,
+   "expected": [
+    "Skipper"
+   ],
+   "key": "books/docker/images/S15-page-2.jpg"
+  }
+ ],
+ "results": [
+  {
+   "page": "S1p0",
+   "key": "books/docker/images/S1-page-0.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0344,
+    "count_seagull": 0.0245,
+    "count_whale": 0.0273,
+    "present_Wells": 0.8681,
+    "present_Pip": 0.8157,
+    "anatomy_ok": 0.5297,
+    "has_human": 0.0229,
+    "foreign_species": 0.0409,
+    "has_color": 0.0624,
+    "has_text": 0.0223
+   }
+  },
+  {
+   "page": "S1p1",
+   "key": "books/docker/images/S1-page-1.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0267,
+    "count_seagull": 0.9428,
+    "count_whale": 0.0267,
+    "present_Wells": 0.8009,
+    "present_Pip": 0.7771,
+    "anatomy_ok": 0.5232,
+    "has_human": 0.0171,
+    "foreign_species": 0.0449,
+    "has_color": 0.0568,
+    "has_text": 0.0258
+   }
+  },
+  {
+   "page": "S1p2",
+   "key": "books/docker/images/S1-page-2.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0315,
+    "count_seagull": 0.0299,
+    "count_whale": 0.0259,
+    "present_Wells": 0.8411,
+    "present_Pip": 0.8199,
+    "anatomy_ok": 0.5806,
+    "has_human": 0.0201,
+    "foreign_species": 0.0635,
+    "has_color": 0.2634,
+    "has_text": 0.0251
+   }
+  },
+  {
+   "page": "S1p3",
+   "key": "books/docker/images/S1-page-3.jpg",
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0321,
+    "count_seagull": 0.9522,
+    "count_whale": 0.0172,
+    "present_Wells": 0.7869,
+    "present_Skipper": 0.6994,
+    "anatomy_ok": 0.3984,
+    "has_human": 0.0204,
+    "foreign_species": 0.0493,
+    "has_color": 0.0716,
+    "has_text": 0.0261
+   }
+  },
+  {
+   "page": "S1 finale",
+   "key": "books/docker/images/S1-finale.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0276,
+    "count_seagull": 0.9706,
+    "count_whale": 0.034,
+    "present_Wells": 0.8681,
+    "present_Pip": 0.8582,
+    "anatomy_ok": 0.5254,
+    "has_human": 0.0184,
+    "foreign_species": 0.0478,
+    "has_color": 0.0427,
+    "has_text": 0.021
+   }
+  },
+  {
+   "page": "S2p0",
+   "key": "books/docker/images/S2-page-0.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0168,
+    "count_seagull": 0.9758,
+    "count_whale": 0.0071,
+    "present_Skipper": 0.5985,
+    "anatomy_ok": 0.7235,
+    "has_human": 0.0148,
+    "foreign_species": 0.0621,
+    "has_color": 0.0898,
+    "has_text": 0.0251
+   }
+  },
+  {
+   "page": "S2p1",
+   "key": "books/docker/images/S2-page-1.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0129,
+    "count_seagull": 0.0188,
+    "count_whale": 0.0075,
+    "present_Skipper": 0.9158,
+    "anatomy_ok": 0.8176,
+    "has_human": 0.0158,
+    "foreign_species": 0.1201,
+    "has_color": 0.0703,
+    "has_text": 0.0261
+   }
+  },
+  {
+   "page": "S2p2",
+   "key": "books/docker/images/S2-page-2.jpg",
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0251,
+    "count_seagull": 0.5844,
+    "count_whale": 0.0194,
+    "present_Wells": 0.7364,
+    "present_Skipper": 0.8818,
+    "anatomy_ok": 0.4276,
+    "has_human": 0.017,
+    "foreign_species": 0.1096,
+    "has_color": 0.0555,
+    "has_text": 0.0216
+   }
+  },
+  {
+   "page": "S2p3",
+   "key": "books/docker/images/S2-page-3.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0165,
+    "count_seagull": 0.6227,
+    "count_whale": 0.0084,
+    "present_Skipper": 0.6584,
+    "anatomy_ok": 0.2283,
+    "has_human": 0.0201,
+    "foreign_species": 0.0956,
+    "has_color": 0.0961,
+    "has_text": 0.0201
+   }
+  },
+  {
+   "page": "S2 finale",
+   "key": "books/docker/images/S2-finale.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.037,
+    "count_seagull": 0.7305,
+    "count_whale": 0.022,
+    "present_Wells": 0.6579,
+    "present_Pip": 0.865,
+    "anatomy_ok": 0.3086,
+    "has_human": 0.018,
+    "foreign_species": 0.051,
+    "has_color": 0.0727,
+    "has_text": 0.0194
+   }
+  },
+  {
+   "page": "S3p0",
+   "key": "books/docker/images/S3-page-0.jpg",
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0263,
+    "count_seagull": 0.0203,
+    "count_whale": 0.9298,
+    "present_Wells": 0.7619,
+    "present_Skipper": 0.866,
+    "anatomy_ok": 0.4056,
+    "has_human": 0.0158,
+    "foreign_species": 0.0383,
+    "has_color": 0.0524,
+    "has_text": 0.0233
+   }
+  },
+  {
+   "page": "S3p1",
+   "key": "books/docker/images/S3-page-1.jpg",
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.061,
+    "count_seagull": 0.9321,
+    "count_whale": 0.0232,
+    "present_Wells": 0.6289,
+    "present_Skipper": 0.6987,
+    "anatomy_ok": 0.4045,
+    "has_human": 0.0182,
+    "foreign_species": 0.0426,
+    "has_color": 0.0875,
+    "has_text": 0.0226
+   }
+  },
+  {
+   "page": "S3p2",
+   "key": "books/docker/images/S3-page-2.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.033,
+    "count_seagull": 0.0358,
+    "count_whale": 0.0207,
+    "present_Wells": 0.8074,
+    "present_Pip": 0.8936,
+    "anatomy_ok": 0.5544,
+    "has_human": 0.0132,
+    "foreign_species": 0.0362,
+    "has_color": 0.0365,
+    "has_text": 0.015
+   }
+  },
+  {
+   "page": "S3p3",
+   "key": "books/docker/images/S3-page-3.jpg",
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0426,
+    "count_seagull": 0.0216,
+    "count_whale": 0.0229,
+    "present_Wells": 0.7387,
+    "present_Skipper": 0.8265,
+    "anatomy_ok": 0.3483,
+    "has_human": 0.0147,
+    "foreign_species": 0.039,
+    "has_color": 0.035,
+    "has_text": 0.0204
+   }
+  },
+  {
+   "page": "S3 finale",
+   "key": "books/docker/images/S3-finale.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.349,
+    "count_seagull": 0.0482,
+    "count_whale": 0.0253,
+    "present_Wells": 0.8148,
+    "present_Pip": 0.8801,
+    "anatomy_ok": 0.3689,
+    "has_human": 0.0156,
+    "foreign_species": 0.0535,
+    "has_color": 0.0423,
+    "has_text": 0.0188
+   }
+  },
+  {
+   "page": "S4p0",
+   "key": "books/docker/images/S4-page-0.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.1171,
+    "count_seagull": 0.046,
+    "count_whale": 0.0268,
+    "present_Wells": 0.7702,
+    "present_Pip": 0.8064,
+    "anatomy_ok": 0.5193,
+    "has_human": 0.0212,
+    "foreign_species": 0.0599,
+    "has_color": 0.0468,
+    "has_text": 0.0346
+   }
+  },
+  {
+   "page": "S4p1",
+   "key": "books/docker/images/S4-page-1.jpg",
+   "expected": [
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0189,
+    "count_seagull": 0.0183,
+    "count_whale": 0.0097,
+    "present_Pip": 0.9032,
+    "anatomy_ok": 0.8417,
+    "has_human": 0.0156,
+    "foreign_species": 0.0736,
+    "has_color": 0.072,
+    "has_text": 0.0318
+   }
+  },
+  {
+   "page": "S4p2",
+   "key": "books/docker/images/S4-page-2.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.1203,
+    "count_seagull": 0.0337,
+    "count_whale": 0.0158,
+    "present_Wells": 0.7471,
+    "anatomy_ok": 0.5803,
+    "has_human": 0.0168,
+    "foreign_species": 0.0368,
+    "has_color": 0.0472,
+    "has_text": 0.0201
+   }
+  },
+  {
+   "page": "S4p3",
+   "key": "books/docker/images/S4-page-3.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0462,
+    "count_seagull": 0.0261,
+    "count_whale": 0.021,
+    "present_Wells": 0.9006,
+    "present_Pip": 0.8433,
+    "anatomy_ok": 0.4892,
+    "has_human": 0.0156,
+    "foreign_species": 0.0714,
+    "has_color": 0.0453,
+    "has_text": 0.0206
+   }
+  },
+  {
+   "page": "S4 finale",
+   "key": "books/docker/images/S4-finale.jpg",
+   "expected": [
+    "Pip",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0187,
+    "count_seagull": 0.0317,
+    "count_whale": 0.0084,
+    "present_Pip": 0.882,
+    "present_Skipper": 0.7776,
+    "anatomy_ok": 0.6083,
+    "has_human": 0.0166,
+    "foreign_species": 0.0355,
+    "has_color": 0.0467,
+    "has_text": 0.0325
+   }
+  },
+  {
+   "page": "S5p0",
+   "key": "books/docker/images/S5-page-0.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0116,
+    "count_seagull": 0.2605,
+    "count_whale": 0.0071,
+    "present_Skipper": 0.8888,
+    "anatomy_ok": 0.7757,
+    "has_human": 0.0153,
+    "foreign_species": 0.0974,
+    "has_color": 0.0706,
+    "has_text": 0.0291
+   }
+  },
+  {
+   "page": "S5p1",
+   "key": "books/docker/images/S5-page-1.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0131,
+    "count_seagull": 0.0198,
+    "count_whale": 0.0073,
+    "present_Skipper": 0.9135,
+    "anatomy_ok": 0.8053,
+    "has_human": 0.0147,
+    "foreign_species": 0.0798,
+    "has_color": 0.0617,
+    "has_text": 0.0177
+   }
+  },
+  {
+   "page": "S5p2",
+   "key": "books/docker/images/S5-page-2.jpg",
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0756,
+    "count_seagull": 0.0335,
+    "count_whale": 0.0297,
+    "present_Wells": 0.6924,
+    "present_Skipper": 0.8138,
+    "anatomy_ok": 0.4366,
+    "has_human": 0.0188,
+    "foreign_species": 0.0673,
+    "has_color": 0.0529,
+    "has_text": 0.0243
+   }
+  },
+  {
+   "page": "S5p3",
+   "key": "books/docker/images/S5-page-3.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0149,
+    "count_seagull": 0.4977,
+    "count_whale": 0.0073,
+    "present_Skipper": 0.8502,
+    "anatomy_ok": 0.625,
+    "has_human": 0.015,
+    "foreign_species": 0.1351,
+    "has_color": 0.0732,
+    "has_text": 0.0441
+   }
+  },
+  {
+   "page": "S5 finale",
+   "key": "books/docker/images/S5-finale.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0529,
+    "count_seagull": 0.0319,
+    "count_whale": 0.0295,
+    "present_Wells": 0.8552,
+    "present_Pip": 0.8146,
+    "anatomy_ok": 0.3326,
+    "has_human": 0.0199,
+    "foreign_species": 0.0466,
+    "has_color": 0.1253,
+    "has_text": 0.0244
+   }
+  },
+  {
+   "page": "S6p0",
+   "key": "books/docker/images/S6-page-0.jpg",
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.1698,
+    "count_seagull": 0.0226,
+    "count_whale": 0.0224,
+    "present_Wells": 0.7553,
+    "present_Skipper": 0.6698,
+    "anatomy_ok": 0.3131,
+    "has_human": 0.0155,
+    "foreign_species": 0.0413,
+    "has_color": 0.5417,
+    "has_text": 0.0136
+   }
+  },
+  {
+   "page": "S6p1",
+   "key": "books/docker/images/S6-page-1.jpg",
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0372,
+    "count_seagull": 0.0207,
+    "count_whale": 0.0305,
+    "present_Wells": 0.4421,
+    "present_Skipper": 0.7099,
+    "anatomy_ok": 0.3125,
+    "has_human": 0.015,
+    "foreign_species": 0.0357,
+    "has_color": 0.1474,
+    "has_text": 0.0154
+   }
+  },
+  {
+   "page": "S6p2",
+   "key": "books/docker/images/S6-page-2.jpg",
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.2184,
+    "count_seagull": 0.0165,
+    "count_whale": 0.0204,
+    "present_Wells": 0.6524,
+    "present_Skipper": 0.2252,
+    "anatomy_ok": 0.2285,
+    "has_human": 0.0148,
+    "foreign_species": 0.0347,
+    "has_color": 0.2113,
+    "has_text": 0.0242
+   }
+  },
+  {
+   "page": "S6p3",
+   "key": "books/docker/images/S6-page-3.jpg",
+   "expected": [
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0184,
+    "count_seagull": 0.0117,
+    "count_whale": 0.0077,
+    "present_Pip": 0.7919,
+    "anatomy_ok": 0.7893,
+    "has_human": 0.016,
+    "foreign_species": 0.0451,
+    "has_color": 0.0964,
+    "has_text": 0.0513
+   }
+  },
+  {
+   "page": "S6 finale",
+   "key": "books/docker/images/S6-finale.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0466,
+    "count_seagull": 0.0543,
+    "count_whale": 0.0341,
+    "present_Wells": 0.6083,
+    "present_Pip": 0.8022,
+    "anatomy_ok": 0.524,
+    "has_human": 0.0166,
+    "foreign_species": 0.044,
+    "has_color": 0.2188,
+    "has_text": 0.0176
+   }
+  },
+  {
+   "page": "S7p0",
+   "key": "books/docker/images/S7-page-0.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0165,
+    "count_seagull": 0.9748,
+    "count_whale": 0.0074,
+    "present_Skipper": 0.7179,
+    "anatomy_ok": 0.7075,
+    "has_human": 0.0181,
+    "foreign_species": 0.0412,
+    "has_color": 0.1235,
+    "has_text": 0.0252
+   }
+  },
+  {
+   "page": "S7p1",
+   "key": "books/docker/images/S7-page-1.jpg",
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.1374,
+    "count_seagull": 0.9455,
+    "count_whale": 0.0183,
+    "present_Wells": 0.801,
+    "present_Skipper": 0.4427,
+    "anatomy_ok": 0.2872,
+    "has_human": 0.0166,
+    "foreign_species": 0.0328,
+    "has_color": 0.0598,
+    "has_text": 0.0202
+   }
+  },
+  {
+   "page": "S7p2",
+   "key": "books/docker/images/S7-page-2.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.033,
+    "count_seagull": 0.3316,
+    "count_whale": 0.0382,
+    "present_Wells": 0.8984,
+    "present_Pip": 0.8283,
+    "anatomy_ok": 0.4421,
+    "has_human": 0.0162,
+    "foreign_species": 0.0504,
+    "has_color": 0.0501,
+    "has_text": 0.0348
+   }
+  },
+  {
+   "page": "S7p3",
+   "key": "books/docker/images/S7-page-3.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0138,
+    "count_seagull": 0.9726,
+    "count_whale": 0.0075,
+    "present_Skipper": 0.9222,
+    "anatomy_ok": 0.7902,
+    "has_human": 0.0146,
+    "foreign_species": 0.0422,
+    "has_color": 0.1456,
+    "has_text": 0.0167
+   }
+  },
+  {
+   "page": "S7 finale",
+   "key": "books/docker/images/S7-finale.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.0769,
+    "count_seagull": 0.1234,
+    "count_whale": 0.0151,
+    "present_Wells": 0.8291,
+    "anatomy_ok": 0.5303,
+    "has_human": 0.0178,
+    "foreign_species": 0.0461,
+    "has_color": 0.1399,
+    "has_text": 0.0181
+   }
+  },
+  {
+   "page": "S8p0",
+   "key": "books/docker/images/S8-page-0.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.0566,
+    "count_seagull": 0.8753,
+    "count_whale": 0.0255,
+    "present_Wells": 0.6627,
+    "anatomy_ok": 0.5023,
+    "has_human": 0.03,
+    "foreign_species": 0.065,
+    "has_color": 0.0596,
+    "has_text": 0.0388
+   }
+  },
+  {
+   "page": "S8p1",
+   "key": "books/docker/images/S8-page-1.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0157,
+    "count_seagull": 0.9768,
+    "count_whale": 0.0077,
+    "present_Skipper": 0.6355,
+    "anatomy_ok": 0.6669,
+    "has_human": 0.0203,
+    "foreign_species": 0.0409,
+    "has_color": 0.1189,
+    "has_text": 0.0285
+   }
+  },
+  {
+   "page": "S8p2",
+   "key": "books/docker/images/S8-page-2.jpg",
+   "expected": [
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0154,
+    "count_seagull": 0.0129,
+    "count_whale": 0.0085,
+    "present_Pip": 0.8433,
+    "anatomy_ok": 0.701,
+    "has_human": 0.0133,
+    "foreign_species": 0.0379,
+    "has_color": 0.0466,
+    "has_text": 0.0179
+   }
+  },
+  {
+   "page": "S8p3",
+   "key": "books/docker/images/S8-page-3.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.0808,
+    "count_seagull": 0.9049,
+    "count_whale": 0.015,
+    "present_Wells": 0.7184,
+    "anatomy_ok": 0.4437,
+    "has_human": 0.0222,
+    "foreign_species": 0.041,
+    "has_color": 0.047,
+    "has_text": 0.017
+   }
+  },
+  {
+   "page": "S8 finale",
+   "key": "books/docker/images/S8-finale.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0351,
+    "count_seagull": 0.0292,
+    "count_whale": 0.0275,
+    "present_Wells": 0.872,
+    "present_Pip": 0.861,
+    "anatomy_ok": 0.4813,
+    "has_human": 0.0218,
+    "foreign_species": 0.0466,
+    "has_color": 0.1924,
+    "has_text": 0.019
+   }
+  },
+  {
+   "page": "S9p0",
+   "key": "books/docker/images/S9-page-0.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0413,
+    "count_seagull": 0.0314,
+    "count_whale": 0.0351,
+    "present_Wells": 0.7728,
+    "present_Pip": 0.8208,
+    "anatomy_ok": 0.4594,
+    "has_human": 0.0212,
+    "foreign_species": 0.042,
+    "has_color": 0.0566,
+    "has_text": 0.0226
+   }
+  },
+  {
+   "page": "S9p1",
+   "key": "books/docker/images/S9-page-1.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.1749,
+    "count_seagull": 0.0237,
+    "count_whale": 0.0166,
+    "present_Wells": 0.7981,
+    "anatomy_ok": 0.3587,
+    "has_human": 0.0176,
+    "foreign_species": 0.0401,
+    "has_color": 0.0672,
+    "has_text": 0.0228
+   }
+  },
+  {
+   "page": "S9p2",
+   "key": "books/docker/images/S9-page-2.jpg",
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.1337,
+    "count_seagull": 0.0401,
+    "count_whale": 0.0334,
+    "present_Wells": 0.6811,
+    "present_Skipper": 0.614,
+    "anatomy_ok": 0.2747,
+    "has_human": 0.025,
+    "foreign_species": 0.073,
+    "has_color": 0.0687,
+    "has_text": 0.0293
+   }
+  },
+  {
+   "page": "S9p3",
+   "key": "books/docker/images/S9-page-3.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0706,
+    "count_seagull": 0.0285,
+    "count_whale": 0.0461,
+    "present_Wells": 0.646,
+    "present_Pip": 0.7201,
+    "anatomy_ok": 0.3212,
+    "has_human": 0.0215,
+    "foreign_species": 0.0582,
+    "has_color": 0.0582,
+    "has_text": 0.0301
+   }
+  },
+  {
+   "page": "S9 finale",
+   "key": "books/docker/images/S9-finale.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.057,
+    "count_seagull": 0.0261,
+    "count_whale": 0.0363,
+    "present_Wells": 0.901,
+    "present_Pip": 0.8158,
+    "anatomy_ok": 0.2807,
+    "has_human": 0.0199,
+    "foreign_species": 0.0563,
+    "has_color": 0.0472,
+    "has_text": 0.027
+   }
+  },
+  {
+   "page": "S10p0",
+   "key": "books/docker/images/S10-page-0.jpg",
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0414,
+    "count_seagull": 0.0977,
+    "count_whale": 0.0295,
+    "present_Wells": 0.6209,
+    "present_Skipper": 0.6994,
+    "anatomy_ok": 0.3724,
+    "has_human": 0.0179,
+    "foreign_species": 0.0697,
+    "has_color": 0.048,
+    "has_text": 0.0238
+   }
+  },
+  {
+   "page": "S10p1",
+   "key": "books/docker/images/S10-page-1.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.068,
+    "count_seagull": 0.0355,
+    "count_whale": 0.0378,
+    "present_Wells": 0.8439,
+    "present_Pip": 0.8812,
+    "anatomy_ok": 0.5254,
+    "has_human": 0.0221,
+    "foreign_species": 0.0589,
+    "has_color": 0.0521,
+    "has_text": 0.0258
+   }
+  },
+  {
+   "page": "S10p2",
+   "key": "books/docker/images/S10-page-2.jpg",
+   "expected": [
+    "Wells",
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0544,
+    "count_seagull": 0.0261,
+    "count_whale": 0.0247,
+    "present_Wells": 0.8333,
+    "present_Skipper": 0.4895,
+    "anatomy_ok": 0.2626,
+    "has_human": 0.022,
+    "foreign_species": 0.0537,
+    "has_color": 0.0617,
+    "has_text": 0.068
+   }
+  },
+  {
+   "page": "S10p3",
+   "key": "books/docker/images/S10-page-3.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0575,
+    "count_seagull": 0.0201,
+    "count_whale": 0.0302,
+    "present_Wells": 0.8957,
+    "present_Pip": 0.7603,
+    "anatomy_ok": 0.5753,
+    "has_human": 0.0176,
+    "foreign_species": 0.0554,
+    "has_color": 0.0379,
+    "has_text": 0.0254
+   }
+  },
+  {
+   "page": "S10 finale",
+   "key": "books/docker/images/S10-finale.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0517,
+    "count_seagull": 0.0614,
+    "count_whale": 0.0308,
+    "present_Wells": 0.8607,
+    "present_Pip": 0.7784,
+    "anatomy_ok": 0.5293,
+    "has_human": 0.021,
+    "foreign_species": 0.0718,
+    "has_color": 0.0832,
+    "has_text": 0.0325
+   }
+  },
+  {
+   "page": "S11p0",
+   "key": "books/docker/images/S11-page-0.jpg",
+   "expected": [
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0195,
+    "count_seagull": 0.9631,
+    "count_whale": 0.0079,
+    "present_Pip": 0.8002,
+    "anatomy_ok": 0.7085,
+    "has_human": 0.0147,
+    "foreign_species": 0.0443,
+    "has_color": 0.0494,
+    "has_text": 0.0272
+   }
+  },
+  {
+   "page": "S11p1",
+   "key": "books/docker/images/S11-page-1.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.018,
+    "count_seagull": 0.9756,
+    "count_whale": 0.0088,
+    "present_Skipper": 0.7989,
+    "anatomy_ok": 0.6211,
+    "has_human": 0.0186,
+    "foreign_species": 0.101,
+    "has_color": 0.1068,
+    "has_text": 0.0206
+   }
+  },
+  {
+   "page": "S11p2",
+   "key": "books/docker/images/S11-page-2.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0161,
+    "count_seagull": 0.0284,
+    "count_whale": 0.0076,
+    "present_Skipper": 0.8722,
+    "anatomy_ok": 0.8513,
+    "has_human": 0.0206,
+    "foreign_species": 0.0699,
+    "has_color": 0.1007,
+    "has_text": 0.0408
+   }
+  },
+  {
+   "page": "S11p3",
+   "key": "books/docker/images/S11-page-3.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.0888,
+    "count_seagull": 0.0368,
+    "count_whale": 0.9569,
+    "present_Wells": 0.7795,
+    "anatomy_ok": 0.4001,
+    "has_human": 0.0249,
+    "foreign_species": 0.05,
+    "has_color": 0.05,
+    "has_text": 0.0221
+   }
+  },
+  {
+   "page": "S11 finale",
+   "key": "books/docker/images/S11-finale.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0362,
+    "count_seagull": 0.9578,
+    "count_whale": 0.0204,
+    "present_Wells": 0.8901,
+    "present_Pip": 0.856,
+    "anatomy_ok": 0.527,
+    "has_human": 0.0175,
+    "foreign_species": 0.0443,
+    "has_color": 0.0611,
+    "has_text": 0.0178
+   }
+  },
+  {
+   "page": "S12p0",
+   "key": "books/docker/images/S12-page-0.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.0728,
+    "count_seagull": 0.1288,
+    "count_whale": 0.9314,
+    "present_Wells": 0.379,
+    "anatomy_ok": 0.4065,
+    "has_human": 0.04,
+    "foreign_species": 0.0644,
+    "has_color": 0.0544,
+    "has_text": 0.0281
+   }
+  },
+  {
+   "page": "S12p1",
+   "key": "books/docker/images/S12-page-1.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0117,
+    "count_seagull": 0.4956,
+    "count_whale": 0.0076,
+    "present_Skipper": 0.9066,
+    "anatomy_ok": 0.7931,
+    "has_human": 0.0183,
+    "foreign_species": 0.137,
+    "has_color": 0.0568,
+    "has_text": 0.0267
+   }
+  },
+  {
+   "page": "S12p2",
+   "key": "books/docker/images/S12-page-2.jpg",
+   "expected": [
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0182,
+    "count_seagull": 0.9468,
+    "count_whale": 0.0081,
+    "present_Pip": 0.6407,
+    "anatomy_ok": 0.7169,
+    "has_human": 0.0171,
+    "foreign_species": 0.0556,
+    "has_color": 0.064,
+    "has_text": 0.029
+   }
+  },
+  {
+   "page": "S12p3",
+   "key": "books/docker/images/S12-page-3.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0538,
+    "count_seagull": 0.0331,
+    "count_whale": 0.0274,
+    "present_Wells": 0.7961,
+    "present_Pip": 0.7322,
+    "anatomy_ok": 0.4742,
+    "has_human": 0.0207,
+    "foreign_species": 0.05,
+    "has_color": 0.0567,
+    "has_text": 0.0235
+   }
+  },
+  {
+   "page": "S12 finale",
+   "key": "books/docker/images/S12-finale.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0444,
+    "count_seagull": 0.037,
+    "count_whale": 0.0287,
+    "present_Wells": 0.8598,
+    "present_Pip": 0.8308,
+    "anatomy_ok": 0.3592,
+    "has_human": 0.0205,
+    "foreign_species": 0.0468,
+    "has_color": 0.0535,
+    "has_text": 0.0246
+   }
+  },
+  {
+   "page": "S13p0",
+   "key": "books/docker/images/S13-page-0.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.069,
+    "count_seagull": 0.0498,
+    "count_whale": 0.0138,
+    "present_Wells": 0.7311,
+    "anatomy_ok": 0.599,
+    "has_human": 0.0166,
+    "foreign_species": 0.0455,
+    "has_color": 0.0492,
+    "has_text": 0.0182
+   }
+  },
+  {
+   "page": "S13p1",
+   "key": "books/docker/images/S13-page-1.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.0675,
+    "count_seagull": 0.0172,
+    "count_whale": 0.0222,
+    "present_Wells": 0.6174,
+    "anatomy_ok": 0.4958,
+    "has_human": 0.0227,
+    "foreign_species": 0.0398,
+    "has_color": 0.0546,
+    "has_text": 0.0249
+   }
+  },
+  {
+   "page": "S13p2",
+   "key": "books/docker/images/S13-page-2.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0154,
+    "count_seagull": 0.9721,
+    "count_whale": 0.0078,
+    "present_Skipper": 0.8912,
+    "anatomy_ok": 0.7686,
+    "has_human": 0.0199,
+    "foreign_species": 0.0772,
+    "has_color": 0.086,
+    "has_text": 0.0202
+   }
+  },
+  {
+   "page": "S13p3",
+   "key": "books/docker/images/S13-page-3.jpg",
+   "expected": [
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.9758,
+    "count_seagull": 0.0157,
+    "count_whale": 0.0075,
+    "present_Pip": 0.4005,
+    "anatomy_ok": 0.7298,
+    "has_human": 0.0153,
+    "foreign_species": 0.0392,
+    "has_color": 0.0507,
+    "has_text": 0.0262
+   }
+  },
+  {
+   "page": "S13 finale",
+   "key": "books/docker/images/S13-finale.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.078,
+    "count_seagull": 0.0125,
+    "count_whale": 0.0177,
+    "present_Wells": 0.7488,
+    "anatomy_ok": 0.4288,
+    "has_human": 0.0196,
+    "foreign_species": 0.0443,
+    "has_color": 0.127,
+    "has_text": 0.0268
+   }
+  },
+  {
+   "page": "S14p0",
+   "key": "books/docker/images/S14-page-0.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.0615,
+    "count_seagull": 0.8728,
+    "count_whale": 0.0172,
+    "present_Wells": 0.7383,
+    "anatomy_ok": 0.4742,
+    "has_human": 0.0231,
+    "foreign_species": 0.066,
+    "has_color": 0.0872,
+    "has_text": 0.0443
+   }
+  },
+  {
+   "page": "S14p1",
+   "key": "books/docker/images/S14-page-1.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.1018,
+    "count_seagull": 0.0335,
+    "count_whale": 0.0248,
+    "present_Wells": 0.592,
+    "anatomy_ok": 0.4134,
+    "has_human": 0.0254,
+    "foreign_species": 0.0604,
+    "has_color": 0.3551,
+    "has_text": 0.0228
+   }
+  },
+  {
+   "page": "S14p2",
+   "key": "books/docker/images/S14-page-2.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0321,
+    "count_seagull": 0.9497,
+    "count_whale": 0.0234,
+    "present_Wells": 0.6042,
+    "present_Pip": 0.7844,
+    "anatomy_ok": 0.4367,
+    "has_human": 0.0225,
+    "foreign_species": 0.0512,
+    "has_color": 0.1555,
+    "has_text": 0.0257
+   }
+  },
+  {
+   "page": "S14p3",
+   "key": "books/docker/images/S14-page-3.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.2637,
+    "count_seagull": 0.0163,
+    "count_whale": 0.0163,
+    "present_Wells": 0.6542,
+    "anatomy_ok": 0.5361,
+    "has_human": 0.0231,
+    "foreign_species": 0.0462,
+    "has_color": 0.0647,
+    "has_text": 0.0264
+   }
+  },
+  {
+   "page": "S14 finale",
+   "key": "books/docker/images/S14-finale.jpg",
+   "expected": [
+    "Wells",
+    "Pip"
+   ],
+   "scores": {
+    "count_sea otter": 0.0544,
+    "count_seagull": 0.0473,
+    "count_whale": 0.026,
+    "present_Wells": 0.8748,
+    "present_Pip": 0.8283,
+    "anatomy_ok": 0.5123,
+    "has_human": 0.0214,
+    "foreign_species": 0.0711,
+    "has_color": 0.0507,
+    "has_text": 0.0232
+   }
+  },
+  {
+   "page": "S15p0",
+   "key": "books/docker/images/S15-page-0.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.0622,
+    "count_seagull": 0.023,
+    "count_whale": 0.0218,
+    "present_Wells": 0.6878,
+    "anatomy_ok": 0.5479,
+    "has_human": 0.0267,
+    "foreign_species": 0.0582,
+    "has_color": 0.0766,
+    "has_text": 0.1427
+   }
+  },
+  {
+   "page": "S15p1",
+   "key": "books/docker/images/S15-page-1.jpg",
+   "expected": [
+    "Wells"
+   ],
+   "scores": {
+    "count_sea otter": 0.0621,
+    "count_seagull": 0.0162,
+    "count_whale": 0.0218,
+    "present_Wells": 0.5906,
+    "anatomy_ok": 0.4767,
+    "has_human": 0.0206,
+    "foreign_species": 0.0434,
+    "has_color": 0.0493,
+    "has_text": 0.0242
+   }
+  },
+  {
+   "page": "S15p2",
+   "key": "books/docker/images/S15-page-2.jpg",
+   "expected": [
+    "Skipper"
+   ],
+   "scores": {
+    "count_sea otter": 0.0163,
+    "count_seagull": 0.9668,
+    "count_whale": 0.0074,
+    "present_Skipper": 0.8451,
+    "anatomy_ok": 0.7015,
+    "has_human": 0.0161,
+    "foreign_species": 0.0645,
+    "has_color": 0.1602,
+    "has_text": 0.0937
+   }
+  }
+ ]
+}

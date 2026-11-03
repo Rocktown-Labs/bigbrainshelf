@@ -1,0 +1,1036 @@
+{
+ "slug": "richdadpoordad",
+ "edition": "line",
+ "flags": [
+  {
+   "page": "S1p0",
+   "kind": "count",
+   "detail": "more than 2 squirrel in scene",
+   "cls": "clone-likely",
+   "score": 0.973,
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "key": "books/richdadpoordad/images/S1-page-0.jpg"
+  },
+  {
+   "page": "S1p2",
+   "kind": "missing",
+   "detail": "Penny (squirrel) expected but not found",
+   "cls": "review",
+   "score": 0.364,
+   "expected": [
+    "Penny"
+   ],
+   "key": "books/richdadpoordad/images/S1-page-2.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.466,
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "key": "books/richdadpoordad/images/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.484,
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "key": "books/richdadpoordad/images/S2-page-2.jpg"
+  },
+  {
+   "page": "S2p3",
+   "kind": "missing",
+   "detail": "Hazel (squirrel) expected but not found",
+   "cls": "review",
+   "score": 0.025,
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "key": "books/richdadpoordad/images/S2-page-3.jpg"
+  },
+  {
+   "page": "S3p1",
+   "kind": "missing",
+   "detail": "Penny (squirrel) expected but not found",
+   "cls": "review",
+   "score": 0.395,
+   "expected": [
+    "Penny"
+   ],
+   "key": "books/richdadpoordad/images/S3-page-1.jpg"
+  },
+  {
+   "page": "S3p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.499,
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "key": "books/richdadpoordad/images/S3-page-2.jpg"
+  },
+  {
+   "page": "S3p2",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.33,
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "key": "books/richdadpoordad/images/S3-page-2.jpg"
+  },
+  {
+   "page": "S3p3",
+   "kind": "missing",
+   "detail": "Penny (squirrel) expected but not found",
+   "cls": "review",
+   "score": 0.399,
+   "expected": [
+    "Penny"
+   ],
+   "key": "books/richdadpoordad/images/S3-page-3.jpg"
+  },
+  {
+   "page": "S4p0",
+   "kind": "missing",
+   "detail": "Penny (squirrel) expected but not found",
+   "cls": "review",
+   "score": 0.381,
+   "expected": [
+    "Penny"
+   ],
+   "key": "books/richdadpoordad/images/S4-page-0.jpg"
+  },
+  {
+   "page": "S4p2",
+   "kind": "missing",
+   "detail": "Bram (squirrel) expected but not found",
+   "cls": "review",
+   "score": 0.33,
+   "expected": [
+    "Bram"
+   ],
+   "key": "books/richdadpoordad/images/S4-page-2.jpg"
+  },
+  {
+   "page": "S4 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.38,
+   "expected": [],
+   "key": "books/richdadpoordad/images/S4-finale.jpg"
+  },
+  {
+   "page": "S5 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.428,
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "key": "books/richdadpoordad/images/S5-finale.jpg"
+  },
+  {
+   "page": "S6p0",
+   "kind": "missing",
+   "detail": "Penny (squirrel) expected but not found",
+   "cls": "review",
+   "score": 0.196,
+   "expected": [
+    "Penny"
+   ],
+   "key": "books/richdadpoordad/images/S6-page-0.jpg"
+  },
+  {
+   "page": "S6p0",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.958,
+   "expected": [
+    "Penny"
+   ],
+   "key": "books/richdadpoordad/images/S6-page-0.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.968,
+   "expected": [
+    "Penny"
+   ],
+   "key": "books/richdadpoordad/images/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.46,
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "key": "books/richdadpoordad/images/S6-page-2.jpg"
+  },
+  {
+   "page": "S6p3",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.968,
+   "expected": [
+    "Penny"
+   ],
+   "key": "books/richdadpoordad/images/S6-page-3.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.384,
+   "expected": [
+    "Penny"
+   ],
+   "key": "books/richdadpoordad/images/S6-finale.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.971,
+   "expected": [
+    "Penny"
+   ],
+   "key": "books/richdadpoordad/images/S6-finale.jpg"
+  },
+  {
+   "page": "S7p1",
+   "kind": "missing",
+   "detail": "Bram (squirrel) expected but not found",
+   "cls": "review",
+   "score": 0.217,
+   "expected": [
+    "Bram"
+   ],
+   "key": "books/richdadpoordad/images/S7-page-1.jpg"
+  },
+  {
+   "page": "S7p3",
+   "kind": "missing",
+   "detail": "Penny (squirrel) expected but not found",
+   "cls": "review",
+   "score": 0.392,
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "key": "books/richdadpoordad/images/S7-page-3.jpg"
+  },
+  {
+   "page": "S7p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.405,
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "key": "books/richdadpoordad/images/S7-page-3.jpg"
+  },
+  {
+   "page": "S7 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.336,
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "key": "books/richdadpoordad/images/S7-finale.jpg"
+  },
+  {
+   "page": "S8p0",
+   "kind": "missing",
+   "detail": "Bram (squirrel) expected but not found",
+   "cls": "review",
+   "score": 0.366,
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "key": "books/richdadpoordad/images/S8-page-0.jpg"
+  },
+  {
+   "page": "S8p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.38,
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "key": "books/richdadpoordad/images/S8-page-0.jpg"
+  },
+  {
+   "page": "S8p3",
+   "kind": "missing",
+   "detail": "Bram (squirrel) expected but not found",
+   "cls": "review",
+   "score": 0.26,
+   "expected": [
+    "Bram",
+    "Hazel"
+   ],
+   "key": "books/richdadpoordad/images/S8-page-3.jpg"
+  },
+  {
+   "page": "S8p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.455,
+   "expected": [
+    "Bram",
+    "Hazel"
+   ],
+   "key": "books/richdadpoordad/images/S8-page-3.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "missing",
+   "detail": "Penny (squirrel) expected but not found",
+   "cls": "review",
+   "score": 0.34,
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "key": "books/richdadpoordad/images/S8-finale.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.441,
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "key": "books/richdadpoordad/images/S8-finale.jpg"
+  }
+ ],
+ "results": [
+  {
+   "page": "S1p0",
+   "key": "books/richdadpoordad/images/S1-page-0.jpg",
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "scores": {
+    "count_squirrel": 0.9732,
+    "present_Penny": 0.5303,
+    "present_Bram": 0.6919,
+    "anatomy_ok": 0.5143,
+    "has_human": 0.0198,
+    "foreign_species": 0.0423,
+    "has_color": 0.1399,
+    "has_text": 0.0254
+   }
+  },
+  {
+   "page": "S1p1",
+   "key": "books/richdadpoordad/images/S1-page-1.jpg",
+   "expected": [
+    "Hazel"
+   ],
+   "scores": {
+    "count_squirrel": 0.0284,
+    "present_Hazel": 0.5771,
+    "anatomy_ok": 0.7073,
+    "has_human": 0.0241,
+    "foreign_species": 0.0443,
+    "has_color": 0.0661,
+    "has_text": 0.0257
+   }
+  },
+  {
+   "page": "S1p2",
+   "key": "books/richdadpoordad/images/S1-page-2.jpg",
+   "expected": [
+    "Penny"
+   ],
+   "scores": {
+    "count_squirrel": 0.0188,
+    "present_Penny": 0.3645,
+    "anatomy_ok": 0.6692,
+    "has_human": 0.015,
+    "foreign_species": 0.0237,
+    "has_color": 0.0666,
+    "has_text": 0.0232
+   }
+  },
+  {
+   "page": "S1p3",
+   "key": "books/richdadpoordad/images/S1-page-3.jpg",
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "scores": {
+    "count_squirrel": 0.0218,
+    "present_Penny": 0.693,
+    "present_Hazel": 0.8155,
+    "anatomy_ok": 0.5648,
+    "has_human": 0.0178,
+    "foreign_species": 0.0243,
+    "has_color": 0.082,
+    "has_text": 0.0204
+   }
+  },
+  {
+   "page": "S1 finale",
+   "key": "books/richdadpoordad/images/S1-finale.jpg",
+   "expected": [
+    "Penny"
+   ],
+   "scores": {
+    "count_squirrel": 0.0193,
+    "present_Penny": 0.6943,
+    "anatomy_ok": 0.6831,
+    "has_human": 0.0162,
+    "foreign_species": 0.0313,
+    "has_color": 0.0604,
+    "has_text": 0.0231
+   }
+  },
+  {
+   "page": "S2p0",
+   "key": "books/richdadpoordad/images/S2-page-0.jpg",
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "scores": {
+    "count_squirrel": 0.0322,
+    "present_Penny": 0.762,
+    "present_Hazel": 0.8015,
+    "anatomy_ok": 0.5605,
+    "has_human": 0.0172,
+    "foreign_species": 0.0245,
+    "has_color": 0.0831,
+    "has_text": 0.0209
+   }
+  },
+  {
+   "page": "S2p1",
+   "key": "books/richdadpoordad/images/S2-page-1.jpg",
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "scores": {
+    "count_squirrel": 0.0242,
+    "present_Penny": 0.6904,
+    "present_Bram": 0.7748,
+    "anatomy_ok": 0.4664,
+    "has_human": 0.0162,
+    "foreign_species": 0.0239,
+    "has_color": 0.0559,
+    "has_text": 0.0566
+   }
+  },
+  {
+   "page": "S2p2",
+   "key": "books/richdadpoordad/images/S2-page-2.jpg",
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "scores": {
+    "count_squirrel": 0.0324,
+    "present_Penny": 0.5852,
+    "present_Hazel": 0.8642,
+    "anatomy_ok": 0.4836,
+    "has_human": 0.0174,
+    "foreign_species": 0.0303,
+    "has_color": 0.0835,
+    "has_text": 0.0564
+   }
+  },
+  {
+   "page": "S2p3",
+   "key": "books/richdadpoordad/images/S2-page-3.jpg",
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "scores": {
+    "count_squirrel": 0.0132,
+    "present_Penny": 0.6833,
+    "present_Hazel": 0.0254,
+    "anatomy_ok": 0.6538,
+    "has_human": 0.0136,
+    "foreign_species": 0.0234,
+    "has_color": 0.0449,
+    "has_text": 0.0191
+   }
+  },
+  {
+   "page": "S2 finale",
+   "key": "books/richdadpoordad/images/S2-finale.jpg",
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "scores": {
+    "count_squirrel": 0.0174,
+    "present_Penny": 0.7829,
+    "present_Hazel": 0.8921,
+    "anatomy_ok": 0.6157,
+    "has_human": 0.0146,
+    "foreign_species": 0.0239,
+    "has_color": 0.0584,
+    "has_text": 0.02
+   }
+  },
+  {
+   "page": "S3p0",
+   "key": "books/richdadpoordad/images/S3-page-0.jpg",
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "scores": {
+    "count_squirrel": 0.0195,
+    "present_Penny": 0.7447,
+    "present_Hazel": 0.851,
+    "anatomy_ok": 0.6161,
+    "has_human": 0.0135,
+    "foreign_species": 0.024,
+    "has_color": 0.0598,
+    "has_text": 0.0191
+   }
+  },
+  {
+   "page": "S3p1",
+   "key": "books/richdadpoordad/images/S3-page-1.jpg",
+   "expected": [
+    "Penny"
+   ],
+   "scores": {
+    "count_squirrel": 0.0158,
+    "present_Penny": 0.3948,
+    "anatomy_ok": 0.6354,
+    "has_human": 0.0154,
+    "foreign_species": 0.0233,
+    "has_color": 0.0427,
+    "has_text": 0.0194
+   }
+  },
+  {
+   "page": "S3p2",
+   "key": "books/richdadpoordad/images/S3-page-2.jpg",
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "scores": {
+    "count_squirrel": 0.0259,
+    "present_Penny": 0.7666,
+    "present_Bram": 0.7511,
+    "anatomy_ok": 0.4988,
+    "has_human": 0.0182,
+    "foreign_species": 0.0247,
+    "has_color": 0.33,
+    "has_text": 0.0154
+   }
+  },
+  {
+   "page": "S3p3",
+   "key": "books/richdadpoordad/images/S3-page-3.jpg",
+   "expected": [
+    "Penny"
+   ],
+   "scores": {
+    "count_squirrel": 0.0181,
+    "present_Penny": 0.3985,
+    "anatomy_ok": 0.6973,
+    "has_human": 0.0183,
+    "foreign_species": 0.0296,
+    "has_color": 0.0817,
+    "has_text": 0.0218
+   }
+  },
+  {
+   "page": "S3 finale",
+   "key": "books/richdadpoordad/images/S3-finale.jpg",
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "scores": {
+    "count_squirrel": 0.0168,
+    "present_Penny": 0.6667,
+    "present_Hazel": 0.8389,
+    "anatomy_ok": 0.5742,
+    "has_human": 0.0151,
+    "foreign_species": 0.0228,
+    "has_color": 0.0431,
+    "has_text": 0.0173
+   }
+  },
+  {
+   "page": "S4p0",
+   "key": "books/richdadpoordad/images/S4-page-0.jpg",
+   "expected": [
+    "Penny"
+   ],
+   "scores": {
+    "count_squirrel": 0.0169,
+    "present_Penny": 0.3805,
+    "anatomy_ok": 0.6387,
+    "has_human": 0.0179,
+    "foreign_species": 0.0273,
+    "has_color": 0.0549,
+    "has_text": 0.0233
+   }
+  },
+  {
+   "page": "S4p1",
+   "key": "books/richdadpoordad/images/S4-page-1.jpg",
+   "expected": [
+    "Penny"
+   ],
+   "scores": {
+    "count_squirrel": 0.0185,
+    "present_Penny": 0.7864,
+    "anatomy_ok": 0.6885,
+    "has_human": 0.0203,
+    "foreign_species": 0.0303,
+    "has_color": 0.0723,
+    "has_text": 0.0247
+   }
+  },
+  {
+   "page": "S4p2",
+   "key": "books/richdadpoordad/images/S4-page-2.jpg",
+   "expected": [
+    "Bram"
+   ],
+   "scores": {
+    "count_squirrel": 0.0254,
+    "present_Bram": 0.3296,
+    "anatomy_ok": 0.7202,
+    "has_human": 0.0207,
+    "foreign_species": 0.0402,
+    "has_color": 0.119,
+    "has_text": 0.0252
+   }
+  },
+  {
+   "page": "S4p3",
+   "key": "books/richdadpoordad/images/S4-page-3.jpg",
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "scores": {
+    "count_squirrel": 0.0239,
+    "present_Penny": 0.5578,
+    "present_Hazel": 0.8221,
+    "anatomy_ok": 0.5287,
+    "has_human": 0.0163,
+    "foreign_species": 0.0249,
+    "has_color": 0.0615,
+    "has_text": 0.0235
+   }
+  },
+  {
+   "page": "S4 finale",
+   "key": "books/richdadpoordad/images/S4-finale.jpg",
+   "expected": [],
+   "scores": {
+    "count_squirrel": 0.0528,
+    "anatomy_ok": 0.3802,
+    "has_human": 0.0745,
+    "foreign_species": 0.1681,
+    "has_color": 0.1115,
+    "has_text": 0.0684
+   }
+  },
+  {
+   "page": "S5p0",
+   "key": "books/richdadpoordad/images/S5-page-0.jpg",
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "scores": {
+    "count_squirrel": 0.0219,
+    "present_Penny": 0.8104,
+    "present_Hazel": 0.8573,
+    "anatomy_ok": 0.6856,
+    "has_human": 0.0179,
+    "foreign_species": 0.0289,
+    "has_color": 0.2224,
+    "has_text": 0.0179
+   }
+  },
+  {
+   "page": "S5p1",
+   "key": "books/richdadpoordad/images/S5-page-1.jpg",
+   "expected": [
+    "Penny"
+   ],
+   "scores": {
+    "count_squirrel": 0.0175,
+    "present_Penny": 0.7241,
+    "anatomy_ok": 0.6994,
+    "has_human": 0.0178,
+    "foreign_species": 0.0276,
+    "has_color": 0.0835,
+    "has_text": 0.0257
+   }
+  },
+  {
+   "page": "S5p2",
+   "key": "books/richdadpoordad/images/S5-page-2.jpg",
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "scores": {
+    "count_squirrel": 0.0261,
+    "present_Penny": 0.8397,
+    "present_Bram": 0.7491,
+    "anatomy_ok": 0.6193,
+    "has_human": 0.0178,
+    "foreign_species": 0.0307,
+    "has_color": 0.0774,
+    "has_text": 0.0237
+   }
+  },
+  {
+   "page": "S5p3",
+   "key": "books/richdadpoordad/images/S5-page-3.jpg",
+   "expected": [
+    "Penny"
+   ],
+   "scores": {
+    "count_squirrel": 0.0177,
+    "present_Penny": 0.608,
+    "anatomy_ok": 0.6414,
+    "has_human": 0.0161,
+    "foreign_species": 0.0281,
+    "has_color": 0.0649,
+    "has_text": 0.0225
+   }
+  },
+  {
+   "page": "S5 finale",
+   "key": "books/richdadpoordad/images/S5-finale.jpg",
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "scores": {
+    "count_squirrel": 0.0309,
+    "present_Penny": 0.7999,
+    "present_Bram": 0.7048,
+    "anatomy_ok": 0.428,
+    "has_human": 0.0171,
+    "foreign_species": 0.0255,
+    "has_color": 0.0913,
+    "has_text": 0.0182
+   }
+  },
+  {
+   "page": "S6p0",
+   "key": "books/richdadpoordad/images/S6-page-0.jpg",
+   "expected": [
+    "Penny"
+   ],
+   "scores": {
+    "count_squirrel": 0.0189,
+    "present_Penny": 0.1964,
+    "anatomy_ok": 0.6349,
+    "has_human": 0.015,
+    "foreign_species": 0.9584,
+    "has_color": 0.0546,
+    "has_text": 0.0208
+   }
+  },
+  {
+   "page": "S6p1",
+   "key": "books/richdadpoordad/images/S6-page-1.jpg",
+   "expected": [
+    "Penny"
+   ],
+   "scores": {
+    "count_squirrel": 0.0149,
+    "present_Penny": 0.6211,
+    "anatomy_ok": 0.6051,
+    "has_human": 0.0132,
+    "foreign_species": 0.9677,
+    "has_color": 0.0413,
+    "has_text": 0.0264
+   }
+  },
+  {
+   "page": "S6p2",
+   "key": "books/richdadpoordad/images/S6-page-2.jpg",
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "scores": {
+    "count_squirrel": 0.0232,
+    "present_Penny": 0.7652,
+    "present_Bram": 0.7919,
+    "anatomy_ok": 0.4602,
+    "has_human": 0.0182,
+    "foreign_species": 0.025,
+    "has_color": 0.0967,
+    "has_text": 0.0648
+   }
+  },
+  {
+   "page": "S6p3",
+   "key": "books/richdadpoordad/images/S6-page-3.jpg",
+   "expected": [
+    "Penny"
+   ],
+   "scores": {
+    "count_squirrel": 0.014,
+    "present_Penny": 0.5424,
+    "anatomy_ok": 0.6409,
+    "has_human": 0.0139,
+    "foreign_species": 0.9678,
+    "has_color": 0.0665,
+    "has_text": 0.0176
+   }
+  },
+  {
+   "page": "S6 finale",
+   "key": "books/richdadpoordad/images/S6-finale.jpg",
+   "expected": [
+    "Penny"
+   ],
+   "scores": {
+    "count_squirrel": 0.0165,
+    "present_Penny": 0.6998,
+    "anatomy_ok": 0.3836,
+    "has_human": 0.0135,
+    "foreign_species": 0.971,
+    "has_color": 0.0466,
+    "has_text": 0.0164
+   }
+  },
+  {
+   "page": "S7p0",
+   "key": "books/richdadpoordad/images/S7-page-0.jpg",
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "scores": {
+    "count_squirrel": 0.0262,
+    "present_Penny": 0.7987,
+    "present_Bram": 0.76,
+    "anatomy_ok": 0.5662,
+    "has_human": 0.0151,
+    "foreign_species": 0.0218,
+    "has_color": 0.0982,
+    "has_text": 0.0152
+   }
+  },
+  {
+   "page": "S7p1",
+   "key": "books/richdadpoordad/images/S7-page-1.jpg",
+   "expected": [
+    "Bram"
+   ],
+   "scores": {
+    "count_squirrel": 0.0191,
+    "present_Bram": 0.2174,
+    "anatomy_ok": 0.5943,
+    "has_human": 0.0222,
+    "foreign_species": 0.0248,
+    "has_color": 0.061,
+    "has_text": 0.0208
+   }
+  },
+  {
+   "page": "S7p2",
+   "key": "books/richdadpoordad/images/S7-page-2.jpg",
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "scores": {
+    "count_squirrel": 0.0253,
+    "present_Penny": 0.6162,
+    "present_Hazel": 0.8297,
+    "anatomy_ok": 0.5661,
+    "has_human": 0.015,
+    "foreign_species": 0.0228,
+    "has_color": 0.0691,
+    "has_text": 0.0191
+   }
+  },
+  {
+   "page": "S7p3",
+   "key": "books/richdadpoordad/images/S7-page-3.jpg",
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "scores": {
+    "count_squirrel": 0.0295,
+    "present_Penny": 0.3919,
+    "present_Bram": 0.6965,
+    "anatomy_ok": 0.4047,
+    "has_human": 0.0223,
+    "foreign_species": 0.0399,
+    "has_color": 0.0701,
+    "has_text": 0.026
+   }
+  },
+  {
+   "page": "S7 finale",
+   "key": "books/richdadpoordad/images/S7-finale.jpg",
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "scores": {
+    "count_squirrel": 0.0229,
+    "present_Penny": 0.6007,
+    "present_Bram": 0.5372,
+    "anatomy_ok": 0.3363,
+    "has_human": 0.0162,
+    "foreign_species": 0.0209,
+    "has_color": 0.0539,
+    "has_text": 0.018
+   }
+  },
+  {
+   "page": "S8p0",
+   "key": "books/richdadpoordad/images/S8-page-0.jpg",
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "scores": {
+    "count_squirrel": 0.0316,
+    "present_Penny": 0.6084,
+    "present_Bram": 0.3662,
+    "anatomy_ok": 0.3801,
+    "has_human": 0.0164,
+    "foreign_species": 0.0234,
+    "has_color": 0.0486,
+    "has_text": 0.0225
+   }
+  },
+  {
+   "page": "S8p1",
+   "key": "books/richdadpoordad/images/S8-page-1.jpg",
+   "expected": [
+    "Penny"
+   ],
+   "scores": {
+    "count_squirrel": 0.0142,
+    "present_Penny": 0.7106,
+    "anatomy_ok": 0.5911,
+    "has_human": 0.0141,
+    "foreign_species": 0.0349,
+    "has_color": 0.0627,
+    "has_text": 0.0181
+   }
+  },
+  {
+   "page": "S8p2",
+   "key": "books/richdadpoordad/images/S8-page-2.jpg",
+   "expected": [
+    "Penny",
+    "Bram"
+   ],
+   "scores": {
+    "count_squirrel": 0.0163,
+    "present_Penny": 0.62,
+    "present_Bram": 0.7163,
+    "anatomy_ok": 0.5129,
+    "has_human": 0.013,
+    "foreign_species": 0.0198,
+    "has_color": 0.0455,
+    "has_text": 0.0154
+   }
+  },
+  {
+   "page": "S8p3",
+   "key": "books/richdadpoordad/images/S8-page-3.jpg",
+   "expected": [
+    "Bram",
+    "Hazel"
+   ],
+   "scores": {
+    "count_squirrel": 0.0225,
+    "present_Bram": 0.2602,
+    "present_Hazel": 0.8467,
+    "anatomy_ok": 0.4547,
+    "has_human": 0.015,
+    "foreign_species": 0.0221,
+    "has_color": 0.0562,
+    "has_text": 0.0151
+   }
+  },
+  {
+   "page": "S8 finale",
+   "key": "books/richdadpoordad/images/S8-finale.jpg",
+   "expected": [
+    "Penny",
+    "Hazel"
+   ],
+   "scores": {
+    "count_squirrel": 0.0195,
+    "present_Penny": 0.3396,
+    "present_Hazel": 0.8649,
+    "anatomy_ok": 0.4412,
+    "has_human": 0.0127,
+    "foreign_species": 0.0227,
+    "has_color": 0.0455,
+    "has_text": 0.0183
+   }
+  }
+ ]
+}

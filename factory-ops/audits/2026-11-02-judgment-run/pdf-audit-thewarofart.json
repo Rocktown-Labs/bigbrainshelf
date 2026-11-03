@@ -1,0 +1,1568 @@
+{
+ "slug": "thewarofart",
+ "planned_story_pages": 41,
+ "versions": {
+  "story": {
+   "pdf_pages": 46,
+   "story_pages_found": 41,
+   "flags": [
+    {
+     "page": "S1p0",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.352
+    },
+    {
+     "page": "S1p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.965
+    },
+    {
+     "page": "S1p1",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.267
+    },
+    {
+     "page": "S1p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.318
+    },
+    {
+     "page": "S1p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.942
+    },
+    {
+     "page": "S1p2",
+     "kind": "count",
+     "detail": "more than 1 crane in scene",
+     "cls": "clone-likely",
+     "score": 0.935
+    },
+    {
+     "page": "S1p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S1p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.963
+    },
+    {
+     "page": "S1 finale",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.302
+    },
+    {
+     "page": "S1 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.954
+    },
+    {
+     "page": "S2p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.446
+    },
+    {
+     "page": "S2p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.953
+    },
+    {
+     "page": "S2p1",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.731
+    },
+    {
+     "page": "S2p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S2p2",
+     "kind": "count",
+     "detail": "more than 1 crane in scene",
+     "cls": "clone-likely",
+     "score": 0.951
+    },
+    {
+     "page": "S2p2",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.931
+    },
+    {
+     "page": "S2p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S2p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.96
+    },
+    {
+     "page": "S2 finale",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.363
+    },
+    {
+     "page": "S2 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.963
+    },
+    {
+     "page": "S3p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S3p1",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.623
+    },
+    {
+     "page": "S3p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S3p2",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.719
+    },
+    {
+     "page": "S3p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.968
+    },
+    {
+     "page": "S3p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.341
+    },
+    {
+     "page": "S3p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.954
+    },
+    {
+     "page": "S3 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.96
+    },
+    {
+     "page": "S4p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.972
+    },
+    {
+     "page": "S4p1",
+     "kind": "missing",
+     "detail": "the Fog (living gray fog) expected but not found",
+     "cls": "review",
+     "score": 0.277
+    },
+    {
+     "page": "S4p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.959
+    },
+    {
+     "page": "S4p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.971
+    },
+    {
+     "page": "S4p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.967
+    },
+    {
+     "page": "S4 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.955
+    },
+    {
+     "page": "S5p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.96
+    },
+    {
+     "page": "S5p1",
+     "kind": "count",
+     "detail": "more than 0 songbird in scene",
+     "cls": "extra-review",
+     "score": 0.921
+    },
+    {
+     "page": "S5p1",
+     "kind": "missing",
+     "detail": "Cato (crane) expected but not found",
+     "cls": "review",
+     "score": 0.094
+    },
+    {
+     "page": "S5p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.971
+    },
+    {
+     "page": "S5p2",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.87
+    },
+    {
+     "page": "S5p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S5p3",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.976
+    },
+    {
+     "page": "S5p3",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.368
+    },
+    {
+     "page": "S5p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S5p4",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S5 finale",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.292
+    },
+    {
+     "page": "S5 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.946
+    },
+    {
+     "page": "S6p0",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.217
+    },
+    {
+     "page": "S6p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S6p1",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.962
+    },
+    {
+     "page": "S6p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.977
+    },
+    {
+     "page": "S6p1",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.92
+    },
+    {
+     "page": "S6p2",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.384
+    },
+    {
+     "page": "S6p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.968
+    },
+    {
+     "page": "S6p3",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.962
+    },
+    {
+     "page": "S6p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S6 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.965
+    },
+    {
+     "page": "S7p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.975
+    },
+    {
+     "page": "S7p0",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.893
+    },
+    {
+     "page": "S7p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.944
+    },
+    {
+     "page": "S7p1",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.928
+    },
+    {
+     "page": "S7p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.975
+    },
+    {
+     "page": "S7p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.469
+    },
+    {
+     "page": "S7p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.95
+    },
+    {
+     "page": "S7p3",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.954
+    },
+    {
+     "page": "S7 finale",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.198
+    },
+    {
+     "page": "S7 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.426
+    },
+    {
+     "page": "S7 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.968
+    },
+    {
+     "page": "S8p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.944
+    },
+    {
+     "page": "S8p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.497
+    },
+    {
+     "page": "S8p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.969
+    },
+    {
+     "page": "S8p1",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.911
+    },
+    {
+     "page": "S8p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.424
+    },
+    {
+     "page": "S8p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.968
+    },
+    {
+     "page": "S8p2",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.935
+    },
+    {
+     "page": "S8p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.241
+    },
+    {
+     "page": "S8p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.968
+    },
+    {
+     "page": "S8p3",
+     "kind": "human",
+     "detail": "a human or human-shaped character is drawn",
+     "cls": "defect",
+     "score": 0.883
+    },
+    {
+     "page": "S8p3",
+     "kind": "foreign",
+     "detail": "a character whose species is not in this book's cast",
+     "cls": "review",
+     "score": 0.804
+    },
+    {
+     "page": "S8p3",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.949
+    },
+    {
+     "page": "S8 finale",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.239
+    },
+    {
+     "page": "S8 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.973
+    },
+    {
+     "page": "S8 finale",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.951
+    }
+   ]
+  },
+  "coloring": {
+   "pdf_pages": 38,
+   "story_pages_found": 33,
+   "flags": [
+    {
+     "page": "S1p0",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.289
+    },
+    {
+     "page": "S1p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S1p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.207
+    },
+    {
+     "page": "S1p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.947
+    },
+    {
+     "page": "S1p2",
+     "kind": "count",
+     "detail": "more than 1 crane in scene",
+     "cls": "clone-likely",
+     "score": 0.947
+    },
+    {
+     "page": "S1p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.963
+    },
+    {
+     "page": "S1p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.498
+    },
+    {
+     "page": "S1p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S2p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.361
+    },
+    {
+     "page": "S2p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S2p1",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.968
+    },
+    {
+     "page": "S2p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S2p2",
+     "kind": "count",
+     "detail": "more than 1 crane in scene",
+     "cls": "clone-likely",
+     "score": 0.966
+    },
+    {
+     "page": "S2p2",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.95
+    },
+    {
+     "page": "S2p2",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.395
+    },
+    {
+     "page": "S2p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.95
+    },
+    {
+     "page": "S2p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.959
+    },
+    {
+     "page": "S3p0",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.385
+    },
+    {
+     "page": "S3p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.438
+    },
+    {
+     "page": "S3p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.949
+    },
+    {
+     "page": "S3p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.965
+    },
+    {
+     "page": "S3p2",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.302
+    },
+    {
+     "page": "S3p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S3p3",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.196
+    },
+    {
+     "page": "S3p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.25
+    },
+    {
+     "page": "S3p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S4p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.969
+    },
+    {
+     "page": "S4p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.934
+    },
+    {
+     "page": "S4p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.959
+    },
+    {
+     "page": "S4p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.96
+    },
+    {
+     "page": "S5p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S5p1",
+     "kind": "count",
+     "detail": "more than 0 songbird in scene",
+     "cls": "extra-review",
+     "score": 0.952
+    },
+    {
+     "page": "S5p1",
+     "kind": "missing",
+     "detail": "Cato (crane) expected but not found",
+     "cls": "review",
+     "score": 0.087
+    },
+    {
+     "page": "S5p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.965
+    },
+    {
+     "page": "S5p2",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.84
+    },
+    {
+     "page": "S5p2",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.369
+    },
+    {
+     "page": "S5p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.954
+    },
+    {
+     "page": "S5p3",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.963
+    },
+    {
+     "page": "S5p3",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.288
+    },
+    {
+     "page": "S5p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S5p4",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.953
+    },
+    {
+     "page": "S6p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.964
+    },
+    {
+     "page": "S6p1",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.963
+    },
+    {
+     "page": "S6p1",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.361
+    },
+    {
+     "page": "S6p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.973
+    },
+    {
+     "page": "S6p1",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.94
+    },
+    {
+     "page": "S6p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.963
+    },
+    {
+     "page": "S6p3",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.963
+    },
+    {
+     "page": "S6p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.968
+    },
+    {
+     "page": "S7p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.946
+    },
+    {
+     "page": "S7p0",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.904
+    },
+    {
+     "page": "S7p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.923
+    },
+    {
+     "page": "S7p1",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.914
+    },
+    {
+     "page": "S7p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.964
+    },
+    {
+     "page": "S7p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.93
+    },
+    {
+     "page": "S7p3",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.948
+    },
+    {
+     "page": "S8p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.266
+    },
+    {
+     "page": "S8p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.942
+    },
+    {
+     "page": "S8p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S8p1",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.925
+    },
+    {
+     "page": "S8p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.307
+    },
+    {
+     "page": "S8p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.965
+    },
+    {
+     "page": "S8p2",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.929
+    },
+    {
+     "page": "S8p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.214
+    },
+    {
+     "page": "S8p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.96
+    },
+    {
+     "page": "S8p3",
+     "kind": "human",
+     "detail": "a human or human-shaped character is drawn",
+     "cls": "defect",
+     "score": 0.815
+    },
+    {
+     "page": "S8p3",
+     "kind": "foreign",
+     "detail": "a character whose species is not in this book's cast",
+     "cls": "review",
+     "score": 0.63
+    },
+    {
+     "page": "S8p3",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.947
+    }
+   ]
+  },
+  "color": {
+   "pdf_pages": 46,
+   "story_pages_found": 41,
+   "flags": [
+    {
+     "page": "S1p0",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.354
+    },
+    {
+     "page": "S1p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.968
+    },
+    {
+     "page": "S1p1",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.276
+    },
+    {
+     "page": "S1p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.318
+    },
+    {
+     "page": "S1p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.953
+    },
+    {
+     "page": "S1p2",
+     "kind": "count",
+     "detail": "more than 1 crane in scene",
+     "cls": "clone-likely",
+     "score": 0.943
+    },
+    {
+     "page": "S1p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.974
+    },
+    {
+     "page": "S1p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.969
+    },
+    {
+     "page": "S1 finale",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.318
+    },
+    {
+     "page": "S1 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.96
+    },
+    {
+     "page": "S2p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.443
+    },
+    {
+     "page": "S2p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.963
+    },
+    {
+     "page": "S2p1",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.737
+    },
+    {
+     "page": "S2p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.965
+    },
+    {
+     "page": "S2p2",
+     "kind": "count",
+     "detail": "more than 1 crane in scene",
+     "cls": "clone-likely",
+     "score": 0.948
+    },
+    {
+     "page": "S2p2",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.927
+    },
+    {
+     "page": "S2p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S2p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.964
+    },
+    {
+     "page": "S2 finale",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.362
+    },
+    {
+     "page": "S2 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.965
+    },
+    {
+     "page": "S3p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S3p1",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.62
+    },
+    {
+     "page": "S3p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.959
+    },
+    {
+     "page": "S3p2",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.72
+    },
+    {
+     "page": "S3p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.971
+    },
+    {
+     "page": "S3p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.332
+    },
+    {
+     "page": "S3p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.956
+    },
+    {
+     "page": "S3 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.972
+    },
+    {
+     "page": "S4p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S4p1",
+     "kind": "missing",
+     "detail": "the Fog (living gray fog) expected but not found",
+     "cls": "review",
+     "score": 0.287
+    },
+    {
+     "page": "S4p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.958
+    },
+    {
+     "page": "S4p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S4p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S4 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S5p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.96
+    },
+    {
+     "page": "S5p1",
+     "kind": "count",
+     "detail": "more than 0 songbird in scene",
+     "cls": "extra-review",
+     "score": 0.925
+    },
+    {
+     "page": "S5p1",
+     "kind": "missing",
+     "detail": "Cato (crane) expected but not found",
+     "cls": "review",
+     "score": 0.103
+    },
+    {
+     "page": "S5p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.973
+    },
+    {
+     "page": "S5p2",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.869
+    },
+    {
+     "page": "S5p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.965
+    },
+    {
+     "page": "S5p3",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.974
+    },
+    {
+     "page": "S5p3",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.358
+    },
+    {
+     "page": "S5p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.956
+    },
+    {
+     "page": "S5p4",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.954
+    },
+    {
+     "page": "S5 finale",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.294
+    },
+    {
+     "page": "S5 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.948
+    },
+    {
+     "page": "S6p0",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.201
+    },
+    {
+     "page": "S6p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S6p1",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.963
+    },
+    {
+     "page": "S6p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.965
+    },
+    {
+     "page": "S6p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.96
+    },
+    {
+     "page": "S6p3",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.968
+    },
+    {
+     "page": "S6p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S6 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.955
+    },
+    {
+     "page": "S7p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.483
+    },
+    {
+     "page": "S7p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.957
+    },
+    {
+     "page": "S7p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.945
+    },
+    {
+     "page": "S7p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.973
+    },
+    {
+     "page": "S7p3",
+     "kind": "missing",
+     "detail": "Wren (songbird) expected but not found",
+     "cls": "review",
+     "score": 0.311
+    },
+    {
+     "page": "S7p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.956
+    },
+    {
+     "page": "S7 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.396
+    },
+    {
+     "page": "S7 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.94
+    },
+    {
+     "page": "S8p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S8p1",
+     "kind": "count",
+     "detail": "more than 1 songbird in scene",
+     "cls": "clone-likely",
+     "score": 0.552
+    },
+    {
+     "page": "S8p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.959
+    },
+    {
+     "page": "S8p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.453
+    },
+    {
+     "page": "S8p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.937
+    },
+    {
+     "page": "S8p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.446
+    },
+    {
+     "page": "S8p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.967
+    },
+    {
+     "page": "S8 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    }
+   ]
+  }
+ },
+ "gaps": [
+  "coloring: coloring book omits every chapter finale page (factory assembly pushes finales to the story book only)"
+ ],
+ "disagreements": []
+}

@@ -1,0 +1,20 @@
+{
+  "name": "kidsbook-factory",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "esbuild": "^0.28.2",
+    "imagetracerjs": "^1.2.6",
+    "jpeg-js": "^0.4.4",
+    "pdf-lib": "^1.17.1",
+    "unpdf": "^1.9.1",
+    "upng-js": "^2.1.0"
+  }
+}

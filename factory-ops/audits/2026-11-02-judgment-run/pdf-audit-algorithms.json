@@ -1,0 +1,2695 @@
+{
+ "slug": "algorithms",
+ "planned_story_pages": 62,
+ "versions": {
+  "story": {
+   "pdf_pages": 67,
+   "story_pages_found": 62,
+   "flags": [
+    {
+     "page": "S1p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.968
+    },
+    {
+     "page": "S1p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.974
+    },
+    {
+     "page": "S1p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.931
+    },
+    {
+     "page": "S1p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.955
+    },
+    {
+     "page": "S1 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.473
+    },
+    {
+     "page": "S1 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.964
+    },
+    {
+     "page": "S2p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.944
+    },
+    {
+     "page": "S2p1",
+     "kind": "count",
+     "detail": "more than 1 fox in scene",
+     "cls": "clone-likely",
+     "score": 0.742
+    },
+    {
+     "page": "S2p1",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.078
+    },
+    {
+     "page": "S2p1",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.064
+    },
+    {
+     "page": "S2p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.917
+    },
+    {
+     "page": "S2p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.968
+    },
+    {
+     "page": "S2p3",
+     "kind": "count",
+     "detail": "more than 1 owl in scene",
+     "cls": "clone-likely",
+     "score": 0.954
+    },
+    {
+     "page": "S2p3",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.044
+    },
+    {
+     "page": "S2p3",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.018
+    },
+    {
+     "page": "S2p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.493
+    },
+    {
+     "page": "S2p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.905
+    },
+    {
+     "page": "S2 finale",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.198
+    },
+    {
+     "page": "S2 finale",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.138
+    },
+    {
+     "page": "S2 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.296
+    },
+    {
+     "page": "S2 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.782
+    },
+    {
+     "page": "S2 finale",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.936
+    },
+    {
+     "page": "S3p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.916
+    },
+    {
+     "page": "S3p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.969
+    },
+    {
+     "page": "S3p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.754
+    },
+    {
+     "page": "S3p2",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.904
+    },
+    {
+     "page": "S3p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.868
+    },
+    {
+     "page": "S3p3",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.724
+    },
+    {
+     "page": "S3 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.929
+    },
+    {
+     "page": "S3 finale",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.952
+    },
+    {
+     "page": "S4p0",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.199
+    },
+    {
+     "page": "S4p0",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.159
+    },
+    {
+     "page": "S4p0",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.224
+    },
+    {
+     "page": "S4p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.928
+    },
+    {
+     "page": "S4p1",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.383
+    },
+    {
+     "page": "S4p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.923
+    },
+    {
+     "page": "S4p2",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.07
+    },
+    {
+     "page": "S4p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.941
+    },
+    {
+     "page": "S4p2",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.941
+    },
+    {
+     "page": "S4p3",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.157
+    },
+    {
+     "page": "S4p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.942
+    },
+    {
+     "page": "S4 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.974
+    },
+    {
+     "page": "S5p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S5p0",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.923
+    },
+    {
+     "page": "S5p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.946
+    },
+    {
+     "page": "S5p1",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.925
+    },
+    {
+     "page": "S5p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.939
+    },
+    {
+     "page": "S5p2",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.945
+    },
+    {
+     "page": "S5p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.972
+    },
+    {
+     "page": "S5 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.803
+    },
+    {
+     "page": "S5 finale",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.933
+    },
+    {
+     "page": "S6p0",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.25
+    },
+    {
+     "page": "S6p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S6p1",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.033
+    },
+    {
+     "page": "S6p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.919
+    },
+    {
+     "page": "S6p1",
+     "kind": "human",
+     "detail": "a human or human-shaped character is drawn",
+     "cls": "defect",
+     "score": 0.961
+    },
+    {
+     "page": "S6p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.953
+    },
+    {
+     "page": "S6p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.178
+    },
+    {
+     "page": "S6p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.973
+    },
+    {
+     "page": "S6 finale",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.061
+    },
+    {
+     "page": "S6 finale",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.05
+    },
+    {
+     "page": "S6 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.48
+    },
+    {
+     "page": "S6 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.862
+    },
+    {
+     "page": "S6 finale",
+     "kind": "human",
+     "detail": "a human or human-shaped character is drawn",
+     "cls": "defect",
+     "score": 0.938
+    },
+    {
+     "page": "S6 finale",
+     "kind": "foreign",
+     "detail": "a character whose species is not in this book's cast",
+     "cls": "review",
+     "score": 0.736
+    },
+    {
+     "page": "S7p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S7p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.952
+    },
+    {
+     "page": "S7p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.904
+    },
+    {
+     "page": "S7p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.881
+    },
+    {
+     "page": "S7 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.939
+    },
+    {
+     "page": "S8p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.955
+    },
+    {
+     "page": "S8p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.201
+    },
+    {
+     "page": "S8p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.946
+    },
+    {
+     "page": "S8p1",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.862
+    },
+    {
+     "page": "S8p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.302
+    },
+    {
+     "page": "S8p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.917
+    },
+    {
+     "page": "S8p2",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.937
+    },
+    {
+     "page": "S8p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.947
+    },
+    {
+     "page": "S8 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.7
+    },
+    {
+     "page": "S9p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S9p1",
+     "kind": "count",
+     "detail": "more than 1 turtle in scene",
+     "cls": "clone-likely",
+     "score": 0.976
+    },
+    {
+     "page": "S9p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.956
+    },
+    {
+     "page": "S9p2",
+     "kind": "count",
+     "detail": "more than 1 fox in scene",
+     "cls": "clone-likely",
+     "score": 0.98
+    },
+    {
+     "page": "S9p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.972
+    },
+    {
+     "page": "S9p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.897
+    },
+    {
+     "page": "S9 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.909
+    },
+    {
+     "page": "S9 finale",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.942
+    },
+    {
+     "page": "S10p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.886
+    },
+    {
+     "page": "S10p1",
+     "kind": "count",
+     "detail": "more than 1 fox in scene",
+     "cls": "clone-likely",
+     "score": 0.979
+    },
+    {
+     "page": "S10p1",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.221
+    },
+    {
+     "page": "S10p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.344
+    },
+    {
+     "page": "S10p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.956
+    },
+    {
+     "page": "S10p2",
+     "kind": "count",
+     "detail": "more than 1 fox in scene",
+     "cls": "clone-likely",
+     "score": 0.963
+    },
+    {
+     "page": "S10p2",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.335
+    },
+    {
+     "page": "S10p2",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.049
+    },
+    {
+     "page": "S10p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.958
+    },
+    {
+     "page": "S10p3",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.024
+    },
+    {
+     "page": "S10p3",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.05
+    },
+    {
+     "page": "S10p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.881
+    },
+    {
+     "page": "S10p3",
+     "kind": "human",
+     "detail": "a human or human-shaped character is drawn",
+     "cls": "defect",
+     "score": 0.949
+    },
+    {
+     "page": "S10p3",
+     "kind": "foreign",
+     "detail": "a character whose species is not in this book's cast",
+     "cls": "review",
+     "score": 0.751
+    },
+    {
+     "page": "S10p4",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.311
+    },
+    {
+     "page": "S10p4",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.909
+    },
+    {
+     "page": "S10p4",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.582
+    },
+    {
+     "page": "S10p5",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.383
+    },
+    {
+     "page": "S10p5",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.959
+    },
+    {
+     "page": "S10 finale",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.097
+    },
+    {
+     "page": "S10 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.379
+    },
+    {
+     "page": "S10 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.697
+    },
+    {
+     "page": "S11p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.498
+    },
+    {
+     "page": "S11p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.859
+    },
+    {
+     "page": "S11p0",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.898
+    },
+    {
+     "page": "S11p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.968
+    },
+    {
+     "page": "S11p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.935
+    },
+    {
+     "page": "S11p2",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.954
+    },
+    {
+     "page": "S11p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.975
+    },
+    {
+     "page": "S11p3",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.895
+    },
+    {
+     "page": "S11 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.924
+    },
+    {
+     "page": "S11 finale",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.931
+    },
+    {
+     "page": "S12p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.951
+    },
+    {
+     "page": "S12p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.924
+    },
+    {
+     "page": "S12p2",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.368
+    },
+    {
+     "page": "S12p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.957
+    },
+    {
+     "page": "S12p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.893
+    },
+    {
+     "page": "S12 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.853
+    },
+    {
+     "page": "S12 finale",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.859
+    }
+   ]
+  },
+  "coloring": {
+   "pdf_pages": 55,
+   "story_pages_found": 50,
+   "flags": [
+    {
+     "page": "S1p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S1p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.974
+    },
+    {
+     "page": "S1p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.47
+    },
+    {
+     "page": "S1p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.96
+    },
+    {
+     "page": "S1p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.959
+    },
+    {
+     "page": "S2p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.945
+    },
+    {
+     "page": "S2p1",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.081
+    },
+    {
+     "page": "S2p1",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.086
+    },
+    {
+     "page": "S2p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.917
+    },
+    {
+     "page": "S2p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.973
+    },
+    {
+     "page": "S2p3",
+     "kind": "count",
+     "detail": "more than 1 owl in scene",
+     "cls": "clone-likely",
+     "score": 0.937
+    },
+    {
+     "page": "S2p3",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.02
+    },
+    {
+     "page": "S2p3",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.018
+    },
+    {
+     "page": "S2p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.933
+    },
+    {
+     "page": "S2p3",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.315
+    },
+    {
+     "page": "S3p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.912
+    },
+    {
+     "page": "S3p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S3p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.956
+    },
+    {
+     "page": "S3p2",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.938
+    },
+    {
+     "page": "S3p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.896
+    },
+    {
+     "page": "S3p3",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.88
+    },
+    {
+     "page": "S4p0",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.153
+    },
+    {
+     "page": "S4p0",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.099
+    },
+    {
+     "page": "S4p0",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.158
+    },
+    {
+     "page": "S4p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.885
+    },
+    {
+     "page": "S4p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.924
+    },
+    {
+     "page": "S4p2",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.089
+    },
+    {
+     "page": "S4p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.949
+    },
+    {
+     "page": "S4p2",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.94
+    },
+    {
+     "page": "S4p3",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.15
+    },
+    {
+     "page": "S4p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.939
+    },
+    {
+     "page": "S5p0",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.234
+    },
+    {
+     "page": "S5p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.918
+    },
+    {
+     "page": "S5p0",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.921
+    },
+    {
+     "page": "S5p1",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.37
+    },
+    {
+     "page": "S5p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.945
+    },
+    {
+     "page": "S5p1",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.939
+    },
+    {
+     "page": "S5p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.846
+    },
+    {
+     "page": "S5p2",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.942
+    },
+    {
+     "page": "S5p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.965
+    },
+    {
+     "page": "S6p0",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.293
+    },
+    {
+     "page": "S6p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.952
+    },
+    {
+     "page": "S6p1",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.028
+    },
+    {
+     "page": "S6p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.895
+    },
+    {
+     "page": "S6p1",
+     "kind": "human",
+     "detail": "a human or human-shaped character is drawn",
+     "cls": "defect",
+     "score": 0.939
+    },
+    {
+     "page": "S6p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.956
+    },
+    {
+     "page": "S6p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.31
+    },
+    {
+     "page": "S6p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.956
+    },
+    {
+     "page": "S7p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.968
+    },
+    {
+     "page": "S7p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.958
+    },
+    {
+     "page": "S7p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.452
+    },
+    {
+     "page": "S7p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.952
+    },
+    {
+     "page": "S7p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.906
+    },
+    {
+     "page": "S8p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.958
+    },
+    {
+     "page": "S8p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.446
+    },
+    {
+     "page": "S8p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.919
+    },
+    {
+     "page": "S8p1",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.897
+    },
+    {
+     "page": "S8p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.939
+    },
+    {
+     "page": "S8p2",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.943
+    },
+    {
+     "page": "S8p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.948
+    },
+    {
+     "page": "S9p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.922
+    },
+    {
+     "page": "S9p1",
+     "kind": "count",
+     "detail": "more than 1 turtle in scene",
+     "cls": "clone-likely",
+     "score": 0.968
+    },
+    {
+     "page": "S9p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S9p2",
+     "kind": "count",
+     "detail": "more than 1 fox in scene",
+     "cls": "clone-likely",
+     "score": 0.979
+    },
+    {
+     "page": "S9p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.934
+    },
+    {
+     "page": "S9p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.897
+    },
+    {
+     "page": "S10p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.886
+    },
+    {
+     "page": "S10p1",
+     "kind": "count",
+     "detail": "more than 1 fox in scene",
+     "cls": "clone-likely",
+     "score": 0.973
+    },
+    {
+     "page": "S10p1",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.329
+    },
+    {
+     "page": "S10p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.454
+    },
+    {
+     "page": "S10p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.958
+    },
+    {
+     "page": "S10p2",
+     "kind": "count",
+     "detail": "more than 1 fox in scene",
+     "cls": "clone-likely",
+     "score": 0.874
+    },
+    {
+     "page": "S10p2",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.323
+    },
+    {
+     "page": "S10p2",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.069
+    },
+    {
+     "page": "S10p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.329
+    },
+    {
+     "page": "S10p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.931
+    },
+    {
+     "page": "S10p3",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.029
+    },
+    {
+     "page": "S10p3",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.053
+    },
+    {
+     "page": "S10p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.797
+    },
+    {
+     "page": "S10p3",
+     "kind": "human",
+     "detail": "a human or human-shaped character is drawn",
+     "cls": "defect",
+     "score": 0.936
+    },
+    {
+     "page": "S10p3",
+     "kind": "foreign",
+     "detail": "a character whose species is not in this book's cast",
+     "cls": "review",
+     "score": 0.664
+    },
+    {
+     "page": "S10p4",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.177
+    },
+    {
+     "page": "S10p4",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.856
+    },
+    {
+     "page": "S10p4",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.516
+    },
+    {
+     "page": "S10p5",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.249
+    },
+    {
+     "page": "S10p5",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.954
+    },
+    {
+     "page": "S11p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.802
+    },
+    {
+     "page": "S11p0",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.947
+    },
+    {
+     "page": "S11p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.955
+    },
+    {
+     "page": "S11p2",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.326
+    },
+    {
+     "page": "S11p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.915
+    },
+    {
+     "page": "S11p2",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.944
+    },
+    {
+     "page": "S11p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S11p3",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.938
+    },
+    {
+     "page": "S12p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.936
+    },
+    {
+     "page": "S12p1",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.31
+    },
+    {
+     "page": "S12p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.88
+    },
+    {
+     "page": "S12p2",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.196
+    },
+    {
+     "page": "S12p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.914
+    },
+    {
+     "page": "S12p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.894
+    }
+   ]
+  },
+  "color": {
+   "pdf_pages": 67,
+   "story_pages_found": 62,
+   "flags": [
+    {
+     "page": "S1p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.894
+    },
+    {
+     "page": "S1p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.948
+    },
+    {
+     "page": "S1p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.427
+    },
+    {
+     "page": "S1p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.852
+    },
+    {
+     "page": "S1p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.749
+    },
+    {
+     "page": "S1 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.925
+    },
+    {
+     "page": "S2p0",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.028
+    },
+    {
+     "page": "S2p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.885
+    },
+    {
+     "page": "S2p1",
+     "kind": "count",
+     "detail": "more than 1 fox in scene",
+     "cls": "clone-likely",
+     "score": 0.986
+    },
+    {
+     "page": "S2p1",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.02
+    },
+    {
+     "page": "S2p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.957
+    },
+    {
+     "page": "S2p2",
+     "kind": "count",
+     "detail": "more than 1 fox in scene",
+     "cls": "clone-likely",
+     "score": 0.958
+    },
+    {
+     "page": "S2p2",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.383
+    },
+    {
+     "page": "S2p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.942
+    },
+    {
+     "page": "S2p2",
+     "kind": "foreign",
+     "detail": "a character whose species is not in this book's cast",
+     "cls": "review",
+     "score": 0.629
+    },
+    {
+     "page": "S2p3",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.028
+    },
+    {
+     "page": "S2p3",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.11
+    },
+    {
+     "page": "S2p3",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.034
+    },
+    {
+     "page": "S2p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.414
+    },
+    {
+     "page": "S2p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.897
+    },
+    {
+     "page": "S2p3",
+     "kind": "human",
+     "detail": "a human or human-shaped character is drawn",
+     "cls": "defect",
+     "score": 0.933
+    },
+    {
+     "page": "S2p3",
+     "kind": "foreign",
+     "detail": "a character whose species is not in this book's cast",
+     "cls": "review",
+     "score": 0.749
+    },
+    {
+     "page": "S2 finale",
+     "kind": "count",
+     "detail": "more than 0 owl in scene",
+     "cls": "extra-review",
+     "score": 0.973
+    },
+    {
+     "page": "S2 finale",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.064
+    },
+    {
+     "page": "S2 finale",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.021
+    },
+    {
+     "page": "S2 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.955
+    },
+    {
+     "page": "S3p0",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.019
+    },
+    {
+     "page": "S3p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.392
+    },
+    {
+     "page": "S3p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.957
+    },
+    {
+     "page": "S3p1",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.082
+    },
+    {
+     "page": "S3p1",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.048
+    },
+    {
+     "page": "S3p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.404
+    },
+    {
+     "page": "S3p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.783
+    },
+    {
+     "page": "S3p2",
+     "kind": "count",
+     "detail": "more than 0 turtle in scene",
+     "cls": "extra-review",
+     "score": 0.975
+    },
+    {
+     "page": "S3p2",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.022
+    },
+    {
+     "page": "S3p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.918
+    },
+    {
+     "page": "S3p3",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.367
+    },
+    {
+     "page": "S3p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.94
+    },
+    {
+     "page": "S3 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.95
+    },
+    {
+     "page": "S4p0",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.016
+    },
+    {
+     "page": "S4p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.96
+    },
+    {
+     "page": "S4p1",
+     "kind": "count",
+     "detail": "more than 0 fox in scene",
+     "cls": "extra-review",
+     "score": 0.973
+    },
+    {
+     "page": "S4p1",
+     "kind": "count",
+     "detail": "more than 0 turtle in scene",
+     "cls": "extra-review",
+     "score": 0.963
+    },
+    {
+     "page": "S4p1",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.029
+    },
+    {
+     "page": "S4p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.354
+    },
+    {
+     "page": "S4p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.844
+    },
+    {
+     "page": "S4p2",
+     "kind": "count",
+     "detail": "more than 0 owl in scene",
+     "cls": "extra-review",
+     "score": 0.977
+    },
+    {
+     "page": "S4p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.949
+    },
+    {
+     "page": "S4p3",
+     "kind": "count",
+     "detail": "more than 0 owl in scene",
+     "cls": "extra-review",
+     "score": 0.974
+    },
+    {
+     "page": "S4p3",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.016
+    },
+    {
+     "page": "S4p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.957
+    },
+    {
+     "page": "S4 finale",
+     "kind": "count",
+     "detail": "more than 0 owl in scene",
+     "cls": "extra-review",
+     "score": 0.979
+    },
+    {
+     "page": "S4 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.959
+    },
+    {
+     "page": "S5p0",
+     "kind": "count",
+     "detail": "more than 0 owl in scene",
+     "cls": "extra-review",
+     "score": 0.97
+    },
+    {
+     "page": "S5p0",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.017
+    },
+    {
+     "page": "S5p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.939
+    },
+    {
+     "page": "S5p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.918
+    },
+    {
+     "page": "S5p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.86
+    },
+    {
+     "page": "S5p3",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.025
+    },
+    {
+     "page": "S5p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.884
+    },
+    {
+     "page": "S5p3",
+     "kind": "foreign",
+     "detail": "a character whose species is not in this book's cast",
+     "cls": "review",
+     "score": 0.785
+    },
+    {
+     "page": "S5 finale",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.017
+    },
+    {
+     "page": "S5 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.901
+    },
+    {
+     "page": "S6p0",
+     "kind": "count",
+     "detail": "more than 0 owl in scene",
+     "cls": "extra-review",
+     "score": 0.975
+    },
+    {
+     "page": "S6p0",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.085
+    },
+    {
+     "page": "S6p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.489
+    },
+    {
+     "page": "S6p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.95
+    },
+    {
+     "page": "S6p1",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.372
+    },
+    {
+     "page": "S6p1",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.153
+    },
+    {
+     "page": "S6p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.329
+    },
+    {
+     "page": "S6p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.876
+    },
+    {
+     "page": "S6p2",
+     "kind": "count",
+     "detail": "more than 0 turtle in scene",
+     "cls": "extra-review",
+     "score": 0.95
+    },
+    {
+     "page": "S6p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.872
+    },
+    {
+     "page": "S6p3",
+     "kind": "count",
+     "detail": "more than 0 turtle in scene",
+     "cls": "extra-review",
+     "score": 0.972
+    },
+    {
+     "page": "S6p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.945
+    },
+    {
+     "page": "S6 finale",
+     "kind": "count",
+     "detail": "more than 0 owl in scene",
+     "cls": "extra-review",
+     "score": 0.972
+    },
+    {
+     "page": "S6 finale",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.017
+    },
+    {
+     "page": "S6 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.885
+    },
+    {
+     "page": "S7p0",
+     "kind": "count",
+     "detail": "more than 0 owl in scene",
+     "cls": "extra-review",
+     "score": 0.974
+    },
+    {
+     "page": "S7p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.884
+    },
+    {
+     "page": "S7p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.925
+    },
+    {
+     "page": "S7p2",
+     "kind": "count",
+     "detail": "more than 0 fox in scene",
+     "cls": "extra-review",
+     "score": 0.971
+    },
+    {
+     "page": "S7p2",
+     "kind": "count",
+     "detail": "more than 0 turtle in scene",
+     "cls": "extra-review",
+     "score": 0.97
+    },
+    {
+     "page": "S7p2",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.15
+    },
+    {
+     "page": "S7p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.827
+    },
+    {
+     "page": "S7p3",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.018
+    },
+    {
+     "page": "S7p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.943
+    },
+    {
+     "page": "S7 finale",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.103
+    },
+    {
+     "page": "S7 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.923
+    },
+    {
+     "page": "S8p0",
+     "kind": "count",
+     "detail": "more than 0 turtle in scene",
+     "cls": "extra-review",
+     "score": 0.942
+    },
+    {
+     "page": "S8p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.953
+    },
+    {
+     "page": "S8p1",
+     "kind": "count",
+     "detail": "more than 0 fox in scene",
+     "cls": "extra-review",
+     "score": 0.983
+    },
+    {
+     "page": "S8p1",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.027
+    },
+    {
+     "page": "S8p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.964
+    },
+    {
+     "page": "S8p2",
+     "kind": "count",
+     "detail": "more than 0 fox in scene",
+     "cls": "extra-review",
+     "score": 0.975
+    },
+    {
+     "page": "S8p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.951
+    },
+    {
+     "page": "S8p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.895
+    },
+    {
+     "page": "S8 finale",
+     "kind": "count",
+     "detail": "more than 0 fox in scene",
+     "cls": "extra-review",
+     "score": 0.981
+    },
+    {
+     "page": "S8 finale",
+     "kind": "count",
+     "detail": "more than 0 turtle in scene",
+     "cls": "extra-review",
+     "score": 0.958
+    },
+    {
+     "page": "S8 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.971
+    },
+    {
+     "page": "S9p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.922
+    },
+    {
+     "page": "S9p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.324
+    },
+    {
+     "page": "S9p2",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.212
+    },
+    {
+     "page": "S9p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.963
+    },
+    {
+     "page": "S9p3",
+     "kind": "count",
+     "detail": "more than 0 turtle in scene",
+     "cls": "extra-review",
+     "score": 0.975
+    },
+    {
+     "page": "S9p3",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.034
+    },
+    {
+     "page": "S9p3",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.036
+    },
+    {
+     "page": "S9p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.965
+    },
+    {
+     "page": "S9p3",
+     "kind": "human",
+     "detail": "a human or human-shaped character is drawn",
+     "cls": "defect",
+     "score": 0.965
+    },
+    {
+     "page": "S9 finale",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.023
+    },
+    {
+     "page": "S9 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.939
+    },
+    {
+     "page": "S10p0",
+     "kind": "count",
+     "detail": "more than 0 fox in scene",
+     "cls": "extra-review",
+     "score": 0.983
+    },
+    {
+     "page": "S10p0",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.045
+    },
+    {
+     "page": "S10p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.976
+    },
+    {
+     "page": "S10p1",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.063
+    },
+    {
+     "page": "S10p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.831
+    },
+    {
+     "page": "S10p1",
+     "kind": "human",
+     "detail": "a human or human-shaped character is drawn",
+     "cls": "defect",
+     "score": 0.906
+    },
+    {
+     "page": "S10p1",
+     "kind": "foreign",
+     "detail": "a character whose species is not in this book's cast",
+     "cls": "review",
+     "score": 0.575
+    },
+    {
+     "page": "S10p2",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.016
+    },
+    {
+     "page": "S10p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.956
+    },
+    {
+     "page": "S10p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.92
+    },
+    {
+     "page": "S10p4",
+     "kind": "count",
+     "detail": "more than 1 owl in scene",
+     "cls": "clone-likely",
+     "score": 0.976
+    },
+    {
+     "page": "S10p4",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.487
+    },
+    {
+     "page": "S10p4",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.852
+    },
+    {
+     "page": "S10p5",
+     "kind": "count",
+     "detail": "more than 0 owl in scene",
+     "cls": "extra-review",
+     "score": 0.975
+    },
+    {
+     "page": "S10p5",
+     "kind": "count",
+     "detail": "more than 0 turtle in scene",
+     "cls": "extra-review",
+     "score": 0.917
+    },
+    {
+     "page": "S10p5",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.03
+    },
+    {
+     "page": "S10p5",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.877
+    },
+    {
+     "page": "S10 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S11p0",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.015
+    },
+    {
+     "page": "S11p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.916
+    },
+    {
+     "page": "S11p1",
+     "kind": "count",
+     "detail": "more than 0 turtle in scene",
+     "cls": "extra-review",
+     "score": 0.971
+    },
+    {
+     "page": "S11p1",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.059
+    },
+    {
+     "page": "S11p1",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.034
+    },
+    {
+     "page": "S11p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.375
+    },
+    {
+     "page": "S11p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.911
+    },
+    {
+     "page": "S11p2",
+     "kind": "count",
+     "detail": "more than 1 turtle in scene",
+     "cls": "clone-likely",
+     "score": 0.973
+    },
+    {
+     "page": "S11p2",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.026
+    },
+    {
+     "page": "S11p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.891
+    },
+    {
+     "page": "S11p3",
+     "kind": "count",
+     "detail": "more than 0 turtle in scene",
+     "cls": "extra-review",
+     "score": 0.966
+    },
+    {
+     "page": "S11p3",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.025
+    },
+    {
+     "page": "S11p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.583
+    },
+    {
+     "page": "S11 finale",
+     "kind": "missing",
+     "detail": "Fenix (fox) expected but not found",
+     "cls": "review",
+     "score": 0.063
+    },
+    {
+     "page": "S11 finale",
+     "kind": "missing",
+     "detail": "Moss (turtle) expected but not found",
+     "cls": "review",
+     "score": 0.059
+    },
+    {
+     "page": "S11 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.406
+    },
+    {
+     "page": "S11 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.669
+    },
+    {
+     "page": "S12p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.958
+    },
+    {
+     "page": "S12p1",
+     "kind": "count",
+     "detail": "more than 0 turtle in scene",
+     "cls": "extra-review",
+     "score": 0.981
+    },
+    {
+     "page": "S12p1",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.017
+    },
+    {
+     "page": "S12p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.776
+    },
+    {
+     "page": "S12p2",
+     "kind": "count",
+     "detail": "more than 1 fox in scene",
+     "cls": "clone-likely",
+     "score": 0.982
+    },
+    {
+     "page": "S12p2",
+     "kind": "missing",
+     "detail": "Orin (owl) expected but not found",
+     "cls": "review",
+     "score": 0.02
+    },
+    {
+     "page": "S12p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.952
+    },
+    {
+     "page": "S12p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.901
+    },
+    {
+     "page": "S12 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.928
+    }
+   ]
+  }
+ },
+ "gaps": [
+  "coloring: coloring book omits every chapter finale page (factory assembly pushes finales to the story book only)"
+ ],
+ "disagreements": []
+}

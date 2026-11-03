@@ -1,0 +1,1914 @@
+{
+ "slug": "algorithms",
+ "edition": "color",
+ "flags": [
+  {
+   "page": "S1p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.448,
+   "expected": [
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S1-page-2.jpg"
+  },
+  {
+   "page": "S1 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.476,
+   "expected": [
+    "Fenix"
+   ],
+   "key": "books/algorithms/images-color/S1-finale.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "missing",
+   "detail": "Fenix (fox) expected but not found",
+   "cls": "review",
+   "score": 0.198,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "missing",
+   "detail": "Moss (turtle) expected but not found",
+   "cls": "review",
+   "score": 0.016,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.95,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p3",
+   "kind": "count",
+   "detail": "more than 1 owl in scene",
+   "cls": "clone-likely",
+   "score": 0.979,
+   "expected": [
+    "Fenix",
+    "Moss",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S2-page-3.jpg"
+  },
+  {
+   "page": "S2p3",
+   "kind": "missing",
+   "detail": "Fenix (fox) expected but not found",
+   "cls": "review",
+   "score": 0.021,
+   "expected": [
+    "Fenix",
+    "Moss",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S2-page-3.jpg"
+  },
+  {
+   "page": "S2p3",
+   "kind": "missing",
+   "detail": "Moss (turtle) expected but not found",
+   "cls": "review",
+   "score": 0.02,
+   "expected": [
+    "Fenix",
+    "Moss",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S2-page-3.jpg"
+  },
+  {
+   "page": "S2 finale",
+   "kind": "missing",
+   "detail": "Fenix (fox) expected but not found",
+   "cls": "review",
+   "score": 0.026,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S2-finale.jpg"
+  },
+  {
+   "page": "S2 finale",
+   "kind": "missing",
+   "detail": "Moss (turtle) expected but not found",
+   "cls": "review",
+   "score": 0.032,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S2-finale.jpg"
+  },
+  {
+   "page": "S2 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.274,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S2-finale.jpg"
+  },
+  {
+   "page": "S2 finale",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.63,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S2-finale.jpg"
+  },
+  {
+   "page": "S3p3",
+   "kind": "missing",
+   "detail": "Orin (owl) expected but not found",
+   "cls": "review",
+   "score": 0.113,
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S3-page-3.jpg"
+  },
+  {
+   "page": "S4p0",
+   "kind": "missing",
+   "detail": "Fenix (fox) expected but not found",
+   "cls": "review",
+   "score": 0.091,
+   "expected": [
+    "Fenix",
+    "Moss",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S4-page-0.jpg"
+  },
+  {
+   "page": "S4p0",
+   "kind": "missing",
+   "detail": "Moss (turtle) expected but not found",
+   "cls": "review",
+   "score": 0.072,
+   "expected": [
+    "Fenix",
+    "Moss",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S4-page-0.jpg"
+  },
+  {
+   "page": "S4p0",
+   "kind": "missing",
+   "detail": "Orin (owl) expected but not found",
+   "cls": "review",
+   "score": 0.075,
+   "expected": [
+    "Fenix",
+    "Moss",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S4-page-0.jpg"
+  },
+  {
+   "page": "S4p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.5,
+   "expected": [
+    "Fenix",
+    "Moss",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S4-page-0.jpg"
+  },
+  {
+   "page": "S4p1",
+   "kind": "missing",
+   "detail": "Orin (owl) expected but not found",
+   "cls": "review",
+   "score": 0.156,
+   "expected": [
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S4-page-1.jpg"
+  },
+  {
+   "page": "S4p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.382,
+   "expected": [
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S4-page-1.jpg"
+  },
+  {
+   "page": "S4p2",
+   "kind": "missing",
+   "detail": "Fenix (fox) expected but not found",
+   "cls": "review",
+   "score": 0.051,
+   "expected": [
+    "Fenix"
+   ],
+   "key": "books/algorithms/images-color/S4-page-2.jpg"
+  },
+  {
+   "page": "S4p3",
+   "kind": "missing",
+   "detail": "Moss (turtle) expected but not found",
+   "cls": "review",
+   "score": 0.07,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S4-page-3.jpg"
+  },
+  {
+   "page": "S6p0",
+   "kind": "missing",
+   "detail": "Fenix (fox) expected but not found",
+   "cls": "review",
+   "score": 0.09,
+   "expected": [
+    "Fenix"
+   ],
+   "key": "books/algorithms/images-color/S6-page-0.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "missing",
+   "detail": "Fenix (fox) expected but not found",
+   "cls": "review",
+   "score": 0.031,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.408,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.929,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "human",
+   "detail": "a human or human-shaped character is drawn",
+   "cls": "defect",
+   "score": 0.964,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p3",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.956,
+   "expected": [
+    "Fenix"
+   ],
+   "key": "books/algorithms/images-color/S6-page-3.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "missing",
+   "detail": "Fenix (fox) expected but not found",
+   "cls": "review",
+   "score": 0.053,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S6-finale.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "missing",
+   "detail": "Moss (turtle) expected but not found",
+   "cls": "review",
+   "score": 0.044,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S6-finale.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "human",
+   "detail": "a human or human-shaped character is drawn",
+   "cls": "defect",
+   "score": 0.899,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S6-finale.jpg"
+  },
+  {
+   "page": "S7p2",
+   "kind": "count",
+   "detail": "more than 1 owl in scene",
+   "cls": "clone-likely",
+   "score": 0.974,
+   "expected": [
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S7-page-2.jpg"
+  },
+  {
+   "page": "S7p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.42,
+   "expected": [
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S7-page-2.jpg"
+  },
+  {
+   "page": "S7p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.395,
+   "expected": [
+    "Moss",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S7-page-3.jpg"
+  },
+  {
+   "page": "S7p3",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.132,
+   "expected": [
+    "Moss",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S7-page-3.jpg"
+  },
+  {
+   "page": "S7 finale",
+   "kind": "missing",
+   "detail": "Fenix (fox) expected but not found",
+   "cls": "review",
+   "score": 0.366,
+   "expected": [
+    "Fenix"
+   ],
+   "key": "books/algorithms/images-color/S7-finale.jpg"
+  },
+  {
+   "page": "S7 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.418,
+   "expected": [
+    "Fenix"
+   ],
+   "key": "books/algorithms/images-color/S7-finale.jpg"
+  },
+  {
+   "page": "S8p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.402,
+   "expected": [
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S8-page-1.jpg"
+  },
+  {
+   "page": "S8p2",
+   "kind": "count",
+   "detail": "more than 1 turtle in scene",
+   "cls": "clone-likely",
+   "score": 0.97,
+   "expected": [
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S8-page-2.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.492,
+   "expected": [],
+   "key": "books/algorithms/images-color/S8-finale.jpg"
+  },
+  {
+   "page": "S9p1",
+   "kind": "count",
+   "detail": "more than 1 turtle in scene",
+   "cls": "clone-likely",
+   "score": 0.975,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S9-page-1.jpg"
+  },
+  {
+   "page": "S9p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.423,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S9-page-1.jpg"
+  },
+  {
+   "page": "S9p2",
+   "kind": "count",
+   "detail": "more than 1 fox in scene",
+   "cls": "clone-likely",
+   "score": 0.982,
+   "expected": [
+    "Fenix"
+   ],
+   "key": "books/algorithms/images-color/S9-page-2.jpg"
+  },
+  {
+   "page": "S10p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.417,
+   "expected": [
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S10-page-0.jpg"
+  },
+  {
+   "page": "S10p1",
+   "kind": "count",
+   "detail": "more than 1 fox in scene",
+   "cls": "clone-likely",
+   "score": 0.983,
+   "expected": [
+    "Fenix"
+   ],
+   "key": "books/algorithms/images-color/S10-page-1.jpg"
+  },
+  {
+   "page": "S10p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.425,
+   "expected": [
+    "Fenix"
+   ],
+   "key": "books/algorithms/images-color/S10-page-1.jpg"
+  },
+  {
+   "page": "S10p2",
+   "kind": "count",
+   "detail": "more than 1 fox in scene",
+   "cls": "clone-likely",
+   "score": 0.544,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S10-page-2.jpg"
+  },
+  {
+   "page": "S10p2",
+   "kind": "missing",
+   "detail": "Fenix (fox) expected but not found",
+   "cls": "review",
+   "score": 0.121,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S10-page-2.jpg"
+  },
+  {
+   "page": "S10p2",
+   "kind": "missing",
+   "detail": "Moss (turtle) expected but not found",
+   "cls": "review",
+   "score": 0.015,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S10-page-2.jpg"
+  },
+  {
+   "page": "S10p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.408,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S10-page-2.jpg"
+  },
+  {
+   "page": "S10p2",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.839,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S10-page-2.jpg"
+  },
+  {
+   "page": "S10p3",
+   "kind": "missing",
+   "detail": "Fenix (fox) expected but not found",
+   "cls": "review",
+   "score": 0.042,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S10-page-3.jpg"
+  },
+  {
+   "page": "S10p3",
+   "kind": "missing",
+   "detail": "Moss (turtle) expected but not found",
+   "cls": "review",
+   "score": 0.04,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S10-page-3.jpg"
+  },
+  {
+   "page": "S10p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.491,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S10-page-3.jpg"
+  },
+  {
+   "page": "S10p3",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.154,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S10-page-3.jpg"
+  },
+  {
+   "page": "S10p3",
+   "kind": "human",
+   "detail": "a human or human-shaped character is drawn",
+   "cls": "defect",
+   "score": 0.898,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S10-page-3.jpg"
+  },
+  {
+   "page": "S10p3",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.607,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S10-page-3.jpg"
+  },
+  {
+   "page": "S10p4",
+   "kind": "missing",
+   "detail": "Orin (owl) expected but not found",
+   "cls": "review",
+   "score": 0.095,
+   "expected": [
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S10-page-4.jpg"
+  },
+  {
+   "page": "S10p5",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.472,
+   "expected": [
+    "Fenix"
+   ],
+   "key": "books/algorithms/images-color/S10-page-5.jpg"
+  },
+  {
+   "page": "S10 finale",
+   "kind": "missing",
+   "detail": "Fenix (fox) expected but not found",
+   "cls": "review",
+   "score": 0.058,
+   "expected": [
+    "Fenix"
+   ],
+   "key": "books/algorithms/images-color/S10-finale.jpg"
+  },
+  {
+   "page": "S10 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.261,
+   "expected": [
+    "Fenix"
+   ],
+   "key": "books/algorithms/images-color/S10-finale.jpg"
+  },
+  {
+   "page": "S11p1",
+   "kind": "missing",
+   "detail": "Orin (owl) expected but not found",
+   "cls": "review",
+   "score": 0.188,
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S11-page-1.jpg"
+  },
+  {
+   "page": "S11p2",
+   "kind": "count",
+   "detail": "more than 1 turtle in scene",
+   "cls": "clone-likely",
+   "score": 0.526,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S11-page-2.jpg"
+  },
+  {
+   "page": "S11p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.444,
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "key": "books/algorithms/images-color/S11-page-2.jpg"
+  },
+  {
+   "page": "S11p3",
+   "kind": "missing",
+   "detail": "Orin (owl) expected but not found",
+   "cls": "review",
+   "score": 0.114,
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S11-page-3.jpg"
+  },
+  {
+   "page": "S12p1",
+   "kind": "missing",
+   "detail": "Orin (owl) expected but not found",
+   "cls": "review",
+   "score": 0.168,
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S12-page-1.jpg"
+  },
+  {
+   "page": "S12p2",
+   "kind": "missing",
+   "detail": "Orin (owl) expected but not found",
+   "cls": "review",
+   "score": 0.105,
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "key": "books/algorithms/images-color/S12-page-2.jpg"
+  }
+ ],
+ "results": [
+  {
+   "page": "S1p0",
+   "key": "books/algorithms/images-color/S1-page-0.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.0135,
+    "count_owl": 0.0097,
+    "count_turtle": 0.015,
+    "present_Fenix": 0.935,
+    "anatomy_ok": 0.7212,
+    "has_human": 0.0126,
+    "foreign_species": 0.029,
+    "has_text": 0.0178
+   }
+  },
+  {
+   "page": "S1p1",
+   "key": "books/algorithms/images-color/S1-page-1.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.012,
+    "count_owl": 0.0088,
+    "count_turtle": 0.0077,
+    "present_Fenix": 0.8673,
+    "anatomy_ok": 0.5867,
+    "has_human": 0.0118,
+    "foreign_species": 0.0245,
+    "has_text": 0.0167
+   }
+  },
+  {
+   "page": "S1p2",
+   "key": "books/algorithms/images-color/S1-page-2.jpg",
+   "expected": [
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0121,
+    "count_owl": 0.0106,
+    "count_turtle": 0.0154,
+    "present_Moss": 0.88,
+    "anatomy_ok": 0.4484,
+    "has_human": 0.0152,
+    "foreign_species": 0.3639,
+    "has_text": 0.0244
+   }
+  },
+  {
+   "page": "S1p3",
+   "key": "books/algorithms/images-color/S1-page-3.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0148,
+    "count_owl": 0.0114,
+    "count_turtle": 0.0187,
+    "present_Fenix": 0.8472,
+    "present_Moss": 0.8888,
+    "anatomy_ok": 0.6928,
+    "has_human": 0.013,
+    "foreign_species": 0.0251,
+    "has_text": 0.0222
+   }
+  },
+  {
+   "page": "S1 finale",
+   "key": "books/algorithms/images-color/S1-finale.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.0134,
+    "count_owl": 0.011,
+    "count_turtle": 0.0087,
+    "present_Fenix": 0.7247,
+    "anatomy_ok": 0.4758,
+    "has_human": 0.0124,
+    "foreign_species": 0.0378,
+    "has_text": 0.014
+   }
+  },
+  {
+   "page": "S2p0",
+   "key": "books/algorithms/images-color/S2-page-0.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0166,
+    "count_owl": 0.0113,
+    "count_turtle": 0.0205,
+    "present_Fenix": 0.915,
+    "present_Moss": 0.8288,
+    "anatomy_ok": 0.6696,
+    "has_human": 0.0132,
+    "foreign_species": 0.0274,
+    "has_text": 0.0241
+   }
+  },
+  {
+   "page": "S2p1",
+   "key": "books/algorithms/images-color/S2-page-1.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0236,
+    "count_owl": 0.0075,
+    "count_turtle": 0.0086,
+    "present_Fenix": 0.1975,
+    "present_Moss": 0.016,
+    "anatomy_ok": 0.5984,
+    "has_human": 0.0573,
+    "foreign_species": 0.9497,
+    "has_text": 0.0172
+   }
+  },
+  {
+   "page": "S2p2",
+   "key": "books/algorithms/images-color/S2-page-2.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.013,
+    "count_owl": 0.0107,
+    "count_turtle": 0.0093,
+    "present_Fenix": 0.934,
+    "anatomy_ok": 0.7132,
+    "has_human": 0.0133,
+    "foreign_species": 0.0263,
+    "has_text": 0.0795
+   }
+  },
+  {
+   "page": "S2p3",
+   "key": "books/algorithms/images-color/S2-page-3.jpg",
+   "expected": [
+    "Fenix",
+    "Moss",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.014,
+    "count_owl": 0.9789,
+    "count_turtle": 0.0068,
+    "present_Fenix": 0.0208,
+    "present_Moss": 0.0203,
+    "present_Orin": 0.9309,
+    "anatomy_ok": 0.537,
+    "has_human": 0.0124,
+    "foreign_species": 0.0222,
+    "has_text": 0.0183
+   }
+  },
+  {
+   "page": "S2 finale",
+   "key": "books/algorithms/images-color/S2-finale.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.064,
+    "count_owl": 0.0183,
+    "count_turtle": 0.0096,
+    "present_Fenix": 0.0259,
+    "present_Moss": 0.0317,
+    "anatomy_ok": 0.2739,
+    "has_human": 0.0815,
+    "foreign_species": 0.6296,
+    "has_text": 0.0424
+   }
+  },
+  {
+   "page": "S3p0",
+   "key": "books/algorithms/images-color/S3-page-0.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0211,
+    "count_owl": 0.0149,
+    "count_turtle": 0.026,
+    "present_Fenix": 0.7924,
+    "present_Moss": 0.7798,
+    "anatomy_ok": 0.6344,
+    "has_human": 0.0197,
+    "foreign_species": 0.0364,
+    "has_text": 0.0757
+   }
+  },
+  {
+   "page": "S3p1",
+   "key": "books/algorithms/images-color/S3-page-1.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0177,
+    "count_owl": 0.0111,
+    "count_turtle": 0.0179,
+    "present_Fenix": 0.9027,
+    "present_Moss": 0.8456,
+    "anatomy_ok": 0.6811,
+    "has_human": 0.0144,
+    "foreign_species": 0.0284,
+    "has_text": 0.036
+   }
+  },
+  {
+   "page": "S3p2",
+   "key": "books/algorithms/images-color/S3-page-2.jpg",
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.014,
+    "count_owl": 0.0115,
+    "count_turtle": 0.0115,
+    "present_Fenix": 0.8752,
+    "present_Orin": 0.8414,
+    "anatomy_ok": 0.6705,
+    "has_human": 0.0122,
+    "foreign_species": 0.0216,
+    "has_text": 0.0379
+   }
+  },
+  {
+   "page": "S3p3",
+   "key": "books/algorithms/images-color/S3-page-3.jpg",
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0155,
+    "count_owl": 0.012,
+    "count_turtle": 0.0131,
+    "present_Fenix": 0.8638,
+    "present_Orin": 0.1131,
+    "anatomy_ok": 0.5804,
+    "has_human": 0.0142,
+    "foreign_species": 0.0244,
+    "has_text": 0.03
+   }
+  },
+  {
+   "page": "S3 finale",
+   "key": "books/algorithms/images-color/S3-finale.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.014,
+    "count_owl": 0.0109,
+    "count_turtle": 0.0197,
+    "present_Fenix": 0.8742,
+    "present_Moss": 0.8251,
+    "anatomy_ok": 0.5817,
+    "has_human": 0.0142,
+    "foreign_species": 0.0256,
+    "has_text": 0.0179
+   }
+  },
+  {
+   "page": "S4p0",
+   "key": "books/algorithms/images-color/S4-page-0.jpg",
+   "expected": [
+    "Fenix",
+    "Moss",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0151,
+    "count_owl": 0.0123,
+    "count_turtle": 0.0251,
+    "present_Fenix": 0.0909,
+    "present_Moss": 0.072,
+    "present_Orin": 0.0751,
+    "anatomy_ok": 0.4998,
+    "has_human": 0.0164,
+    "foreign_species": 0.0208,
+    "has_text": 0.0235
+   }
+  },
+  {
+   "page": "S4p1",
+   "key": "books/algorithms/images-color/S4-page-1.jpg",
+   "expected": [
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0107,
+    "count_owl": 0.0155,
+    "count_turtle": 0.0082,
+    "present_Orin": 0.1558,
+    "anatomy_ok": 0.3824,
+    "has_human": 0.0112,
+    "foreign_species": 0.0188,
+    "has_text": 0.0264
+   }
+  },
+  {
+   "page": "S4p2",
+   "key": "books/algorithms/images-color/S4-page-2.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.0104,
+    "count_owl": 0.0071,
+    "count_turtle": 0.0173,
+    "present_Fenix": 0.0511,
+    "anatomy_ok": 0.599,
+    "has_human": 0.024,
+    "foreign_species": 0.0179,
+    "has_text": 0.013
+   }
+  },
+  {
+   "page": "S4p3",
+   "key": "books/algorithms/images-color/S4-page-3.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0159,
+    "count_owl": 0.0096,
+    "count_turtle": 0.0242,
+    "present_Fenix": 0.7907,
+    "present_Moss": 0.0698,
+    "anatomy_ok": 0.5447,
+    "has_human": 0.0125,
+    "foreign_species": 0.0222,
+    "has_text": 0.015
+   }
+  },
+  {
+   "page": "S4 finale",
+   "key": "books/algorithms/images-color/S4-finale.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.0111,
+    "count_owl": 0.008,
+    "count_turtle": 0.0082,
+    "present_Fenix": 0.4744,
+    "anatomy_ok": 0.6789,
+    "has_human": 0.0127,
+    "foreign_species": 0.023,
+    "has_text": 0.028
+   }
+  },
+  {
+   "page": "S5p0",
+   "key": "books/algorithms/images-color/S5-page-0.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0138,
+    "count_owl": 0.0101,
+    "count_turtle": 0.022,
+    "present_Fenix": 0.8052,
+    "present_Moss": 0.7386,
+    "anatomy_ok": 0.6665,
+    "has_human": 0.0119,
+    "foreign_species": 0.0224,
+    "has_text": 0.0158
+   }
+  },
+  {
+   "page": "S5p1",
+   "key": "books/algorithms/images-color/S5-page-1.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0134,
+    "count_owl": 0.0103,
+    "count_turtle": 0.0182,
+    "present_Fenix": 0.9269,
+    "present_Moss": 0.8917,
+    "anatomy_ok": 0.515,
+    "has_human": 0.0123,
+    "foreign_species": 0.0211,
+    "has_text": 0.0321
+   }
+  },
+  {
+   "page": "S5p2",
+   "key": "books/algorithms/images-color/S5-page-2.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0147,
+    "count_owl": 0.0102,
+    "count_turtle": 0.017,
+    "present_Fenix": 0.881,
+    "present_Moss": 0.803,
+    "anatomy_ok": 0.5707,
+    "has_human": 0.0121,
+    "foreign_species": 0.0237,
+    "has_text": 0.0201
+   }
+  },
+  {
+   "page": "S5p3",
+   "key": "books/algorithms/images-color/S5-page-3.jpg",
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0137,
+    "count_owl": 0.0141,
+    "count_turtle": 0.0112,
+    "present_Fenix": 0.9071,
+    "present_Orin": 0.8124,
+    "anatomy_ok": 0.6679,
+    "has_human": 0.0129,
+    "foreign_species": 0.0238,
+    "has_text": 0.0219
+   }
+  },
+  {
+   "page": "S5 finale",
+   "key": "books/algorithms/images-color/S5-finale.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0145,
+    "count_owl": 0.0108,
+    "count_turtle": 0.0254,
+    "present_Fenix": 0.8889,
+    "present_Moss": 0.8589,
+    "anatomy_ok": 0.6261,
+    "has_human": 0.0136,
+    "foreign_species": 0.0245,
+    "has_text": 0.021
+   }
+  },
+  {
+   "page": "S6p0",
+   "key": "books/algorithms/images-color/S6-page-0.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.0101,
+    "count_owl": 0.0078,
+    "count_turtle": 0.0085,
+    "present_Fenix": 0.0905,
+    "anatomy_ok": 0.6664,
+    "has_human": 0.0101,
+    "foreign_species": 0.0182,
+    "has_text": 0.0127
+   }
+  },
+  {
+   "page": "S6p1",
+   "key": "books/algorithms/images-color/S6-page-1.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0151,
+    "count_owl": 0.0141,
+    "count_turtle": 0.026,
+    "present_Fenix": 0.031,
+    "present_Moss": 0.4666,
+    "anatomy_ok": 0.4078,
+    "has_human": 0.9643,
+    "foreign_species": 0.2402,
+    "has_text": 0.9289
+   }
+  },
+  {
+   "page": "S6p2",
+   "key": "books/algorithms/images-color/S6-page-2.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.013,
+    "count_owl": 0.0113,
+    "count_turtle": 0.0091,
+    "present_Fenix": 0.9394,
+    "anatomy_ok": 0.6695,
+    "has_human": 0.0118,
+    "foreign_species": 0.0224,
+    "has_text": 0.0154
+   }
+  },
+  {
+   "page": "S6p3",
+   "key": "books/algorithms/images-color/S6-page-3.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.0135,
+    "count_owl": 0.0097,
+    "count_turtle": 0.0083,
+    "present_Fenix": 0.913,
+    "anatomy_ok": 0.5184,
+    "has_human": 0.0121,
+    "foreign_species": 0.0217,
+    "has_text": 0.9558
+   }
+  },
+  {
+   "page": "S6 finale",
+   "key": "books/algorithms/images-color/S6-finale.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0254,
+    "count_owl": 0.0254,
+    "count_turtle": 0.0275,
+    "present_Fenix": 0.0533,
+    "present_Moss": 0.044,
+    "anatomy_ok": 0.5923,
+    "has_human": 0.8986,
+    "foreign_species": 0.4294,
+    "has_text": 0.0492
+   }
+  },
+  {
+   "page": "S7p0",
+   "key": "books/algorithms/images-color/S7-page-0.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.0118,
+    "count_owl": 0.0101,
+    "count_turtle": 0.0082,
+    "present_Fenix": 0.9535,
+    "anatomy_ok": 0.6892,
+    "has_human": 0.0138,
+    "foreign_species": 0.0221,
+    "has_text": 0.0166
+   }
+  },
+  {
+   "page": "S7p1",
+   "key": "books/algorithms/images-color/S7-page-1.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0148,
+    "count_owl": 0.0101,
+    "count_turtle": 0.0221,
+    "present_Fenix": 0.9224,
+    "present_Moss": 0.8893,
+    "anatomy_ok": 0.611,
+    "has_human": 0.0125,
+    "foreign_species": 0.0236,
+    "has_text": 0.0213
+   }
+  },
+  {
+   "page": "S7p2",
+   "key": "books/algorithms/images-color/S7-page-2.jpg",
+   "expected": [
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0106,
+    "count_owl": 0.9744,
+    "count_turtle": 0.0063,
+    "present_Orin": 0.8711,
+    "anatomy_ok": 0.4196,
+    "has_human": 0.0136,
+    "foreign_species": 0.0202,
+    "has_text": 0.0191
+   }
+  },
+  {
+   "page": "S7p3",
+   "key": "books/algorithms/images-color/S7-page-3.jpg",
+   "expected": [
+    "Moss",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0152,
+    "count_owl": 0.0201,
+    "count_turtle": 0.0252,
+    "present_Moss": 0.7864,
+    "present_Orin": 0.7871,
+    "anatomy_ok": 0.3952,
+    "has_human": 0.0169,
+    "foreign_species": 0.0327,
+    "has_text": 0.1324
+   }
+  },
+  {
+   "page": "S7 finale",
+   "key": "books/algorithms/images-color/S7-finale.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.0121,
+    "count_owl": 0.0081,
+    "count_turtle": 0.0088,
+    "present_Fenix": 0.3665,
+    "anatomy_ok": 0.4183,
+    "has_human": 0.0122,
+    "foreign_species": 0.018,
+    "has_text": 0.0118
+   }
+  },
+  {
+   "page": "S8p0",
+   "key": "books/algorithms/images-color/S8-page-0.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.0163,
+    "count_owl": 0.0098,
+    "count_turtle": 0.0097,
+    "present_Fenix": 0.878,
+    "anatomy_ok": 0.7622,
+    "has_human": 0.0128,
+    "foreign_species": 0.0303,
+    "has_text": 0.0153
+   }
+  },
+  {
+   "page": "S8p1",
+   "key": "books/algorithms/images-color/S8-page-1.jpg",
+   "expected": [
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0127,
+    "count_owl": 0.0087,
+    "count_turtle": 0.0152,
+    "present_Moss": 0.8704,
+    "anatomy_ok": 0.4024,
+    "has_human": 0.0197,
+    "foreign_species": 0.026,
+    "has_text": 0.027
+   }
+  },
+  {
+   "page": "S8p2",
+   "key": "books/algorithms/images-color/S8-page-2.jpg",
+   "expected": [
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0116,
+    "count_owl": 0.0083,
+    "count_turtle": 0.9702,
+    "present_Moss": 0.9013,
+    "anatomy_ok": 0.5112,
+    "has_human": 0.0165,
+    "foreign_species": 0.0229,
+    "has_text": 0.0243
+   }
+  },
+  {
+   "page": "S8p3",
+   "key": "books/algorithms/images-color/S8-page-3.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0146,
+    "count_owl": 0.0109,
+    "count_turtle": 0.0228,
+    "present_Fenix": 0.8726,
+    "present_Moss": 0.855,
+    "anatomy_ok": 0.6725,
+    "has_human": 0.0147,
+    "foreign_species": 0.0271,
+    "has_text": 0.0292
+   }
+  },
+  {
+   "page": "S8 finale",
+   "key": "books/algorithms/images-color/S8-finale.jpg",
+   "expected": [],
+   "scores": {
+    "count_fox": 0.0398,
+    "count_owl": 0.0332,
+    "count_turtle": 0.0411,
+    "anatomy_ok": 0.4917,
+    "has_human": 0.056,
+    "foreign_species": 0.0877,
+    "has_text": 0.0439
+   }
+  },
+  {
+   "page": "S9p0",
+   "key": "books/algorithms/images-color/S9-page-0.jpg",
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0135,
+    "count_owl": 0.0139,
+    "count_turtle": 0.01,
+    "present_Fenix": 0.844,
+    "present_Orin": 0.7554,
+    "anatomy_ok": 0.6868,
+    "has_human": 0.0112,
+    "foreign_species": 0.0216,
+    "has_text": 0.0218
+   }
+  },
+  {
+   "page": "S9p1",
+   "key": "books/algorithms/images-color/S9-page-1.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0101,
+    "count_owl": 0.0094,
+    "count_turtle": 0.9749,
+    "present_Fenix": 0.938,
+    "present_Moss": 0.8079,
+    "anatomy_ok": 0.4226,
+    "has_human": 0.0157,
+    "foreign_species": 0.0215,
+    "has_text": 0.0173
+   }
+  },
+  {
+   "page": "S9p2",
+   "key": "books/algorithms/images-color/S9-page-2.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.9815,
+    "count_owl": 0.0082,
+    "count_turtle": 0.0088,
+    "present_Fenix": 0.9337,
+    "anatomy_ok": 0.6945,
+    "has_human": 0.0146,
+    "foreign_species": 0.0349,
+    "has_text": 0.0182
+   }
+  },
+  {
+   "page": "S9p3",
+   "key": "books/algorithms/images-color/S9-page-3.jpg",
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0138,
+    "count_owl": 0.0158,
+    "count_turtle": 0.0115,
+    "present_Fenix": 0.903,
+    "present_Orin": 0.7414,
+    "anatomy_ok": 0.6242,
+    "has_human": 0.0123,
+    "foreign_species": 0.0222,
+    "has_text": 0.0241
+   }
+  },
+  {
+   "page": "S9 finale",
+   "key": "books/algorithms/images-color/S9-finale.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0146,
+    "count_owl": 0.0114,
+    "count_turtle": 0.0214,
+    "present_Fenix": 0.9201,
+    "present_Moss": 0.8325,
+    "anatomy_ok": 0.6412,
+    "has_human": 0.0129,
+    "foreign_species": 0.0231,
+    "has_text": 0.02
+   }
+  },
+  {
+   "page": "S10p0",
+   "key": "books/algorithms/images-color/S10-page-0.jpg",
+   "expected": [
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0129,
+    "count_owl": 0.0102,
+    "count_turtle": 0.016,
+    "present_Moss": 0.7758,
+    "anatomy_ok": 0.4169,
+    "has_human": 0.0166,
+    "foreign_species": 0.0283,
+    "has_text": 0.0247
+   }
+  },
+  {
+   "page": "S10p1",
+   "key": "books/algorithms/images-color/S10-page-1.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.9828,
+    "count_owl": 0.0072,
+    "count_turtle": 0.0078,
+    "present_Fenix": 0.5593,
+    "anatomy_ok": 0.4255,
+    "has_human": 0.029,
+    "foreign_species": 0.023,
+    "has_text": 0.019
+   }
+  },
+  {
+   "page": "S10p2",
+   "key": "books/algorithms/images-color/S10-page-2.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.5439,
+    "count_owl": 0.0063,
+    "count_turtle": 0.0086,
+    "present_Fenix": 0.121,
+    "present_Moss": 0.0152,
+    "anatomy_ok": 0.4085,
+    "has_human": 0.2121,
+    "foreign_species": 0.8387,
+    "has_text": 0.0179
+   }
+  },
+  {
+   "page": "S10p3",
+   "key": "books/algorithms/images-color/S10-page-3.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0206,
+    "count_owl": 0.0255,
+    "count_turtle": 0.0194,
+    "present_Fenix": 0.0423,
+    "present_Moss": 0.04,
+    "anatomy_ok": 0.4913,
+    "has_human": 0.8977,
+    "foreign_species": 0.6067,
+    "has_text": 0.1544
+   }
+  },
+  {
+   "page": "S10p4",
+   "key": "books/algorithms/images-color/S10-page-4.jpg",
+   "expected": [
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0112,
+    "count_owl": 0.0145,
+    "count_turtle": 0.0088,
+    "present_Orin": 0.0948,
+    "anatomy_ok": 0.5387,
+    "has_human": 0.012,
+    "foreign_species": 0.0229,
+    "has_text": 0.0198
+   }
+  },
+  {
+   "page": "S10p5",
+   "key": "books/algorithms/images-color/S10-page-5.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.0159,
+    "count_owl": 0.0103,
+    "count_turtle": 0.0108,
+    "present_Fenix": 0.9243,
+    "anatomy_ok": 0.4719,
+    "has_human": 0.0146,
+    "foreign_species": 0.026,
+    "has_text": 0.0168
+   }
+  },
+  {
+   "page": "S10 finale",
+   "key": "books/algorithms/images-color/S10-finale.jpg",
+   "expected": [
+    "Fenix"
+   ],
+   "scores": {
+    "count_fox": 0.0392,
+    "count_owl": 0.0486,
+    "count_turtle": 0.0584,
+    "present_Fenix": 0.0575,
+    "anatomy_ok": 0.2605,
+    "has_human": 0.0495,
+    "foreign_species": 0.1041,
+    "has_text": 0.0404
+   }
+  },
+  {
+   "page": "S11p0",
+   "key": "books/algorithms/images-color/S11-page-0.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0166,
+    "count_owl": 0.012,
+    "count_turtle": 0.045,
+    "present_Fenix": 0.9313,
+    "present_Moss": 0.7651,
+    "anatomy_ok": 0.5176,
+    "has_human": 0.0144,
+    "foreign_species": 0.0282,
+    "has_text": 0.0201
+   }
+  },
+  {
+   "page": "S11p1",
+   "key": "books/algorithms/images-color/S11-page-1.jpg",
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0135,
+    "count_owl": 0.0141,
+    "count_turtle": 0.0108,
+    "present_Fenix": 0.6125,
+    "present_Orin": 0.1884,
+    "anatomy_ok": 0.6237,
+    "has_human": 0.0112,
+    "foreign_species": 0.0218,
+    "has_text": 0.0159
+   }
+  },
+  {
+   "page": "S11p2",
+   "key": "books/algorithms/images-color/S11-page-2.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0187,
+    "count_owl": 0.009,
+    "count_turtle": 0.526,
+    "present_Fenix": 0.9301,
+    "present_Moss": 0.7113,
+    "anatomy_ok": 0.4444,
+    "has_human": 0.0117,
+    "foreign_species": 0.0197,
+    "has_text": 0.0202
+   }
+  },
+  {
+   "page": "S11p3",
+   "key": "books/algorithms/images-color/S11-page-3.jpg",
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0139,
+    "count_owl": 0.0136,
+    "count_turtle": 0.0107,
+    "present_Fenix": 0.9309,
+    "present_Orin": 0.114,
+    "anatomy_ok": 0.6129,
+    "has_human": 0.0115,
+    "foreign_species": 0.0214,
+    "has_text": 0.0146
+   }
+  },
+  {
+   "page": "S11 finale",
+   "key": "books/algorithms/images-color/S11-finale.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0165,
+    "count_owl": 0.0114,
+    "count_turtle": 0.0229,
+    "present_Fenix": 0.9101,
+    "present_Moss": 0.8785,
+    "anatomy_ok": 0.7228,
+    "has_human": 0.0133,
+    "foreign_species": 0.0224,
+    "has_text": 0.0246
+   }
+  },
+  {
+   "page": "S12p0",
+   "key": "books/algorithms/images-color/S12-page-0.jpg",
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0122,
+    "count_owl": 0.0143,
+    "count_turtle": 0.0148,
+    "present_Fenix": 0.8772,
+    "present_Orin": 0.9192,
+    "anatomy_ok": 0.7149,
+    "has_human": 0.0106,
+    "foreign_species": 0.0231,
+    "has_text": 0.0181
+   }
+  },
+  {
+   "page": "S12p1",
+   "key": "books/algorithms/images-color/S12-page-1.jpg",
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0145,
+    "count_owl": 0.0121,
+    "count_turtle": 0.0111,
+    "present_Fenix": 0.6889,
+    "present_Orin": 0.1679,
+    "anatomy_ok": 0.5711,
+    "has_human": 0.0121,
+    "foreign_species": 0.022,
+    "has_text": 0.0421
+   }
+  },
+  {
+   "page": "S12p2",
+   "key": "books/algorithms/images-color/S12-page-2.jpg",
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0138,
+    "count_owl": 0.012,
+    "count_turtle": 0.014,
+    "present_Fenix": 0.8915,
+    "present_Orin": 0.1052,
+    "anatomy_ok": 0.5852,
+    "has_human": 0.0122,
+    "foreign_species": 0.0229,
+    "has_text": 0.0295
+   }
+  },
+  {
+   "page": "S12p3",
+   "key": "books/algorithms/images-color/S12-page-3.jpg",
+   "expected": [
+    "Fenix",
+    "Orin"
+   ],
+   "scores": {
+    "count_fox": 0.0133,
+    "count_owl": 0.0143,
+    "count_turtle": 0.0109,
+    "present_Fenix": 0.856,
+    "present_Orin": 0.8871,
+    "anatomy_ok": 0.6263,
+    "has_human": 0.0101,
+    "foreign_species": 0.0222,
+    "has_text": 0.0751
+   }
+  },
+  {
+   "page": "S12 finale",
+   "key": "books/algorithms/images-color/S12-finale.jpg",
+   "expected": [
+    "Fenix",
+    "Moss"
+   ],
+   "scores": {
+    "count_fox": 0.0128,
+    "count_owl": 0.0111,
+    "count_turtle": 0.0235,
+    "present_Fenix": 0.9256,
+    "present_Moss": 0.8683,
+    "anatomy_ok": 0.5219,
+    "has_human": 0.0137,
+    "foreign_species": 0.0257,
+    "has_text": 0.0222
+   }
+  }
+ ]
+}

@@ -1,0 +1,344 @@
+{
+ "slug": "iwillteach",
+ "edition": "line",
+ "flags": [
+  {
+   "page": "S1p0",
+   "kind": "count",
+   "detail": "more than 1 magpie in scene",
+   "cls": "clone-likely",
+   "score": 0.657,
+   "expected": [
+    "Tilda"
+   ],
+   "key": "books/iwillteach/images/S1-page-0.jpg"
+  },
+  {
+   "page": "S1p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.366,
+   "expected": [
+    "Tilda"
+   ],
+   "key": "books/iwillteach/images/S1-page-0.jpg"
+  },
+  {
+   "page": "S1p1",
+   "kind": "count",
+   "detail": "more than 0 rook in scene",
+   "cls": "extra-review",
+   "score": 0.818,
+   "expected": [
+    "Tilda",
+    "Bix"
+   ],
+   "key": "books/iwillteach/images/S1-page-1.jpg"
+  },
+  {
+   "page": "S1p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.35,
+   "expected": [
+    "Tilda",
+    "Bix"
+   ],
+   "key": "books/iwillteach/images/S1-page-1.jpg"
+  },
+  {
+   "page": "S1p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.312,
+   "expected": [
+    "Tilda",
+    "Bix"
+   ],
+   "key": "books/iwillteach/images/S1-page-2.jpg"
+  },
+  {
+   "page": "S1p2",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.194,
+   "expected": [
+    "Tilda",
+    "Bix"
+   ],
+   "key": "books/iwillteach/images/S1-page-2.jpg"
+  },
+  {
+   "page": "S1p3",
+   "kind": "count",
+   "detail": "more than 1 magpie in scene",
+   "cls": "clone-likely",
+   "score": 0.738,
+   "expected": [
+    "Tilda",
+    "Rook"
+   ],
+   "key": "books/iwillteach/images/S1-page-3.jpg"
+  },
+  {
+   "page": "S1p3",
+   "kind": "count",
+   "detail": "more than 1 rook in scene",
+   "cls": "clone-likely",
+   "score": 0.611,
+   "expected": [
+    "Tilda",
+    "Rook"
+   ],
+   "key": "books/iwillteach/images/S1-page-3.jpg"
+  },
+  {
+   "page": "S1p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.491,
+   "expected": [
+    "Tilda",
+    "Rook"
+   ],
+   "key": "books/iwillteach/images/S1-page-3.jpg"
+  },
+  {
+   "page": "S1 finale",
+   "kind": "count",
+   "detail": "more than 0 badger in scene",
+   "cls": "extra-review",
+   "score": 0.946,
+   "expected": [
+    "Tilda"
+   ],
+   "key": "books/iwillteach/images/S1-finale.jpg"
+  },
+  {
+   "page": "S1 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.387,
+   "expected": [
+    "Tilda"
+   ],
+   "key": "books/iwillteach/images/S1-finale.jpg"
+  },
+  {
+   "page": "S2p0",
+   "kind": "count",
+   "detail": "more than 1 magpie in scene",
+   "cls": "clone-likely",
+   "score": 0.827,
+   "expected": [
+    "Tilda"
+   ],
+   "key": "books/iwillteach/images/S2-page-0.jpg"
+  },
+  {
+   "page": "S2p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.396,
+   "expected": [
+    "Tilda"
+   ],
+   "key": "books/iwillteach/images/S2-page-0.jpg"
+  },
+  {
+   "page": "S2p0",
+   "kind": "human",
+   "detail": "a human or human-shaped character is drawn",
+   "cls": "defect",
+   "score": 0.894,
+   "expected": [
+    "Tilda"
+   ],
+   "key": "books/iwillteach/images/S2-page-0.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "missing",
+   "detail": "Tilda (magpie) expected but not found",
+   "cls": "review",
+   "score": 0.328,
+   "expected": [
+    "Tilda",
+    "Bix",
+    "Rook"
+   ],
+   "key": "books/iwillteach/images/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "missing",
+   "detail": "Rook (rook) expected but not found",
+   "cls": "review",
+   "score": 0.027,
+   "expected": [
+    "Tilda",
+    "Bix",
+    "Rook"
+   ],
+   "key": "books/iwillteach/images/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.354,
+   "expected": [
+    "Tilda",
+    "Bix",
+    "Rook"
+   ],
+   "key": "books/iwillteach/images/S2-page-1.jpg"
+  }
+ ],
+ "results": [
+  {
+   "page": "S1p0",
+   "key": "books/iwillteach/images/S1-page-0.jpg",
+   "expected": [
+    "Tilda"
+   ],
+   "scores": {
+    "count_badger": 0.2136,
+    "count_magpie": 0.6573,
+    "count_rook": 0.125,
+    "present_Tilda": 0.55,
+    "anatomy_ok": 0.3656,
+    "has_human": 0.0819,
+    "foreign_species": 0.3904,
+    "has_color": 0.0404,
+    "has_text": 0.0197
+   }
+  },
+  {
+   "page": "S1p1",
+   "key": "books/iwillteach/images/S1-page-1.jpg",
+   "expected": [
+    "Tilda",
+    "Bix"
+   ],
+   "scores": {
+    "count_badger": 0.0299,
+    "count_magpie": 0.0213,
+    "count_rook": 0.8181,
+    "present_Tilda": 0.7453,
+    "present_Bix": 0.8924,
+    "anatomy_ok": 0.35,
+    "has_human": 0.016,
+    "foreign_species": 0.0391,
+    "has_color": 0.0611,
+    "has_text": 0.0183
+   }
+  },
+  {
+   "page": "S1p2",
+   "key": "books/iwillteach/images/S1-page-2.jpg",
+   "expected": [
+    "Tilda",
+    "Bix"
+   ],
+   "scores": {
+    "count_badger": 0.016,
+    "count_magpie": 0.0494,
+    "count_rook": 0.177,
+    "present_Tilda": 0.7981,
+    "present_Bix": 0.8889,
+    "anatomy_ok": 0.3121,
+    "has_human": 0.0344,
+    "foreign_species": 0.0365,
+    "has_color": 0.2331,
+    "has_text": 0.1936
+   }
+  },
+  {
+   "page": "S1p3",
+   "key": "books/iwillteach/images/S1-page-3.jpg",
+   "expected": [
+    "Tilda",
+    "Rook"
+   ],
+   "scores": {
+    "count_badger": 0.0128,
+    "count_magpie": 0.7377,
+    "count_rook": 0.6105,
+    "present_Tilda": 0.4521,
+    "present_Rook": 0.8572,
+    "anatomy_ok": 0.4914,
+    "has_human": 0.0222,
+    "foreign_species": 0.0588,
+    "has_color": 0.1149,
+    "has_text": 0.0275
+   }
+  },
+  {
+   "page": "S1 finale",
+   "key": "books/iwillteach/images/S1-finale.jpg",
+   "expected": [
+    "Tilda"
+   ],
+   "scores": {
+    "count_badger": 0.9456,
+    "count_magpie": 0.0137,
+    "count_rook": 0.3366,
+    "present_Tilda": 0.8103,
+    "anatomy_ok": 0.3865,
+    "has_human": 0.0181,
+    "foreign_species": 0.0708,
+    "has_color": 0.0321,
+    "has_text": 0.0429
+   }
+  },
+  {
+   "page": "S2p0",
+   "key": "books/iwillteach/images/S2-page-0.jpg",
+   "expected": [
+    "Tilda"
+   ],
+   "scores": {
+    "count_badger": 0.0125,
+    "count_magpie": 0.8265,
+    "count_rook": 0.1203,
+    "present_Tilda": 0.6505,
+    "anatomy_ok": 0.3959,
+    "has_human": 0.8937,
+    "foreign_species": 0.0934,
+    "has_color": 0.0532,
+    "has_text": 0.0767
+   }
+  },
+  {
+   "page": "S2p1",
+   "key": "books/iwillteach/images/S2-page-1.jpg",
+   "expected": [
+    "Tilda",
+    "Bix",
+    "Rook"
+   ],
+   "scores": {
+    "count_badger": 0.0196,
+    "count_magpie": 0.0365,
+    "count_rook": 0.0242,
+    "present_Tilda": 0.3275,
+    "present_Bix": 0.8997,
+    "present_Rook": 0.0273,
+    "anatomy_ok": 0.3536,
+    "has_human": 0.0177,
+    "foreign_species": 0.0833,
+    "has_color": 0.2114,
+    "has_text": 0.0498
+   }
+  }
+ ]
+}

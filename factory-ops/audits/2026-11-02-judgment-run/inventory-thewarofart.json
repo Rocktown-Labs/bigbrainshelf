@@ -1,0 +1,24 @@
+{
+ "slug": "thewarofart",
+ "gaps": [],
+ "chapters_found": [
+  "S1",
+  "S2",
+  "S3",
+  "S4",
+  "S5",
+  "S6",
+  "S7",
+  "S8"
+ ],
+ "planned_pages": 41,
+ "planned_story_pages": 33,
+ "line_images": 41,
+ "color_images": 14,
+ "pdf_pages": {
+  "picture": 46,
+  "coloring": 38,
+  "color": 46
+ },
+ "editor_pages": 33
+}

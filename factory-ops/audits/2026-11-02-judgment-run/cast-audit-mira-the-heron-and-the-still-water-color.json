@@ -1,0 +1,1217 @@
+{
+ "slug": "mira-the-heron-and-the-still-water",
+ "edition": "color",
+ "flags": [
+  {
+   "page": "S1p0",
+   "kind": "count",
+   "detail": "more than 1 duck in scene",
+   "cls": "clone-likely",
+   "score": 0.983,
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S1-page-0.jpg"
+  },
+  {
+   "page": "S1p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.445,
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S1-page-0.jpg"
+  },
+  {
+   "page": "S1p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.432,
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S1-page-1.jpg"
+  },
+  {
+   "page": "S1p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.358,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S1-page-2.jpg"
+  },
+  {
+   "page": "S1p2",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.931,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S1-page-2.jpg"
+  },
+  {
+   "page": "S1p3",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.123,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S1-page-3.jpg"
+  },
+  {
+   "page": "S1 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.351,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S1-finale.jpg"
+  },
+  {
+   "page": "S1 finale",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.771,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S1-finale.jpg"
+  },
+  {
+   "page": "S2p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.355,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S2-page-0.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.453,
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.374,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S2-page-2.jpg"
+  },
+  {
+   "page": "S2 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.445,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S2-finale.jpg"
+  },
+  {
+   "page": "S3p0",
+   "kind": "count",
+   "detail": "more than 0 duck in scene",
+   "cls": "extra-review",
+   "score": 0.59,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S3-page-0.jpg"
+  },
+  {
+   "page": "S3p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.103,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S3-page-0.jpg"
+  },
+  {
+   "page": "S3p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.389,
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S3-page-1.jpg"
+  },
+  {
+   "page": "S3p1",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.854,
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S3-page-1.jpg"
+  },
+  {
+   "page": "S3p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.333,
+   "expected": [
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S3-page-2.jpg"
+  },
+  {
+   "page": "S3 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.403,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S3-finale.jpg"
+  },
+  {
+   "page": "S3 finale",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.502,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S3-finale.jpg"
+  },
+  {
+   "page": "S4p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.421,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S4-page-2.jpg"
+  },
+  {
+   "page": "S4p2",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.837,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S4-page-2.jpg"
+  },
+  {
+   "page": "S4 finale",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.81,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S4-finale.jpg"
+  },
+  {
+   "page": "S5p0",
+   "kind": "count",
+   "detail": "more than 0 duck in scene",
+   "cls": "extra-review",
+   "score": 0.704,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S5-page-0.jpg"
+  },
+  {
+   "page": "S5p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.33,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S5-page-0.jpg"
+  },
+  {
+   "page": "S5p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.44,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S5-page-1.jpg"
+  },
+  {
+   "page": "S5p1",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.79,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S5-page-1.jpg"
+  },
+  {
+   "page": "S5p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.391,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S5-page-3.jpg"
+  },
+  {
+   "page": "S5 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.347,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S5-finale.jpg"
+  },
+  {
+   "page": "S5 finale",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.828,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S5-finale.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.247,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.942,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.351,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S6-page-3.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.488,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S6-finale.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.935,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S6-finale.jpg"
+  },
+  {
+   "page": "S7p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.402,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S7-page-0.jpg"
+  },
+  {
+   "page": "S7p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.454,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S7-page-3.jpg"
+  },
+  {
+   "page": "S7p3",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.722,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S7-page-3.jpg"
+  },
+  {
+   "page": "S7 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.418,
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S7-finale.jpg"
+  },
+  {
+   "page": "S8p0",
+   "kind": "count",
+   "detail": "more than 0 duck in scene",
+   "cls": "extra-review",
+   "score": 0.901,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S8-page-0.jpg"
+  },
+  {
+   "page": "S8p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.425,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S8-page-0.jpg"
+  },
+  {
+   "page": "S8p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.45,
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S8-page-2.jpg"
+  },
+  {
+   "page": "S8p2",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.572,
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S8-page-2.jpg"
+  },
+  {
+   "page": "S8p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.371,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S8-page-3.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "count",
+   "detail": "more than 0 duck in scene",
+   "cls": "extra-review",
+   "score": 0.646,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S8-finale.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "count",
+   "detail": "more than 1 heron in scene",
+   "cls": "clone-likely",
+   "score": 0.796,
+   "expected": [
+    "Mira"
+   ],
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S8-finale.jpg"
+  }
+ ],
+ "results": [
+  {
+   "page": "S1p0",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S1-page-0.jpg",
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "scores": {
+    "count_duck": 0.9829,
+    "count_heron": 0.0145,
+    "present_Mira": 0.8964,
+    "present_Dell": 0.9523,
+    "anatomy_ok": 0.4445,
+    "has_human": 0.0144,
+    "foreign_species": 0.0599,
+    "has_text": 0.015
+   }
+  },
+  {
+   "page": "S1p1",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S1-page-1.jpg",
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "scores": {
+    "count_duck": 0.0288,
+    "count_heron": 0.0161,
+    "present_Mira": 0.9225,
+    "present_Dell": 0.9121,
+    "anatomy_ok": 0.4316,
+    "has_human": 0.013,
+    "foreign_species": 0.0242,
+    "has_text": 0.0144
+   }
+  },
+  {
+   "page": "S1p2",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S1-page-2.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.037,
+    "count_heron": 0.0164,
+    "present_Mira": 0.9392,
+    "anatomy_ok": 0.3582,
+    "has_human": 0.0123,
+    "foreign_species": 0.9307,
+    "has_text": 0.0154
+   }
+  },
+  {
+   "page": "S1p3",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S1-page-3.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.1593,
+    "count_heron": 0.0127,
+    "present_Mira": 0.9189,
+    "anatomy_ok": 0.6191,
+    "has_human": 0.0113,
+    "foreign_species": 0.0282,
+    "has_text": 0.123
+   }
+  },
+  {
+   "page": "S1 finale",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S1-finale.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.1406,
+    "count_heron": 0.0141,
+    "present_Mira": 0.707,
+    "present_Ansel": 0.7539,
+    "anatomy_ok": 0.351,
+    "has_human": 0.0102,
+    "foreign_species": 0.771,
+    "has_text": 0.0107
+   }
+  },
+  {
+   "page": "S2p0",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S2-page-0.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.0317,
+    "count_heron": 0.0164,
+    "present_Mira": 0.9102,
+    "anatomy_ok": 0.3555,
+    "has_human": 0.0107,
+    "foreign_species": 0.0329,
+    "has_text": 0.0147
+   }
+  },
+  {
+   "page": "S2p1",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S2-page-1.jpg",
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "scores": {
+    "count_duck": 0.0259,
+    "count_heron": 0.0148,
+    "present_Mira": 0.9462,
+    "present_Dell": 0.9223,
+    "anatomy_ok": 0.453,
+    "has_human": 0.011,
+    "foreign_species": 0.0211,
+    "has_text": 0.0146
+   }
+  },
+  {
+   "page": "S2p2",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S2-page-2.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.2038,
+    "count_heron": 0.0218,
+    "present_Mira": 0.77,
+    "present_Ansel": 0.7483,
+    "anatomy_ok": 0.374,
+    "has_human": 0.0107,
+    "foreign_species": 0.0241,
+    "has_text": 0.0121
+   }
+  },
+  {
+   "page": "S2p3",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S2-page-3.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.1135,
+    "count_heron": 0.0131,
+    "present_Mira": 0.9489,
+    "anatomy_ok": 0.6785,
+    "has_human": 0.0098,
+    "foreign_species": 0.0242,
+    "has_text": 0.0114
+   }
+  },
+  {
+   "page": "S2 finale",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S2-finale.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.0794,
+    "count_heron": 0.0197,
+    "present_Mira": 0.8095,
+    "present_Ansel": 0.7012,
+    "anatomy_ok": 0.4446,
+    "has_human": 0.0102,
+    "foreign_species": 0.4773,
+    "has_text": 0.0111
+   }
+  },
+  {
+   "page": "S3p0",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S3-page-0.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.5897,
+    "count_heron": 0.0162,
+    "present_Mira": 0.9383,
+    "present_Ansel": 0.7838,
+    "anatomy_ok": 0.1029,
+    "has_human": 0.0122,
+    "foreign_species": 0.0222,
+    "has_text": 0.0132
+   }
+  },
+  {
+   "page": "S3p1",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S3-page-1.jpg",
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "scores": {
+    "count_duck": 0.055,
+    "count_heron": 0.0509,
+    "present_Mira": 0.8565,
+    "present_Dell": 0.9335,
+    "anatomy_ok": 0.389,
+    "has_human": 0.0117,
+    "foreign_species": 0.8543,
+    "has_text": 0.013
+   }
+  },
+  {
+   "page": "S3p2",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S3-page-2.jpg",
+   "expected": [
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.0398,
+    "count_heron": 0.0157,
+    "present_Ansel": 0.6946,
+    "anatomy_ok": 0.3327,
+    "has_human": 0.0127,
+    "foreign_species": 0.0293,
+    "has_text": 0.0151
+   }
+  },
+  {
+   "page": "S3p3",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S3-page-3.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.1337,
+    "count_heron": 0.0133,
+    "present_Mira": 0.9515,
+    "anatomy_ok": 0.6574,
+    "has_human": 0.0106,
+    "foreign_species": 0.0253,
+    "has_text": 0.0141
+   }
+  },
+  {
+   "page": "S3 finale",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S3-finale.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.0524,
+    "count_heron": 0.0134,
+    "present_Mira": 0.9375,
+    "anatomy_ok": 0.4028,
+    "has_human": 0.0107,
+    "foreign_species": 0.5023,
+    "has_text": 0.0128
+   }
+  },
+  {
+   "page": "S4p0",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S4-page-0.jpg",
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "scores": {
+    "count_duck": 0.0295,
+    "count_heron": 0.0183,
+    "present_Mira": 0.9503,
+    "present_Dell": 0.9472,
+    "anatomy_ok": 0.5739,
+    "has_human": 0.0136,
+    "foreign_species": 0.0288,
+    "has_text": 0.0159
+   }
+  },
+  {
+   "page": "S4p1",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S4-page-1.jpg",
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "scores": {
+    "count_duck": 0.0433,
+    "count_heron": 0.018,
+    "present_Mira": 0.7818,
+    "present_Dell": 0.9163,
+    "anatomy_ok": 0.5922,
+    "has_human": 0.0143,
+    "foreign_species": 0.0291,
+    "has_text": 0.0176
+   }
+  },
+  {
+   "page": "S4p2",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S4-page-2.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.0584,
+    "count_heron": 0.018,
+    "present_Mira": 0.5647,
+    "present_Ansel": 0.6385,
+    "anatomy_ok": 0.4207,
+    "has_human": 0.0115,
+    "foreign_species": 0.8367,
+    "has_text": 0.0164
+   }
+  },
+  {
+   "page": "S4p3",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S4-page-3.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.454,
+    "count_heron": 0.0814,
+    "present_Mira": 0.9427,
+    "anatomy_ok": 0.5359,
+    "has_human": 0.011,
+    "foreign_species": 0.0217,
+    "has_text": 0.0124
+   }
+  },
+  {
+   "page": "S4 finale",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S4-finale.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.1603,
+    "count_heron": 0.0134,
+    "present_Mira": 0.8869,
+    "anatomy_ok": 0.6309,
+    "has_human": 0.0116,
+    "foreign_species": 0.8096,
+    "has_text": 0.0113
+   }
+  },
+  {
+   "page": "S5p0",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S5-page-0.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.7038,
+    "count_heron": 0.0195,
+    "present_Mira": 0.9353,
+    "present_Ansel": 0.8097,
+    "anatomy_ok": 0.3302,
+    "has_human": 0.0112,
+    "foreign_species": 0.0261,
+    "has_text": 0.0143
+   }
+  },
+  {
+   "page": "S5p1",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S5-page-1.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.1361,
+    "count_heron": 0.055,
+    "present_Mira": 0.8735,
+    "present_Ansel": 0.8022,
+    "anatomy_ok": 0.4401,
+    "has_human": 0.0117,
+    "foreign_species": 0.7896,
+    "has_text": 0.0127
+   }
+  },
+  {
+   "page": "S5p2",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S5-page-2.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.1857,
+    "count_heron": 0.0159,
+    "present_Mira": 0.9559,
+    "present_Ansel": 0.7954,
+    "anatomy_ok": 0.5935,
+    "has_human": 0.0106,
+    "foreign_species": 0.0206,
+    "has_text": 0.0121
+   }
+  },
+  {
+   "page": "S5p3",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S5-page-3.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.2155,
+    "count_heron": 0.029,
+    "present_Mira": 0.9252,
+    "present_Ansel": 0.8027,
+    "anatomy_ok": 0.391,
+    "has_human": 0.0102,
+    "foreign_species": 0.0256,
+    "has_text": 0.0123
+   }
+  },
+  {
+   "page": "S5 finale",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S5-finale.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.0725,
+    "count_heron": 0.0225,
+    "present_Mira": 0.9095,
+    "present_Ansel": 0.7837,
+    "anatomy_ok": 0.3475,
+    "has_human": 0.0121,
+    "foreign_species": 0.8284,
+    "has_text": 0.0139
+   }
+  },
+  {
+   "page": "S6p0",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S6-page-0.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.2792,
+    "count_heron": 0.0183,
+    "present_Mira": 0.9462,
+    "present_Ansel": 0.7751,
+    "anatomy_ok": 0.7116,
+    "has_human": 0.01,
+    "foreign_species": 0.023,
+    "has_text": 0.0141
+   }
+  },
+  {
+   "page": "S6p1",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S6-page-1.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.104,
+    "count_heron": 0.0208,
+    "present_Mira": 0.7006,
+    "anatomy_ok": 0.2471,
+    "has_human": 0.017,
+    "foreign_species": 0.942,
+    "has_text": 0.0178
+   }
+  },
+  {
+   "page": "S6p2",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S6-page-2.jpg",
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "scores": {
+    "count_duck": 0.0521,
+    "count_heron": 0.019,
+    "present_Mira": 0.9245,
+    "present_Dell": 0.8771,
+    "anatomy_ok": 0.5866,
+    "has_human": 0.0136,
+    "foreign_species": 0.0274,
+    "has_text": 0.0168
+   }
+  },
+  {
+   "page": "S6p3",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S6-page-3.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.4677,
+    "count_heron": 0.0136,
+    "present_Mira": 0.9482,
+    "present_Ansel": 0.8521,
+    "anatomy_ok": 0.3508,
+    "has_human": 0.0089,
+    "foreign_species": 0.0479,
+    "has_text": 0.0153
+   }
+  },
+  {
+   "page": "S6 finale",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S6-finale.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.0756,
+    "count_heron": 0.0173,
+    "present_Mira": 0.6568,
+    "anatomy_ok": 0.4876,
+    "has_human": 0.0129,
+    "foreign_species": 0.9347,
+    "has_text": 0.0157
+   }
+  },
+  {
+   "page": "S7p0",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S7-page-0.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.3802,
+    "count_heron": 0.0198,
+    "present_Mira": 0.9388,
+    "present_Ansel": 0.6035,
+    "anatomy_ok": 0.4021,
+    "has_human": 0.0111,
+    "foreign_species": 0.0239,
+    "has_text": 0.0118
+   }
+  },
+  {
+   "page": "S7p1",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S7-page-1.jpg",
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "scores": {
+    "count_duck": 0.0443,
+    "count_heron": 0.0157,
+    "present_Mira": 0.9451,
+    "present_Dell": 0.9126,
+    "anatomy_ok": 0.5186,
+    "has_human": 0.0117,
+    "foreign_species": 0.0246,
+    "has_text": 0.0131
+   }
+  },
+  {
+   "page": "S7p2",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S7-page-2.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.3104,
+    "count_heron": 0.0123,
+    "present_Mira": 0.9318,
+    "anatomy_ok": 0.5321,
+    "has_human": 0.0102,
+    "foreign_species": 0.027,
+    "has_text": 0.0157
+   }
+  },
+  {
+   "page": "S7p3",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S7-page-3.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.0896,
+    "count_heron": 0.0146,
+    "present_Mira": 0.9446,
+    "anatomy_ok": 0.4537,
+    "has_human": 0.0118,
+    "foreign_species": 0.7217,
+    "has_text": 0.0155
+   }
+  },
+  {
+   "page": "S7 finale",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S7-finale.jpg",
+   "expected": [
+    "Mira",
+    "Ansel"
+   ],
+   "scores": {
+    "count_duck": 0.1963,
+    "count_heron": 0.0207,
+    "present_Mira": 0.9044,
+    "present_Ansel": 0.8123,
+    "anatomy_ok": 0.4178,
+    "has_human": 0.0116,
+    "foreign_species": 0.2169,
+    "has_text": 0.0259
+   }
+  },
+  {
+   "page": "S8p0",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S8-page-0.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.9013,
+    "count_heron": 0.0257,
+    "present_Mira": 0.8228,
+    "anatomy_ok": 0.4251,
+    "has_human": 0.0199,
+    "foreign_species": 0.0427,
+    "has_text": 0.0219
+   }
+  },
+  {
+   "page": "S8p1",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S8-page-1.jpg",
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "scores": {
+    "count_duck": 0.04,
+    "count_heron": 0.0167,
+    "present_Mira": 0.9428,
+    "present_Dell": 0.9244,
+    "anatomy_ok": 0.6355,
+    "has_human": 0.0134,
+    "foreign_species": 0.0286,
+    "has_text": 0.0151
+   }
+  },
+  {
+   "page": "S8p2",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S8-page-2.jpg",
+   "expected": [
+    "Mira",
+    "Dell"
+   ],
+   "scores": {
+    "count_duck": 0.0439,
+    "count_heron": 0.0176,
+    "present_Mira": 0.8631,
+    "present_Dell": 0.9178,
+    "anatomy_ok": 0.4498,
+    "has_human": 0.0128,
+    "foreign_species": 0.5722,
+    "has_text": 0.016
+   }
+  },
+  {
+   "page": "S8p3",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S8-page-3.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.0719,
+    "count_heron": 0.0158,
+    "present_Mira": 0.9291,
+    "anatomy_ok": 0.3715,
+    "has_human": 0.0119,
+    "foreign_species": 0.0323,
+    "has_text": 0.0173
+   }
+  },
+  {
+   "page": "S8 finale",
+   "key": "books/mira-the-heron-and-the-still-water/images-color/S8-finale.jpg",
+   "expected": [
+    "Mira"
+   ],
+   "scores": {
+    "count_duck": 0.6456,
+    "count_heron": 0.7964,
+    "present_Mira": 0.9087,
+    "anatomy_ok": 0.6006,
+    "has_human": 0.011,
+    "foreign_species": 0.0803,
+    "has_text": 0.0122
+   }
+  }
+ ]
+}

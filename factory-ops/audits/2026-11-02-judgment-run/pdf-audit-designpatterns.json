@@ -1,0 +1,1088 @@
+{
+ "slug": "designpatterns",
+ "planned_story_pages": 40,
+ "versions": {
+  "story": {
+   "pdf_pages": 45,
+   "story_pages_found": 40,
+   "flags": [
+    {
+     "page": "S1p0",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.57
+    },
+    {
+     "page": "S1p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S1p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.969
+    },
+    {
+     "page": "S1p2",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.589
+    },
+    {
+     "page": "S1p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.974
+    },
+    {
+     "page": "S1p3",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.579
+    },
+    {
+     "page": "S1p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.96
+    },
+    {
+     "page": "S1 finale",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.857
+    },
+    {
+     "page": "S1 finale",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.609
+    },
+    {
+     "page": "S1 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.462
+    },
+    {
+     "page": "S1 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.892
+    },
+    {
+     "page": "S2p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.973
+    },
+    {
+     "page": "S2p1",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.849
+    },
+    {
+     "page": "S2p1",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.509
+    },
+    {
+     "page": "S2p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.444
+    },
+    {
+     "page": "S2p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.955
+    },
+    {
+     "page": "S2p2",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.881
+    },
+    {
+     "page": "S2p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.965
+    },
+    {
+     "page": "S2p3",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.646
+    },
+    {
+     "page": "S2p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.942
+    },
+    {
+     "page": "S2 finale",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.731
+    },
+    {
+     "page": "S2 finale",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.614
+    },
+    {
+     "page": "S2 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.427
+    },
+    {
+     "page": "S2 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.925
+    },
+    {
+     "page": "S3p0",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.964
+    },
+    {
+     "page": "S3p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S3p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S3p2",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.68
+    },
+    {
+     "page": "S3p2",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.763
+    },
+    {
+     "page": "S3p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.953
+    },
+    {
+     "page": "S3p3",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.969
+    },
+    {
+     "page": "S3p3",
+     "kind": "count",
+     "detail": "more than 1 mole in scene",
+     "cls": "clone-likely",
+     "score": 0.718
+    },
+    {
+     "page": "S3p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S3 finale",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.584
+    },
+    {
+     "page": "S3 finale",
+     "kind": "missing",
+     "detail": "Nox (mole) expected but not found",
+     "cls": "review",
+     "score": 0.127
+    },
+    {
+     "page": "S3 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.478
+    },
+    {
+     "page": "S3 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.873
+    },
+    {
+     "page": "S4p0",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.969
+    },
+    {
+     "page": "S4p0",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.533
+    },
+    {
+     "page": "S4p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S4p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.954
+    },
+    {
+     "page": "S4p2",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.77
+    },
+    {
+     "page": "S4p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.952
+    },
+    {
+     "page": "S4p3",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.963
+    },
+    {
+     "page": "S4p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.967
+    },
+    {
+     "page": "S4 finale",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.965
+    },
+    {
+     "page": "S4 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.958
+    },
+    {
+     "page": "S5p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S5p1",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.633
+    },
+    {
+     "page": "S5p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.465
+    },
+    {
+     "page": "S5p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S5p2",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.643
+    },
+    {
+     "page": "S5p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.963
+    },
+    {
+     "page": "S5p3",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.831
+    },
+    {
+     "page": "S5p3",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.524
+    },
+    {
+     "page": "S5p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.405
+    },
+    {
+     "page": "S5p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.935
+    },
+    {
+     "page": "S5 finale",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.65
+    },
+    {
+     "page": "S5 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.943
+    },
+    {
+     "page": "S6p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.974
+    },
+    {
+     "page": "S6p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.973
+    },
+    {
+     "page": "S6p2",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.902
+    },
+    {
+     "page": "S6p2",
+     "kind": "count",
+     "detail": "more than 1 otter in scene",
+     "cls": "clone-likely",
+     "score": 0.674
+    },
+    {
+     "page": "S6p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S6p3",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.547
+    },
+    {
+     "page": "S6p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.972
+    },
+    {
+     "page": "S6 finale",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.779
+    },
+    {
+     "page": "S6 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.934
+    },
+    {
+     "page": "S7p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.969
+    },
+    {
+     "page": "S7p1",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.867
+    },
+    {
+     "page": "S7p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S7p2",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.958
+    },
+    {
+     "page": "S7p2",
+     "kind": "count",
+     "detail": "more than 1 mole in scene",
+     "cls": "clone-likely",
+     "score": 0.635
+    },
+    {
+     "page": "S7p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.912
+    },
+    {
+     "page": "S7p3",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.964
+    },
+    {
+     "page": "S7p3",
+     "kind": "count",
+     "detail": "more than 1 otter in scene",
+     "cls": "clone-likely",
+     "score": 0.731
+    },
+    {
+     "page": "S7p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.951
+    },
+    {
+     "page": "S7 finale",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.509
+    },
+    {
+     "page": "S7 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.972
+    },
+    {
+     "page": "S8p0",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.597
+    },
+    {
+     "page": "S8p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.979
+    },
+    {
+     "page": "S8p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.963
+    },
+    {
+     "page": "S8p2",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.919
+    },
+    {
+     "page": "S8p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.93
+    },
+    {
+     "page": "S8p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.972
+    },
+    {
+     "page": "S8 finale",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.853
+    },
+    {
+     "page": "S8 finale",
+     "kind": "count",
+     "detail": "more than 1 otter in scene",
+     "cls": "clone-likely",
+     "score": 0.684
+    },
+    {
+     "page": "S8 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.924
+    }
+   ]
+  },
+  "coloring": {
+   "pdf_pages": 37,
+   "story_pages_found": 32,
+   "flags": [
+    {
+     "page": "S1p0",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.626
+    },
+    {
+     "page": "S1p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.476
+    },
+    {
+     "page": "S1p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.959
+    },
+    {
+     "page": "S1p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S1p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.969
+    },
+    {
+     "page": "S1p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.496
+    },
+    {
+     "page": "S1p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.972
+    },
+    {
+     "page": "S2p0",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.568
+    },
+    {
+     "page": "S2p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.975
+    },
+    {
+     "page": "S2p1",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.874
+    },
+    {
+     "page": "S2p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.362
+    },
+    {
+     "page": "S2p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.954
+    },
+    {
+     "page": "S2p2",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.631
+    },
+    {
+     "page": "S2p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.96
+    },
+    {
+     "page": "S2p3",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.895
+    },
+    {
+     "page": "S2p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.927
+    },
+    {
+     "page": "S3p0",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.951
+    },
+    {
+     "page": "S3p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.938
+    },
+    {
+     "page": "S3p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S3p2",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.688
+    },
+    {
+     "page": "S3p2",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.586
+    },
+    {
+     "page": "S3p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.38
+    },
+    {
+     "page": "S3p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.949
+    },
+    {
+     "page": "S3p3",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.966
+    },
+    {
+     "page": "S3p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.91
+    },
+    {
+     "page": "S4p0",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.886
+    },
+    {
+     "page": "S4p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.489
+    },
+    {
+     "page": "S4p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.952
+    },
+    {
+     "page": "S4p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.971
+    },
+    {
+     "page": "S4p1",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.392
+    },
+    {
+     "page": "S4p2",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.784
+    },
+    {
+     "page": "S4p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.948
+    },
+    {
+     "page": "S4p3",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.953
+    },
+    {
+     "page": "S4p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S5p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S5p1",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.731
+    },
+    {
+     "page": "S5p1",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.513
+    },
+    {
+     "page": "S5p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.334
+    },
+    {
+     "page": "S5p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S5p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.968
+    },
+    {
+     "page": "S5p3",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.935
+    },
+    {
+     "page": "S5p3",
+     "kind": "count",
+     "detail": "more than 0 otter in scene",
+     "cls": "extra-review",
+     "score": 0.52
+    },
+    {
+     "page": "S5p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.408
+    },
+    {
+     "page": "S5p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.946
+    },
+    {
+     "page": "S6p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.974
+    },
+    {
+     "page": "S6p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.967
+    },
+    {
+     "page": "S6p2",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.684
+    },
+    {
+     "page": "S6p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.957
+    },
+    {
+     "page": "S6p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.974
+    },
+    {
+     "page": "S7p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.973
+    },
+    {
+     "page": "S7p1",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.884
+    },
+    {
+     "page": "S7p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.459
+    },
+    {
+     "page": "S7p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.949
+    },
+    {
+     "page": "S7p2",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.849
+    },
+    {
+     "page": "S7p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.492
+    },
+    {
+     "page": "S7p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.946
+    },
+    {
+     "page": "S7p3",
+     "kind": "count",
+     "detail": "more than 1 beaver in scene",
+     "cls": "clone-likely",
+     "score": 0.952
+    },
+    {
+     "page": "S7p3",
+     "kind": "count",
+     "detail": "more than 1 otter in scene",
+     "cls": "clone-likely",
+     "score": 0.634
+    },
+    {
+     "page": "S7p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.958
+    },
+    {
+     "page": "S8p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.969
+    },
+    {
+     "page": "S8p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.958
+    },
+    {
+     "page": "S8p2",
+     "kind": "count",
+     "detail": "more than 0 beaver in scene",
+     "cls": "extra-review",
+     "score": 0.914
+    },
+    {
+     "page": "S8p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.946
+    },
+    {
+     "page": "S8p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.963
+    }
+   ]
+  },
+  "color": null
+ },
+ "gaps": [
+  "coloring: coloring book omits every chapter finale page (factory assembly pushes finales to the story book only)",
+  "no color PDF on file"
+ ],
+ "disagreements": []
+}

@@ -1,0 +1,1720 @@
+{
+ "slug": "docker",
+ "planned_story_pages": 73,
+ "versions": {
+  "story": {
+   "pdf_pages": 95,
+   "story_pages_found": 90,
+   "flags": [
+    {
+     "page": "S1p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.467
+    },
+    {
+     "page": "S1p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.958
+    },
+    {
+     "page": "S1p1",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.917
+    },
+    {
+     "page": "S1p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.403
+    },
+    {
+     "page": "S1p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S1p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.484
+    },
+    {
+     "page": "S1p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.958
+    },
+    {
+     "page": "S1p3",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.958
+    },
+    {
+     "page": "S1p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.311
+    },
+    {
+     "page": "S1p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.861
+    },
+    {
+     "page": "S1 finale",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.958
+    },
+    {
+     "page": "S1 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.458
+    },
+    {
+     "page": "S1 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.94
+    },
+    {
+     "page": "S2p0",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.971
+    },
+    {
+     "page": "S2p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.971
+    },
+    {
+     "page": "S2p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S2p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.939
+    },
+    {
+     "page": "S2p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S2 finale",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.858
+    },
+    {
+     "page": "S2 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.397
+    },
+    {
+     "page": "S2 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.952
+    },
+    {
+     "page": "S3p0",
+     "kind": "count",
+     "detail": "more than 1 whale in scene",
+     "cls": "clone-likely",
+     "score": 0.935
+    },
+    {
+     "page": "S3p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.458
+    },
+    {
+     "page": "S3p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.905
+    },
+    {
+     "page": "S3p1",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.844
+    },
+    {
+     "page": "S3p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.354
+    },
+    {
+     "page": "S3p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.923
+    },
+    {
+     "page": "S3p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.975
+    },
+    {
+     "page": "S3p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.364
+    },
+    {
+     "page": "S3p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.921
+    },
+    {
+     "page": "S3 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.478
+    },
+    {
+     "page": "S3 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S4p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.48
+    },
+    {
+     "page": "S4p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.889
+    },
+    {
+     "page": "S4p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.958
+    },
+    {
+     "page": "S4p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.49
+    },
+    {
+     "page": "S4p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.952
+    },
+    {
+     "page": "S4p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.929
+    },
+    {
+     "page": "S4 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.953
+    },
+    {
+     "page": "S5p0",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.858
+    },
+    {
+     "page": "S5p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S5p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S5p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.478
+    },
+    {
+     "page": "S5p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.908
+    },
+    {
+     "page": "S5p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.949
+    },
+    {
+     "page": "S5 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.486
+    },
+    {
+     "page": "S5 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.912
+    },
+    {
+     "page": "S6p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.43
+    },
+    {
+     "page": "S6p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.904
+    },
+    {
+     "page": "S6p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.337
+    },
+    {
+     "page": "S6p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.914
+    },
+    {
+     "page": "S6p2",
+     "kind": "missing",
+     "detail": "Skipper (seagull) expected but not found",
+     "cls": "review",
+     "score": 0.372
+    },
+    {
+     "page": "S6p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.406
+    },
+    {
+     "page": "S6p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.914
+    },
+    {
+     "page": "S6p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.964
+    },
+    {
+     "page": "S6 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.919
+    },
+    {
+     "page": "S7p0",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.969
+    },
+    {
+     "page": "S7p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.955
+    },
+    {
+     "page": "S7p1",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.929
+    },
+    {
+     "page": "S7p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.32
+    },
+    {
+     "page": "S7p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.889
+    },
+    {
+     "page": "S7p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.499
+    },
+    {
+     "page": "S7p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.963
+    },
+    {
+     "page": "S7p3",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.967
+    },
+    {
+     "page": "S7p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S7 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.941
+    },
+    {
+     "page": "S8p0",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.886
+    },
+    {
+     "page": "S8p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.923
+    },
+    {
+     "page": "S8p1",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.976
+    },
+    {
+     "page": "S8p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.963
+    },
+    {
+     "page": "S8p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.964
+    },
+    {
+     "page": "S8p3",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.861
+    },
+    {
+     "page": "S8p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.416
+    },
+    {
+     "page": "S8p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.907
+    },
+    {
+     "page": "S8 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.937
+    },
+    {
+     "page": "S9p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.953
+    },
+    {
+     "page": "S9p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.339
+    },
+    {
+     "page": "S9p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.926
+    },
+    {
+     "page": "S9p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.294
+    },
+    {
+     "page": "S9p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.847
+    },
+    {
+     "page": "S9p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.29
+    },
+    {
+     "page": "S9p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.957
+    },
+    {
+     "page": "S9 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.327
+    },
+    {
+     "page": "S9 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.917
+    },
+    {
+     "page": "S10p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.347
+    },
+    {
+     "page": "S10p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.911
+    },
+    {
+     "page": "S10p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.919
+    },
+    {
+     "page": "S10p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.35
+    },
+    {
+     "page": "S10p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.937
+    },
+    {
+     "page": "S10p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.951
+    },
+    {
+     "page": "S10 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.807
+    },
+    {
+     "page": "S11p0",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.919
+    },
+    {
+     "page": "S11p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S11p1",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.972
+    },
+    {
+     "page": "S11p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.952
+    },
+    {
+     "page": "S11p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.93
+    },
+    {
+     "page": "S11p3",
+     "kind": "count",
+     "detail": "more than 1 whale in scene",
+     "cls": "clone-likely",
+     "score": 0.96
+    },
+    {
+     "page": "S11p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.953
+    },
+    {
+     "page": "S11 finale",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.936
+    },
+    {
+     "page": "S11 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.96
+    },
+    {
+     "page": "S12p0",
+     "kind": "count",
+     "detail": "more than 1 whale in scene",
+     "cls": "clone-likely",
+     "score": 0.936
+    },
+    {
+     "page": "S12p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.931
+    },
+    {
+     "page": "S12p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.944
+    },
+    {
+     "page": "S12p2",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.943
+    },
+    {
+     "page": "S12p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.92
+    },
+    {
+     "page": "S12p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.415
+    },
+    {
+     "page": "S12p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.829
+    },
+    {
+     "page": "S12 finale",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.425
+    },
+    {
+     "page": "S12 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.939
+    },
+    {
+     "page": "S13p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.938
+    },
+    {
+     "page": "S13p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.955
+    },
+    {
+     "page": "S13p2",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.982
+    },
+    {
+     "page": "S13p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.974
+    },
+    {
+     "page": "S13p3",
+     "kind": "count",
+     "detail": "more than 1 sea otter in scene",
+     "cls": "clone-likely",
+     "score": 0.978
+    },
+    {
+     "page": "S13p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S13 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.939
+    },
+    {
+     "page": "S14p0",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.934
+    },
+    {
+     "page": "S14p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.886
+    },
+    {
+     "page": "S14p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.906
+    },
+    {
+     "page": "S14p1",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.375
+    },
+    {
+     "page": "S14p2",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.944
+    },
+    {
+     "page": "S14p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.489
+    },
+    {
+     "page": "S14p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.94
+    },
+    {
+     "page": "S14p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.912
+    },
+    {
+     "page": "S14 finale",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.962
+    },
+    {
+     "page": "S15p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.923
+    },
+    {
+     "page": "S15p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.952
+    },
+    {
+     "page": "S15p2",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.974
+    },
+    {
+     "page": "S15p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.954
+    }
+   ]
+  },
+  "coloring": {
+   "pdf_pages": 77,
+   "story_pages_found": 72,
+   "flags": [
+    {
+     "page": "S1p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.963
+    },
+    {
+     "page": "S1p1",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.945
+    },
+    {
+     "page": "S1p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.964
+    },
+    {
+     "page": "S1p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.479
+    },
+    {
+     "page": "S1p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.952
+    },
+    {
+     "page": "S1p3",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.943
+    },
+    {
+     "page": "S1p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.923
+    },
+    {
+     "page": "S2p0",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.971
+    },
+    {
+     "page": "S2p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.963
+    },
+    {
+     "page": "S2p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.956
+    },
+    {
+     "page": "S2p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.413
+    },
+    {
+     "page": "S2p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.899
+    },
+    {
+     "page": "S2p3",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.829
+    },
+    {
+     "page": "S2p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.13
+    },
+    {
+     "page": "S2p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.959
+    },
+    {
+     "page": "S3p0",
+     "kind": "count",
+     "detail": "more than 1 whale in scene",
+     "cls": "clone-likely",
+     "score": 0.938
+    },
+    {
+     "page": "S3p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.396
+    },
+    {
+     "page": "S3p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.913
+    },
+    {
+     "page": "S3p1",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.942
+    },
+    {
+     "page": "S3p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.377
+    },
+    {
+     "page": "S3p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.935
+    },
+    {
+     "page": "S3p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.455
+    },
+    {
+     "page": "S3p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.97
+    },
+    {
+     "page": "S3p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.454
+    },
+    {
+     "page": "S3p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.937
+    },
+    {
+     "page": "S4p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.472
+    },
+    {
+     "page": "S4p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.956
+    },
+    {
+     "page": "S4p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.974
+    },
+    {
+     "page": "S4p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S4p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.947
+    },
+    {
+     "page": "S5p0",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.842
+    },
+    {
+     "page": "S5p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.946
+    },
+    {
+     "page": "S5p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.976
+    },
+    {
+     "page": "S5p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.456
+    },
+    {
+     "page": "S5p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.923
+    },
+    {
+     "page": "S5p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.958
+    },
+    {
+     "page": "S6p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.424
+    },
+    {
+     "page": "S6p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.856
+    },
+    {
+     "page": "S6p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.442
+    },
+    {
+     "page": "S6p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.892
+    },
+    {
+     "page": "S6p2",
+     "kind": "missing",
+     "detail": "Skipper (seagull) expected but not found",
+     "cls": "review",
+     "score": 0.281
+    },
+    {
+     "page": "S6p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.31
+    },
+    {
+     "page": "S6p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.891
+    },
+    {
+     "page": "S6p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.959
+    },
+    {
+     "page": "S7p0",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.973
+    },
+    {
+     "page": "S7p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.957
+    },
+    {
+     "page": "S7p1",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.943
+    },
+    {
+     "page": "S7p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.398
+    },
+    {
+     "page": "S7p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.881
+    },
+    {
+     "page": "S7p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.492
+    },
+    {
+     "page": "S7p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.947
+    },
+    {
+     "page": "S7p3",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.976
+    },
+    {
+     "page": "S7p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.965
+    },
+    {
+     "page": "S8p0",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.9
+    },
+    {
+     "page": "S8p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.944
+    },
+    {
+     "page": "S8p1",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.977
+    },
+    {
+     "page": "S8p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.974
+    },
+    {
+     "page": "S8p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.964
+    },
+    {
+     "page": "S8p3",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.908
+    },
+    {
+     "page": "S8p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.916
+    },
+    {
+     "page": "S9p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.336
+    },
+    {
+     "page": "S9p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.959
+    },
+    {
+     "page": "S9p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.364
+    },
+    {
+     "page": "S9p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.94
+    },
+    {
+     "page": "S9p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.25
+    },
+    {
+     "page": "S9p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.903
+    },
+    {
+     "page": "S9p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.346
+    },
+    {
+     "page": "S9p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.939
+    },
+    {
+     "page": "S10p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.446
+    },
+    {
+     "page": "S10p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.906
+    },
+    {
+     "page": "S10p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.909
+    },
+    {
+     "page": "S10p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.334
+    },
+    {
+     "page": "S10p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.919
+    },
+    {
+     "page": "S10p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.892
+    },
+    {
+     "page": "S11p0",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.951
+    },
+    {
+     "page": "S11p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.973
+    },
+    {
+     "page": "S11p1",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.975
+    },
+    {
+     "page": "S11p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.966
+    },
+    {
+     "page": "S11p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.961
+    },
+    {
+     "page": "S11p3",
+     "kind": "count",
+     "detail": "more than 1 whale in scene",
+     "cls": "clone-likely",
+     "score": 0.958
+    },
+    {
+     "page": "S11p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.272
+    },
+    {
+     "page": "S11p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.949
+    },
+    {
+     "page": "S12p0",
+     "kind": "count",
+     "detail": "more than 1 whale in scene",
+     "cls": "clone-likely",
+     "score": 0.932
+    },
+    {
+     "page": "S12p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.389
+    },
+    {
+     "page": "S12p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.901
+    },
+    {
+     "page": "S12p1",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.574
+    },
+    {
+     "page": "S12p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.943
+    },
+    {
+     "page": "S12p2",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.956
+    },
+    {
+     "page": "S12p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.946
+    },
+    {
+     "page": "S12p3",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.436
+    },
+    {
+     "page": "S12p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.957
+    },
+    {
+     "page": "S13p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.46
+    },
+    {
+     "page": "S13p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.888
+    },
+    {
+     "page": "S13p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.929
+    },
+    {
+     "page": "S13p2",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.969
+    },
+    {
+     "page": "S13p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.957
+    },
+    {
+     "page": "S13p3",
+     "kind": "count",
+     "detail": "more than 1 sea otter in scene",
+     "cls": "clone-likely",
+     "score": 0.981
+    },
+    {
+     "page": "S13p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.968
+    },
+    {
+     "page": "S14p0",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.907
+    },
+    {
+     "page": "S14p0",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.487
+    },
+    {
+     "page": "S14p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.88
+    },
+    {
+     "page": "S14p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.405
+    },
+    {
+     "page": "S14p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.9
+    },
+    {
+     "page": "S14p1",
+     "kind": "colorfill",
+     "detail": "color or gray fill on a line page",
+     "cls": "defect",
+     "score": 0.344
+    },
+    {
+     "page": "S14p2",
+     "kind": "count",
+     "detail": "more than 0 seagull in scene",
+     "cls": "extra-review",
+     "score": 0.957
+    },
+    {
+     "page": "S14p2",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.344
+    },
+    {
+     "page": "S14p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.951
+    },
+    {
+     "page": "S14p3",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.914
+    },
+    {
+     "page": "S15p0",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.889
+    },
+    {
+     "page": "S15p1",
+     "kind": "anatomy",
+     "detail": "anatomy check failed",
+     "cls": "advisory",
+     "score": 0.462
+    },
+    {
+     "page": "S15p1",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.922
+    },
+    {
+     "page": "S15p2",
+     "kind": "count",
+     "detail": "more than 1 seagull in scene",
+     "cls": "clone-likely",
+     "score": 0.976
+    },
+    {
+     "page": "S15p2",
+     "kind": "text",
+     "detail": "text baked into art",
+     "cls": "review",
+     "score": 0.967
+    }
+   ]
+  },
+  "color": null
+ },
+ "gaps": [
+  "story: 90 story pages in the PDF vs 73 expected",
+  "coloring: coloring book omits every chapter finale page (factory assembly pushes finales to the story book only)",
+  "coloring: 72 story pages in the PDF vs 59 expected",
+  "no color PDF on file"
+ ],
+ "disagreements": []
+}

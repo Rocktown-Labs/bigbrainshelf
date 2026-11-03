@@ -1,0 +1,846 @@
+{
+ "slug": "motivationmanifesto",
+ "title": "Juno the Swift and the Wide Sky",
+ "measured_at": 1793682902,
+ "picture_book": {
+  "pages": 50,
+  "colored_pages": [
+   28,
+   35,
+   38
+  ],
+  "colored_matter_pages": [
+   49
+  ],
+  "caption_truncated_pages": [],
+  "cover": {
+   "has_title": true,
+   "scores": {
+    "cover_title": 0.9757
+   }
+  },
+  "back": {
+   "complete": false,
+   "scores": {
+    "back_complete": 0.0381
+   }
+  },
+  "detail": [
+   {
+    "page": 1,
+    "color_fraction": 0.31632,
+    "clef": {
+     "cover_title": 0.9757
+    }
+   },
+   {
+    "page": 2,
+    "color_fraction": 0.00325,
+    "matter": true,
+    "clef": {
+     "has_color": 0.2993
+    }
+   },
+   {
+    "page": 3,
+    "color_fraction": 0.00192,
+    "matter": true,
+    "clef": {
+     "has_color": 0.2667
+    }
+   },
+   {
+    "page": 4,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0224
+    }
+   },
+   {
+    "page": 5,
+    "color_fraction": 7e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0269
+    }
+   },
+   {
+    "page": 6,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0161
+    }
+   },
+   {
+    "page": 7,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0177
+    }
+   },
+   {
+    "page": 8,
+    "color_fraction": 4e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0145
+    }
+   },
+   {
+    "page": 9,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0239
+    }
+   },
+   {
+    "page": 10,
+    "color_fraction": 2e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0154
+    }
+   },
+   {
+    "page": 11,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0139
+    }
+   },
+   {
+    "page": 12,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0204
+    }
+   },
+   {
+    "page": 13,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0192
+    }
+   },
+   {
+    "page": 14,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0403
+    }
+   },
+   {
+    "page": 15,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.017
+    }
+   },
+   {
+    "page": 16,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0254
+    }
+   },
+   {
+    "page": 17,
+    "color_fraction": 2e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.011
+    }
+   },
+   {
+    "page": 18,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0169
+    }
+   },
+   {
+    "page": 19,
+    "color_fraction": 2e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0169
+    }
+   },
+   {
+    "page": 20,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0194
+    }
+   },
+   {
+    "page": 21,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0127
+    }
+   },
+   {
+    "page": 22,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0133
+    }
+   },
+   {
+    "page": 23,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0097
+    }
+   },
+   {
+    "page": 24,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0136
+    }
+   },
+   {
+    "page": 25,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0174
+    }
+   },
+   {
+    "page": 26,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0129
+    }
+   },
+   {
+    "page": 27,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0147
+    }
+   },
+   {
+    "page": 28,
+    "color_fraction": 0.00561,
+    "matter": false,
+    "clef": {
+     "has_color": 0.9702
+    },
+    "colored_by": "clef pixel"
+   },
+   {
+    "page": 29,
+    "color_fraction": 0.00193,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0295
+    }
+   },
+   {
+    "page": 30,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.012
+    }
+   },
+   {
+    "page": 31,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0132
+    }
+   },
+   {
+    "page": 32,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.01
+    }
+   },
+   {
+    "page": 33,
+    "color_fraction": 0.00023,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0089
+    }
+   },
+   {
+    "page": 34,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0221
+    }
+   },
+   {
+    "page": 35,
+    "color_fraction": 0.00531,
+    "matter": false,
+    "clef": {
+     "has_color": 0.9873
+    },
+    "colored_by": "clef pixel"
+   },
+   {
+    "page": 36,
+    "color_fraction": 0.00047,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0231
+    }
+   },
+   {
+    "page": 37,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0156
+    }
+   },
+   {
+    "page": 38,
+    "color_fraction": 0.04413,
+    "matter": false,
+    "clef": {
+     "has_color": 0.9851
+    },
+    "colored_by": "clef pixel"
+   },
+   {
+    "page": 39,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0288
+    }
+   },
+   {
+    "page": 40,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.014
+    }
+   },
+   {
+    "page": 41,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.016
+    }
+   },
+   {
+    "page": 42,
+    "color_fraction": 0.00039,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0184
+    }
+   },
+   {
+    "page": 43,
+    "color_fraction": 2e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0139
+    }
+   },
+   {
+    "page": 44,
+    "color_fraction": 6e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0208
+    }
+   },
+   {
+    "page": 45,
+    "color_fraction": 0.00155,
+    "matter": false,
+    "clef": {
+     "has_color": 0.024
+    }
+   },
+   {
+    "page": 46,
+    "color_fraction": 0.00018,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0157
+    }
+   },
+   {
+    "page": 47,
+    "color_fraction": 7e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0116
+    }
+   },
+   {
+    "page": 48,
+    "color_fraction": 0.00019,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0102
+    }
+   },
+   {
+    "page": 49,
+    "color_fraction": 0.0031,
+    "matter": true,
+    "clef": {
+     "has_color": 0.6711
+    },
+    "colored_by": "clef "
+   },
+   {
+    "page": 50,
+    "color_fraction": 0.09588,
+    "clef": {
+     "back_complete": 0.0381
+    }
+   }
+  ]
+ },
+ "coloring_book": {
+  "pages": 41,
+  "colored_pages": [
+   24,
+   29
+  ],
+  "colored_matter_pages": [
+   40
+  ],
+  "caption_truncated_pages": [
+   36
+  ],
+  "cover": {
+   "has_title": true,
+   "scores": {
+    "cover_title": 0.9757
+   }
+  },
+  "back": {
+   "complete": false,
+   "scores": {
+    "back_complete": 0.058
+   }
+  },
+  "detail": [
+   {
+    "page": 1,
+    "color_fraction": 0.31632,
+    "clef": {
+     "cover_title": 0.9757
+    }
+   },
+   {
+    "page": 2,
+    "color_fraction": 0.00325,
+    "matter": true,
+    "clef": {
+     "has_color": 0.2993
+    }
+   },
+   {
+    "page": 3,
+    "color_fraction": 0.00192,
+    "matter": true,
+    "clef": {
+     "has_color": 0.2667
+    }
+   },
+   {
+    "page": 4,
+    "color_fraction": 0.00049,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0275,
+     "caption_complete": 0.929
+    }
+   },
+   {
+    "page": 5,
+    "color_fraction": 0.00062,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0364,
+     "caption_complete": 0.8948
+    }
+   },
+   {
+    "page": 6,
+    "color_fraction": 0.00015,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0229,
+     "caption_complete": 0.9328
+    }
+   },
+   {
+    "page": 7,
+    "color_fraction": 0.0001,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0329,
+     "caption_complete": 0.8867
+    }
+   },
+   {
+    "page": 8,
+    "color_fraction": 0.00067,
+    "matter": false,
+    "clef": {
+     "has_color": 0.036,
+     "caption_complete": 0.8438
+    }
+   },
+   {
+    "page": 9,
+    "color_fraction": 0.00023,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0251,
+     "caption_complete": 0.9236
+    }
+   },
+   {
+    "page": 10,
+    "color_fraction": 0.00023,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0306,
+     "caption_complete": 0.8681
+    }
+   },
+   {
+    "page": 11,
+    "color_fraction": 5e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0288,
+     "caption_complete": 0.9081
+    }
+   },
+   {
+    "page": 12,
+    "color_fraction": 0.00049,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0299,
+     "caption_complete": 0.9109
+    }
+   },
+   {
+    "page": 13,
+    "color_fraction": 0.00015,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0265,
+     "caption_complete": 0.8908
+    }
+   },
+   {
+    "page": 14,
+    "color_fraction": 0.00015,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0313,
+     "caption_complete": 0.9132
+    }
+   },
+   {
+    "page": 15,
+    "color_fraction": 0.00035,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0234,
+     "caption_complete": 0.886
+    }
+   },
+   {
+    "page": 16,
+    "color_fraction": 0.00078,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0389,
+     "caption_complete": 0.9396
+    }
+   },
+   {
+    "page": 17,
+    "color_fraction": 0.00039,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0394,
+     "caption_complete": 0.8985
+    }
+   },
+   {
+    "page": 18,
+    "color_fraction": 0.0001,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0301,
+     "caption_complete": 0.9095
+    }
+   },
+   {
+    "page": 19,
+    "color_fraction": 0.00013,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0301,
+     "caption_complete": 0.9014
+    }
+   },
+   {
+    "page": 20,
+    "color_fraction": 0.00017,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0285,
+     "caption_complete": 0.9073
+    }
+   },
+   {
+    "page": 21,
+    "color_fraction": 0.00023,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0355,
+     "caption_complete": 0.9111
+    }
+   },
+   {
+    "page": 22,
+    "color_fraction": 7e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0411,
+     "caption_complete": 0.8668
+    }
+   },
+   {
+    "page": 23,
+    "color_fraction": 0.00012,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0283,
+     "caption_complete": 0.9086
+    }
+   },
+   {
+    "page": 24,
+    "color_fraction": 0.00223,
+    "matter": false,
+    "clef": {
+     "has_color": 0.7148,
+     "caption_complete": 0.9031
+    },
+    "colored_by": "clef "
+   },
+   {
+    "page": 25,
+    "color_fraction": 0.0004,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0249,
+     "caption_complete": 0.9027
+    }
+   },
+   {
+    "page": 26,
+    "color_fraction": 0.00013,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0241,
+     "caption_complete": 0.9192
+    }
+   },
+   {
+    "page": 27,
+    "color_fraction": 0.00019,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0288,
+     "caption_complete": 0.9046
+    }
+   },
+   {
+    "page": 28,
+    "color_fraction": 9e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0372,
+     "caption_complete": 0.8529
+    }
+   },
+   {
+    "page": 29,
+    "color_fraction": 0.0064,
+    "matter": false,
+    "clef": {
+     "has_color": 0.986,
+     "caption_complete": 0.9597
+    },
+    "colored_by": "clef pixel"
+   },
+   {
+    "page": 30,
+    "color_fraction": 0.00128,
+    "matter": false,
+    "clef": {
+     "has_color": 0.038,
+     "caption_complete": 0.9138
+    }
+   },
+   {
+    "page": 31,
+    "color_fraction": 0.00027,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0315,
+     "caption_complete": 0.9049
+    }
+   },
+   {
+    "page": 32,
+    "color_fraction": 5e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0442,
+     "caption_complete": 0.9307
+    }
+   },
+   {
+    "page": 33,
+    "color_fraction": 0.00063,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0243,
+     "caption_complete": 0.9101
+    }
+   },
+   {
+    "page": 34,
+    "color_fraction": 5e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0305,
+     "caption_complete": 0.8738
+    }
+   },
+   {
+    "page": 35,
+    "color_fraction": 0.00144,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0268,
+     "caption_complete": 0.9271
+    }
+   },
+   {
+    "page": 36,
+    "color_fraction": 0.00021,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0269,
+     "caption_complete": 0.3922
+    }
+   },
+   {
+    "page": 37,
+    "color_fraction": 0.00203,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0892,
+     "caption_complete": 0.9102
+    }
+   },
+   {
+    "page": 38,
+    "color_fraction": 0.00034,
+    "matter": false,
+    "clef": {
+     "has_color": 0.031,
+     "caption_complete": 0.7695
+    }
+   },
+   {
+    "page": 39,
+    "color_fraction": 0.00076,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0313,
+     "caption_complete": 0.9145
+    }
+   },
+   {
+    "page": 40,
+    "color_fraction": 0.0031,
+    "matter": true,
+    "clef": {
+     "has_color": 0.6711
+    },
+    "colored_by": "clef "
+   },
+   {
+    "page": 41,
+    "color_fraction": 0.11038,
+    "clef": {
+     "back_complete": 0.058
+    }
+   }
+  ]
+ },
+ "aggregate": {
+  "line_purity": 0,
+  "colored_pages_picture": [
+   28,
+   35,
+   38
+  ],
+  "colored_pages_coloring": [
+   24,
+   29
+  ],
+  "colored_matter_pages_picture": [
+   49
+  ],
+  "colored_matter_pages_coloring": [
+   40
+  ],
+  "coloring_captions_truncated": 1,
+  "cover_typeset": 0,
+  "back_cover_truncated": 1
+ }
+}

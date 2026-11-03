@@ -1,0 +1,1355 @@
+{
+ "slug": "designpatterns",
+ "edition": "line",
+ "flags": [
+  {
+   "page": "S1p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.477,
+   "expected": [
+    "Blaze"
+   ],
+   "key": "books/designpatterns/images/S1-page-0.jpg"
+  },
+  {
+   "page": "S1p1",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.646,
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "key": "books/designpatterns/images/S1-page-1.jpg"
+  },
+  {
+   "page": "S1 finale",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.846,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S1-finale.jpg"
+  },
+  {
+   "page": "S1 finale",
+   "kind": "count",
+   "detail": "more than 0 otter in scene",
+   "cls": "extra-review",
+   "score": 0.643,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S1-finale.jpg"
+  },
+  {
+   "page": "S1 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.454,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S1-finale.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "count",
+   "detail": "more than 0 beaver in scene",
+   "cls": "extra-review",
+   "score": 0.914,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.47,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p2",
+   "kind": "count",
+   "detail": "more than 0 beaver in scene",
+   "cls": "extra-review",
+   "score": 0.877,
+   "expected": [
+    "Ada"
+   ],
+   "key": "books/designpatterns/images/S2-page-2.jpg"
+  },
+  {
+   "page": "S2p3",
+   "kind": "count",
+   "detail": "more than 0 beaver in scene",
+   "cls": "extra-review",
+   "score": 0.907,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S2-page-3.jpg"
+  },
+  {
+   "page": "S2p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.458,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S2-page-3.jpg"
+  },
+  {
+   "page": "S2 finale",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.706,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S2-finale.jpg"
+  },
+  {
+   "page": "S2 finale",
+   "kind": "count",
+   "detail": "more than 0 otter in scene",
+   "cls": "extra-review",
+   "score": 0.515,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S2-finale.jpg"
+  },
+  {
+   "page": "S2 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.362,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S2-finale.jpg"
+  },
+  {
+   "page": "S3p0",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.928,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S3-page-0.jpg"
+  },
+  {
+   "page": "S3p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.421,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S3-page-0.jpg"
+  },
+  {
+   "page": "S3p2",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.595,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S3-page-2.jpg"
+  },
+  {
+   "page": "S3p2",
+   "kind": "count",
+   "detail": "more than 0 otter in scene",
+   "cls": "extra-review",
+   "score": 0.587,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S3-page-2.jpg"
+  },
+  {
+   "page": "S3p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.337,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S3-page-2.jpg"
+  },
+  {
+   "page": "S3p3",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.916,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S3-page-3.jpg"
+  },
+  {
+   "page": "S3p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.483,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S3-page-3.jpg"
+  },
+  {
+   "page": "S3 finale",
+   "kind": "count",
+   "detail": "more than 0 beaver in scene",
+   "cls": "extra-review",
+   "score": 0.751,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S3-finale.jpg"
+  },
+  {
+   "page": "S3 finale",
+   "kind": "missing",
+   "detail": "Nox (mole) expected but not found",
+   "cls": "review",
+   "score": 0.386,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S3-finale.jpg"
+  },
+  {
+   "page": "S3 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.344,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S3-finale.jpg"
+  },
+  {
+   "page": "S4p0",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.875,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S4-page-0.jpg"
+  },
+  {
+   "page": "S4p1",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.453,
+   "expected": [
+    "Blaze"
+   ],
+   "key": "books/designpatterns/images/S4-page-1.jpg"
+  },
+  {
+   "page": "S4p2",
+   "kind": "count",
+   "detail": "more than 0 beaver in scene",
+   "cls": "extra-review",
+   "score": 0.871,
+   "expected": [
+    "Ada",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S4-page-2.jpg"
+  },
+  {
+   "page": "S4p3",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.944,
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "key": "books/designpatterns/images/S4-page-3.jpg"
+  },
+  {
+   "page": "S4 finale",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.961,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S4-finale.jpg"
+  },
+  {
+   "page": "S5p1",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.561,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S5-page-1.jpg"
+  },
+  {
+   "page": "S5p1",
+   "kind": "count",
+   "detail": "more than 0 otter in scene",
+   "cls": "extra-review",
+   "score": 0.618,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S5-page-1.jpg"
+  },
+  {
+   "page": "S5p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.41,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S5-page-1.jpg"
+  },
+  {
+   "page": "S5p2",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.953,
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "key": "books/designpatterns/images/S5-page-2.jpg"
+  },
+  {
+   "page": "S5p2",
+   "kind": "count",
+   "detail": "more than 1 otter in scene",
+   "cls": "clone-likely",
+   "score": 0.671,
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "key": "books/designpatterns/images/S5-page-2.jpg"
+  },
+  {
+   "page": "S5p3",
+   "kind": "count",
+   "detail": "more than 0 beaver in scene",
+   "cls": "extra-review",
+   "score": 0.923,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S5-page-3.jpg"
+  },
+  {
+   "page": "S5p3",
+   "kind": "missing",
+   "detail": "Nox (mole) expected but not found",
+   "cls": "review",
+   "score": 0.247,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S5-page-3.jpg"
+  },
+  {
+   "page": "S5p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.403,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S5-page-3.jpg"
+  },
+  {
+   "page": "S5 finale",
+   "kind": "count",
+   "detail": "more than 0 beaver in scene",
+   "cls": "extra-review",
+   "score": 0.61,
+   "expected": [
+    "Ada"
+   ],
+   "key": "books/designpatterns/images/S5-finale.jpg"
+  },
+  {
+   "page": "S6p2",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.933,
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "key": "books/designpatterns/images/S6-page-2.jpg"
+  },
+  {
+   "page": "S6p2",
+   "kind": "count",
+   "detail": "more than 1 otter in scene",
+   "cls": "clone-likely",
+   "score": 0.6,
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "key": "books/designpatterns/images/S6-page-2.jpg"
+  },
+  {
+   "page": "S6p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.496,
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "key": "books/designpatterns/images/S6-page-2.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "count",
+   "detail": "more than 0 beaver in scene",
+   "cls": "extra-review",
+   "score": 0.912,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S6-finale.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "missing",
+   "detail": "Nox (mole) expected but not found",
+   "cls": "review",
+   "score": 0.301,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S6-finale.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.424,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S6-finale.jpg"
+  },
+  {
+   "page": "S7p1",
+   "kind": "count",
+   "detail": "more than 0 beaver in scene",
+   "cls": "extra-review",
+   "score": 0.885,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S7-page-1.jpg"
+  },
+  {
+   "page": "S7p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.453,
+   "expected": [
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S7-page-1.jpg"
+  },
+  {
+   "page": "S7p2",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.953,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S7-page-2.jpg"
+  },
+  {
+   "page": "S7p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.492,
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S7-page-2.jpg"
+  },
+  {
+   "page": "S7p3",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.938,
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "key": "books/designpatterns/images/S7-page-3.jpg"
+  },
+  {
+   "page": "S8p2",
+   "kind": "count",
+   "detail": "more than 0 beaver in scene",
+   "cls": "extra-review",
+   "score": 0.929,
+   "expected": [
+    "Ada",
+    "Nox"
+   ],
+   "key": "books/designpatterns/images/S8-page-2.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "count",
+   "detail": "more than 1 beaver in scene",
+   "cls": "clone-likely",
+   "score": 0.973,
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "key": "books/designpatterns/images/S8-finale.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.397,
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "key": "books/designpatterns/images/S8-finale.jpg"
+  }
+ ],
+ "results": [
+  {
+   "page": "S1p0",
+   "key": "books/designpatterns/images/S1-page-0.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0205,
+    "count_mole": 0.0461,
+    "count_otter": 0.484,
+    "present_Blaze": 0.8796,
+    "anatomy_ok": 0.4771,
+    "has_human": 0.0168,
+    "foreign_species": 0.0924,
+    "has_color": 0.0601,
+    "has_text": 0.0221
+   }
+  },
+  {
+   "page": "S1p1",
+   "key": "books/designpatterns/images/S1-page-1.jpg",
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "scores": {
+    "count_beaver": 0.6465,
+    "count_mole": 0.0607,
+    "count_otter": 0.2635,
+    "present_Blaze": 0.9291,
+    "present_Ada": 0.8774,
+    "anatomy_ok": 0.5602,
+    "has_human": 0.0153,
+    "foreign_species": 0.0524,
+    "has_color": 0.0689,
+    "has_text": 0.0195
+   }
+  },
+  {
+   "page": "S1p2",
+   "key": "books/designpatterns/images/S1-page-2.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0207,
+    "count_mole": 0.0942,
+    "count_otter": 0.4846,
+    "present_Blaze": 0.8481,
+    "anatomy_ok": 0.6224,
+    "has_human": 0.0156,
+    "foreign_species": 0.0619,
+    "has_color": 0.0553,
+    "has_text": 0.0204
+   }
+  },
+  {
+   "page": "S1p3",
+   "key": "books/designpatterns/images/S1-page-3.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0203,
+    "count_mole": 0.0827,
+    "count_otter": 0.363,
+    "present_Blaze": 0.9026,
+    "anatomy_ok": 0.5037,
+    "has_human": 0.0154,
+    "foreign_species": 0.0633,
+    "has_color": 0.0543,
+    "has_text": 0.0177
+   }
+  },
+  {
+   "page": "S1 finale",
+   "key": "books/designpatterns/images/S1-finale.jpg",
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.8462,
+    "count_mole": 0.1128,
+    "count_otter": 0.6428,
+    "present_Blaze": 0.6089,
+    "present_Nox": 0.4265,
+    "anatomy_ok": 0.4537,
+    "has_human": 0.0185,
+    "foreign_species": 0.0652,
+    "has_color": 0.0643,
+    "has_text": 0.0242
+   }
+  },
+  {
+   "page": "S2p0",
+   "key": "books/designpatterns/images/S2-page-0.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0215,
+    "count_mole": 0.0482,
+    "count_otter": 0.479,
+    "present_Blaze": 0.8924,
+    "anatomy_ok": 0.6755,
+    "has_human": 0.0157,
+    "foreign_species": 0.0444,
+    "has_color": 0.0452,
+    "has_text": 0.0196
+   }
+  },
+  {
+   "page": "S2p1",
+   "key": "books/designpatterns/images/S2-page-1.jpg",
+   "expected": [
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.9139,
+    "count_mole": 0.0188,
+    "count_otter": 0.3906,
+    "present_Nox": 0.4519,
+    "anatomy_ok": 0.4696,
+    "has_human": 0.0218,
+    "foreign_species": 0.069,
+    "has_color": 0.2364,
+    "has_text": 0.0269
+   }
+  },
+  {
+   "page": "S2p2",
+   "key": "books/designpatterns/images/S2-page-2.jpg",
+   "expected": [
+    "Ada"
+   ],
+   "scores": {
+    "count_beaver": 0.8773,
+    "count_mole": 0.0911,
+    "count_otter": 0.0129,
+    "present_Ada": 0.899,
+    "anatomy_ok": 0.7452,
+    "has_human": 0.0175,
+    "foreign_species": 0.0392,
+    "has_color": 0.0458,
+    "has_text": 0.0179
+   }
+  },
+  {
+   "page": "S2p3",
+   "key": "books/designpatterns/images/S2-page-3.jpg",
+   "expected": [
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.9072,
+    "count_mole": 0.0187,
+    "count_otter": 0.3239,
+    "present_Nox": 0.5202,
+    "anatomy_ok": 0.4576,
+    "has_human": 0.0187,
+    "foreign_species": 0.0753,
+    "has_color": 0.0526,
+    "has_text": 0.0257
+   }
+  },
+  {
+   "page": "S2 finale",
+   "key": "books/designpatterns/images/S2-finale.jpg",
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.7063,
+    "count_mole": 0.0564,
+    "count_otter": 0.5155,
+    "present_Blaze": 0.9094,
+    "present_Nox": 0.8162,
+    "anatomy_ok": 0.3622,
+    "has_human": 0.0136,
+    "foreign_species": 0.0628,
+    "has_color": 0.0433,
+    "has_text": 0.025
+   }
+  },
+  {
+   "page": "S3p0",
+   "key": "books/designpatterns/images/S3-page-0.jpg",
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.9282,
+    "count_mole": 0.0595,
+    "count_otter": 0.3744,
+    "present_Blaze": 0.8373,
+    "present_Nox": 0.7718,
+    "anatomy_ok": 0.4208,
+    "has_human": 0.0193,
+    "foreign_species": 0.0465,
+    "has_color": 0.0826,
+    "has_text": 0.0239
+   }
+  },
+  {
+   "page": "S3p1",
+   "key": "books/designpatterns/images/S3-page-1.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0206,
+    "count_mole": 0.018,
+    "count_otter": 0.1578,
+    "present_Blaze": 0.9148,
+    "anatomy_ok": 0.602,
+    "has_human": 0.0162,
+    "foreign_species": 0.0421,
+    "has_color": 0.046,
+    "has_text": 0.0215
+   }
+  },
+  {
+   "page": "S3p2",
+   "key": "books/designpatterns/images/S3-page-2.jpg",
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.5951,
+    "count_mole": 0.0893,
+    "count_otter": 0.5869,
+    "present_Blaze": 0.8683,
+    "present_Nox": 0.7809,
+    "anatomy_ok": 0.337,
+    "has_human": 0.0174,
+    "foreign_species": 0.0577,
+    "has_color": 0.058,
+    "has_text": 0.0211
+   }
+  },
+  {
+   "page": "S3p3",
+   "key": "books/designpatterns/images/S3-page-3.jpg",
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.9161,
+    "count_mole": 0.2456,
+    "count_otter": 0.3762,
+    "present_Blaze": 0.8477,
+    "present_Nox": 0.8991,
+    "anatomy_ok": 0.4835,
+    "has_human": 0.0109,
+    "foreign_species": 0.0382,
+    "has_color": 0.0428,
+    "has_text": 0.0268
+   }
+  },
+  {
+   "page": "S3 finale",
+   "key": "books/designpatterns/images/S3-finale.jpg",
+   "expected": [
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.751,
+    "count_mole": 0.0238,
+    "count_otter": 0.4026,
+    "present_Nox": 0.3856,
+    "anatomy_ok": 0.3442,
+    "has_human": 0.0202,
+    "foreign_species": 0.1451,
+    "has_color": 0.0428,
+    "has_text": 0.0403
+   }
+  },
+  {
+   "page": "S4p0",
+   "key": "books/designpatterns/images/S4-page-0.jpg",
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.8747,
+    "count_mole": 0.1034,
+    "count_otter": 0.2706,
+    "present_Blaze": 0.8951,
+    "present_Nox": 0.6871,
+    "anatomy_ok": 0.5377,
+    "has_human": 0.0143,
+    "foreign_species": 0.0347,
+    "has_color": 0.0434,
+    "has_text": 0.0182
+   }
+  },
+  {
+   "page": "S4p1",
+   "key": "books/designpatterns/images/S4-page-1.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0197,
+    "count_mole": 0.0423,
+    "count_otter": 0.1613,
+    "present_Blaze": 0.8687,
+    "anatomy_ok": 0.7246,
+    "has_human": 0.0131,
+    "foreign_species": 0.0564,
+    "has_color": 0.4531,
+    "has_text": 0.0267
+   }
+  },
+  {
+   "page": "S4p2",
+   "key": "books/designpatterns/images/S4-page-2.jpg",
+   "expected": [
+    "Ada",
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.8714,
+    "count_mole": 0.0403,
+    "count_otter": 0.1707,
+    "present_Ada": 0.8786,
+    "present_Nox": 0.8231,
+    "anatomy_ok": 0.5139,
+    "has_human": 0.0197,
+    "foreign_species": 0.0363,
+    "has_color": 0.053,
+    "has_text": 0.0443
+   }
+  },
+  {
+   "page": "S4p3",
+   "key": "books/designpatterns/images/S4-page-3.jpg",
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "scores": {
+    "count_beaver": 0.9443,
+    "count_mole": 0.024,
+    "count_otter": 0.1549,
+    "present_Blaze": 0.9024,
+    "present_Ada": 0.8366,
+    "anatomy_ok": 0.7069,
+    "has_human": 0.0142,
+    "foreign_species": 0.0535,
+    "has_color": 0.0455,
+    "has_text": 0.0207
+   }
+  },
+  {
+   "page": "S4 finale",
+   "key": "books/designpatterns/images/S4-finale.jpg",
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.9611,
+    "count_mole": 0.0214,
+    "count_otter": 0.0888,
+    "present_Blaze": 0.8932,
+    "present_Nox": 0.7787,
+    "anatomy_ok": 0.5577,
+    "has_human": 0.0163,
+    "foreign_species": 0.0431,
+    "has_color": 0.0505,
+    "has_text": 0.0221
+   }
+  },
+  {
+   "page": "S5p0",
+   "key": "books/designpatterns/images/S5-page-0.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0176,
+    "count_mole": 0.0231,
+    "count_otter": 0.2567,
+    "present_Blaze": 0.9104,
+    "anatomy_ok": 0.6258,
+    "has_human": 0.0233,
+    "foreign_species": 0.0586,
+    "has_color": 0.0593,
+    "has_text": 0.0166
+   }
+  },
+  {
+   "page": "S5p1",
+   "key": "books/designpatterns/images/S5-page-1.jpg",
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.5608,
+    "count_mole": 0.0876,
+    "count_otter": 0.6177,
+    "present_Blaze": 0.8821,
+    "present_Nox": 0.5316,
+    "anatomy_ok": 0.4099,
+    "has_human": 0.0155,
+    "foreign_species": 0.0758,
+    "has_color": 0.0383,
+    "has_text": 0.0223
+   }
+  },
+  {
+   "page": "S5p2",
+   "key": "books/designpatterns/images/S5-page-2.jpg",
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "scores": {
+    "count_beaver": 0.9533,
+    "count_mole": 0.0519,
+    "count_otter": 0.6713,
+    "present_Blaze": 0.8882,
+    "present_Ada": 0.8169,
+    "anatomy_ok": 0.6766,
+    "has_human": 0.0136,
+    "foreign_species": 0.0309,
+    "has_color": 0.0466,
+    "has_text": 0.024
+   }
+  },
+  {
+   "page": "S5p3",
+   "key": "books/designpatterns/images/S5-page-3.jpg",
+   "expected": [
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.9231,
+    "count_mole": 0.0206,
+    "count_otter": 0.3625,
+    "present_Nox": 0.2468,
+    "anatomy_ok": 0.4026,
+    "has_human": 0.0262,
+    "foreign_species": 0.0966,
+    "has_color": 0.069,
+    "has_text": 0.0321
+   }
+  },
+  {
+   "page": "S5 finale",
+   "key": "books/designpatterns/images/S5-finale.jpg",
+   "expected": [
+    "Ada"
+   ],
+   "scores": {
+    "count_beaver": 0.6102,
+    "count_mole": 0.0133,
+    "count_otter": 0.0115,
+    "present_Ada": 0.9133,
+    "anatomy_ok": 0.6544,
+    "has_human": 0.0151,
+    "foreign_species": 0.0265,
+    "has_color": 0.0543,
+    "has_text": 0.0217
+   }
+  },
+  {
+   "page": "S6p0",
+   "key": "books/designpatterns/images/S6-page-0.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0188,
+    "count_mole": 0.0947,
+    "count_otter": 0.1951,
+    "present_Blaze": 0.8901,
+    "anatomy_ok": 0.7137,
+    "has_human": 0.0134,
+    "foreign_species": 0.0804,
+    "has_color": 0.0924,
+    "has_text": 0.0187
+   }
+  },
+  {
+   "page": "S6p1",
+   "key": "books/designpatterns/images/S6-page-1.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0187,
+    "count_mole": 0.0225,
+    "count_otter": 0.1111,
+    "present_Blaze": 0.8995,
+    "anatomy_ok": 0.7538,
+    "has_human": 0.0147,
+    "foreign_species": 0.0572,
+    "has_color": 0.0576,
+    "has_text": 0.0188
+   }
+  },
+  {
+   "page": "S6p2",
+   "key": "books/designpatterns/images/S6-page-2.jpg",
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "scores": {
+    "count_beaver": 0.9332,
+    "count_mole": 0.0377,
+    "count_otter": 0.5999,
+    "present_Blaze": 0.8915,
+    "present_Ada": 0.7121,
+    "anatomy_ok": 0.4965,
+    "has_human": 0.0158,
+    "foreign_species": 0.0388,
+    "has_color": 0.0514,
+    "has_text": 0.0203
+   }
+  },
+  {
+   "page": "S6p3",
+   "key": "books/designpatterns/images/S6-page-3.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0178,
+    "count_mole": 0.0712,
+    "count_otter": 0.3476,
+    "present_Blaze": 0.89,
+    "anatomy_ok": 0.8224,
+    "has_human": 0.0129,
+    "foreign_species": 0.0638,
+    "has_color": 0.0433,
+    "has_text": 0.0186
+   }
+  },
+  {
+   "page": "S6 finale",
+   "key": "books/designpatterns/images/S6-finale.jpg",
+   "expected": [
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.9124,
+    "count_mole": 0.0142,
+    "count_otter": 0.4436,
+    "present_Nox": 0.3008,
+    "anatomy_ok": 0.4237,
+    "has_human": 0.0194,
+    "foreign_species": 0.0947,
+    "has_color": 0.0502,
+    "has_text": 0.022
+   }
+  },
+  {
+   "page": "S7p0",
+   "key": "books/designpatterns/images/S7-page-0.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0163,
+    "count_mole": 0.0494,
+    "count_otter": 0.3924,
+    "present_Blaze": 0.9279,
+    "anatomy_ok": 0.6686,
+    "has_human": 0.0139,
+    "foreign_species": 0.0653,
+    "has_color": 0.0883,
+    "has_text": 0.0197
+   }
+  },
+  {
+   "page": "S7p1",
+   "key": "books/designpatterns/images/S7-page-1.jpg",
+   "expected": [
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.8853,
+    "count_mole": 0.0193,
+    "count_otter": 0.3654,
+    "present_Nox": 0.6088,
+    "anatomy_ok": 0.4531,
+    "has_human": 0.0177,
+    "foreign_species": 0.0579,
+    "has_color": 0.0465,
+    "has_text": 0.0175
+   }
+  },
+  {
+   "page": "S7p2",
+   "key": "books/designpatterns/images/S7-page-2.jpg",
+   "expected": [
+    "Blaze",
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.9533,
+    "count_mole": 0.1815,
+    "count_otter": 0.2415,
+    "present_Blaze": 0.8671,
+    "present_Nox": 0.8284,
+    "anatomy_ok": 0.4917,
+    "has_human": 0.0167,
+    "foreign_species": 0.0514,
+    "has_color": 0.0533,
+    "has_text": 0.027
+   }
+  },
+  {
+   "page": "S7p3",
+   "key": "books/designpatterns/images/S7-page-3.jpg",
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "scores": {
+    "count_beaver": 0.9377,
+    "count_mole": 0.0322,
+    "count_otter": 0.2831,
+    "present_Blaze": 0.9104,
+    "present_Ada": 0.8028,
+    "anatomy_ok": 0.5544,
+    "has_human": 0.0175,
+    "foreign_species": 0.056,
+    "has_color": 0.05,
+    "has_text": 0.0478
+   }
+  },
+  {
+   "page": "S7 finale",
+   "key": "books/designpatterns/images/S7-finale.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0217,
+    "count_mole": 0.0578,
+    "count_otter": 0.3512,
+    "present_Blaze": 0.9252,
+    "anatomy_ok": 0.7144,
+    "has_human": 0.0167,
+    "foreign_species": 0.1008,
+    "has_color": 0.0384,
+    "has_text": 0.0229
+   }
+  },
+  {
+   "page": "S8p0",
+   "key": "books/designpatterns/images/S8-page-0.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0201,
+    "count_mole": 0.0593,
+    "count_otter": 0.4126,
+    "present_Blaze": 0.9341,
+    "anatomy_ok": 0.806,
+    "has_human": 0.0153,
+    "foreign_species": 0.0478,
+    "has_color": 0.1272,
+    "has_text": 0.0235
+   }
+  },
+  {
+   "page": "S8p1",
+   "key": "books/designpatterns/images/S8-page-1.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.018,
+    "count_mole": 0.0211,
+    "count_otter": 0.2365,
+    "present_Blaze": 0.8576,
+    "anatomy_ok": 0.7097,
+    "has_human": 0.014,
+    "foreign_species": 0.0388,
+    "has_color": 0.0471,
+    "has_text": 0.0138
+   }
+  },
+  {
+   "page": "S8p2",
+   "key": "books/designpatterns/images/S8-page-2.jpg",
+   "expected": [
+    "Ada",
+    "Nox"
+   ],
+   "scores": {
+    "count_beaver": 0.9295,
+    "count_mole": 0.0619,
+    "count_otter": 0.0551,
+    "present_Ada": 0.7281,
+    "present_Nox": 0.8994,
+    "anatomy_ok": 0.5548,
+    "has_human": 0.0137,
+    "foreign_species": 0.0326,
+    "has_color": 0.0887,
+    "has_text": 0.017
+   }
+  },
+  {
+   "page": "S8p3",
+   "key": "books/designpatterns/images/S8-page-3.jpg",
+   "expected": [
+    "Blaze"
+   ],
+   "scores": {
+    "count_beaver": 0.0189,
+    "count_mole": 0.0153,
+    "count_otter": 0.2543,
+    "present_Blaze": 0.8116,
+    "anatomy_ok": 0.6366,
+    "has_human": 0.016,
+    "foreign_species": 0.0403,
+    "has_color": 0.0512,
+    "has_text": 0.0183
+   }
+  },
+  {
+   "page": "S8 finale",
+   "key": "books/designpatterns/images/S8-finale.jpg",
+   "expected": [
+    "Blaze",
+    "Ada"
+   ],
+   "scores": {
+    "count_beaver": 0.9734,
+    "count_mole": 0.0133,
+    "count_otter": 0.2556,
+    "present_Blaze": 0.9266,
+    "present_Ada": 0.8721,
+    "anatomy_ok": 0.3966,
+    "has_human": 0.0137,
+    "foreign_species": 0.0446,
+    "has_color": 0.0417,
+    "has_text": 0.0286
+   }
+  }
+ ]
+}

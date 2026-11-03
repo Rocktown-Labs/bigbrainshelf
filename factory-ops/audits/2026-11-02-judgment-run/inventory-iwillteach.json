@@ -1,0 +1,22 @@
+{
+ "slug": "iwillteach",
+ "gaps": [
+  "editor_chapters.json missing"
+ ],
+ "chapters_found": [
+  "S1",
+  "S2",
+  "S3",
+  "S4",
+  "S5",
+  "S6",
+  "S7",
+  "S8"
+ ],
+ "planned_pages": 7,
+ "planned_story_pages": 6,
+ "line_images": 7,
+ "color_images": 0,
+ "pdf_pages": {},
+ "editor_pages": null
+}

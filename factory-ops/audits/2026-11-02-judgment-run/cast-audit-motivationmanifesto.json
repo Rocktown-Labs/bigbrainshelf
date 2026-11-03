@@ -1,0 +1,2183 @@
+{
+ "slug": "motivationmanifesto",
+ "edition": "line",
+ "flags": [
+  {
+   "page": "S1p0",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.942,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S1-page-0.jpg"
+  },
+  {
+   "page": "S1p0",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.085,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S1-page-0.jpg"
+  },
+  {
+   "page": "S1p0",
+   "kind": "human",
+   "detail": "a human or human-shaped character is drawn",
+   "cls": "defect",
+   "score": 0.802,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S1-page-0.jpg"
+  },
+  {
+   "page": "S1p1",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.212,
+   "expected": [
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S1-page-1.jpg"
+  },
+  {
+   "page": "S1p2",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.868,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S1-page-2.jpg"
+  },
+  {
+   "page": "S1p2",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.894,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S1-page-2.jpg"
+  },
+  {
+   "page": "S1p2",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.081,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S1-page-2.jpg"
+  },
+  {
+   "page": "S1p3",
+   "kind": "count",
+   "detail": "more than 1 pigeon in scene",
+   "cls": "clone-likely",
+   "score": 0.98,
+   "expected": [
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S1-page-3.jpg"
+  },
+  {
+   "page": "S1p3",
+   "kind": "human",
+   "detail": "a human or human-shaped character is drawn",
+   "cls": "defect",
+   "score": 0.941,
+   "expected": [
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S1-page-3.jpg"
+  },
+  {
+   "page": "S1 finale",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.83,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S1-finale.jpg"
+  },
+  {
+   "page": "S1 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.467,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S1-finale.jpg"
+  },
+  {
+   "page": "S2p0",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.604,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S2-page-0.jpg"
+  },
+  {
+   "page": "S2p0",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.332,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S2-page-0.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.738,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.912,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.047,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p2",
+   "kind": "count",
+   "detail": "more than 1 pigeon in scene",
+   "cls": "clone-likely",
+   "score": 0.977,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S2-page-2.jpg"
+  },
+  {
+   "page": "S2p2",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.068,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S2-page-2.jpg"
+  },
+  {
+   "page": "S2p3",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.791,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S2-page-3.jpg"
+  },
+  {
+   "page": "S2p3",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.95,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S2-page-3.jpg"
+  },
+  {
+   "page": "S2p3",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.218,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S2-page-3.jpg"
+  },
+  {
+   "page": "S3p0",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.915,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-0.jpg"
+  },
+  {
+   "page": "S3p0",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.297,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-0.jpg"
+  },
+  {
+   "page": "S3p0",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.266,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-0.jpg"
+  },
+  {
+   "page": "S3p0",
+   "kind": "human",
+   "detail": "a human or human-shaped character is drawn",
+   "cls": "defect",
+   "score": 0.859,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-0.jpg"
+  },
+  {
+   "page": "S3p1",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.727,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-1.jpg"
+  },
+  {
+   "page": "S3p1",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.254,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-1.jpg"
+  },
+  {
+   "page": "S3p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.496,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-1.jpg"
+  },
+  {
+   "page": "S3p1",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.537,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-1.jpg"
+  },
+  {
+   "page": "S3p2",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.909,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-2.jpg"
+  },
+  {
+   "page": "S3p2",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.556,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-2.jpg"
+  },
+  {
+   "page": "S3p2",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.167,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-2.jpg"
+  },
+  {
+   "page": "S3p3",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.663,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-3.jpg"
+  },
+  {
+   "page": "S3p3",
+   "kind": "missing",
+   "detail": "Tempo (stork) expected but not found",
+   "cls": "review",
+   "score": 0.028,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-3.jpg"
+  },
+  {
+   "page": "S3p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.219,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S3-page-3.jpg"
+  },
+  {
+   "page": "S3 finale",
+   "kind": "count",
+   "detail": "more than 1 pigeon in scene",
+   "cls": "clone-likely",
+   "score": 0.849,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S3-finale.jpg"
+  },
+  {
+   "page": "S3 finale",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.225,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S3-finale.jpg"
+  },
+  {
+   "page": "S4p0",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.805,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S4-page-0.jpg"
+  },
+  {
+   "page": "S4p1",
+   "kind": "count",
+   "detail": "more than 1 pigeon in scene",
+   "cls": "clone-likely",
+   "score": 0.975,
+   "expected": [
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S4-page-1.jpg"
+  },
+  {
+   "page": "S4p1",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.608,
+   "expected": [
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S4-page-1.jpg"
+  },
+  {
+   "page": "S4p2",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.783,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S4-page-2.jpg"
+  },
+  {
+   "page": "S4p2",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.514,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S4-page-2.jpg"
+  },
+  {
+   "page": "S4p2",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.085,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S4-page-2.jpg"
+  },
+  {
+   "page": "S4p3",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.841,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S4-page-3.jpg"
+  },
+  {
+   "page": "S4p3",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.931,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S4-page-3.jpg"
+  },
+  {
+   "page": "S4p3",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.091,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S4-page-3.jpg"
+  },
+  {
+   "page": "S4p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.468,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S4-page-3.jpg"
+  },
+  {
+   "page": "S4 finale",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.705,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S4-finale.jpg"
+  },
+  {
+   "page": "S4 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.494,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S4-finale.jpg"
+  },
+  {
+   "page": "S5p0",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.854,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S5-page-0.jpg"
+  },
+  {
+   "page": "S5p0",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.042,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S5-page-0.jpg"
+  },
+  {
+   "page": "S5p1",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.649,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S5-page-1.jpg"
+  },
+  {
+   "page": "S5p1",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.733,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S5-page-1.jpg"
+  },
+  {
+   "page": "S5p1",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.057,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S5-page-1.jpg"
+  },
+  {
+   "page": "S5p2",
+   "kind": "count",
+   "detail": "more than 1 pigeon in scene",
+   "cls": "clone-likely",
+   "score": 0.95,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S5-page-2.jpg"
+  },
+  {
+   "page": "S5p2",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.601,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S5-page-2.jpg"
+  },
+  {
+   "page": "S5p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.477,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S5-page-2.jpg"
+  },
+  {
+   "page": "S5p3",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.929,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S5-page-3.jpg"
+  },
+  {
+   "page": "S5p3",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.945,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S5-page-3.jpg"
+  },
+  {
+   "page": "S5p3",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.179,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S5-page-3.jpg"
+  },
+  {
+   "page": "S5p3",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.124,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S5-page-3.jpg"
+  },
+  {
+   "page": "S5 finale",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.126,
+   "expected": [
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S5-finale.jpg"
+  },
+  {
+   "page": "S5 finale",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.935,
+   "expected": [
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S5-finale.jpg"
+  },
+  {
+   "page": "S6p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.34,
+   "expected": [
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S6-page-0.jpg"
+  },
+  {
+   "page": "S6p0",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.914,
+   "expected": [
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S6-page-0.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.918,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.788,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.126,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p2",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.586,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S6-page-2.jpg"
+  },
+  {
+   "page": "S6p2",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.085,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S6-page-2.jpg"
+  },
+  {
+   "page": "S6p3",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.835,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S6-page-3.jpg"
+  },
+  {
+   "page": "S6p3",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.813,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S6-page-3.jpg"
+  },
+  {
+   "page": "S6p3",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.102,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S6-page-3.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.815,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S6-finale.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.872,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S6-finale.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.065,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S6-finale.jpg"
+  },
+  {
+   "page": "S6 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.498,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S6-finale.jpg"
+  },
+  {
+   "page": "S7p0",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.599,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S7-page-0.jpg"
+  },
+  {
+   "page": "S7p0",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.225,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S7-page-0.jpg"
+  },
+  {
+   "page": "S7p1",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.973,
+   "expected": [
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S7-page-1.jpg"
+  },
+  {
+   "page": "S7p2",
+   "kind": "count",
+   "detail": "more than 1 pigeon in scene",
+   "cls": "clone-likely",
+   "score": 0.96,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S7-page-2.jpg"
+  },
+  {
+   "page": "S7p2",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.806,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S7-page-2.jpg"
+  },
+  {
+   "page": "S7p2",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.134,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S7-page-2.jpg"
+  },
+  {
+   "page": "S7p2",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.522,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S7-page-2.jpg"
+  },
+  {
+   "page": "S7p3",
+   "kind": "count",
+   "detail": "more than 1 pigeon in scene",
+   "cls": "clone-likely",
+   "score": 0.962,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S7-page-3.jpg"
+  },
+  {
+   "page": "S7p3",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.654,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S7-page-3.jpg"
+  },
+  {
+   "page": "S7p3",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.131,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S7-page-3.jpg"
+  },
+  {
+   "page": "S7 finale",
+   "kind": "count",
+   "detail": "more than 1 pigeon in scene",
+   "cls": "clone-likely",
+   "score": 0.935,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S7-finale.jpg"
+  },
+  {
+   "page": "S7 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.373,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S7-finale.jpg"
+  },
+  {
+   "page": "S7 finale",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.907,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S7-finale.jpg"
+  },
+  {
+   "page": "S7 finale",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.96,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S7-finale.jpg"
+  },
+  {
+   "page": "S8p0",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.615,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S8-page-0.jpg"
+  },
+  {
+   "page": "S8p1",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.882,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S8-page-1.jpg"
+  },
+  {
+   "page": "S8p1",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.879,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S8-page-1.jpg"
+  },
+  {
+   "page": "S8p1",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.078,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S8-page-1.jpg"
+  },
+  {
+   "page": "S8p2",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.727,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S8-page-2.jpg"
+  },
+  {
+   "page": "S8p2",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.232,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S8-page-2.jpg"
+  },
+  {
+   "page": "S8p3",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.888,
+   "expected": [],
+   "key": "books/motivationmanifesto/images/S8-page-3.jpg"
+  },
+  {
+   "page": "S8p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.466,
+   "expected": [],
+   "key": "books/motivationmanifesto/images/S8-page-3.jpg"
+  },
+  {
+   "page": "S8p3",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.545,
+   "expected": [],
+   "key": "books/motivationmanifesto/images/S8-page-3.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.909,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S8-finale.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "count",
+   "detail": "more than 1 swift in scene",
+   "cls": "clone-likely",
+   "score": 0.929,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S8-finale.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.082,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S8-finale.jpg"
+  },
+  {
+   "page": "S9p0",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.078,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S9-page-0.jpg"
+  },
+  {
+   "page": "S9p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.469,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S9-page-0.jpg"
+  },
+  {
+   "page": "S9p1",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.855,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S9-page-1.jpg"
+  },
+  {
+   "page": "S9p1",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.021,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S9-page-1.jpg"
+  },
+  {
+   "page": "S9p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.423,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S9-page-1.jpg"
+  },
+  {
+   "page": "S9p1",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.383,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S9-page-1.jpg"
+  },
+  {
+   "page": "S9p1",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.884,
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "key": "books/motivationmanifesto/images/S9-page-1.jpg"
+  },
+  {
+   "page": "S9p2",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.143,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S9-page-2.jpg"
+  },
+  {
+   "page": "S9p2",
+   "kind": "missing",
+   "detail": "Pell (pigeon) expected but not found",
+   "cls": "review",
+   "score": 0.249,
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "key": "books/motivationmanifesto/images/S9-page-2.jpg"
+  },
+  {
+   "page": "S9p3",
+   "kind": "count",
+   "detail": "more than 0 pigeon in scene",
+   "cls": "extra-review",
+   "score": 0.608,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S9-page-3.jpg"
+  },
+  {
+   "page": "S9p3",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.091,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S9-page-3.jpg"
+  },
+  {
+   "page": "S9 finale",
+   "kind": "missing",
+   "detail": "Juno (swift) expected but not found",
+   "cls": "review",
+   "score": 0.049,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S9-finale.jpg"
+  },
+  {
+   "page": "S9 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.265,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S9-finale.jpg"
+  },
+  {
+   "page": "S9 finale",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.92,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S9-finale.jpg"
+  },
+  {
+   "page": "S9 finale",
+   "kind": "human",
+   "detail": "a human or human-shaped character is drawn",
+   "cls": "defect",
+   "score": 0.703,
+   "expected": [
+    "Juno"
+   ],
+   "key": "books/motivationmanifesto/images/S9-finale.jpg"
+  }
+ ],
+ "results": [
+  {
+   "page": "S1p0",
+   "key": "books/motivationmanifesto/images/S1-page-0.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.9416,
+    "count_stork": 0.0294,
+    "count_swift": 0.0214,
+    "present_Juno": 0.0847,
+    "anatomy_ok": 0.6176,
+    "has_human": 0.8018,
+    "foreign_species": 0.0954,
+    "has_color": 0.0624,
+    "has_text": 0.0766
+   }
+  },
+  {
+   "page": "S1p1",
+   "key": "books/motivationmanifesto/images/S1-page-1.jpg",
+   "expected": [
+    "Tempo"
+   ],
+   "scores": {
+    "count_pigeon": 0.1176,
+    "count_stork": 0.0154,
+    "count_swift": 0.0143,
+    "present_Tempo": 0.8728,
+    "anatomy_ok": 0.6726,
+    "has_human": 0.0132,
+    "foreign_species": 0.0371,
+    "has_color": 0.0817,
+    "has_text": 0.212
+   }
+  },
+  {
+   "page": "S1p2",
+   "key": "books/motivationmanifesto/images/S1-page-2.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.8679,
+    "count_stork": 0.0276,
+    "count_swift": 0.8942,
+    "present_Juno": 0.081,
+    "anatomy_ok": 0.523,
+    "has_human": 0.0176,
+    "foreign_species": 0.0534,
+    "has_color": 0.0412,
+    "has_text": 0.088
+   }
+  },
+  {
+   "page": "S1p3",
+   "key": "books/motivationmanifesto/images/S1-page-3.jpg",
+   "expected": [
+    "Pell"
+   ],
+   "scores": {
+    "count_pigeon": 0.9804,
+    "count_stork": 0.0216,
+    "count_swift": 0.029,
+    "present_Pell": 0.7943,
+    "anatomy_ok": 0.5665,
+    "has_human": 0.9406,
+    "foreign_species": 0.0583,
+    "has_color": 0.0669,
+    "has_text": 0.0682
+   }
+  },
+  {
+   "page": "S1 finale",
+   "key": "books/motivationmanifesto/images/S1-finale.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.8304,
+    "count_stork": 0.1087,
+    "count_swift": 0.0185,
+    "present_Juno": 0.7434,
+    "anatomy_ok": 0.4666,
+    "has_human": 0.0152,
+    "foreign_species": 0.048,
+    "has_color": 0.0358,
+    "has_text": 0.0449
+   }
+  },
+  {
+   "page": "S2p0",
+   "key": "books/motivationmanifesto/images/S2-page-0.jpg",
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "scores": {
+    "count_pigeon": 0.6041,
+    "count_stork": 0.019,
+    "count_swift": 0.0386,
+    "present_Juno": 0.3323,
+    "present_Tempo": 0.8995,
+    "anatomy_ok": 0.6279,
+    "has_human": 0.0143,
+    "foreign_species": 0.0403,
+    "has_color": 0.0417,
+    "has_text": 0.0293
+   }
+  },
+  {
+   "page": "S2p1",
+   "key": "books/motivationmanifesto/images/S2-page-1.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.7381,
+    "count_stork": 0.0231,
+    "count_swift": 0.9118,
+    "present_Juno": 0.0469,
+    "anatomy_ok": 0.5235,
+    "has_human": 0.0155,
+    "foreign_species": 0.1421,
+    "has_color": 0.0474,
+    "has_text": 0.0234
+   }
+  },
+  {
+   "page": "S2p2",
+   "key": "books/motivationmanifesto/images/S2-page-2.jpg",
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "scores": {
+    "count_pigeon": 0.9773,
+    "count_stork": 0.011,
+    "count_swift": 0.0625,
+    "present_Juno": 0.0676,
+    "present_Pell": 0.8276,
+    "anatomy_ok": 0.5918,
+    "has_human": 0.0125,
+    "foreign_species": 0.0381,
+    "has_color": 0.0672,
+    "has_text": 0.0247
+   }
+  },
+  {
+   "page": "S2p3",
+   "key": "books/motivationmanifesto/images/S2-page-3.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.7913,
+    "count_stork": 0.0836,
+    "count_swift": 0.9501,
+    "present_Juno": 0.2183,
+    "anatomy_ok": 0.5753,
+    "has_human": 0.0139,
+    "foreign_species": 0.0468,
+    "has_color": 0.0328,
+    "has_text": 0.0235
+   }
+  },
+  {
+   "page": "S2 finale",
+   "key": "books/motivationmanifesto/images/S2-finale.jpg",
+   "expected": [
+    "Pell"
+   ],
+   "scores": {
+    "count_pigeon": 0.0203,
+    "count_stork": 0.0179,
+    "count_swift": 0.0312,
+    "present_Pell": 0.8211,
+    "anatomy_ok": 0.5683,
+    "has_human": 0.0161,
+    "foreign_species": 0.0333,
+    "has_color": 0.0704,
+    "has_text": 0.0306
+   }
+  },
+  {
+   "page": "S3p0",
+   "key": "books/motivationmanifesto/images/S3-page-0.jpg",
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "scores": {
+    "count_pigeon": 0.9154,
+    "count_stork": 0.0308,
+    "count_swift": 0.0345,
+    "present_Juno": 0.2968,
+    "present_Tempo": 0.9259,
+    "anatomy_ok": 0.5737,
+    "has_human": 0.8585,
+    "foreign_species": 0.0742,
+    "has_color": 0.0551,
+    "has_text": 0.2657
+   }
+  },
+  {
+   "page": "S3p1",
+   "key": "books/motivationmanifesto/images/S3-page-1.jpg",
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "scores": {
+    "count_pigeon": 0.7271,
+    "count_stork": 0.0253,
+    "count_swift": 0.0851,
+    "present_Juno": 0.2543,
+    "present_Tempo": 0.9149,
+    "anatomy_ok": 0.4962,
+    "has_human": 0.0129,
+    "foreign_species": 0.0371,
+    "has_color": 0.0451,
+    "has_text": 0.5368
+   }
+  },
+  {
+   "page": "S3p2",
+   "key": "books/motivationmanifesto/images/S3-page-2.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.9095,
+    "count_stork": 0.0298,
+    "count_swift": 0.5558,
+    "present_Juno": 0.1672,
+    "anatomy_ok": 0.575,
+    "has_human": 0.0176,
+    "foreign_species": 0.1626,
+    "has_color": 0.052,
+    "has_text": 0.0262
+   }
+  },
+  {
+   "page": "S3p3",
+   "key": "books/motivationmanifesto/images/S3-page-3.jpg",
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "scores": {
+    "count_pigeon": 0.6628,
+    "count_stork": 0.0101,
+    "count_swift": 0.0335,
+    "present_Juno": 0.8163,
+    "present_Tempo": 0.0281,
+    "anatomy_ok": 0.2186,
+    "has_human": 0.0148,
+    "foreign_species": 0.0836,
+    "has_color": 0.0485,
+    "has_text": 0.0221
+   }
+  },
+  {
+   "page": "S3 finale",
+   "key": "books/motivationmanifesto/images/S3-finale.jpg",
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "scores": {
+    "count_pigeon": 0.8485,
+    "count_stork": 0.0122,
+    "count_swift": 0.0431,
+    "present_Juno": 0.2246,
+    "present_Pell": 0.8201,
+    "anatomy_ok": 0.6184,
+    "has_human": 0.0128,
+    "foreign_species": 0.0941,
+    "has_color": 0.0546,
+    "has_text": 0.0784
+   }
+  },
+  {
+   "page": "S4p0",
+   "key": "books/motivationmanifesto/images/S4-page-0.jpg",
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "scores": {
+    "count_pigeon": 0.8055,
+    "count_stork": 0.0291,
+    "count_swift": 0.055,
+    "present_Juno": 0.401,
+    "present_Tempo": 0.899,
+    "anatomy_ok": 0.5701,
+    "has_human": 0.0167,
+    "foreign_species": 0.0484,
+    "has_color": 0.0432,
+    "has_text": 0.0353
+   }
+  },
+  {
+   "page": "S4p1",
+   "key": "books/motivationmanifesto/images/S4-page-1.jpg",
+   "expected": [
+    "Pell"
+   ],
+   "scores": {
+    "count_pigeon": 0.9745,
+    "count_stork": 0.0211,
+    "count_swift": 0.0719,
+    "present_Pell": 0.8027,
+    "anatomy_ok": 0.751,
+    "has_human": 0.0256,
+    "foreign_species": 0.0875,
+    "has_color": 0.0688,
+    "has_text": 0.608
+   }
+  },
+  {
+   "page": "S4p2",
+   "key": "books/motivationmanifesto/images/S4-page-2.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.7828,
+    "count_stork": 0.0293,
+    "count_swift": 0.5143,
+    "present_Juno": 0.0849,
+    "anatomy_ok": 0.573,
+    "has_human": 0.0197,
+    "foreign_species": 0.2525,
+    "has_color": 0.0491,
+    "has_text": 0.0248
+   }
+  },
+  {
+   "page": "S4p3",
+   "key": "books/motivationmanifesto/images/S4-page-3.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.8412,
+    "count_stork": 0.0378,
+    "count_swift": 0.9306,
+    "present_Juno": 0.0908,
+    "anatomy_ok": 0.468,
+    "has_human": 0.0117,
+    "foreign_species": 0.0586,
+    "has_color": 0.0321,
+    "has_text": 0.0166
+   }
+  },
+  {
+   "page": "S4 finale",
+   "key": "books/motivationmanifesto/images/S4-finale.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.705,
+    "count_stork": 0.0282,
+    "count_swift": 0.2658,
+    "present_Juno": 0.6926,
+    "anatomy_ok": 0.4938,
+    "has_human": 0.014,
+    "foreign_species": 0.1545,
+    "has_color": 0.047,
+    "has_text": 0.018
+   }
+  },
+  {
+   "page": "S5p0",
+   "key": "books/motivationmanifesto/images/S5-page-0.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.8537,
+    "count_stork": 0.0627,
+    "count_swift": 0.0169,
+    "present_Juno": 0.0422,
+    "anatomy_ok": 0.7227,
+    "has_human": 0.0128,
+    "foreign_species": 0.469,
+    "has_color": 0.0431,
+    "has_text": 0.0174
+   }
+  },
+  {
+   "page": "S5p1",
+   "key": "books/motivationmanifesto/images/S5-page-1.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.6491,
+    "count_stork": 0.0173,
+    "count_swift": 0.7334,
+    "present_Juno": 0.0573,
+    "anatomy_ok": 0.6434,
+    "has_human": 0.018,
+    "foreign_species": 0.1857,
+    "has_color": 0.0742,
+    "has_text": 0.0264
+   }
+  },
+  {
+   "page": "S5p2",
+   "key": "books/motivationmanifesto/images/S5-page-2.jpg",
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "scores": {
+    "count_pigeon": 0.9502,
+    "count_stork": 0.0178,
+    "count_swift": 0.6007,
+    "present_Juno": 0.5695,
+    "present_Pell": 0.8409,
+    "anatomy_ok": 0.4769,
+    "has_human": 0.013,
+    "foreign_species": 0.0955,
+    "has_color": 0.0382,
+    "has_text": 0.0157
+   }
+  },
+  {
+   "page": "S5p3",
+   "key": "books/motivationmanifesto/images/S5-page-3.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.9295,
+    "count_stork": 0.0523,
+    "count_swift": 0.9449,
+    "present_Juno": 0.1792,
+    "anatomy_ok": 0.5802,
+    "has_human": 0.0141,
+    "foreign_species": 0.0455,
+    "has_color": 0.1023,
+    "has_text": 0.1242
+   }
+  },
+  {
+   "page": "S5 finale",
+   "key": "books/motivationmanifesto/images/S5-finale.jpg",
+   "expected": [
+    "Tempo"
+   ],
+   "scores": {
+    "count_pigeon": 0.1612,
+    "count_stork": 0.0138,
+    "count_swift": 0.014,
+    "present_Tempo": 0.9301,
+    "anatomy_ok": 0.6324,
+    "has_human": 0.0137,
+    "foreign_species": 0.0323,
+    "has_color": 0.9348,
+    "has_text": 0.1261
+   }
+  },
+  {
+   "page": "S6p0",
+   "key": "books/motivationmanifesto/images/S6-page-0.jpg",
+   "expected": [
+    "Tempo"
+   ],
+   "scores": {
+    "count_pigeon": 0.309,
+    "count_stork": 0.0151,
+    "count_swift": 0.0116,
+    "present_Tempo": 0.6332,
+    "anatomy_ok": 0.3401,
+    "has_human": 0.0132,
+    "foreign_species": 0.0285,
+    "has_color": 0.9137,
+    "has_text": 0.0123
+   }
+  },
+  {
+   "page": "S6p1",
+   "key": "books/motivationmanifesto/images/S6-page-1.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.9184,
+    "count_stork": 0.0168,
+    "count_swift": 0.7881,
+    "present_Juno": 0.1259,
+    "anatomy_ok": 0.642,
+    "has_human": 0.0174,
+    "foreign_species": 0.0852,
+    "has_color": 0.0505,
+    "has_text": 0.0221
+   }
+  },
+  {
+   "page": "S6p2",
+   "key": "books/motivationmanifesto/images/S6-page-2.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.5864,
+    "count_stork": 0.0231,
+    "count_swift": 0.0198,
+    "present_Juno": 0.0846,
+    "anatomy_ok": 0.761,
+    "has_human": 0.0206,
+    "foreign_species": 0.3228,
+    "has_color": 0.0507,
+    "has_text": 0.0278
+   }
+  },
+  {
+   "page": "S6p3",
+   "key": "books/motivationmanifesto/images/S6-page-3.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.8345,
+    "count_stork": 0.038,
+    "count_swift": 0.8133,
+    "present_Juno": 0.1023,
+    "anatomy_ok": 0.7206,
+    "has_human": 0.017,
+    "foreign_species": 0.0724,
+    "has_color": 0.0603,
+    "has_text": 0.0242
+   }
+  },
+  {
+   "page": "S6 finale",
+   "key": "books/motivationmanifesto/images/S6-finale.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.8149,
+    "count_stork": 0.0163,
+    "count_swift": 0.872,
+    "present_Juno": 0.0645,
+    "anatomy_ok": 0.4979,
+    "has_human": 0.0135,
+    "foreign_species": 0.1072,
+    "has_color": 0.0359,
+    "has_text": 0.0165
+   }
+  },
+  {
+   "page": "S7p0",
+   "key": "books/motivationmanifesto/images/S7-page-0.jpg",
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "scores": {
+    "count_pigeon": 0.5988,
+    "count_stork": 0.0196,
+    "count_swift": 0.0358,
+    "present_Juno": 0.225,
+    "present_Tempo": 0.8907,
+    "anatomy_ok": 0.5992,
+    "has_human": 0.015,
+    "foreign_species": 0.0772,
+    "has_color": 0.038,
+    "has_text": 0.0892
+   }
+  },
+  {
+   "page": "S7p1",
+   "key": "books/motivationmanifesto/images/S7-page-1.jpg",
+   "expected": [
+    "Pell"
+   ],
+   "scores": {
+    "count_pigeon": 0.0183,
+    "count_stork": 0.1131,
+    "count_swift": 0.0391,
+    "present_Pell": 0.9247,
+    "anatomy_ok": 0.6642,
+    "has_human": 0.013,
+    "foreign_species": 0.0776,
+    "has_color": 0.9728,
+    "has_text": 0.0125
+   }
+  },
+  {
+   "page": "S7p2",
+   "key": "books/motivationmanifesto/images/S7-page-2.jpg",
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "scores": {
+    "count_pigeon": 0.9599,
+    "count_stork": 0.0192,
+    "count_swift": 0.806,
+    "present_Juno": 0.1335,
+    "present_Pell": 0.9211,
+    "anatomy_ok": 0.5518,
+    "has_human": 0.0147,
+    "foreign_species": 0.0762,
+    "has_color": 0.5224,
+    "has_text": 0.0182
+   }
+  },
+  {
+   "page": "S7p3",
+   "key": "books/motivationmanifesto/images/S7-page-3.jpg",
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "scores": {
+    "count_pigeon": 0.9623,
+    "count_stork": 0.0218,
+    "count_swift": 0.6542,
+    "present_Juno": 0.1312,
+    "present_Pell": 0.7984,
+    "anatomy_ok": 0.6274,
+    "has_human": 0.0141,
+    "foreign_species": 0.1553,
+    "has_color": 0.043,
+    "has_text": 0.0218
+   }
+  },
+  {
+   "page": "S7 finale",
+   "key": "books/motivationmanifesto/images/S7-finale.jpg",
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "scores": {
+    "count_pigeon": 0.9346,
+    "count_stork": 0.0198,
+    "count_swift": 0.0812,
+    "present_Juno": 0.8781,
+    "present_Pell": 0.9365,
+    "anatomy_ok": 0.3728,
+    "has_human": 0.0149,
+    "foreign_species": 0.0414,
+    "has_color": 0.9598,
+    "has_text": 0.9073
+   }
+  },
+  {
+   "page": "S8p0",
+   "key": "books/motivationmanifesto/images/S8-page-0.jpg",
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "scores": {
+    "count_pigeon": 0.6154,
+    "count_stork": 0.0164,
+    "count_swift": 0.0426,
+    "present_Juno": 0.4572,
+    "present_Tempo": 0.9016,
+    "anatomy_ok": 0.5262,
+    "has_human": 0.0131,
+    "foreign_species": 0.0383,
+    "has_color": 0.043,
+    "has_text": 0.0771
+   }
+  },
+  {
+   "page": "S8p1",
+   "key": "books/motivationmanifesto/images/S8-page-1.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.8819,
+    "count_stork": 0.0217,
+    "count_swift": 0.8793,
+    "present_Juno": 0.0783,
+    "anatomy_ok": 0.6025,
+    "has_human": 0.0192,
+    "foreign_species": 0.2037,
+    "has_color": 0.0387,
+    "has_text": 0.0251
+   }
+  },
+  {
+   "page": "S8p2",
+   "key": "books/motivationmanifesto/images/S8-page-2.jpg",
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "scores": {
+    "count_pigeon": 0.7267,
+    "count_stork": 0.0154,
+    "count_swift": 0.0363,
+    "present_Juno": 0.2322,
+    "present_Tempo": 0.9294,
+    "anatomy_ok": 0.5894,
+    "has_human": 0.0106,
+    "foreign_species": 0.0364,
+    "has_color": 0.0578,
+    "has_text": 0.0805
+   }
+  },
+  {
+   "page": "S8p3",
+   "key": "books/motivationmanifesto/images/S8-page-3.jpg",
+   "expected": [],
+   "scores": {
+    "count_pigeon": 0.8882,
+    "count_stork": 0.0177,
+    "count_swift": 0.0506,
+    "anatomy_ok": 0.4655,
+    "has_human": 0.0154,
+    "foreign_species": 0.5446,
+    "has_color": 0.0509,
+    "has_text": 0.0195
+   }
+  },
+  {
+   "page": "S8 finale",
+   "key": "books/motivationmanifesto/images/S8-finale.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.909,
+    "count_stork": 0.0223,
+    "count_swift": 0.9294,
+    "present_Juno": 0.0824,
+    "anatomy_ok": 0.6776,
+    "has_human": 0.0153,
+    "foreign_species": 0.0514,
+    "has_color": 0.0556,
+    "has_text": 0.0297
+   }
+  },
+  {
+   "page": "S9p0",
+   "key": "books/motivationmanifesto/images/S9-page-0.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.0485,
+    "count_stork": 0.0411,
+    "count_swift": 0.0515,
+    "present_Juno": 0.0776,
+    "anatomy_ok": 0.4691,
+    "has_human": 0.0604,
+    "foreign_species": 0.115,
+    "has_color": 0.1042,
+    "has_text": 0.0896
+   }
+  },
+  {
+   "page": "S9p1",
+   "key": "books/motivationmanifesto/images/S9-page-1.jpg",
+   "expected": [
+    "Juno",
+    "Tempo"
+   ],
+   "scores": {
+    "count_pigeon": 0.8549,
+    "count_stork": 0.0164,
+    "count_swift": 0.0133,
+    "present_Juno": 0.0206,
+    "present_Tempo": 0.8348,
+    "anatomy_ok": 0.423,
+    "has_human": 0.0911,
+    "foreign_species": 0.0696,
+    "has_color": 0.8838,
+    "has_text": 0.383
+   }
+  },
+  {
+   "page": "S9p2",
+   "key": "books/motivationmanifesto/images/S9-page-2.jpg",
+   "expected": [
+    "Juno",
+    "Pell"
+   ],
+   "scores": {
+    "count_pigeon": 0.0737,
+    "count_stork": 0.2057,
+    "count_swift": 0.0198,
+    "present_Juno": 0.1431,
+    "present_Pell": 0.2495,
+    "anatomy_ok": 0.5272,
+    "has_human": 0.0146,
+    "foreign_species": 0.1079,
+    "has_color": 0.1037,
+    "has_text": 0.0166
+   }
+  },
+  {
+   "page": "S9p3",
+   "key": "books/motivationmanifesto/images/S9-page-3.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.6083,
+    "count_stork": 0.0694,
+    "count_swift": 0.1487,
+    "present_Juno": 0.0909,
+    "anatomy_ok": 0.609,
+    "has_human": 0.0137,
+    "foreign_species": 0.193,
+    "has_color": 0.0406,
+    "has_text": 0.0304
+   }
+  },
+  {
+   "page": "S9 finale",
+   "key": "books/motivationmanifesto/images/S9-finale.jpg",
+   "expected": [
+    "Juno"
+   ],
+   "scores": {
+    "count_pigeon": 0.1887,
+    "count_stork": 0.1027,
+    "count_swift": 0.0261,
+    "present_Juno": 0.0485,
+    "anatomy_ok": 0.2654,
+    "has_human": 0.7028,
+    "foreign_species": 0.3883,
+    "has_color": 0.0403,
+    "has_text": 0.9201
+   }
+  }
+ ]
+}

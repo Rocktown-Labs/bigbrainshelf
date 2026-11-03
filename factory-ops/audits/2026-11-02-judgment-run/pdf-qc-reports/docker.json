@@ -1,0 +1,1519 @@
+{
+ "slug": "docker",
+ "title": "Wells the Whale and the Great Harbor",
+ "measured_at": 1793682728,
+ "picture_book": {
+  "pages": 95,
+  "colored_pages": [
+   79
+  ],
+  "colored_matter_pages": [
+   94
+  ],
+  "caption_truncated_pages": [],
+  "cover": {
+   "has_title": true,
+   "scores": {
+    "cover_title": 0.9624
+   }
+  },
+  "back": {
+   "complete": true,
+   "scores": {
+    "back_complete": 0.9113
+   }
+  },
+  "detail": [
+   {
+    "page": 1,
+    "color_fraction": 0.41246,
+    "clef": {
+     "cover_title": 0.9624
+    }
+   },
+   {
+    "page": 2,
+    "color_fraction": 0.00372,
+    "matter": true,
+    "clef": {
+     "has_color": 0.2869
+    }
+   },
+   {
+    "page": 3,
+    "color_fraction": 0.00192,
+    "matter": true,
+    "clef": {
+     "has_color": 0.1608
+    }
+   },
+   {
+    "page": 4,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0164
+    }
+   },
+   {
+    "page": 5,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0174
+    }
+   },
+   {
+    "page": 6,
+    "color_fraction": 0.00015,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0104
+    }
+   },
+   {
+    "page": 7,
+    "color_fraction": 2e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0141
+    }
+   },
+   {
+    "page": 8,
+    "color_fraction": 7e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.013
+    }
+   },
+   {
+    "page": 9,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0127
+    }
+   },
+   {
+    "page": 10,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0389
+    }
+   },
+   {
+    "page": 11,
+    "color_fraction": 7e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0144
+    }
+   },
+   {
+    "page": 12,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0128
+    }
+   },
+   {
+    "page": 13,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0301
+    }
+   },
+   {
+    "page": 14,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.025
+    }
+   },
+   {
+    "page": 15,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0125
+    }
+   },
+   {
+    "page": 16,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0152
+    }
+   },
+   {
+    "page": 17,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.013
+    }
+   },
+   {
+    "page": 18,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0153
+    }
+   },
+   {
+    "page": 19,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.035
+    }
+   },
+   {
+    "page": 20,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0221
+    }
+   },
+   {
+    "page": 21,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0166
+    }
+   },
+   {
+    "page": 22,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0159
+    }
+   },
+   {
+    "page": 23,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0269
+    }
+   },
+   {
+    "page": 24,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.018
+    }
+   },
+   {
+    "page": 25,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0119
+    }
+   },
+   {
+    "page": 26,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0185
+    }
+   },
+   {
+    "page": 27,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0149
+    }
+   },
+   {
+    "page": 28,
+    "color_fraction": 0.0001,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0135
+    }
+   },
+   {
+    "page": 29,
+    "color_fraction": 0.0001,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0398
+    }
+   },
+   {
+    "page": 30,
+    "color_fraction": 0.00013,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0158
+    }
+   },
+   {
+    "page": 31,
+    "color_fraction": 0.0001,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0146
+    }
+   },
+   {
+    "page": 32,
+    "color_fraction": 0.00018,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0183
+    }
+   },
+   {
+    "page": 33,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0141
+    }
+   },
+   {
+    "page": 34,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0155
+    }
+   },
+   {
+    "page": 35,
+    "color_fraction": 4e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.02
+    }
+   },
+   {
+    "page": 36,
+    "color_fraction": 2e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.014
+    }
+   },
+   {
+    "page": 37,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0156
+    }
+   },
+   {
+    "page": 38,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0119
+    }
+   },
+   {
+    "page": 39,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.016
+    }
+   },
+   {
+    "page": 40,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0207
+    }
+   },
+   {
+    "page": 41,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0159
+    }
+   },
+   {
+    "page": 42,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0214
+    }
+   },
+   {
+    "page": 43,
+    "color_fraction": 0.00014,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0135
+    }
+   },
+   {
+    "page": 44,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0203
+    }
+   },
+   {
+    "page": 45,
+    "color_fraction": 2e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0199
+    }
+   },
+   {
+    "page": 46,
+    "color_fraction": 2e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0167
+    }
+   },
+   {
+    "page": 47,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.021
+    }
+   },
+   {
+    "page": 48,
+    "color_fraction": 8e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.013
+    }
+   },
+   {
+    "page": 49,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0147
+    }
+   },
+   {
+    "page": 50,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0132
+    }
+   },
+   {
+    "page": 51,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0169
+    }
+   },
+   {
+    "page": 52,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0172
+    }
+   },
+   {
+    "page": 53,
+    "color_fraction": 9e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0145
+    }
+   },
+   {
+    "page": 54,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0189
+    }
+   },
+   {
+    "page": 55,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0241
+    }
+   },
+   {
+    "page": 56,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0279
+    }
+   },
+   {
+    "page": 57,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0112
+    }
+   },
+   {
+    "page": 58,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0148
+    }
+   },
+   {
+    "page": 59,
+    "color_fraction": 2e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0117
+    }
+   },
+   {
+    "page": 60,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0234
+    }
+   },
+   {
+    "page": 61,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0162
+    }
+   },
+   {
+    "page": 62,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0187
+    }
+   },
+   {
+    "page": 63,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0218
+    }
+   },
+   {
+    "page": 64,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0148
+    }
+   },
+   {
+    "page": 65,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0124
+    }
+   },
+   {
+    "page": 66,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0154
+    }
+   },
+   {
+    "page": 67,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0157
+    }
+   },
+   {
+    "page": 68,
+    "color_fraction": 9e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0114
+    }
+   },
+   {
+    "page": 69,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.012
+    }
+   },
+   {
+    "page": 70,
+    "color_fraction": 2e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0189
+    }
+   },
+   {
+    "page": 71,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0122
+    }
+   },
+   {
+    "page": 72,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0227
+    }
+   },
+   {
+    "page": 73,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0121
+    }
+   },
+   {
+    "page": 74,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0251
+    }
+   },
+   {
+    "page": 75,
+    "color_fraction": 9e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0122
+    }
+   },
+   {
+    "page": 76,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0271
+    }
+   },
+   {
+    "page": 77,
+    "color_fraction": 0.00022,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0593
+    }
+   },
+   {
+    "page": 78,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0105
+    }
+   },
+   {
+    "page": 79,
+    "color_fraction": 0.0075,
+    "matter": false,
+    "clef": {
+     "has_color": 0.9199
+    },
+    "colored_by": "clef pixel"
+   },
+   {
+    "page": 80,
+    "color_fraction": 0.00021,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0369
+    }
+   },
+   {
+    "page": 81,
+    "color_fraction": 5e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0269
+    }
+   },
+   {
+    "page": 82,
+    "color_fraction": 0.00045,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0204
+    }
+   },
+   {
+    "page": 83,
+    "color_fraction": 5e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0165
+    }
+   },
+   {
+    "page": 84,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.017
+    }
+   },
+   {
+    "page": 85,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0222
+    }
+   },
+   {
+    "page": 86,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0165
+    }
+   },
+   {
+    "page": 87,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.015
+    }
+   },
+   {
+    "page": 88,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0121
+    }
+   },
+   {
+    "page": 89,
+    "color_fraction": 0.00013,
+    "matter": false,
+    "clef": {
+     "has_color": 0.014
+    }
+   },
+   {
+    "page": 90,
+    "color_fraction": 0.0003,
+    "matter": false,
+    "clef": {
+     "has_color": 0.018
+    }
+   },
+   {
+    "page": 91,
+    "color_fraction": 0.0001,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0152
+    }
+   },
+   {
+    "page": 92,
+    "color_fraction": 0.00014,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0191
+    }
+   },
+   {
+    "page": 93,
+    "color_fraction": 6e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0233
+    }
+   },
+   {
+    "page": 94,
+    "color_fraction": 0.0031,
+    "matter": true,
+    "clef": {
+     "has_color": 0.5457
+    },
+    "colored_by": "clef "
+   },
+   {
+    "page": 95,
+    "color_fraction": 0.16344,
+    "clef": {
+     "back_complete": 0.9113
+    }
+   }
+  ]
+ },
+ "coloring_book": {
+  "pages": 77,
+  "colored_pages": [
+   64
+  ],
+  "colored_matter_pages": [
+   76
+  ],
+  "caption_truncated_pages": [],
+  "cover": {
+   "has_title": true,
+   "scores": {
+    "cover_title": 0.9624
+   }
+  },
+  "back": {
+   "complete": true,
+   "scores": {
+    "back_complete": 0.9506
+   }
+  },
+  "detail": [
+   {
+    "page": 1,
+    "color_fraction": 0.41246,
+    "clef": {
+     "cover_title": 0.9624
+    }
+   },
+   {
+    "page": 2,
+    "color_fraction": 0.00372,
+    "matter": true,
+    "clef": {
+     "has_color": 0.2869
+    }
+   },
+   {
+    "page": 3,
+    "color_fraction": 0.00192,
+    "matter": true,
+    "clef": {
+     "has_color": 0.1608
+    }
+   },
+   {
+    "page": 4,
+    "color_fraction": 0.0001,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0228,
+     "caption_complete": 0.8996
+    }
+   },
+   {
+    "page": 5,
+    "color_fraction": 0.00017,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0253,
+     "caption_complete": 0.8763
+    }
+   },
+   {
+    "page": 6,
+    "color_fraction": 0.00076,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0205,
+     "caption_complete": 0.9114
+    }
+   },
+   {
+    "page": 7,
+    "color_fraction": 8e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0282,
+     "caption_complete": 0.8761
+    }
+   },
+   {
+    "page": 8,
+    "color_fraction": 2e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0271,
+     "caption_complete": 0.9252
+    }
+   },
+   {
+    "page": 9,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0259,
+     "caption_complete": 0.8991
+    }
+   },
+   {
+    "page": 10,
+    "color_fraction": 0.00031,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0196,
+     "caption_complete": 0.9099
+    }
+   },
+   {
+    "page": 11,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.023,
+     "caption_complete": 0.903
+    }
+   },
+   {
+    "page": 12,
+    "color_fraction": 4e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0343,
+     "caption_complete": 0.8246
+    }
+   },
+   {
+    "page": 13,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0259,
+     "caption_complete": 0.9191
+    }
+   },
+   {
+    "page": 14,
+    "color_fraction": 0.00024,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0237,
+     "caption_complete": 0.9193
+    }
+   },
+   {
+    "page": 15,
+    "color_fraction": 0.00011,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0307,
+     "caption_complete": 0.9361
+    }
+   },
+   {
+    "page": 16,
+    "color_fraction": 0.00032,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0251,
+     "caption_complete": 0.7953
+    }
+   },
+   {
+    "page": 17,
+    "color_fraction": 0.00014,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0222,
+     "caption_complete": 0.8717
+    }
+   },
+   {
+    "page": 18,
+    "color_fraction": 6e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0287,
+     "caption_complete": 0.9169
+    }
+   },
+   {
+    "page": 19,
+    "color_fraction": 0.00027,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0386,
+     "caption_complete": 0.895
+    }
+   },
+   {
+    "page": 20,
+    "color_fraction": 0.00012,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0381,
+     "caption_complete": 0.8618
+    }
+   },
+   {
+    "page": 21,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.028,
+     "caption_complete": 0.9308
+    }
+   },
+   {
+    "page": 22,
+    "color_fraction": 0.00014,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0262,
+     "caption_complete": 0.9062
+    }
+   },
+   {
+    "page": 23,
+    "color_fraction": 3e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0247,
+     "caption_complete": 0.8967
+    }
+   },
+   {
+    "page": 24,
+    "color_fraction": 0.00017,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0322,
+     "caption_complete": 0.936
+    }
+   },
+   {
+    "page": 25,
+    "color_fraction": 0.00035,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0275,
+     "caption_complete": 0.9194
+    }
+   },
+   {
+    "page": 26,
+    "color_fraction": 0.00014,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0312,
+     "caption_complete": 0.9046
+    }
+   },
+   {
+    "page": 27,
+    "color_fraction": 0.00069,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0235,
+     "caption_complete": 0.9242
+    }
+   },
+   {
+    "page": 28,
+    "color_fraction": 2e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0231,
+     "caption_complete": 0.9265
+    }
+   },
+   {
+    "page": 29,
+    "color_fraction": 0.00014,
+    "matter": false,
+    "clef": {
+     "has_color": 0.029,
+     "caption_complete": 0.9175
+    }
+   },
+   {
+    "page": 30,
+    "color_fraction": 0.00023,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0263,
+     "caption_complete": 0.8636
+    }
+   },
+   {
+    "page": 31,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0381,
+     "caption_complete": 0.8843
+    }
+   },
+   {
+    "page": 32,
+    "color_fraction": 9e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0254,
+     "caption_complete": 0.9086
+    }
+   },
+   {
+    "page": 33,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0269,
+     "caption_complete": 0.9305
+    }
+   },
+   {
+    "page": 34,
+    "color_fraction": 0.00015,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0321,
+     "caption_complete": 0.8977
+    }
+   },
+   {
+    "page": 35,
+    "color_fraction": 7e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0226,
+     "caption_complete": 0.9008
+    }
+   },
+   {
+    "page": 36,
+    "color_fraction": 0.0001,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0238,
+     "caption_complete": 0.8623
+    }
+   },
+   {
+    "page": 37,
+    "color_fraction": 0.0002,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0262,
+     "caption_complete": 0.904
+    }
+   },
+   {
+    "page": 38,
+    "color_fraction": 0.00014,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0367,
+     "caption_complete": 0.926
+    }
+   },
+   {
+    "page": 39,
+    "color_fraction": 0.00043,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0307,
+     "caption_complete": 0.8915
+    }
+   },
+   {
+    "page": 40,
+    "color_fraction": 0.00015,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0246,
+     "caption_complete": 0.8768
+    }
+   },
+   {
+    "page": 41,
+    "color_fraction": 0.00021,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0204,
+     "caption_complete": 0.9051
+    }
+   },
+   {
+    "page": 42,
+    "color_fraction": 7e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0296,
+     "caption_complete": 0.8901
+    }
+   },
+   {
+    "page": 43,
+    "color_fraction": 0.00057,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0309,
+     "caption_complete": 0.9264
+    }
+   },
+   {
+    "page": 44,
+    "color_fraction": 0.00036,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0311,
+     "caption_complete": 0.9181
+    }
+   },
+   {
+    "page": 45,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0295,
+     "caption_complete": 0.856
+    }
+   },
+   {
+    "page": 46,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0322,
+     "caption_complete": 0.897
+    }
+   },
+   {
+    "page": 47,
+    "color_fraction": 7e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0226,
+     "caption_complete": 0.9098
+    }
+   },
+   {
+    "page": 48,
+    "color_fraction": 0.00011,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0261,
+     "caption_complete": 0.8677
+    }
+   },
+   {
+    "page": 49,
+    "color_fraction": 5e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0247,
+     "caption_complete": 0.9098
+    }
+   },
+   {
+    "page": 50,
+    "color_fraction": 0.00037,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0327,
+     "caption_complete": 0.6271
+    }
+   },
+   {
+    "page": 51,
+    "color_fraction": 0.00015,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0222,
+     "caption_complete": 0.9191
+    }
+   },
+   {
+    "page": 52,
+    "color_fraction": 0.00011,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0233,
+     "caption_complete": 0.8426
+    }
+   },
+   {
+    "page": 53,
+    "color_fraction": 0.00017,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0245,
+     "caption_complete": 0.8883
+    }
+   },
+   {
+    "page": 54,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0385,
+     "caption_complete": 0.8589
+    }
+   },
+   {
+    "page": 55,
+    "color_fraction": 7e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0219,
+     "caption_complete": 0.8785
+    }
+   },
+   {
+    "page": 56,
+    "color_fraction": 0.00012,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0227,
+     "caption_complete": 0.9356
+    }
+   },
+   {
+    "page": 57,
+    "color_fraction": 0.00011,
+    "matter": false,
+    "clef": {
+     "has_color": 0.023,
+     "caption_complete": 0.9199
+    }
+   },
+   {
+    "page": 58,
+    "color_fraction": 0.00025,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0251,
+     "caption_complete": 0.9317
+    }
+   },
+   {
+    "page": 59,
+    "color_fraction": 0.00013,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0288,
+     "caption_complete": 0.934
+    }
+   },
+   {
+    "page": 60,
+    "color_fraction": 0.00016,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0286,
+     "caption_complete": 0.9237
+    }
+   },
+   {
+    "page": 61,
+    "color_fraction": 0.00029,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0237,
+     "caption_complete": 0.8797
+    }
+   },
+   {
+    "page": 62,
+    "color_fraction": 0.0,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0309,
+     "caption_complete": 0.9182
+    }
+   },
+   {
+    "page": 63,
+    "color_fraction": 0.00031,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0607,
+     "caption_complete": 0.8945
+    }
+   },
+   {
+    "page": 64,
+    "color_fraction": 0.00885,
+    "matter": false,
+    "clef": {
+     "has_color": 0.941,
+     "caption_complete": 0.9125
+    },
+    "colored_by": "clef pixel"
+   },
+   {
+    "page": 65,
+    "color_fraction": 0.00047,
+    "matter": false,
+    "clef": {
+     "has_color": 0.458,
+     "caption_complete": 0.9114
+    }
+   },
+   {
+    "page": 66,
+    "color_fraction": 0.0003,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0197,
+     "caption_complete": 0.9379
+    }
+   },
+   {
+    "page": 67,
+    "color_fraction": 0.00057,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0266,
+     "caption_complete": 0.8931
+    }
+   },
+   {
+    "page": 68,
+    "color_fraction": 0.00021,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0224,
+     "caption_complete": 0.8493
+    }
+   },
+   {
+    "page": 69,
+    "color_fraction": 1e-05,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0289,
+     "caption_complete": 0.9127
+    }
+   },
+   {
+    "page": 70,
+    "color_fraction": 0.00022,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0247,
+     "caption_complete": 0.8892
+    }
+   },
+   {
+    "page": 71,
+    "color_fraction": 0.00026,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0255,
+     "caption_complete": 0.926
+    }
+   },
+   {
+    "page": 72,
+    "color_fraction": 0.00031,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0293,
+     "caption_complete": 0.9101
+    }
+   },
+   {
+    "page": 73,
+    "color_fraction": 0.00152,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0244,
+     "caption_complete": 0.9288
+    }
+   },
+   {
+    "page": 74,
+    "color_fraction": 0.00021,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0347,
+     "caption_complete": 0.9022
+    }
+   },
+   {
+    "page": 75,
+    "color_fraction": 0.00023,
+    "matter": false,
+    "clef": {
+     "has_color": 0.0174,
+     "caption_complete": 0.8987
+    }
+   },
+   {
+    "page": 76,
+    "color_fraction": 0.0031,
+    "matter": true,
+    "clef": {
+     "has_color": 0.5457
+    },
+    "colored_by": "clef "
+   },
+   {
+    "page": 77,
+    "color_fraction": 0.15982,
+    "clef": {
+     "back_complete": 0.9506
+    }
+   }
+  ]
+ },
+ "aggregate": {
+  "line_purity": 0,
+  "colored_pages_picture": [
+   79
+  ],
+  "colored_pages_coloring": [
+   64
+  ],
+  "colored_matter_pages_picture": [
+   94
+  ],
+  "colored_matter_pages_coloring": [
+   76
+  ],
+  "coloring_captions_truncated": 0,
+  "cover_typeset": 0,
+  "back_cover_truncated": 0
+ }
+}

@@ -1,0 +1,1350 @@
+{
+ "slug": "thewarofart",
+ "edition": "line",
+ "flags": [
+  {
+   "page": "S1p0",
+   "kind": "missing",
+   "detail": "Wren (songbird) expected but not found",
+   "cls": "review",
+   "score": 0.372,
+   "expected": [
+    "Wren"
+   ],
+   "key": "books/thewarofart/images/S1-page-0.jpg"
+  },
+  {
+   "page": "S1p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.339,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S1-page-1.jpg"
+  },
+  {
+   "page": "S1p2",
+   "kind": "count",
+   "detail": "more than 1 crane in scene",
+   "cls": "clone-likely",
+   "score": 0.964,
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S1-page-2.jpg"
+  },
+  {
+   "page": "S1 finale",
+   "kind": "missing",
+   "detail": "Wren (songbird) expected but not found",
+   "cls": "review",
+   "score": 0.363,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S1-finale.jpg"
+  },
+  {
+   "page": "S1 finale",
+   "kind": "missing",
+   "detail": "the Fog (living gray fog) expected but not found",
+   "cls": "review",
+   "score": 0.395,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S1-finale.jpg"
+  },
+  {
+   "page": "S2p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.384,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S2-page-0.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "count",
+   "detail": "more than 1 songbird in scene",
+   "cls": "clone-likely",
+   "score": 0.953,
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p1",
+   "kind": "missing",
+   "detail": "Wren (songbird) expected but not found",
+   "cls": "review",
+   "score": 0.381,
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S2-page-1.jpg"
+  },
+  {
+   "page": "S2p2",
+   "kind": "count",
+   "detail": "more than 1 crane in scene",
+   "cls": "clone-likely",
+   "score": 0.975,
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S2-page-2.jpg"
+  },
+  {
+   "page": "S2p2",
+   "kind": "count",
+   "detail": "more than 1 songbird in scene",
+   "cls": "clone-likely",
+   "score": 0.966,
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S2-page-2.jpg"
+  },
+  {
+   "page": "S2p2",
+   "kind": "missing",
+   "detail": "Wren (songbird) expected but not found",
+   "cls": "review",
+   "score": 0.289,
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S2-page-2.jpg"
+  },
+  {
+   "page": "S2p3",
+   "kind": "missing",
+   "detail": "Wren (songbird) expected but not found",
+   "cls": "review",
+   "score": 0.368,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S2-page-3.jpg"
+  },
+  {
+   "page": "S2 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.255,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S2-finale.jpg"
+  },
+  {
+   "page": "S3p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.407,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S3-page-0.jpg"
+  },
+  {
+   "page": "S3p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.099,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S3-page-3.jpg"
+  },
+  {
+   "page": "S3 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.373,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S3-finale.jpg"
+  },
+  {
+   "page": "S5p1",
+   "kind": "count",
+   "detail": "more than 0 songbird in scene",
+   "cls": "extra-review",
+   "score": 0.939,
+   "expected": [
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S5-page-1.jpg"
+  },
+  {
+   "page": "S5p1",
+   "kind": "missing",
+   "detail": "Cato (crane) expected but not found",
+   "cls": "review",
+   "score": 0.031,
+   "expected": [
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S5-page-1.jpg"
+  },
+  {
+   "page": "S5p2",
+   "kind": "count",
+   "detail": "more than 1 songbird in scene",
+   "cls": "clone-likely",
+   "score": 0.904,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S5-page-2.jpg"
+  },
+  {
+   "page": "S5p3",
+   "kind": "count",
+   "detail": "more than 1 songbird in scene",
+   "cls": "clone-likely",
+   "score": 0.962,
+   "expected": [
+    "Wren"
+   ],
+   "key": "books/thewarofart/images/S5-page-3.jpg"
+  },
+  {
+   "page": "S5p3",
+   "kind": "missing",
+   "detail": "Wren (songbird) expected but not found",
+   "cls": "review",
+   "score": 0.21,
+   "expected": [
+    "Wren"
+   ],
+   "key": "books/thewarofart/images/S5-page-3.jpg"
+  },
+  {
+   "page": "S5p3",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.92,
+   "expected": [
+    "Wren"
+   ],
+   "key": "books/thewarofart/images/S5-page-3.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "count",
+   "detail": "more than 1 songbird in scene",
+   "cls": "clone-likely",
+   "score": 0.963,
+   "expected": [
+    "Wren"
+   ],
+   "key": "books/thewarofart/images/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.972,
+   "expected": [
+    "Wren"
+   ],
+   "key": "books/thewarofart/images/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p1",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.931,
+   "expected": [
+    "Wren"
+   ],
+   "key": "books/thewarofart/images/S6-page-1.jpg"
+  },
+  {
+   "page": "S6p3",
+   "kind": "count",
+   "detail": "more than 1 songbird in scene",
+   "cls": "clone-likely",
+   "score": 0.967,
+   "expected": [
+    "Wren"
+   ],
+   "key": "books/thewarofart/images/S6-page-3.jpg"
+  },
+  {
+   "page": "S6p3",
+   "kind": "missing",
+   "detail": "Wren (songbird) expected but not found",
+   "cls": "review",
+   "score": 0.319,
+   "expected": [
+    "Wren"
+   ],
+   "key": "books/thewarofart/images/S6-page-3.jpg"
+  },
+  {
+   "page": "S7p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.484,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S7-page-0.jpg"
+  },
+  {
+   "page": "S7p0",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.914,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S7-page-0.jpg"
+  },
+  {
+   "page": "S7p1",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.327,
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S7-page-1.jpg"
+  },
+  {
+   "page": "S7p1",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.928,
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S7-page-1.jpg"
+  },
+  {
+   "page": "S7p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.319,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S7-page-3.jpg"
+  },
+  {
+   "page": "S7p3",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.955,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S7-page-3.jpg"
+  },
+  {
+   "page": "S7 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.44,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S7-finale.jpg"
+  },
+  {
+   "page": "S8p0",
+   "kind": "missing",
+   "detail": "Wren (songbird) expected but not found",
+   "cls": "review",
+   "score": 0.397,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S8-page-0.jpg"
+  },
+  {
+   "page": "S8p0",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.342,
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S8-page-0.jpg"
+  },
+  {
+   "page": "S8p1",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.93,
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S8-page-1.jpg"
+  },
+  {
+   "page": "S8p1",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.938,
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S8-page-1.jpg"
+  },
+  {
+   "page": "S8p2",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.451,
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S8-page-2.jpg"
+  },
+  {
+   "page": "S8p2",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.927,
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "key": "books/thewarofart/images/S8-page-2.jpg"
+  },
+  {
+   "page": "S8p3",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.186,
+   "expected": [
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S8-page-3.jpg"
+  },
+  {
+   "page": "S8p3",
+   "kind": "human",
+   "detail": "a human or human-shaped character is drawn",
+   "cls": "defect",
+   "score": 0.944,
+   "expected": [
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S8-page-3.jpg"
+  },
+  {
+   "page": "S8p3",
+   "kind": "foreign",
+   "detail": "a character whose species is not in this book's cast",
+   "cls": "review",
+   "score": 0.628,
+   "expected": [
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S8-page-3.jpg"
+  },
+  {
+   "page": "S8p3",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.946,
+   "expected": [
+    "the Fog"
+   ],
+   "key": "books/thewarofart/images/S8-page-3.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "anatomy",
+   "detail": "anatomy check failed",
+   "cls": "advisory",
+   "score": 0.451,
+   "expected": [
+    "Wren"
+   ],
+   "key": "books/thewarofart/images/S8-finale.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "text",
+   "detail": "text baked into art",
+   "cls": "review",
+   "score": 0.959,
+   "expected": [
+    "Wren"
+   ],
+   "key": "books/thewarofart/images/S8-finale.jpg"
+  },
+  {
+   "page": "S8 finale",
+   "kind": "colorfill",
+   "detail": "color or gray fill on a line page",
+   "cls": "defect",
+   "score": 0.933,
+   "expected": [
+    "Wren"
+   ],
+   "key": "books/thewarofart/images/S8-finale.jpg"
+  }
+ ],
+ "results": [
+  {
+   "page": "S1p0",
+   "key": "books/thewarofart/images/S1-page-0.jpg",
+   "expected": [
+    "Wren"
+   ],
+   "scores": {
+    "count_crane": 0.0575,
+    "count_living gray fog": 0.0129,
+    "count_songbird": 0.0163,
+    "present_Wren": 0.3718,
+    "anatomy_ok": 0.7971,
+    "has_human": 0.0131,
+    "foreign_species": 0.0277,
+    "has_color": 0.1079,
+    "has_text": 0.0188
+   }
+  },
+  {
+   "page": "S1p1",
+   "key": "books/thewarofart/images/S1-page-1.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0211,
+    "count_living gray fog": 0.0726,
+    "count_songbird": 0.0685,
+    "present_Wren": 0.5985,
+    "present_the Fog": 0.803,
+    "anatomy_ok": 0.3391,
+    "has_human": 0.0125,
+    "foreign_species": 0.0886,
+    "has_color": 0.0624,
+    "has_text": 0.0143
+   }
+  },
+  {
+   "page": "S1p2",
+   "key": "books/thewarofart/images/S1-page-2.jpg",
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "scores": {
+    "count_crane": 0.9643,
+    "count_living gray fog": 0.0135,
+    "count_songbird": 0.0485,
+    "present_Wren": 0.4241,
+    "present_Cato": 0.8372,
+    "anatomy_ok": 0.7069,
+    "has_human": 0.0138,
+    "foreign_species": 0.0366,
+    "has_color": 0.0408,
+    "has_text": 0.0167
+   }
+  },
+  {
+   "page": "S1p3",
+   "key": "books/thewarofart/images/S1-page-3.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.025,
+    "count_living gray fog": 0.0377,
+    "count_songbird": 0.0453,
+    "present_Wren": 0.5533,
+    "present_the Fog": 0.8214,
+    "anatomy_ok": 0.6681,
+    "has_human": 0.0128,
+    "foreign_species": 0.0343,
+    "has_color": 0.0427,
+    "has_text": 0.017
+   }
+  },
+  {
+   "page": "S1 finale",
+   "key": "books/thewarofart/images/S1-finale.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0159,
+    "count_living gray fog": 0.0241,
+    "count_songbird": 0.0269,
+    "present_Wren": 0.3628,
+    "present_the Fog": 0.3948,
+    "anatomy_ok": 0.7951,
+    "has_human": 0.012,
+    "foreign_species": 0.0391,
+    "has_color": 0.0372,
+    "has_text": 0.0179
+   }
+  },
+  {
+   "page": "S2p0",
+   "key": "books/thewarofart/images/S2-page-0.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0202,
+    "count_living gray fog": 0.0635,
+    "count_songbird": 0.032,
+    "present_Wren": 0.5607,
+    "present_the Fog": 0.9064,
+    "anatomy_ok": 0.3844,
+    "has_human": 0.0104,
+    "foreign_species": 0.0781,
+    "has_color": 0.0328,
+    "has_text": 0.0142
+   }
+  },
+  {
+   "page": "S2p1",
+   "key": "books/thewarofart/images/S2-page-1.jpg",
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "scores": {
+    "count_crane": 0.0421,
+    "count_living gray fog": 0.0185,
+    "count_songbird": 0.9525,
+    "present_Wren": 0.381,
+    "present_Cato": 0.8327,
+    "anatomy_ok": 0.5865,
+    "has_human": 0.0177,
+    "foreign_species": 0.042,
+    "has_color": 0.0649,
+    "has_text": 0.0216
+   }
+  },
+  {
+   "page": "S2p2",
+   "key": "books/thewarofart/images/S2-page-2.jpg",
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "scores": {
+    "count_crane": 0.9745,
+    "count_living gray fog": 0.0163,
+    "count_songbird": 0.9662,
+    "present_Wren": 0.2889,
+    "present_Cato": 0.7617,
+    "anatomy_ok": 0.6399,
+    "has_human": 0.0733,
+    "foreign_species": 0.0816,
+    "has_color": 0.066,
+    "has_text": 0.0213
+   }
+  },
+  {
+   "page": "S2p3",
+   "key": "books/thewarofart/images/S2-page-3.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0182,
+    "count_living gray fog": 0.0471,
+    "count_songbird": 0.075,
+    "present_Wren": 0.3679,
+    "present_the Fog": 0.754,
+    "anatomy_ok": 0.807,
+    "has_human": 0.0163,
+    "foreign_species": 0.0885,
+    "has_color": 0.0533,
+    "has_text": 0.0251
+   }
+  },
+  {
+   "page": "S2 finale",
+   "key": "books/thewarofart/images/S2-finale.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0357,
+    "count_living gray fog": 0.0271,
+    "count_songbird": 0.0307,
+    "present_Wren": 0.5342,
+    "present_the Fog": 0.833,
+    "anatomy_ok": 0.2553,
+    "has_human": 0.0151,
+    "foreign_species": 0.1546,
+    "has_color": 0.0476,
+    "has_text": 0.0204
+   }
+  },
+  {
+   "page": "S3p0",
+   "key": "books/thewarofart/images/S3-page-0.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0444,
+    "count_living gray fog": 0.0811,
+    "count_songbird": 0.0194,
+    "present_Wren": 0.5642,
+    "present_the Fog": 0.8039,
+    "anatomy_ok": 0.4075,
+    "has_human": 0.0099,
+    "foreign_species": 0.3783,
+    "has_color": 0.0401,
+    "has_text": 0.0135
+   }
+  },
+  {
+   "page": "S3p1",
+   "key": "books/thewarofart/images/S3-page-1.jpg",
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "scores": {
+    "count_crane": 0.0278,
+    "count_living gray fog": 0.0178,
+    "count_songbird": 0.0401,
+    "present_Wren": 0.5654,
+    "present_Cato": 0.7851,
+    "anatomy_ok": 0.6875,
+    "has_human": 0.0145,
+    "foreign_species": 0.0279,
+    "has_color": 0.0507,
+    "has_text": 0.0629
+   }
+  },
+  {
+   "page": "S3p2",
+   "key": "books/thewarofart/images/S3-page-2.jpg",
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "scores": {
+    "count_crane": 0.0329,
+    "count_living gray fog": 0.0163,
+    "count_songbird": 0.0692,
+    "present_Wren": 0.5749,
+    "present_Cato": 0.8042,
+    "anatomy_ok": 0.7142,
+    "has_human": 0.0138,
+    "foreign_species": 0.0272,
+    "has_color": 0.0384,
+    "has_text": 0.0192
+   }
+  },
+  {
+   "page": "S3p3",
+   "key": "books/thewarofart/images/S3-page-3.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0682,
+    "count_living gray fog": 0.081,
+    "count_songbird": 0.0313,
+    "present_Wren": 0.4351,
+    "present_the Fog": 0.8659,
+    "anatomy_ok": 0.0993,
+    "has_human": 0.0116,
+    "foreign_species": 0.1628,
+    "has_color": 0.0386,
+    "has_text": 0.016
+   }
+  },
+  {
+   "page": "S3 finale",
+   "key": "books/thewarofart/images/S3-finale.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0263,
+    "count_living gray fog": 0.2402,
+    "count_songbird": 0.0184,
+    "present_Wren": 0.7048,
+    "present_the Fog": 0.8321,
+    "anatomy_ok": 0.3733,
+    "has_human": 0.0113,
+    "foreign_species": 0.0573,
+    "has_color": 0.1094,
+    "has_text": 0.0135
+   }
+  },
+  {
+   "page": "S4p0",
+   "key": "books/thewarofart/images/S4-page-0.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0302,
+    "count_living gray fog": 0.0356,
+    "count_songbird": 0.0417,
+    "present_Wren": 0.6443,
+    "present_the Fog": 0.9335,
+    "anatomy_ok": 0.6826,
+    "has_human": 0.0112,
+    "foreign_species": 0.0546,
+    "has_color": 0.0723,
+    "has_text": 0.0156
+   }
+  },
+  {
+   "page": "S4p1",
+   "key": "books/thewarofart/images/S4-page-1.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0172,
+    "count_living gray fog": 0.0456,
+    "count_songbird": 0.0307,
+    "present_Wren": 0.4779,
+    "present_the Fog": 0.5788,
+    "anatomy_ok": 0.6755,
+    "has_human": 0.0152,
+    "foreign_species": 0.047,
+    "has_color": 0.0525,
+    "has_text": 0.0277
+   }
+  },
+  {
+   "page": "S4p2",
+   "key": "books/thewarofart/images/S4-page-2.jpg",
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "scores": {
+    "count_crane": 0.0978,
+    "count_living gray fog": 0.0132,
+    "count_songbird": 0.1504,
+    "present_Wren": 0.512,
+    "present_Cato": 0.8906,
+    "anatomy_ok": 0.5771,
+    "has_human": 0.0116,
+    "foreign_species": 0.0302,
+    "has_color": 0.0368,
+    "has_text": 0.0151
+   }
+  },
+  {
+   "page": "S4p3",
+   "key": "books/thewarofart/images/S4-page-3.jpg",
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "scores": {
+    "count_crane": 0.056,
+    "count_living gray fog": 0.015,
+    "count_songbird": 0.1031,
+    "present_Wren": 0.4422,
+    "present_Cato": 0.7776,
+    "anatomy_ok": 0.6589,
+    "has_human": 0.0159,
+    "foreign_species": 0.0324,
+    "has_color": 0.0601,
+    "has_text": 0.0208
+   }
+  },
+  {
+   "page": "S4 finale",
+   "key": "books/thewarofart/images/S4-finale.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0401,
+    "count_living gray fog": 0.035,
+    "count_songbird": 0.0328,
+    "present_Wren": 0.5538,
+    "present_the Fog": 0.8715,
+    "anatomy_ok": 0.5546,
+    "has_human": 0.0116,
+    "foreign_species": 0.0498,
+    "has_color": 0.1499,
+    "has_text": 0.0149
+   }
+  },
+  {
+   "page": "S5p0",
+   "key": "books/thewarofart/images/S5-page-0.jpg",
+   "expected": [
+    "Wren"
+   ],
+   "scores": {
+    "count_crane": 0.0157,
+    "count_living gray fog": 0.0114,
+    "count_songbird": 0.0914,
+    "present_Wren": 0.4109,
+    "anatomy_ok": 0.792,
+    "has_human": 0.0125,
+    "foreign_species": 0.044,
+    "has_color": 0.1064,
+    "has_text": 0.016
+   }
+  },
+  {
+   "page": "S5p1",
+   "key": "books/thewarofart/images/S5-page-1.jpg",
+   "expected": [
+    "Cato"
+   ],
+   "scores": {
+    "count_crane": 0.0147,
+    "count_living gray fog": 0.02,
+    "count_songbird": 0.9385,
+    "present_Cato": 0.0307,
+    "anatomy_ok": 0.8233,
+    "has_human": 0.0155,
+    "foreign_species": 0.038,
+    "has_color": 0.2295,
+    "has_text": 0.0222
+   }
+  },
+  {
+   "page": "S5p2",
+   "key": "books/thewarofart/images/S5-page-2.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0603,
+    "count_living gray fog": 0.068,
+    "count_songbird": 0.9039,
+    "present_Wren": 0.4452,
+    "present_the Fog": 0.9161,
+    "anatomy_ok": 0.6653,
+    "has_human": 0.0139,
+    "foreign_species": 0.0375,
+    "has_color": 0.0398,
+    "has_text": 0.0209
+   }
+  },
+  {
+   "page": "S5p3",
+   "key": "books/thewarofart/images/S5-page-3.jpg",
+   "expected": [
+    "Wren"
+   ],
+   "scores": {
+    "count_crane": 0.0245,
+    "count_living gray fog": 0.0128,
+    "count_songbird": 0.962,
+    "present_Wren": 0.2097,
+    "anatomy_ok": 0.605,
+    "has_human": 0.021,
+    "foreign_species": 0.1318,
+    "has_color": 0.062,
+    "has_text": 0.9197
+   }
+  },
+  {
+   "page": "S5p4",
+   "key": "books/thewarofart/images/S5-page-4.jpg",
+   "expected": [
+    "Wren"
+   ],
+   "scores": {
+    "count_crane": 0.0117,
+    "count_living gray fog": 0.0116,
+    "count_songbird": 0.0173,
+    "present_Wren": 0.4192,
+    "anatomy_ok": 0.7142,
+    "has_human": 0.0127,
+    "foreign_species": 0.0292,
+    "has_color": 0.0421,
+    "has_text": 0.0166
+   }
+  },
+  {
+   "page": "S5 finale",
+   "key": "books/thewarofart/images/S5-finale.jpg",
+   "expected": [
+    "Wren"
+   ],
+   "scores": {
+    "count_crane": 0.0271,
+    "count_living gray fog": 0.0126,
+    "count_songbird": 0.0145,
+    "present_Wren": 0.4807,
+    "anatomy_ok": 0.6533,
+    "has_human": 0.012,
+    "foreign_species": 0.0297,
+    "has_color": 0.0655,
+    "has_text": 0.0186
+   }
+  },
+  {
+   "page": "S6p0",
+   "key": "books/thewarofart/images/S6-page-0.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0911,
+    "count_living gray fog": 0.0653,
+    "count_songbird": 0.0472,
+    "present_Wren": 0.5353,
+    "present_the Fog": 0.8334,
+    "anatomy_ok": 0.637,
+    "has_human": 0.0116,
+    "foreign_species": 0.058,
+    "has_color": 0.0435,
+    "has_text": 0.0149
+   }
+  },
+  {
+   "page": "S6p1",
+   "key": "books/thewarofart/images/S6-page-1.jpg",
+   "expected": [
+    "Wren"
+   ],
+   "scores": {
+    "count_crane": 0.0717,
+    "count_living gray fog": 0.0132,
+    "count_songbird": 0.9626,
+    "present_Wren": 0.4786,
+    "anatomy_ok": 0.5287,
+    "has_human": 0.0134,
+    "foreign_species": 0.0527,
+    "has_color": 0.9313,
+    "has_text": 0.9715
+   }
+  },
+  {
+   "page": "S6p2",
+   "key": "books/thewarofart/images/S6-page-2.jpg",
+   "expected": [
+    "Wren"
+   ],
+   "scores": {
+    "count_crane": 0.0128,
+    "count_living gray fog": 0.0128,
+    "count_songbird": 0.0262,
+    "present_Wren": 0.4888,
+    "anatomy_ok": 0.7715,
+    "has_human": 0.0142,
+    "foreign_species": 0.0343,
+    "has_color": 0.0428,
+    "has_text": 0.0175
+   }
+  },
+  {
+   "page": "S6p3",
+   "key": "books/thewarofart/images/S6-page-3.jpg",
+   "expected": [
+    "Wren"
+   ],
+   "scores": {
+    "count_crane": 0.0212,
+    "count_living gray fog": 0.0146,
+    "count_songbird": 0.967,
+    "present_Wren": 0.3193,
+    "anatomy_ok": 0.7753,
+    "has_human": 0.0134,
+    "foreign_species": 0.0352,
+    "has_color": 0.0906,
+    "has_text": 0.0195
+   }
+  },
+  {
+   "page": "S6 finale",
+   "key": "books/thewarofart/images/S6-finale.jpg",
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "scores": {
+    "count_crane": 0.0533,
+    "count_living gray fog": 0.0169,
+    "count_songbird": 0.0414,
+    "present_Wren": 0.4848,
+    "present_Cato": 0.7781,
+    "anatomy_ok": 0.5568,
+    "has_human": 0.0148,
+    "foreign_species": 0.031,
+    "has_color": 0.0459,
+    "has_text": 0.0196
+   }
+  },
+  {
+   "page": "S7p0",
+   "key": "books/thewarofart/images/S7-page-0.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0334,
+    "count_living gray fog": 0.0217,
+    "count_songbird": 0.0427,
+    "present_Wren": 0.567,
+    "present_the Fog": 0.57,
+    "anatomy_ok": 0.4844,
+    "has_human": 0.0134,
+    "foreign_species": 0.0375,
+    "has_color": 0.9145,
+    "has_text": 0.0472
+   }
+  },
+  {
+   "page": "S7p1",
+   "key": "books/thewarofart/images/S7-page-1.jpg",
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "scores": {
+    "count_crane": 0.0237,
+    "count_living gray fog": 0.0126,
+    "count_songbird": 0.0456,
+    "present_Wren": 0.5571,
+    "present_Cato": 0.7897,
+    "anatomy_ok": 0.3271,
+    "has_human": 0.0118,
+    "foreign_species": 0.0298,
+    "has_color": 0.9277,
+    "has_text": 0.0123
+   }
+  },
+  {
+   "page": "S7p2",
+   "key": "books/thewarofart/images/S7-page-2.jpg",
+   "expected": [
+    "Wren"
+   ],
+   "scores": {
+    "count_crane": 0.018,
+    "count_living gray fog": 0.012,
+    "count_songbird": 0.0183,
+    "present_Wren": 0.5032,
+    "anatomy_ok": 0.7743,
+    "has_human": 0.0129,
+    "foreign_species": 0.0316,
+    "has_color": 0.0987,
+    "has_text": 0.0181
+   }
+  },
+  {
+   "page": "S7p3",
+   "key": "books/thewarofart/images/S7-page-3.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0454,
+    "count_living gray fog": 0.0262,
+    "count_songbird": 0.0561,
+    "present_Wren": 0.6526,
+    "present_the Fog": 0.6363,
+    "anatomy_ok": 0.3194,
+    "has_human": 0.0102,
+    "foreign_species": 0.0895,
+    "has_color": 0.9548,
+    "has_text": 0.0112
+   }
+  },
+  {
+   "page": "S7 finale",
+   "key": "books/thewarofart/images/S7-finale.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.045,
+    "count_living gray fog": 0.0174,
+    "count_songbird": 0.0241,
+    "present_Wren": 0.5675,
+    "present_the Fog": 0.9004,
+    "anatomy_ok": 0.4398,
+    "has_human": 0.0116,
+    "foreign_species": 0.085,
+    "has_color": 0.0378,
+    "has_text": 0.0156
+   }
+  },
+  {
+   "page": "S8p0",
+   "key": "books/thewarofart/images/S8-page-0.jpg",
+   "expected": [
+    "Wren",
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0589,
+    "count_living gray fog": 0.1343,
+    "count_songbird": 0.2886,
+    "present_Wren": 0.3973,
+    "present_the Fog": 0.8341,
+    "anatomy_ok": 0.3419,
+    "has_human": 0.0133,
+    "foreign_species": 0.0955,
+    "has_color": 0.0347,
+    "has_text": 0.0183
+   }
+  },
+  {
+   "page": "S8p1",
+   "key": "books/thewarofart/images/S8-page-1.jpg",
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "scores": {
+    "count_crane": 0.0276,
+    "count_living gray fog": 0.0139,
+    "count_songbird": 0.0583,
+    "present_Wren": 0.6007,
+    "present_Cato": 0.8146,
+    "anatomy_ok": 0.5533,
+    "has_human": 0.0133,
+    "foreign_species": 0.0327,
+    "has_color": 0.9382,
+    "has_text": 0.9305
+   }
+  },
+  {
+   "page": "S8p2",
+   "key": "books/thewarofart/images/S8-page-2.jpg",
+   "expected": [
+    "Wren",
+    "Cato"
+   ],
+   "scores": {
+    "count_crane": 0.0235,
+    "count_living gray fog": 0.0156,
+    "count_songbird": 0.0353,
+    "present_Wren": 0.5314,
+    "present_Cato": 0.7977,
+    "anatomy_ok": 0.4509,
+    "has_human": 0.014,
+    "foreign_species": 0.0403,
+    "has_color": 0.9275,
+    "has_text": 0.0133
+   }
+  },
+  {
+   "page": "S8p3",
+   "key": "books/thewarofart/images/S8-page-3.jpg",
+   "expected": [
+    "the Fog"
+   ],
+   "scores": {
+    "count_crane": 0.0119,
+    "count_living gray fog": 0.0358,
+    "count_songbird": 0.0128,
+    "present_the Fog": 0.7042,
+    "anatomy_ok": 0.1864,
+    "has_human": 0.9438,
+    "foreign_species": 0.6279,
+    "has_color": 0.9464,
+    "has_text": 0.0113
+   }
+  },
+  {
+   "page": "S8 finale",
+   "key": "books/thewarofart/images/S8-finale.jpg",
+   "expected": [
+    "Wren"
+   ],
+   "scores": {
+    "count_crane": 0.029,
+    "count_living gray fog": 0.0127,
+    "count_songbird": 0.0158,
+    "present_Wren": 0.4855,
+    "anatomy_ok": 0.451,
+    "has_human": 0.0119,
+    "foreign_species": 0.0336,
+    "has_color": 0.9332,
+    "has_text": 0.9592
+   }
+  }
+ ]
+}
