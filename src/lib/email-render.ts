@@ -3,9 +3,9 @@
 // The outbox stores subject + plain text only (that text is unchanged and
 // remains the email's plain-text part). For the HTML part we re-derive the
 // same structured model the text was built from (lib/orders.ts model
-// builders) and render the matching React Email template. Returns null
-// for any kind or order we cannot model, in which case the send falls
-// back to plain text only, exactly as before templates existed.
+// builders) and render the matching React Email template. Kinds with no
+// dedicated model render their stored text in the branded SimpleEmail
+// shell (see renderFallbackHtml), so no email goes out as bare text.
 
 import { createElement } from "react";
 import { render } from "@react-email/render";
@@ -35,6 +35,29 @@ import ClubCycleEmail from "../../emails/ClubCycleEmail";
 import ReleaseEmail from "../../emails/ReleaseEmail";
 import WelcomeOnboardingEmail from "../../emails/WelcomeOnboardingEmail";
 import BirthdayGiftEmail from "../../emails/BirthdayGiftEmail";
+
+// The branch of last resort (CG, 2026-11-03): every email kind needs a
+// styled render (hub AGENTS.md). A kind whose dedicated branch is
+// missing, or whose model cannot be loaded, renders its stored plain
+// text inside the branded SimpleEmail shell instead of going out as
+// bare text. New kinds are styled by construction until they earn a
+// dedicated template.
+async function renderFallbackHtml(row: {
+  subject?: string | null;
+  body_text?: string | null;
+}): Promise<string | null> {
+  const paragraphs = String(row.body_text || "")
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (!paragraphs.length) return null;
+  const model: SimpleEmailModel = {
+    preview: String(row.subject || "Big Brain Shelf"),
+    heading: String(row.subject || "Big Brain Shelf"),
+    paragraphs,
+  };
+  return await render(createElement(SimpleEmail, { model }));
+}
 
 export async function renderOutboxEmailHtml(
   db: DBLike,
@@ -86,6 +109,30 @@ export async function renderOutboxEmailHtml(
       heading: "New contact form message",
       paragraphs,
       footnote: "Reply to this email and your answer goes straight to the sender.",
+    };
+    return await render(createElement(SimpleEmail, { model }));
+  }
+  if (row.kind === "admin_digest") {
+    // The daily admin urgency digest (lib/admin-digest.ts): no order,
+    // renders from its stored text in the branded shell. The digest
+    // text is line-structured (intro line, "- item" lines, then the
+    // dashboard line), so each line becomes its own paragraph and the
+    // dashboard URL becomes the email's one button.
+    const text = String(row.body_text || "");
+    const url = (text.match(/https?:\/\/\S+/) || [])[0] || `${site.replace(/\/$/, "")}/admin`;
+    const paragraphs = text
+      .split(/\n+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .filter((s) => !s.includes(url))
+      .map((s) => s.replace(/^Details are on the admin dashboard:?$/, "").trim())
+      .filter(Boolean)
+      .map((s) => (s.startsWith("- ") ? s.slice(2) : s));
+    const model: SimpleEmailModel = {
+      preview: String(row.subject || "Big Brain Shelf admin digest"),
+      heading: String(row.subject || "Big Brain Shelf admin digest"),
+      paragraphs,
+      button: { label: "Open the admin dashboard", href: url },
     };
     return await render(createElement(SimpleEmail, { model }));
   }
@@ -187,12 +234,12 @@ export async function renderOutboxEmailHtml(
     );
   }
 
-  if (!row.order_id) return null;
+  if (!row.order_id) return await renderFallbackHtml(row);
   const order = await db
     .prepare("SELECT * FROM orders WHERE id = ?")
     .bind(row.order_id)
     .first();
-  if (!order) return null;
+  if (!order) return await renderFallbackHtml(row);
   const books = await loadBooksForOrder(db, order);
 
   if (row.kind === "owner_new_order") {
@@ -239,8 +286,8 @@ export async function renderOutboxEmailHtml(
   if (row.kind.startsWith("physical_update_")) {
     const status = row.kind.slice("physical_update_".length);
     const model = buildPhysicalUpdateEmailModel(order, books, status);
-    if (!model) return null;
+    if (!model) return await renderFallbackHtml(row);
     return await render(createElement(PhysicalUpdateEmail, { model }));
   }
-  return null;
+  return await renderFallbackHtml(row);
 }
