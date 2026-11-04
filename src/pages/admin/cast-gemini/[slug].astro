@@ -15,6 +15,10 @@ export const prerender = false;
 // stay locked until the protagonist is cast. Play is what generates a
 // clip (through /api/admin/cast-gemini-audition, cached in R2);
 // saving a pick regenerates nothing.
+//
+// Single-voice standard (CG, 2026-11-04): the audiobook is read by
+// the protagonist's voice alone, so supporting casting is optional
+// (kept for future video work) and their cards sit behind a toggle.
 import geminiVoicesData from "../../../data/cast/gemini-voices.json";
 import castGalleryData from "../../../data/cast-gallery.json";
 import { nameKey } from "../../../lib/character-sheets";
@@ -51,7 +55,7 @@ const slugParam = Astro.params.slug ?? "";
        never applied (the character sheets rendered at natural size).
        Last-played voice highlight: set when a play starts, cleared only
        when a different voice is played. */
-    .lp-on { background: #fff7ed; box-shadow: inset 0 0 0 2px #ea580c; border-radius: 0.5rem; }
+    .lp-on { background: #fff7ed; box-shadow: inset 0 0 0 2px #ea580c; border-radius: 0.5rem; padding: 4px 8px; margin: -4px -8px; }
     .char-img { width: 72px; height: 72px; border-radius: 10px; overflow: hidden; flex: none; background: #f5f5f4; border: 1px solid #e7e5e4; }
     .char-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .char-img-fallback { display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 24px; color: #78716c; }
@@ -107,6 +111,7 @@ const slugParam = Astro.params.slug ?? "";
       candidate: {}, // character name -> voice id being tried in their scene
       generation: "unknown",
       lastPlayed: null, // { character, voiceId } of the voice most recently played
+      showSupporting: false, // supporting cards live behind a toggle (optional casting)
     };
     var blobCache = {};
     var player = document.getElementById("player");
@@ -363,8 +368,9 @@ const slugParam = Astro.params.slug ?? "";
       var p = protagonist();
       if (p && !castVoiceId(p.name)) {
         banner.classList.remove("hidden");
-        banner.textContent = "Cast " + p.name + " first. " + p.name + " is the narrator and the main character, so every scene in this book uses " +
-          p.name + "'s voice for the narration and for " + p.name + "'s lines. Until " + p.name + " has a voice, the scenes below cannot play and nobody else can be auditioned against the real narrator.";
+        banner.textContent = "Cast " + p.name + " first. " + p.name + " reads the whole audiobook, narration and every character's lines, " +
+          "so this one voice is all the audiobook needs. The scene auditions below also use " + p.name + "'s voice for the narration, " +
+          "so they stay locked until " + p.name + " is cast.";
       } else {
         banner.classList.add("hidden");
         banner.textContent = "";
@@ -377,8 +383,71 @@ const slugParam = Astro.params.slug ?? "";
         wrap.appendChild(empty);
         return;
       }
-      orderedCharacters().forEach(function (c) { wrap.appendChild(characterCard(c)); });
+      var ordered = orderedCharacters();
+      var lead = ordered.filter(function (c) { return c.role === "protagonist"; });
+      var supporting = ordered.filter(function (c) { return c.role !== "protagonist"; });
+      lead.forEach(function (c) { wrap.appendChild(characterCard(c)); });
+      if (supporting.length) wrap.appendChild(supportingSection(supporting));
       applyLastPlayedHighlight();
+    }
+
+    // Supporting voices are optional (CG, 2026-11-04): the lead
+    // reads the whole audiobook, so supporting casting is kept only
+    // for the future video work. The cards live behind one toggle,
+    // closed by default, with the cast count visible while closed.
+    // A supporting picker left open keeps the section open across
+    // re-renders.
+    function supportingSection(supporting) {
+      var open = state.showSupporting ||
+        supporting.some(function (c) { return state.openPicker === c.name; });
+      var castCount = supporting.filter(function (c) { return !!castVoiceId(c.name); }).length;
+      var section = document.createElement("div");
+      var header = document.createElement("button");
+      header.className = "w-full rounded-lg bg-white border border-stone-200 px-4 py-3 flex flex-wrap items-center gap-2 text-left hover:border-stone-400";
+      var title = document.createElement("span");
+      title.className = "font-bold";
+      title.textContent = "Supporting voices";
+      header.appendChild(title);
+      var opt = document.createElement("span");
+      opt.className = "rounded-full bg-stone-100 text-stone-600 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide";
+      opt.textContent = "Optional";
+      header.appendChild(opt);
+      var status = document.createElement("span");
+      status.className = "text-sm text-stone-500";
+      status.textContent = castCount + " of " + supporting.length + " cast";
+      header.appendChild(status);
+      var hint = document.createElement("span");
+      hint.className = "text-xs text-stone-400";
+      hint.textContent = "The lead reads the audiobook alone. Cast the rest any time, just in case, for future videos.";
+      header.appendChild(hint);
+      var spacer = document.createElement("span");
+      spacer.className = "flex-1";
+      header.appendChild(spacer);
+      var toggleLabel = document.createElement("span");
+      toggleLabel.className = "text-sm font-semibold text-[#1a3454]";
+      toggleLabel.textContent = open ? "Hide" : "Show";
+      header.appendChild(toggleLabel);
+      header.addEventListener("click", function () {
+        if (open) {
+          state.showSupporting = false;
+          // A picker left open inside the section forces it open;
+          // hiding the section closes that picker too.
+          if (state.openPicker && supporting.some(function (c) { return c.name === state.openPicker; })) {
+            state.openPicker = null;
+          }
+        } else {
+          state.showSupporting = true;
+        }
+        renderSheet();
+      });
+      section.appendChild(header);
+      if (open) {
+        var grid = document.createElement("div");
+        grid.className = "mt-3 grid gap-3";
+        supporting.forEach(function (c) { grid.appendChild(characterCard(c)); });
+        section.appendChild(grid);
+      }
+      return section;
     }
 
     // The row picture is ONE pose of the character, never the whole
