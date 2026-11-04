@@ -18,6 +18,13 @@ export function stampColor(bible: any, plan: any, page: any, line: Uint8Array, c
 }
 export function holdColor(page: any, reason: string) { page.colorHeld = true; page.colorHeldReason = reason; }
 
+/** Shared with colorize's skip check; adoption never invokes generation. */
+export function colorIdentityCurrent(bible: any, plan: any, page: any, lineSha256: string, colorSha256: string) {
+  const revision = pageSourceRevision(bible, plan, page);
+  return !page.held && !page.colorHeld && page.lineIdentity?.revision === revision && page.lineIdentity?.sha256 === lineSha256
+    && page.colorIdentity?.revision === revision && page.colorIdentity?.lineSha256 === lineSha256 && page.colorIdentity?.sha256 === colorSha256;
+}
+
 export async function prepareAssembly(books: any, slug: string, edition: 'line' | 'color') {
   const inventory = await readPlanInventory(books, slug);
   const bible = JSON.parse(new TextDecoder().decode(inventory.sources[0].bytes));

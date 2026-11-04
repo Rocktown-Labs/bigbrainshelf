@@ -30,7 +30,7 @@ export function isSnapshotArtifact(slug: string, key: string): boolean {
   return SNAPSHOT_TOP_FILES.includes(rel) || SNAPSHOT_PREFIXES.some((p) => rel.startsWith(p));
 }
 
-function fingerprintOf(items: { key: string; size: number }[]): string {
+export function fingerprintOf(items: { key: string; size: number }[]): string {
   const s = items.map((i) => `${i.key}:${i.size}`).sort().join("|");
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;

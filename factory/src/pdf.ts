@@ -692,3 +692,16 @@ export async function buildPictureBook(
   onPageCount?.(pdf.getPageCount());
   return pdf.save();
 }
+
+
+/** Count current matter with the exact glossary layout; no book/PDF bytes are written. */
+export async function expectedBookPageCount(interiorPages: number, chapterCount: number, vocab: BookMatter['vocab']): Promise<number> {
+  if (!Number.isSafeInteger(interiorPages) || interiorPages < 0 || !Number.isSafeInteger(chapterCount) || chapterCount < 0)
+    throw new Error('Invalid inventory count');
+  const pdf = await PDFDocument.create();
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  drawGlossary(pdf, bold, font, vocab);
+  // Front cover, copyright, optional contents, glossary, back cover.
+  return interiorPages + 3 + (chapterCount ? 1 : 0) + pdf.getPageCount();
+}

@@ -1,5 +1,5 @@
 import { assembleVerifiedPdf } from "./assembly";
-import { stampColor, holdColor, pageSourceRevision, bytesHash } from "../../packages/core/src/assembly-identity";
+import { stampColor, holdColor, pageSourceRevision, bytesHash, colorIdentityCurrent } from "../../packages/core/src/assembly-identity";
 import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // ColorizeWorkflow: the factory's color process (reset, 2026-10-24).
 //
@@ -184,9 +184,7 @@ async function colorIsCurrent(env: BookBuildEnv, bible: any, plan: any, pg: any,
   if (pg.held || pg.colorHeld || pg.imageColorKey !== ckey) return false;
   const line = await r2GetBytes(env.BOOKS, lineKey);
   const color = await r2GetBytes(env.BOOKS, ckey);
-  const revision = pageSourceRevision(bible, plan, pg);
-  return !!line && !!color && pg.lineIdentity?.revision === revision && pg.lineIdentity?.sha256 === bytesHash(line)
-    && pg.colorIdentity?.revision === revision && pg.colorIdentity?.lineSha256 === bytesHash(line) && pg.colorIdentity?.sha256 === bytesHash(color);
+  return !!line && !!color && colorIdentityCurrent(bible, plan, pg, bytesHash(line), bytesHash(color));
 }
 
 function chNum(key: string): number {

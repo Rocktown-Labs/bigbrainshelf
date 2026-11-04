@@ -1,3 +1,4 @@
+import { bookVocabulary } from '../../packages/core/src/book-vocabulary';
 // Front/back matter composer: turns a book's bible into the pages that
 // make it feel like a real published book (see pdf.ts BookMatter):
 // a copyright page, a "Words to Know" glossary, and a back cover with a
@@ -56,15 +57,7 @@ export function composeMatter(bible: any): Omit<BookMatter, "backImage" | "backL
 
   const learn = ladder.slice(0, 3).map((c: any) => String(c.idea ?? "")).filter(Boolean);
 
-  const vocab = vocabRaw.map((v: any) => {
-    let def = typeof v.definition === "string" ? v.definition : "";
-    if (!def) {
-      const term = String(v.term ?? "").toLowerCase();
-      const hit = ladder.find((c: any) => String(c.idea ?? "").toLowerCase().includes(term));
-      if (hit) def = String(hit.idea);
-    }
-    return { term: String(v.term ?? ""), storyName: String(v.storyName ?? ""), definition: def };
-  });
+  const vocab = bookVocabulary(bible);
 
   let seriesLine: string | undefined;
   const s = bible?.series;
