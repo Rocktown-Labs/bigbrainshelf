@@ -8,6 +8,7 @@ import { fingerprintOf, isSnapshotArtifact } from '../factory/src/versioning';
 export interface AdoptionEvidence {
   inventory: string; line: string; color?: string; bookQa: string;
   continuity?: string; editions?: string; colorPairing?: string;
+  auditSupplement?: string;
 }
 interface Decision { identity?: { revision: string; sha256: string; lineSha256?: string }; status: 'eligible' | 'unchanged' | 'reported'; reason: string; tier?: string; evidence?: unknown }
 interface PageDecision { id: string; line: Decision; color: Decision }
@@ -129,11 +130,51 @@ export async function planAdoption(books: any, slug: string, evidence: AdoptionE
     if (!remote || bytesHash(remote.bytes) !== sources[role].sha256 || local?.slug !== slug || (role !== 'inventory' && local.edition !== role)) errors.push(`Local/R2 ${role} evidence missing, changed or for another book`);
     else records[role] = local;
   }
+  // Audit supplement (RGM amendment, 2026-11-04): a judgment inventory
+  // built from a partial key set can undercount the book (Wells: keyed
+  // on plan imageKey, 73 of 90 pages) and pages outside that key set
+  // have no audit rows at all. A supplement may restate the four count
+  // fields and supply rows for pages the audit never recorded, under
+  // the same discipline as the pairing supplement: it lives in the
+  // book's own audit prefix (the local copy must byte-match the R2
+  // object), its counts are accepted only when they equal the counts
+  // derived from the live plans exactly, and a row naming a page the
+  // audit DID record is an evidence error, never an override.
+  const auditSup: { counts?: any; lineRows: Map<string, any> } = { lineRows: new Map() };
+  let auditSupCountsUsed = false;
+  if (evidence.auditSupplement) {
+    try {
+      const parsed = JSON.parse(evidence.auditSupplement);
+      if (parsed?.schema !== 'adoption-audit-supplement/v1' || parsed?.slug !== slug) throw new Error('shape');
+      const remote = await read(books, `books/${slug}/audit/audit-supplement.json`);
+      if (!remote || bytesHash(remote.bytes) !== sources.auditSupplement.sha256) throw new Error('shape');
+      if (parsed.counts !== undefined) {
+        const c = parsed.counts;
+        if (!Number.isSafeInteger(c?.planned_pages) || !Number.isSafeInteger(c?.planned_story_pages) || !Number.isSafeInteger(c?.line_images) ||
+          !Array.isArray(c?.chapters_found) || !c.chapters_found.every((x: any) => typeof x === 'string')) throw new Error('shape');
+        auditSup.counts = c;
+      }
+      if (parsed.lineRows !== undefined) {
+        if (!Array.isArray(parsed.lineRows)) throw new Error('shape');
+        for (const row of parsed.lineRows) {
+          const id = `${row?.page}|${row?.key}`;
+          if (!row?.page || typeof row?.key !== 'string' || !row.key.startsWith(`books/${slug}/`) || auditSup.lineRows.has(id)) throw new Error('shape');
+          if ((records.line?.results ?? []).some((r: any) => r.page === row.page && r.key === row.key)) throw new Error(`supplement names a recorded row: ${id}`);
+          auditSup.lineRows.set(id, row);
+        }
+      }
+    } catch (e) { errors.push(e instanceof Error && e.message.startsWith('supplement names') ? `Audit supplement overrides recorded evidence: ${e.message}` : 'Invalid audit supplement'); auditSup.counts = undefined; auditSup.lineRows.clear(); }
+  }
   const count = records.inventory;
   const chapters = inventory.sources.filter(s => s.role === 'plan').length;
-  if (!count || count.planned_pages !== inventory.pages.length || count.planned_story_pages !== inventory.pages.filter(p => p.kind === 'story').length ||
-    JSON.stringify(count.chapters_found) !== JSON.stringify(Array.from({ length: chapters }, (_, i) => `S${i + 1}`)) || count.line_images !== inventory.pages.length)
-    errors.push('Current inventory/counts do not match judgment-run evidence');
+  const derivedCounts = { planned_pages: inventory.pages.length, planned_story_pages: inventory.pages.filter(p => p.kind === 'story').length,
+    chapters_found: Array.from({ length: chapters }, (_, i) => `S${i + 1}`), line_images: inventory.pages.length };
+  const countsMatch = (c: any) => !!c && c.planned_pages === derivedCounts.planned_pages && c.planned_story_pages === derivedCounts.planned_story_pages &&
+    JSON.stringify(c.chapters_found) === JSON.stringify(derivedCounts.chapters_found) && c.line_images === derivedCounts.line_images;
+  if (!countsMatch(count)) {
+    if (auditSup.counts && countsMatch(auditSup.counts)) auditSupCountsUsed = true;
+    else errors.push('Current inventory/counts do not match judgment-run evidence');
+  }
   const qa = JSON.parse(evidence.bookQa);
   if ((qa?.slug ?? qa?.book_slug) !== slug || !qa?.source || !(Number.isFinite(qa?.measured_at) && qa?.measured_at > 0)) errors.push('Missing or invalid book_qa measurement export');
   const continuity = await continuityProof(books, slug, evidence.continuity);
@@ -177,9 +218,17 @@ export async function planAdoption(books: any, slug: string, evidence: AdoptionE
     const pageLabel = `S${ref.chapter}${ref.kind === 'finale' ? ' finale' : `p${ref.page}`}`;
     const revision = pageSourceRevision(bible, plan, pg);
     const lineArtifact = captured.manifest.artifacts.find(a => a.key === ref.lineKey)!;
+    let lineRowFromSupplement = false;
     async function match(role: 'line' | 'color', key: string, sha256: string, size: number): Promise<Decision> {
       if (errors.length || slug === 'iwillteach') return denied(slug === 'iwillteach' ? 'Tilda is parked/report-only by policy' : errors.join('; '));
-      const matches = (records[role]?.results ?? []).filter((row: any) => row.page === pageLabel && row.key === key);
+      let matches = (records[role]?.results ?? []).filter((row: any) => row.page === pageLabel && row.key === key);
+      if (matches.length === 0 && role === 'line') {
+        // The audit never recorded this page: a verified supplement
+        // row may stand in for it (parse-time checks guarantee it
+        // names no recorded pair and byte-matches the R2 supplement).
+        const sup = auditSup.lineRows.get(`${pageLabel}|${key}`);
+        if (sup) { matches = [sup]; lineRowFromSupplement = true; }
+      }
       if (matches.length !== 1) return denied(`No unique ${role} audit inventory row for ${pageLabel}`);
       const row = matches[0];
       if (row.sha256 && (row.sha256 !== sha256 || (row.bytes !== undefined && row.bytes !== size))) return denied('Historical digest/size conflicts with current bytes');
@@ -197,6 +246,7 @@ export async function planAdoption(books: any, slug: string, evidence: AdoptionE
       return denied(continuity.reason);
     }
     let line = await match('line', ref.lineKey, lineArtifact.sha256, lineArtifact.bytes);
+    if (lineRowFromSupplement && line.status === 'eligible') line.evidence = { ...(line.evidence as Record<string, unknown>), auditSupplement: 'adoption-audit-supplement/v1' };
     const lineIdentity = { revision, sha256: lineArtifact.sha256 };
     if (pg.lineIdentity) line = revisionHash(pg.lineIdentity) !== revisionHash(lineIdentity) ? denied('Existing line provenance conflicts; not a legacy blank identity') : { status: 'unchanged', reason: 'Existing line identity already matches; no adoption claim or write' };
     if (line.status === 'eligible') { if (pg.lineIdentity) line.status = 'unchanged'; else pg.lineIdentity = lineIdentity; }
@@ -237,7 +287,8 @@ export async function planAdoption(books: any, slug: string, evidence: AdoptionE
   if (evidence.continuity) { const key = `books/${slug}/versions.json`; const h = await books.head(key); if (h?.etag) evidenceHeads.push({ key, etag: h.etag }); }
   const proof = await adoptionCounts(books, slug, bible, inventory.pages, count?.pdf_pages, pages.filter(p => p.color.status !== 'reported').length);
   const payload = { schema: 'legacy-adoption/v1', slug, manifest: captured.manifest, observations: [...captured.observations, ...evidenceHeads],
-    sources, continuity, targets, proof, errors, pages, patches, legacyPdfCounts: count?.pdf_pages ?? {}, canApply: patches.length > 0 && errors.length === 0 && slug !== 'iwillteach' };
+    sources, continuity, targets, proof, errors, pages, patches, legacyPdfCounts: count?.pdf_pages ?? {}, canApply: patches.length > 0 && errors.length === 0 && slug !== 'iwillteach',
+    ...(evidence.auditSupplement ? { auditSupplement: { countsCorrected: auditSupCountsUsed, lineRowsSupplied: auditSup.lineRows.size } } : {}) };
   return { ...payload, fingerprint: revisionHash(payload) };
 }
 export type AdoptionReport = Awaited<ReturnType<typeof planAdoption>>;
@@ -246,7 +297,7 @@ export async function applyAdoption(books: any, report: AdoptionReport, reviewed
   const { fingerprint, ...payload } = report;
   if (!report.canApply || !report.patches.length || fingerprint !== reviewedFingerprint || revisionHash(payload) !== fingerprint) throw new Error('A matching eligible reviewed dry-run is required');
   const freshEvidence: AdoptionEvidence = { inventory: report.sources.inventory.raw, line: report.sources.line.raw, bookQa: report.sources.bookQa.raw,
-    color: report.sources.color?.raw, continuity: report.sources.continuity?.raw, editions: report.sources.editions?.raw, colorPairing: report.sources.colorPairing?.raw };
+    color: report.sources.color?.raw, continuity: report.sources.continuity?.raw, editions: report.sources.editions?.raw, colorPairing: report.sources.colorPairing?.raw, auditSupplement: report.sources.auditSupplement?.raw };
   const fresh = await planAdoption(books, report.slug, freshEvidence);
   if (fresh.fingerprint !== fingerprint) throw new Error('Live bytes or evidence changed after dry-run');
   await assertRevisionUnchanged(books, report.observations);

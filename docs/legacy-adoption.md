@@ -56,6 +56,26 @@ particular, Maisie's line pages can be adopted independently; unverified color
 pages and the prior-edition color PDF remain unverified. Tilda (`iwillteach`)
 is always report-only and remains parked. No other plan fields are changed.
 
+A judgment inventory built from a partial key set can also undercount the
+book itself: Wells' inventory was keyed on plan `imageKey` fields and saw
+73 of her 90 pages, and the 17 pages outside that key set have no audit
+rows at all. For those books the operator may supply an audit supplement
+(`adoption-audit-supplement/v1`, hash-pinned in the evidence index like
+every other source). The supplement is a resident of the book's own audit
+prefix: the local copy must byte-match `books/{slug}/audit/
+audit-supplement.json` in the bucket or it is an evidence error. It has
+two bounded powers. Its `counts` section may restate the four inventory
+count fields (`planned_pages`, `planned_story_pages`, `chapters_found`,
+`line_images`), consulted only when the recorded inventory disagrees
+with the counts derived from the live plans, and accepted only when the
+restated values equal the derived counts exactly. Its `lineRows` section
+may supply an audit row for a page the audit never recorded; a row
+naming a page the audit DID record is an evidence error, never an
+override. Supplement rows then flow through the same decision logic as
+recorded rows, and any decision they support is annotated
+`auditSupplement: 'adoption-audit-supplement/v1'` in the report, which
+also records whether the counts correction was used.
+
 The version fingerprint is the existing 32-bit names/sizes checksum, not a
 content digest. Its file set includes plans, bible, line/color image prefixes,
 picture/coloring PDFs, editor data and book info. It excludes covers, the color
