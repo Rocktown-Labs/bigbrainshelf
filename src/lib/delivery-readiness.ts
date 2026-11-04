@@ -7,9 +7,11 @@
 // The publish gate (publish-readiness.ts) covers the audio leg
 // only. This module covers the whole advertised bundle: the
 // storybook PDF, the coloring PDF, the EPUB, the audiobook (file
-// present, composed cover embedded, full-cast production), the
-// color edition, complete casting for every character in the
-// book, and the assembly QA measurements recorded in book_qa by
+// present, composed cover embedded, single-voice production in
+// the lead's cast voice), the color edition, the lead cast (the
+// audiobook is read by the protagonist's voice; supporting
+// voices are optional, saved for video), and the assembly QA
+// measurements recorded in book_qa by
 // whoever assembled or measured the PDFs (the factory composer
 // writes them at assembly; RGM backfilled Mira's by hand from
 // her R2 PDFs on 2026-10-31).
@@ -173,23 +175,35 @@ export function computeDeliveryReadiness(f: DeliveryFacts): DeliveryReadiness {
     checks.push({ id: "cast-complete", label: "Casting", state: "unknown",
       detail: "Casting: no cast list found for this book." });
   } else {
-    const uncast = f.cast.filter((c) => !c.cast).map((c) => c.name);
+    // Single-voice standard (CG, 2026-11-04): the lead's voice
+    // reads the whole audiobook, so only the lead must be cast.
+    // The cast list is in bible order; the lead is first (the same
+    // convention the generator's guard uses). Uncast supporting
+    // characters are noted, never a blocker: their voices are
+    // optional, saved for the video work.
+    const lead = f.cast[0];
+    const uncastSupporting = f.cast.slice(1).filter((c) => !c.cast).map((c) => c.name);
     checks.push(
-      uncast.length === 0
-        ? { id: "cast-complete", label: "Casting", state: "pass",
-            detail: `Casting: all ${f.cast.length} characters are cast.` }
-        : { id: "cast-complete", label: "Casting", state: "fail",
-            detail: `Casting: ${uncast.join(", ")} ${uncast.length === 1 ? "is" : "are"} not cast yet. Audiobooks are full-cast, so every character needs a voice.` }
+      !lead
+        ? { id: "cast-complete", label: "Casting", state: "unknown",
+            detail: "Casting: the cast list is empty." }
+        : lead.cast
+          ? { id: "cast-complete", label: "Casting", state: "pass",
+              detail: uncastSupporting.length === 0
+                ? `Casting: all ${f.cast.length} characters are cast.`
+                : `Casting: ${lead.name} is cast and reads the audiobook. ${uncastSupporting.join(", ")} ${uncastSupporting.length === 1 ? "is" : "are"} not cast; supporting voices are optional, saved for video.` }
+          : { id: "cast-complete", label: "Casting", state: "fail",
+              detail: `Casting: ${lead.name}, the lead, is not cast yet. The audiobook is read in the lead's voice, so the lead needs a voice before recording.` }
     );
   }
 
   checks.push(
     f.audioProduction === "full-cast"
       ? { id: "audio-production", label: "Audiobook production", state: "pass",
-          detail: "Audiobook production: full-cast final." }
+          detail: "Audiobook production: full-cast final (legacy production)." }
       : f.audioProduction === "single-voice"
-        ? { id: "audio-production", label: "Audiobook production", state: "fail",
-            detail: `Audiobook production: the file on record is a single-voice draft${f.audioVoiceName ? ` read in ${f.audioVoiceName}` : ""}. The final is a full-cast production.` }
+        ? { id: "audio-production", label: "Audiobook production", state: "pass",
+            detail: `Audiobook production: single-voice final${f.audioVoiceName ? `, read in ${f.audioVoiceName}` : ""}.` }
         : f.audioProduction === "none"
           ? { id: "audio-production", label: "Audiobook production", state: "fail",
               detail: "Audiobook production: no production stamp on the audiobook, so it cannot be confirmed as a final." }
