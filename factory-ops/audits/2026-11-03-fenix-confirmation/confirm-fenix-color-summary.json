@@ -1,0 +1,163 @@
+{
+ "slug": "algorithms",
+ "edition": "color",
+ "model": "anthropic/claude-opus-5.5",
+ "pages_judged": 28,
+ "pages_defect": 18,
+ "pages_clean": 10,
+ "total_cost": 0,
+ "defect_pages": [
+  {
+   "page": "S2p1",
+   "summary": "Neither Fenix nor Moss appears. The left character is a clothed, front-facing cat-like animal with a ringed striped tail, not the side-view fox with a white-tipped bushy tail, and there is no turtle. A bear, a species outside the book's cast, sits on the log reading a red book.",
+   "claims": {
+    "1": "confirmed",
+    "2": "confirmed",
+    "3": "confirmed"
+   }
+  },
+  {
+   "page": "S2p3",
+   "summary": "There are three owls instead of one: Orin on the branch plus two extra small owl-like characters on the ground. Fenix the fox and Moss the turtle do not appear anywhere on the page.",
+   "claims": {
+    "1": "confirmed",
+    "2": "confirmed",
+    "3": "confirmed"
+   }
+  },
+  {
+   "page": "S4p2",
+   "summary": "Fenix is present, so the missing-character claim is a false alarm. However, he is off-model: he wears a blue scarf, yellow dress, white apron, orange gloves and brown boots, and is drawn in three-quarter view with two eyes, all contrary to the 'no clothes, no accessories, side view' spec.",
+   "claims": {
+    "1": "false_alarm"
+   }
+  },
+  {
+   "page": "S6p0",
+   "summary": "Fenix the fox is clearly present, so the missing-character claim is wrong. However, the sheet specifies no clothes or accessories, and here Fenix wears a green shirt and an orange scarf.",
+   "claims": {
+    "1": "false_alarm"
+   }
+  },
+  {
+   "page": "S6p1",
+   "summary": "Fenix the fox does not appear; a human girl in a red dress stands in that place. Moss's notebook, which should be blank, has numbers ('12, 3, 4, 3, 4') drawn on it.",
+   "claims": {
+    "1": "confirmed",
+    "2": "false_alarm",
+    "3": "confirmed",
+    "4": "confirmed"
+   }
+  },
+  {
+   "page": "S6p3",
+   "summary": "The word '\"Fern', with a stray quotation mark, is painted in green lettering into the sky at the top of the artwork.",
+   "claims": {
+    "1": "confirmed"
+   }
+  },
+  {
+   "page": "S7p2",
+   "summary": "Orin is duplicated: six near-identical brown owls with rolled maps appear on the page instead of the single expected owl. No clear anatomy defects are visible; wings and feet look normal on all owls.",
+   "claims": {
+    "1": "confirmed",
+    "2": "false_alarm"
+   }
+  },
+  {
+   "page": "S8p2",
+   "summary": "Moss, the green turtle, appears five times on the page: sitting at top left, standing front-facing at top right, standing three-quarter in the center, standing in profile at bottom left, and seen from behind at bottom right. The scene calls for only one turtle.",
+   "claims": {
+    "1": "confirmed"
+   }
+  },
+  {
+   "page": "S9p1",
+   "summary": "Moss is cloned: five separate turtles appear on the page (top-left sitting, center-left, top-right, bottom-left, bottom-right seen from behind), but the scene should have only one. No broken anatomy is visible on the fox or the turtles.",
+   "claims": {
+    "1": "confirmed",
+    "2": "false_alarm"
+   }
+  },
+  {
+   "page": "S9p2",
+   "summary": "Two foxes appear on the page: a large red fox in the center-left and a second, smaller fox at lower right. Only Fenix is expected in this scene.",
+   "claims": {
+    "1": "confirmed"
+   }
+  },
+  {
+   "page": "S10p1",
+   "summary": "Three foxes appear in the scene (one standing at the table and two seated in chairs) where only Fenix should appear. The foxes are also off-model: they wear a dress and sneakers, while Fenix should have no clothes or accessories.",
+   "claims": {
+    "1": "confirmed",
+    "2": "false_alarm"
+   }
+  },
+  {
+   "page": "S10p2",
+   "summary": "Neither Fenix the fox nor Moss the turtle appears. Instead the page shows animals from outside the cast: a clothed brown bear/dog-like character standing upright, a small tan puppy, and an orange dog with a red collar and curled tail.",
+   "claims": {
+    "1": "false_alarm",
+    "2": "confirmed",
+    "3": "confirmed",
+    "4": "false_alarm",
+    "5": "confirmed"
+   }
+  },
+  {
+   "page": "S10p3",
+   "summary": "The page shows a human girl with braids writing in a notebook on a rock instead of the expected cast; neither Fenix the fox nor Moss the turtle appears.",
+   "claims": {
+    "1": "confirmed",
+    "2": "confirmed",
+    "3": "false_alarm",
+    "4": "false_alarm",
+    "5": "confirmed",
+    "6": "false_alarm"
+   }
+  },
+  {
+   "page": "S11p2",
+   "summary": "Moss the turtle appears three times on the page: once beside Fenix and twice more in the lower half, in side and back views like a turnaround sheet. The limbs and feet of all characters look anatomically normal.",
+   "claims": {
+    "1": "confirmed",
+    "2": "false_alarm"
+   }
+  },
+  {
+   "page": "S12p1",
+   "summary": "Orin the owl is clearly present on the branch, so the missing-character claim is a false alarm. However, Orin is missing his rolled-up map, which should be tucked under one wing.",
+   "claims": {
+    "1": "false_alarm"
+   }
+  },
+  {
+   "page": "S10 finale",
+   "summary": "Fenix the fox does not appear anywhere on the page; the art shows only a moonlit forest path, trees, bushes and a fern with rocks. With no character present, there is no anatomy to be broken, so the anatomy claim is a false alarm.",
+   "claims": {
+    "1": "confirmed",
+    "2": "false_alarm"
+   }
+  },
+  {
+   "page": "S2 finale",
+   "summary": "Neither Fenix the fox nor Moss the turtle appears on the page. Instead it shows a furry green bear-like creature knocking at the door and a small brown bear cub, neither of which is a species in the book's cast.",
+   "claims": {
+    "1": "confirmed",
+    "2": "confirmed",
+    "3": "false_alarm",
+    "4": "confirmed"
+   }
+  },
+  {
+   "page": "S6 finale",
+   "summary": "Neither Fenix the fox nor Moss the turtle appears on the page. Instead, two human children are drawn holding a map in a forest clearing.",
+   "claims": {
+    "1": "confirmed",
+    "2": "confirmed",
+    "3": "confirmed"
+   }
+  }
+ ]
+}
