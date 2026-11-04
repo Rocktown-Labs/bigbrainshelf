@@ -4,6 +4,7 @@ import { countApprovedInventory } from './book-plans';
 import { getPublishReadiness } from './publish-readiness';
 import { getDeliveryReadiness } from './delivery-readiness';
 import { publishPriceStamp } from './offers';
+import { colorEditionComplete, getSignoffStates, signoffBlockers } from './qc-signoffs';
 import { recordWorkerRun } from '../../packages/core/src/run-provenance';
 
 export class PublishBlocked extends Error {
@@ -50,6 +51,15 @@ export async function publishVerifiedBook(
     if (check.id !== 'marketing-assets' && check.state !== 'pass') blockers.push({ id: `delivery:${check.id}`, detail: check.detail });
   }
 
+  // QC sign-offs (CG, 2026-11-03): the full story and the full color
+  // edition must each carry a human attestation bound to this exact
+  // revision. They are gates, not readiness evidence, so the override
+  // below can never waive them (enforced where waived is validated).
+  try {
+    const states = await getSignoffStates(db, slug, manifest.revision, colorEditionComplete(manifest));
+    blockers.push(...signoffBlockers(states));
+  } catch { blockers.push({ id: 'signoff:verify', detail: 'QC sign-offs could not be verified.' }); }
+
   // Bind the operator's confirmation to the exact revision and named evidence
   // shown in the blocked response, not merely reusable check IDs.
   const verification = revisionHash({ revision: manifest.revision, blockers });
@@ -62,6 +72,8 @@ export async function publishVerifiedBook(
   if (override && override.verification !== verification)
     throw new PublishBlocked('override', 'Readiness changed. Review the current revision and blockers before overriding.', blockers);
   const waived = new Set<string>(override?.checks ?? []);
+  if ([...waived].some(id => id.startsWith('signoff:')))
+    throw new PublishBlocked('override', 'QC sign-offs cannot be overridden. Record the missing sign-off in the QC viewer.', blockers);
   if ([...waived].some(id => !blockers.some(b => b.id === id)))
     throw new PublishBlocked('override', 'Readiness changed. Review the current blockers before overriding.', blockers);
   if (blockers.some(b => !waived.has(b.id)))

@@ -21,6 +21,8 @@
 import { bibleCast, ensureCastTables, seedRecordedCasts, type CastCharacter } from "./cast-registry";
 import { audiobookMetaKey } from "./audiobooks";
 import { voiceDisplayName } from "./publish-readiness";
+import { colorEditionComplete, getSignoffStates, type SignoffStateName } from "./qc-signoffs";
+import { captureApprovalRevision } from "./approval-identity";
 
 export type DeliveryCheckState = "pass" | "fail" | "unknown";
 
@@ -81,6 +83,11 @@ export interface DeliveryFacts {
    *  never as pass or fail. The guard is read-only: it never writes,
    *  deletes, publishes, blocks a publish, or triggers a re-measure. */
   qaStale?: boolean;
+  /** QC sign-offs (CG, 2026-11-03): the two human attestations,
+   *  full story then full color, bound to the book's current
+   *  revision. Null = the states could not be checked, which reads
+   *  as unknown, never as signed. */
+  signoffs: { story: SignoffStateName; color: SignoffStateName } | null;
   /** Marketing assets (the LAST readiness step, CG 2026-10-31:
    *  everything else gets put together first, then marketing is
    *  made and can just run). Null = never measured. */
@@ -207,6 +214,40 @@ export function computeDeliveryReadiness(f: DeliveryFacts): DeliveryReadiness {
             detail: "PDF content QA: covers, captions, and back cover measured clean." }
         : { id: "pdf-qa", label: "PDF content QA", state: "fail",
             detail: `PDF content QA: ${problems.join("; ")}.` }
+    );
+  }
+
+  // QC sign-offs (CG, 2026-11-03): full story, then full color.
+  // Explicit states only: done, outstanding, or not yet available;
+  // an unchecked state is unknown, never a pass.
+  if (!f.signoffs) {
+    checks.push({ id: "story-qc-signoff", label: "Full story QC sign-off", state: "unknown",
+      detail: "Full story QC sign-off: the sign-off state could not be checked." });
+    checks.push({ id: "color-qc-signoff", label: "Full color QC sign-off", state: "unknown",
+      detail: "Full color QC sign-off: the sign-off state could not be checked." });
+  } else {
+    checks.push(
+      f.signoffs.story === "done"
+        ? { id: "story-qc-signoff", label: "Full story QC sign-off", state: "pass",
+            detail: "Full story QC sign-off: recorded for the current revision." }
+        : f.signoffs.story === "unknown"
+          ? { id: "story-qc-signoff", label: "Full story QC sign-off", state: "unknown",
+              detail: "Full story QC sign-off: the sign-off state could not be checked." }
+          : { id: "story-qc-signoff", label: "Full story QC sign-off", state: "fail",
+              detail: "Full story QC sign-off: outstanding. Read the full story in the QC viewer and sign off." }
+    );
+    checks.push(
+      f.signoffs.color === "done"
+        ? { id: "color-qc-signoff", label: "Full color QC sign-off", state: "pass",
+            detail: "Full color QC sign-off: recorded for the current revision." }
+        : f.signoffs.color === "unavailable"
+          ? { id: "color-qc-signoff", label: "Full color QC sign-off", state: "fail",
+              detail: "Full color QC sign-off: not yet available. The color edition is incomplete, so there is no full color edition to sign off." }
+          : f.signoffs.color === "unknown"
+            ? { id: "color-qc-signoff", label: "Full color QC sign-off", state: "unknown",
+                detail: "Full color QC sign-off: the sign-off state could not be checked." }
+            : { id: "color-qc-signoff", label: "Full color QC sign-off", state: "fail",
+                detail: "Full color QC sign-off: outstanding. Read the full color edition in the QC viewer and sign off." }
     );
   }
 
@@ -618,11 +659,26 @@ export async function getDeliveryReadiness(
   const qaFacts = await readBookQaFacts(db, books, book, options.readOnly);
   const marketing = await readMarketing(db, books, slug, options.readOnly);
 
+  // QC sign-off states for the current revision. Read-only: a book
+  // whose revision cannot be captured, or whose sign-offs cannot be
+  // read, reports null and renders unknown, never signed.
+  let signoffs: DeliveryFacts["signoffs"] = null;
+  try {
+    const snapshot = await captureApprovalRevision(db, books, slug);
+    const states = await getSignoffStates(
+      db, slug, snapshot.manifest.revision, colorEditionComplete(snapshot.manifest)
+    );
+    signoffs = { story: states.story.state, color: states.color.state };
+  } catch {
+    signoffs = null;
+  }
+
   return computeDeliveryReadiness({
     slug: book.slug,
     title: book.title,
     files: { picture, coloring, epub, audiobook, color },
     audioCover,
+    signoffs,
     // Measured by the vision-QC pass into book_qa (Fern's colored
     // line art is why this exists); unmeasured or stale stays
     // unknown, never a verdict.

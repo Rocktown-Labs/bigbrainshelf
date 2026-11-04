@@ -175,7 +175,6 @@ if (fromAll) {
       <label style="font-size:13px;color:#78716c" for="view-sel">View</label>
       <select id="view-sel" aria-label="View">
         <option value="story">Story book QC</option>
-        <option value="coloring">Coloring book QC</option>
         <option value="color">Full color book QC</option>
         <option value="cover">Cover</option>
         <option value="details">Details &amp; generation</option>
@@ -185,6 +184,7 @@ if (fromAll) {
         <button id="mode-scroll">Scroll</button>
       </span>
       <span id="qc-progress"></span>
+      <span id="signoffs" style="display:none;gap:8px;align-items:center"></span>
       <button id="qc-colorize" style="display:none">Colorize</button>
     </span>
   </div>
@@ -227,6 +227,71 @@ if (fromAll) {
           updateQcProgress();
         })
         .catch(function () { /* marks just show unset */ });
+    }
+
+    // QC sign-offs (CG, 2026-11-03): two book-level attestations on
+    // top of the per-page marks. Full story first, then full color.
+    // A sign-off binds to the revision loaded here; publish refuses
+    // the book until both are recorded for the current revision.
+    var signoffStates = null;
+
+    function loadSignoffs() {
+      return fetch("/api/editor/signoffs?book_slug=" + encodeURIComponent(slug))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || d.error) return;
+          signoffStates = d;
+          renderSignoffs();
+        })
+        .catch(function () { /* chips just stay hidden */ });
+    }
+
+    function signoffChip(kind, label, s) {
+      if (!s) return "";
+      if (s.state === "done") {
+        return '<span class="status complete" title="Signed off' + (s.at ? " " + esc(String(s.at).slice(0, 10)) : "") + '">' + label + " &#10003; signed</span>";
+      }
+      if (s.state === "unavailable") {
+        return '<span class="status draft" title="The color edition is incomplete, so there is no full color edition to sign off yet">' + label + ": not yet available</span>";
+      }
+      if (s.state === "unknown") {
+        return '<span class="status draft">' + label + ": could not be checked</span>";
+      }
+      return '<button class="ghostbtn" style="padding:5px 12px;font-size:13px" data-signoff="' + kind + '">Sign off: ' + label + "</button>";
+    }
+
+    function renderSignoffs() {
+      var el = document.getElementById("signoffs");
+      if (!el || !signoffStates) return;
+      el.style.display = "flex";
+      el.innerHTML =
+        signoffChip("story", "Full story", signoffStates.story) +
+        signoffChip("color", "Full color", signoffStates.color);
+      el.querySelectorAll("[data-signoff]").forEach(function (b) {
+        b.addEventListener("click", function () { postSignoff(b.getAttribute("data-signoff"), b); });
+      });
+    }
+
+    function postSignoff(kind, btn) {
+      var question = kind === "story"
+        ? "You read the full story, start to finish, and it is good to publish?"
+        : "You read the full color edition, start to finish, and it is good to publish?";
+      if (!confirm(question)) return;
+      btn.disabled = true;
+      btn.textContent = "Signing...";
+      fetch("/api/editor/signoffs", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ book_slug: slug, kind: kind, revision: approvalRevision })
+      }).then(function (r) {
+        return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || "Sign-off failed"); return d; });
+      }).then(function (d) {
+        signoffStates = d;
+        renderSignoffs();
+      }).catch(function (err) {
+        alert(err.message);
+        btn.disabled = false;
+        btn.textContent = "Sign off";
+      });
     }
 
     function markBarHtml(idSuffix, cn, pi) {
@@ -410,10 +475,6 @@ if (fromAll) {
       if (p.backcover) {
         return '<div class="captext">Back cover · the painted back cover that closes the book</div>';
       }
-      if (view === "coloring") {
-        var cap = [p.character, p.concept].filter(Boolean).join(" · ");
-        return '<div class="captext">Coloring page' + (cap ? " · " + esc(cap) : "") + "</div>";
-      }
       if (view === "color") {
         return '<div class="ptext">' + esc(p.text) + "</div>" +
           (p.imageColor ? "" : '<div class="captext">No color version of this page yet. Showing the line page.</div>');
@@ -421,16 +482,28 @@ if (fromAll) {
       return '<div class="ptext">' + esc(p.text) + "</div>";
     }
 
-    // Story and coloring QC always show the line pages, exactly as the
-    // books ship. The full color view shows each page's color version
-    // when one exists and falls back to the line page when it does not.
+    // Story QC always shows the line pages, exactly as the book
+    // ships. (The coloring book has no QC surface of its own, CG
+    // 2026-11-03: it is the same line images, covered by the full
+    // story sign-off plus the assembly validation.) The full color
+    // view shows each page's color version when one exists and
+    // falls back to the line page when it does not.
     function imgFor(p) {
       return view === "color" && p.imageColor ? p.imageColor : p.image;
     }
 
+    // Display-sized art: the sha-addressed media URLs are
+    // content-addressed and cache immutably, and the w parameter
+    // asks the media route for the minted WebP derivative at this
+    // width (the full-size original when none is minted). Rail
+    // thumbs stop shipping full-resolution files.
+    function sized(url, w) {
+      return url && url.indexOf("sha256=") > -1 ? url + "&w=" + w : url;
+    }
+
     function renderRail() {
       var rail = document.getElementById("rail");
-      if (view !== "story" && view !== "coloring" && view !== "color") { rail.style.display = "none"; return; }
+      if (view !== "story" && view !== "color") { rail.style.display = "none"; return; }
       rail.style.display = "";
       rail.innerHTML = pages.map(function (p, i) {
         var a = approvals[key(p.chapterNum, p.pageIndex)];
@@ -444,7 +517,7 @@ if (fromAll) {
           ? '<span class="tocthumb">&copy;</span>'
           : p.dedication
           ? '<span class="tocthumb">Belongs to</span>'
-          : '<img loading="lazy" src="' + esc(imgFor(p)) + '" alt="" />';
+          : '<img loading="lazy" src="' + esc(sized(imgFor(p), 200)) + '" alt="" />';
         var lbl = p.cover ? 'Cover<span class="ch">Front cover</span>'
           : p.dedication ? 'Dedication<span class="ch">Download page</span>'
           : p.copyright ? 'Copyright<span class="ch">Page 2</span>'
@@ -462,7 +535,7 @@ if (fromAll) {
       var p = pages[cur];
       if (!p) { main.innerHTML = '<p id="msg">No pages yet.</p>'; return; }
       main.innerHTML = '<div class="stage">' +
-        (p.toc ? tocCardHtml() : p.copyright ? copyrightCardHtml() : p.dedication ? dedicationCardHtml() : '<img class="page" src="' + esc(imgFor(p)) + '" alt="page art" />') +
+        (p.toc ? tocCardHtml() : p.copyright ? copyrightCardHtml() : p.dedication ? dedicationCardHtml() : '<img class="page" src="' + esc(sized(imgFor(p), 960)) + '" alt="page art" />') +
         pageTextHtml(p) +
         '<div class="nav">' +
           '<button id="prev"' + (cur === 0 ? " disabled" : "") + ">&larr; Prev</button>" +
@@ -482,7 +555,7 @@ if (fromAll) {
       main.innerHTML = pages.map(function (p, i) {
         return '<div class="pageblock" id="pb-' + i + '">' +
           '<p class="cap">' + pageLabel(p) + "</p>" +
-          (p.toc ? tocCardHtml() : p.copyright ? copyrightCardHtml() : p.dedication ? dedicationCardHtml() : '<img class="page" loading="lazy" src="' + esc(imgFor(p)) + '" alt="page art" />') +
+          (p.toc ? tocCardHtml() : p.copyright ? copyrightCardHtml() : p.dedication ? dedicationCardHtml() : '<img class="page" loading="lazy" src="' + esc(sized(imgFor(p), 960)) + '" alt="page art" />') +
           pageTextHtml(p) + markBarHtml("s" + i, p.chapterNum, p.pageIndex) + reqBoxHtml("s" + i, p.chapterNum, p.pageIndex) + "</div>";
       }).join("");
       pages.forEach(function (p, i) { wireReq("s" + i); wireMark("s" + i); });
@@ -724,7 +797,7 @@ if (fromAll) {
 
     function render() {
       var seg = document.getElementById("mode-seg");
-      if (view === "story" || view === "coloring" || view === "color") {
+      if (view === "story" || view === "color") {
         seg.style.display = "";
         if (mode === "flip") renderFlip(); else renderScroll();
       } else {
@@ -793,7 +866,7 @@ if (fromAll) {
       render();
     });
     document.addEventListener("keydown", function (e) {
-      if (view !== "story" && view !== "coloring" && view !== "color") return;
+      if (view !== "story" && view !== "color") return;
       if (mode !== "flip") return;
       if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
       if (e.key === "ArrowRight") go(cur + 1);
@@ -890,7 +963,7 @@ if (fromAll) {
         return loadRequests();
       })
       .then(render)
-      .then(function () { loadApprovals(); })
+      .then(function () { loadApprovals(); loadSignoffs(); })
       .catch(function () {
         document.getElementById("msg").textContent = "Could not load this book's pages yet.";
       });
