@@ -246,7 +246,7 @@ export async function applyAdoption(books: any, report: AdoptionReport, reviewed
   const { fingerprint, ...payload } = report;
   if (!report.canApply || !report.patches.length || fingerprint !== reviewedFingerprint || revisionHash(payload) !== fingerprint) throw new Error('A matching eligible reviewed dry-run is required');
   const freshEvidence: AdoptionEvidence = { inventory: report.sources.inventory.raw, line: report.sources.line.raw, bookQa: report.sources.bookQa.raw,
-    color: report.sources.color?.raw, continuity: report.sources.continuity?.raw, editions: report.sources.editions?.raw };
+    color: report.sources.color?.raw, continuity: report.sources.continuity?.raw, editions: report.sources.editions?.raw, colorPairing: report.sources.colorPairing?.raw };
   const fresh = await planAdoption(books, report.slug, freshEvidence);
   if (fresh.fingerprint !== fingerprint) throw new Error('Live bytes or evidence changed after dry-run');
   await assertRevisionUnchanged(books, report.observations);
