@@ -104,6 +104,22 @@ def verified_bytes(root, receipt, name):
     return data
 
 
+def archive_build(root, identifier, receipt):
+    """Retain the exact sealed bytes per invocation; never dedupe or replace."""
+    directory = Path(root) / '.deployment-records' / 'builds' / identifier
+    directory.mkdir(parents=True, exist_ok=False)
+    for entry in receipt['artifacts']:
+        data = verified_bytes(root, receipt, entry['path'])
+        target = directory / 'artifacts' / entry['path']
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open('xb') as stream:
+            stream.write(data)
+    with (directory / 'receipt.json').open('x') as stream:
+        json.dump(receipt, stream, indent=2)
+        stream.write('\n')
+    return str(directory.relative_to(root))
+
+
 def deploy_recorded(root, worker, upload):
     receipt, binding = prepare_deployment(root, worker)
     identifier = binding['deploymentId']

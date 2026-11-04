@@ -48,7 +48,9 @@ a self-referential bundle hash. It identifies artifacts, not a hermetic build.
 Current receipt: `dist/build-provenance.json` or
 `factory/dist/build-provenance.json`. Every build invocation also appends records
 under `.deployment-records/builds/<id>.jsonl`. Keep these outside dist: Astro
-clears dist. Never prune the records. They are ignored by Git.
+clears dist. Exact sealed bytes and the original receipt are also archived per
+invocation under `.deployment-records/builds/<id>/`, even for identical builds.
+Never prune or deduplicate these originals or records. They are ignored by Git.
 
 Both uploaders are import-safe and require the receipt before any API call.
 They verify current source and the exact upload artifact set, and rehash bytes

@@ -4,7 +4,7 @@ from pathlib import Path
 import subprocess
 import sys
 import uuid
-from build_provenance import source_sha, artifact_paths, seal_build, append_record
+from build_provenance import source_sha, artifact_paths, seal_build, append_record, archive_build
 
 
 def main():
@@ -30,7 +30,8 @@ def main():
                             '--target=es2022', '--external:cloudflare:workers', '--outfile=dist/worker.js'], cwd=root / 'factory', check=True)
             output = root / 'factory/dist/build-provenance.json'
         receipt = seal_build(root, worker, artifact_paths(root, worker), before)
-        append_record(root, 'builds', build_id, {'status': 'sealed', 'build': receipt})
+        archive = archive_build(root, build_id, receipt)
+        append_record(root, 'builds', build_id, {'status': 'sealed', 'build': receipt, 'archive': archive})
         output.write_text(json.dumps(receipt, indent=2) + '\n')
         print(f"sealed {worker}: source={before} build={receipt['buildDigest']}")
     except Exception as error:

@@ -132,5 +132,16 @@ class DeploymentProvenanceTest(unittest.TestCase):
         records = [json.loads(line) for line in next((self.root / '.deployment-records/deployments').glob('*.jsonl')).read_text().splitlines()]
         self.assertEqual([r['status'] for r in records], ['prepared', 'failed-or-unconfirmed'])
 
+    def test_sealed_originals_are_kept_per_invocation_without_deduplication(self):
+        receipt = self.seal()
+        first = provenance.archive_build(self.root, 'first-build', receipt)
+        second = provenance.archive_build(self.root, 'second-build', receipt)
+        self.assertNotEqual(first, second)
+        (self.root / 'dist/worker.js').write_bytes(b'BBBB')
+        self.assertEqual((self.root / first / 'artifacts/dist/worker.js').read_bytes(), b'AAAA')
+        self.assertEqual((self.root / second / 'artifacts/dist/worker.js').read_bytes(), b'AAAA')
+        with self.assertRaises(FileExistsError):
+            provenance.archive_build(self.root, 'first-build', receipt)
+
 if __name__ == '__main__':
     unittest.main()
