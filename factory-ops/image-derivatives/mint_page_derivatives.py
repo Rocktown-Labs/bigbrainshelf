@@ -32,6 +32,23 @@ sys.path.insert(0, "/home/hatch/workspace/kidsbook-video/runner")
 import cover  # noqa: E402
 from PIL import Image  # noqa: E402
 
+# R2 reads through the API helper occasionally drop the connection
+# mid-run; the minter is idempotent, so a few retries per call keep
+# one dropped connection from killing a whole book.
+import time as _time
+
+for _name in ("r2_get", "r2_put"):
+    _fn = getattr(cover, _name)
+    def _wrapped(*a, _fn=_fn, **kw):
+        for attempt in range(4):
+            try:
+                return _fn(*a, **kw)
+            except Exception:
+                if attempt == 3:
+                    raise
+                _time.sleep(2 * (attempt + 1))
+    setattr(cover, _name, _wrapped)
+
 WIDTHS = (200, 960)
 
 
