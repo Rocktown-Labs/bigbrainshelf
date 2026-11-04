@@ -5,6 +5,7 @@ import { env } from "cloudflare:workers";
 import AdminShell from "../../../components/AdminShell.astro";
 import { inspectAudiobook, formatClock } from "../../../lib/audiobooks";
 import { publicSlugFor } from "../../../lib/public-slugs";
+import { adminMediaUrl } from "../../../lib/media";
 
 export const prerender = false;
 if (!Astro.locals.user) {
@@ -23,7 +24,6 @@ const book = (await e.DB.prepare(
   "SELECT slug, public_slug, title, status, cover_key, audiobook_key FROM books WHERE slug = ?"
 ).bind(slug).first()) as any;
 
-const R2 = "https://media.bigbrainshelf.com/";
 let info = null;
 if (book?.audiobook_key) info = await inspectAudiobook(e, book);
 const totalSecs = info ? info.tracks.reduce((s, c) => s + (c.duration || 0), 0) : 0;
@@ -71,7 +71,7 @@ const mb = (n: number) => (n / 1048576).toFixed(1) + " MB";
       <>
         <div class="mt-3 flex items-start gap-4">
           {book.cover_key
-            ? <img src={R2 + book.cover_key} alt="" class="w-[74px] h-[98px] object-cover rounded-md border border-stone-200 shrink-0" />
+            ? <img src={adminMediaUrl(book.cover_key)} alt="" class="w-[74px] h-[98px] object-cover rounded-md border border-stone-200 shrink-0" />
             : <div class="w-[74px] h-[98px] rounded-md bg-stone-100 border border-stone-200 shrink-0"></div>}
           <div class="min-w-0">
             <h1 class="text-2xl font-bold tracking-tight leading-snug">{book.title}</h1>

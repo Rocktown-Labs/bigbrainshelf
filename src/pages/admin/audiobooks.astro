@@ -4,6 +4,7 @@ import { ClientRouter } from "astro:transitions";
 import { env } from "cloudflare:workers";
 import AdminShell from "../../components/AdminShell.astro";
 import { inspectAudiobook, formatClock } from "../../lib/audiobooks";
+import { adminMediaUrl } from "../../lib/media";
 
 export const prerender = false;
 if (!Astro.locals.user) {
@@ -18,7 +19,6 @@ const { results } = await e.DB.prepare(
   "SELECT slug, title, status, cover_key, audiobook_key FROM books ORDER BY title"
 ).all();
 const rows = (results || []) as any[];
-const R2 = "https://media.bigbrainshelf.com/";
 
 const playable = [];
 const pending = [];
@@ -57,7 +57,7 @@ const mb = (n: number) => (n / 1048576).toFixed(1) + " MB";
         return (
           <div class="rounded-lg bg-white border border-stone-200 p-4 flex gap-4">
             {book.cover_key
-              ? <img src={R2 + book.cover_key} alt="" class="w-[74px] h-[98px] object-cover rounded-md border border-stone-200 shrink-0" />
+              ? <img src={adminMediaUrl(book.cover_key)} alt="" class="w-[74px] h-[98px] object-cover rounded-md border border-stone-200 shrink-0" />
               : <div class="w-[74px] h-[98px] rounded-md bg-stone-100 border border-stone-200 shrink-0"></div>}
             <div class="min-w-0 flex-1">
               <h2 class="font-bold leading-snug">{book.title}</h2>

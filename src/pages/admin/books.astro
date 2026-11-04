@@ -99,7 +99,11 @@ if (!Astro.locals.user) {
   <p class="meta" id="count"></p>
   <div id="books"><p>Loading...</p></div>
   <script is:inline>
-    var R2 = "https://media.bigbrainshelf.com/";
+    // Covers load through the gated admin media route, never the
+    // media host directly: the host serves raw keys immutable for a
+    // year, so a replaced cover would stay stale in admin.
+    var ADMIN_MEDIA = "/api/admin/media?key=";
+    function adminMedia(key) { return ADMIN_MEDIA + encodeURIComponent(key); }
     var allBooks = [];
     var topicFilter = "all";
     var STATUS_RANK = { building: 0, ready_for_qa: 1, in_progress: 2, failed: 3, draft: 4, queued: 5, complete: 6 };
@@ -144,7 +148,7 @@ if (!Astro.locals.user) {
       // "Not ready: N blockers". Every action lives on the book page.
       var pub = b.public_slug || b.slug;
       var cover = b.cover_key
-        ? '<img src="' + R2 + b.cover_key + '" alt="' + escB(b.title) + '" loading="lazy" />'
+        ? '<img src="' + adminMedia(b.cover_key) + '" alt="' + escB(b.title) + '" loading="lazy" />'
         : '';
       return '<a class="shelf-item" href="/admin/books/' + pub + '">' +
         '<span class="shelf-cover">' + cover + '</span>' +

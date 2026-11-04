@@ -23,7 +23,8 @@ import { flushOutbox } from "../../../lib/email";
 import { loadBooksByAnySlug, normalizePackState, parsePackState } from "../../../lib/orders";
 import { boxContentsComplete, packLinesForBox, packProgress } from "../../../lib/packing";
 import { buyDestinationLabel, destinationFromStored, getDestinationLabelQuote, pickupStateFor, requestPickup, shippoStatus } from "../../../lib/shippo";
-import { coverDerivative, MEDIA_PUBLIC } from "../../../lib/derivatives";
+import { coverDerivative } from "../../../lib/derivatives";
+import { adminMediaUrl } from "../../../lib/media";
 
 // Admin Book Club queue. Gated by the middleware's admin session cookie,
 // with the locals.user check as defense in depth (same pattern as
@@ -157,9 +158,12 @@ export const GET: APIRoute = async ({ locals, url }) => {
     const eligible = await listEligibleClubBooks(e.DB).catch(() => []);
     const eligibleBooks = (eligible as any[]).map((b) => ({
       ...b,
+      // Admin-only response: the fallback rides the gated admin media
+      // route, not the media host's immutable raw URL, so a replaced
+      // cover is what the picker shows on the next load.
       cover:
         coverDerivative(String(b.slug), "card", b.cover_key) ||
-        (b.cover_key ? MEDIA_PUBLIC + b.cover_key : null),
+        (b.cover_key ? adminMediaUrl(b.cover_key) : null),
     }));
     return Response.json({
       box,
