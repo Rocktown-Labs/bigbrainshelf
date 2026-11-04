@@ -47,6 +47,7 @@
     "packages/core": {
       "name": "@bigbrainshelf/core",
       "version": "0.1.0",
+      "dependencies": { "@noble/hashes": "2.4.0" },
     },
   },
   "packages": {

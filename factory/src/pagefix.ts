@@ -1,3 +1,4 @@
+import { stampLine, stampColor, holdColor } from "../../packages/core/src/assembly-identity";
 import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // PageFixWorkflow: redo ONE page of an existing book (line + color)
 // with the owner's note as art direction.
@@ -126,6 +127,7 @@ export class PageFixWorkflow extends WorkflowEntrypoint<BookBuildEnv, PageFixPar
         }
         const key = `books/${slug}/images/${chapter}-${isFinale ? "finale" : `page-${page}`}.jpg`;
         await env.BOOKS.put(key, bytes, { httpMetadata: { contentType: "image/jpeg" } });
+        stampLine(bible, plan, pg, bytes);
         if (isFinale) {
           delete (plan.finale as any).held;
           delete (plan.finale as any).heldReason;
@@ -150,21 +152,21 @@ export class PageFixWorkflow extends WorkflowEntrypoint<BookBuildEnv, PageFixPar
         colorOutcome = await step.do("redo color page", { ...RETRIES, timeout: "20 minutes" } as const, async () => {
           const plan = await r2GetJson(env.BOOKS, `books/${slug}/plans/${chapter}.json`);
           const pg = isFinale ? plan.finale : plan.pages[page];
+          holdColor(pg, 'color replacement pending or failed');
+          await r2Put(env.BOOKS, `books/${slug}/plans/${chapter}.json`, JSON.stringify(plan, null, 1), "application/json");
           const res = await genColorizeWithQC(
             env, slug, lineBytes, pg.character ?? "", pg.storyText,
             { chapter, page: isFinale ? -1 : page },
             { ...(pg.scene ?? {}), imagePrompt: pg.imagePrompt }
           );
           if (res.status !== "ok") {
-            if (res.status === "held") {
-              (pg as any).colorHeld = true;
-              await r2Put(env.BOOKS, `books/${slug}/plans/${chapter}.json`, JSON.stringify(plan, null, 1), "application/json");
-            }
+            holdColor(pg, res.status === 'gateway' ? 'color gateway unavailable' : 'color QC or spend cap held the page');
+            await r2Put(env.BOOKS, `books/${slug}/plans/${chapter}.json`, JSON.stringify(plan, null, 1), "application/json");
             return res.status === "held" ? "color-held" : "color-unavailable";
           }
           const ckey = `books/${slug}/images-color/${chapter}-${isFinale ? "finale" : `page-${page}`}.jpg`;
           await env.BOOKS.put(ckey, res.bytes, { httpMetadata: { contentType: "image/png" } });
-          delete (pg as any).colorHeld;
+          stampColor(bible, plan, pg, lineBytes, res.bytes);
           (pg as any).imageColorKey = ckey;
           await r2Put(env.BOOKS, `books/${slug}/plans/${chapter}.json`, JSON.stringify(plan, null, 1), "application/json");
           return "colored";

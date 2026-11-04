@@ -1,3 +1,5 @@
+import { assembleVerifiedPdf } from "./assembly";
+import { stampColor, holdColor, pageSourceRevision, bytesHash } from "../../packages/core/src/assembly-identity";
 import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // ColorizeWorkflow: the factory's color process (reset, 2026-10-24).
 //
@@ -10,7 +12,6 @@ import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // color_book_key on the book row. The base book is never touched.
 import { WorkflowEntrypoint, WorkflowStep } from "cloudflare:workers";
 import type { WorkflowEvent } from "cloudflare:workers";
-import { buildPictureBook } from "./pdf";
 import { composeMatter, ensureBackCoverImages } from "./matter";
 import {
   BookBuildEnv,
@@ -39,7 +40,6 @@ import { recordEdition } from "./editions";
 import { runVisualPass } from "./visualpass";
 import { qcColorImage, qcColorImageDetailed } from "./ai";
 import { snapshotIfChanged } from "./versioning";
-import { toPdfJpeg } from "./transcode";
 
 export interface ColorizeParams {
   slug: string;
@@ -179,17 +179,14 @@ export async function genColorizeWithQC(
 }
 
 
-// A color page only counts as done when it is at least as new as the
-// line page it colors. Pre-reset color twins sit at these same keys
-// for the older books; without the timestamp check the workflow would
-// assemble a color edition out of drawings of a previous edition of
-// the book (Fern, 2026-10-26: 59 of 62 pages were stale twins).
-async function colorIsCurrent(env: BookBuildEnv, ckey: string, lineKey: string): Promise<boolean> {
-  const c: any = await env.BOOKS.head(ckey);
-  if (!c) return false;
-  const l: any = await env.BOOKS.head(lineKey);
-  if (!l) return true;
-  return new Date(c.uploaded).getTime() >= new Date(l.uploaded).getTime();
+// Hash-bound provenance, never upload-time ordering.
+async function colorIsCurrent(env: BookBuildEnv, bible: any, plan: any, pg: any, ckey: string, lineKey: string): Promise<boolean> {
+  if (pg.held || pg.colorHeld || pg.imageColorKey !== ckey) return false;
+  const line = await r2GetBytes(env.BOOKS, lineKey);
+  const color = await r2GetBytes(env.BOOKS, ckey);
+  const revision = pageSourceRevision(bible, plan, pg);
+  return !!line && !!color && pg.lineIdentity?.revision === revision && pg.lineIdentity?.sha256 === bytesHash(line)
+    && pg.colorIdentity?.revision === revision && pg.colorIdentity?.lineSha256 === bytesHash(line) && pg.colorIdentity?.sha256 === bytesHash(color);
 }
 
 function chNum(key: string): number {
@@ -249,42 +246,30 @@ export class ColorizeWorkflow extends WorkflowEntrypoint<BookBuildEnv, ColorizeP
         const head: any = await step.do(`colorize ${ch} head`, RETRIES, async () => {
           const plan = await r2GetJson(env.BOOKS, `books/${slug}/plans/${ch}.json`);
           if (!plan?.pages?.length) throw new Error(`missing plan for ${ch}`);
-          return { pages: plan.pages.length, hasFinale: !!plan.finale?.imagePrompt };
+          return { pages: plan.pages.length, hasFinale: !!plan.finale };
         });
         for (let pi = 0; pi < head.pages; pi++) {
           const did: any = await step.do(`colorize ${ch} p${pi}`, RETRIES, async () => {
             const ckey = `books/${slug}/images-color/${ch}-page-${pi}.jpg`;
-            if (!force && (await colorIsCurrent(env, ckey, `books/${slug}/images/${ch}-page-${pi}.jpg`))) {
-              await logGenAttempt(env, slug, "colorize", ch, pi, 0, { outcome: "skipped_exists", reason: "color page already current" });
-              return "exists";
-            }
             const plan = await r2GetJson(env.BOOKS, `books/${slug}/plans/${ch}.json`);
-            const line = await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-page-${pi}.jpg`);
-            if (!line) {
-              await logGenAttempt(env, slug, "colorize", ch, pi, 0, { outcome: "skipped_no_line", reason: "no line page to color" });
-              return "no-line";
-            }
+            const pg = plan.pages[pi];
+            const lineKey = pg.imageKey ?? `books/${slug}/images/${ch}-page-${pi}.jpg`;
+            if (!force && await colorIsCurrent(env, bible, plan, pg, ckey, lineKey)) return "exists";
+            holdColor(pg, 'color generation pending or failed');
+            await r2Put(env.BOOKS, `books/${slug}/plans/${ch}.json`, JSON.stringify(plan, null, 1), "application/json");
+            const line = await r2GetBytes(env.BOOKS, lineKey);
+            if (!line || pg.held || pg.lineIdentity?.revision !== pageSourceRevision(bible, plan, pg) || pg.lineIdentity?.sha256 !== bytesHash(line))
+              throw new Error(`${ch}: missing, held or unverifiable line source for color`);
             const res = await genColorizeWithQC(env, slug, line, plan.pages[pi].character, plan.pages[pi].storyText, { chapter: ch, page: pi }, { ...(plan.pages[pi].scene ?? {}), imagePrompt: plan.pages[pi].imagePrompt });
             if (res.status !== "ok") {
-              if (res.status === "held") {
-                plan.pages[pi].colorHeld = true;
-                await r2Put(env.BOOKS, `books/${slug}/plans/${ch}.json`, JSON.stringify(plan, null, 1), "application/json");
-              }
-              return res.status === "held" ? "held" : "gateway-null";
+              holdColor(pg, res.status === 'gateway' ? 'color gateway unavailable' : 'color QC or spend cap held the page');
+              await r2Put(env.BOOKS, `books/${slug}/plans/${ch}.json`, JSON.stringify(plan, null, 1), "application/json");
+              return "held";
             }
             await env.BOOKS.put(ckey, res.bytes, { httpMetadata: { contentType: "image/png" } });
-            let changed = false;
-            if (plan.pages[pi].colorHeld) {
-              delete plan.pages[pi].colorHeld;
-              changed = true;
-            }
-            if (plan.pages[pi].imageColorKey !== ckey) {
-              plan.pages[pi].imageColorKey = ckey;
-              changed = true;
-            }
-            if (changed) {
-              await r2Put(env.BOOKS, `books/${slug}/plans/${ch}.json`, JSON.stringify(plan, null, 1), "application/json");
-            }
+            stampColor(bible, plan, pg, line, res.bytes);
+            pg.imageColorKey = ckey;
+            await r2Put(env.BOOKS, `books/${slug}/plans/${ch}.json`, JSON.stringify(plan, null, 1), "application/json");
             return "colored";
           });
           if (did === "colored") colored++;
@@ -294,41 +279,25 @@ export class ColorizeWorkflow extends WorkflowEntrypoint<BookBuildEnv, ColorizeP
         if (head.hasFinale) {
           const did: any = await step.do(`colorize ${ch} finale`, RETRIES, async () => {
             const cfkey = `books/${slug}/images-color/${ch}-finale.jpg`;
-            if (!force && (await colorIsCurrent(env, cfkey, `books/${slug}/images/${ch}-finale.jpg`))) {
-              await logGenAttempt(env, slug, "colorize", ch, -1, 0, { outcome: "skipped_exists", reason: "color finale already current" });
-              return "exists";
-            }
             const plan = await r2GetJson(env.BOOKS, `books/${slug}/plans/${ch}.json`);
-            const line = await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-finale.jpg`);
-            if (!line) {
-              await logGenAttempt(env, slug, "colorize", ch, -1, 0, { outcome: "skipped_no_line", reason: "no line finale to color" });
-              return "no-line";
-            }
-            // Finale cast comes from the finale's own art prompt (the
-            // old code passed EVERY bible character as the character
-            // field, so cast_match demanded characters who are not in
-            // the scene and all 8 Mira finales held, 2026-11-01).
+            const pg = plan.finale;
+            const lineKey = pg.imageKey ?? `books/${slug}/images/${ch}-finale.jpg`;
+            if (!force && await colorIsCurrent(env, bible, plan, pg, cfkey, lineKey)) return "exists";
+            holdColor(pg, 'color generation pending or failed');
+            await r2Put(env.BOOKS, `books/${slug}/plans/${ch}.json`, JSON.stringify(plan, null, 1), "application/json");
+            const line = await r2GetBytes(env.BOOKS, lineKey);
+            if (!line || pg.held || pg.lineIdentity?.revision !== pageSourceRevision(bible, plan, pg) || pg.lineIdentity?.sha256 !== bytesHash(line))
+              throw new Error(`${ch}: missing, held or unverifiable line source for color`);
             const res = await genColorizeWithQC(env, slug, line, plan.finale?.character ?? "", plan.finale?.storyText, { chapter: ch, page: -1 }, { ...(plan.finale?.scene ?? {}), imagePrompt: plan.finale?.imagePrompt });
             if (res.status !== "ok") {
-              if (res.status === "held") {
-                (plan.finale as any).colorHeld = true;
-                await r2Put(env.BOOKS, `books/${slug}/plans/${ch}.json`, JSON.stringify(plan, null, 1), "application/json");
-              }
-              return res.status === "held" ? "held" : "gateway-null";
+              holdColor(pg, res.status === 'gateway' ? 'color gateway unavailable' : 'color QC or spend cap held the page');
+              await r2Put(env.BOOKS, `books/${slug}/plans/${ch}.json`, JSON.stringify(plan, null, 1), "application/json");
+              return "held";
             }
             await env.BOOKS.put(cfkey, res.bytes, { httpMetadata: { contentType: "image/png" } });
-            let changed = false;
-            if ((plan.finale as any).colorHeld) {
-              delete (plan.finale as any).colorHeld;
-              changed = true;
-            }
-            if ((plan.finale as any).imageColorKey !== cfkey) {
-              (plan.finale as any).imageColorKey = cfkey;
-              changed = true;
-            }
-            if (changed) {
-              await r2Put(env.BOOKS, `books/${slug}/plans/${ch}.json`, JSON.stringify(plan, null, 1), "application/json");
-            }
+            stampColor(bible, plan, pg, line, res.bytes);
+            pg.imageColorKey = cfkey;
+            await r2Put(env.BOOKS, `books/${slug}/plans/${ch}.json`, JSON.stringify(plan, null, 1), "application/json");
             return "colored";
           });
           if (did === "colored") colored++;
@@ -338,51 +307,18 @@ export class ColorizeWorkflow extends WorkflowEntrypoint<BookBuildEnv, ColorizeP
       }
 
       const assembled: any = await step.do("assemble color book", RETRIES, async () => {
-        // No-ship rule: held pages (line or color) block the color
-        // edition. A color book with line pages silently substituted
-        // is the mixing CG kept finding in the admin viewer.
-        const heldLine = await heldPages(env, slug, chapters.length, "line");
-        const heldColor = await heldPages(env, slug, chapters.length, "color");
-        const held = [...heldLine.map((p) => `${p} (line)`), ...heldColor];
-        if (held.length) {
-          try {
-            await env.DB.prepare("UPDATE books SET stage='needs_review', stage_detail=?, updated_at=? WHERE slug=?")
-              .bind(`colorize held pages: ${held.join(", ")}`, Math.floor(Date.now() / 1000), slug)
-              .run();
-          } catch { /* best effort */ }
-          return { colorKey: null, held };
-        }
-        await setStage(env, slug, "assembling color edition");
-        const toc: string[] = [];
-        const storyPages: { image: Uint8Array; story: string }[] = [];
-        for (const ch of chapters) {
-          const plan = await r2GetJson(env.BOOKS, `books/${slug}/plans/${ch}.json`);
-          if (!plan?.pages?.length) continue;
-          toc.push(plan.storyTitle ?? ch);
-          for (let pi = 0; pi < plan.pages.length; pi++) {
-            const color = await r2GetBytes(env.BOOKS, `books/${slug}/images-color/${ch}-page-${pi}.jpg`);
-            const line = color ? null : await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-page-${pi}.jpg`);
-            const img = color ?? line;
-            if (!img) continue;
-            storyPages.push({ image: await toPdfJpeg(img), story: plan.pages[pi].storyText ?? "" });
-          }
-          if (plan.finale?.storyText) {
-            const fcolor = await r2GetBytes(env.BOOKS, `books/${slug}/images-color/${ch}-finale.jpg`);
-            const fline = fcolor ? null : await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-finale.jpg`);
-            const fimg = fcolor ?? fline;
-            if (fimg) storyPages.push({ image: await toPdfJpeg(fimg), story: plan.finale.storyText });
-          }
-        }
-        if (!storyPages.length) throw new Error("no pages to assemble");
-        const imgs = await ensureBackCoverImages(env, slug, bible);
-        const matter = { ...composeMatter(bible), backImage: imgs.color, backLineImage: imgs.line };
-        const coverBytes = await r2GetBytes(env.BOOKS, `books/${slug}/cover.jpg`);
-        const pdf = await buildPictureBook(bible.bookTitle ?? slug, storyPages, null, toc, matter, coverBytes);
-        const key = `books/${slug}/picture-book-color.pdf`;
-        await r2Put(env.BOOKS, key, pdf, "application/pdf");
-        return { colorKey: key, held: [] as string[] };
+        const result = await assembleVerifiedPdf(env, slug, 'color');
+        return { colorKey: result.key, revision: result.revision, held: [] as string[] };
       });
       const colorKey: string | null = assembled?.colorKey ?? null;
+      // Coloring adds provenance to the source plans. Refresh base receipts against
+      // that same final inventory, in separate steps to bound memory per PDF.
+      await step.do("refresh base coloring identity", RETRIES, async () => {
+        return await assembleVerifiedPdf(env, slug, 'coloring', assembled.revision);
+      });
+      await step.do("refresh base picture identity", RETRIES, async () => {
+        return await assembleVerifiedPdf(env, slug, 'picture', assembled.revision);
+      });
 
       await step.do("register color edition", RETRIES, async () => {
         if (!colorKey) return false;

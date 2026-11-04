@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createSha256, digestHex, sha256Hex } from './sha256';
 
 /** Shared by the hub and factory. This is derived evidence, never authored state. */
 export interface RevisionPage {
@@ -31,7 +31,7 @@ function canonical(value: any): string {
   return JSON.stringify(value);
 }
 export function revisionHash(value: unknown): string {
-  return createHash('sha256').update(canonical(value)).digest('hex');
+  return sha256Hex(new TextEncoder().encode(canonical(value)));
 }
 
 export async function readPlanInventory(books: any, slug: string): Promise<{
@@ -69,6 +69,7 @@ export async function readPlanInventory(books: any, slug: string): Promise<{
     if (!Array.isArray(plan?.pages) || !plan.pages.length) throw new Error(`Empty or invalid plan: ${planKey}`);
     const entries: { pg: any; i: number; kind: RevisionPage['kind'] }[] =
       plan.pages.map((pg: any, i: number) => ({ pg, i, kind: 'story' }));
+    if (plan.finale == null) throw new Error(`Required chapter finale missing: ${planKey}`);
     if (plan.finale != null) entries.push({ pg: plan.finale, i: plan.pages.length, kind: 'finale' });
     for (const { pg, i, kind } of entries) {
       if (!pg || typeof pg.storyText !== 'string' || !pg.storyText.trim())
@@ -89,7 +90,7 @@ export async function readPlanInventory(books: any, slug: string): Promise<{
 
 /** Streaming hash avoids buffering an entire audiobook/PDF in the Worker. */
 async function hashObject(obj: any): Promise<{ bytes: number; sha256: string }> {
-  const hash = createHash('sha256');
+  const hash = createSha256();
   let bytes = 0;
   if (obj.body) {
     const reader = obj.body.getReader();
@@ -107,19 +108,20 @@ async function hashObject(obj: any): Promise<{ bytes: number; sha256: string }> 
     hash.update(data);
   }
   if (!bytes) throw new Error('Empty revision artifact.');
-  return { bytes, sha256: hash.digest('hex') };
+  return { bytes, sha256: digestHex(hash.digest()) };
 }
 
 export async function captureBookRevision(
-  books: any, slug: string, deliverables: { key: string; role: string }[]
+  books: any, slug: string, deliverables: { key: string; role: string }[],
+  providedInventory?: Awaited<ReturnType<typeof readPlanInventory>>
 ): Promise<{ manifest: BookRevision; observations: { key: string; etag: string }[] }> {
-  const inventory = await readPlanInventory(books, slug);
+  const inventory = providedInventory ?? await readPlanInventory(books, slug);
   const artifacts = new Map<string, RevisionArtifact>();
   const observations: { key: string; etag: string }[] = [];
   for (const source of inventory.sources) {
     if (!source.etag) throw new Error(`Source version unavailable: ${source.key}`);
     artifacts.set(source.key, { key: source.key, role: source.role, bytes: source.bytes.length,
-      sha256: createHash('sha256').update(source.bytes).digest('hex') });
+      sha256: sha256Hex(source.bytes) });
     observations.push({ key: source.key, etag: source.etag });
   }
   const targets = [...inventory.pages.flatMap(p => [

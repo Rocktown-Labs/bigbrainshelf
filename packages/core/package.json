@@ -12,5 +12,8 @@
     "./offers": "../../src/lib/offers.ts",
     "./public-slugs": "../../src/lib/public-slugs.ts",
     "./family": "../../src/lib/family.ts"
+  },
+  "dependencies": {
+    "@noble/hashes": "2.4.0"
   }
 }

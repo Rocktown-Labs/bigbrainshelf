@@ -1,3 +1,5 @@
+import { captureApprovalRevision, assertApprovedAssembly, approvedPages } from './approval-identity';
+import type { BookRevision } from '../../packages/core/src/book-revision';
 import { readPlanInventory } from '../../packages/core/src/book-revision';
 // A book's page list from its chapter plans in storage
 // (books/{slug}/plans/S{n}.json, the same plans the editor and
@@ -22,16 +24,11 @@ export async function countBookPages(books: any, slug: string): Promise<number> 
 }
 
 export async function countApprovedPages(db: any, books: any, slug: string): Promise<number> {
-  return countApprovedInventory(db, slug, await listBookPages(books, slug));
+  const { manifest } = await captureApprovalRevision(db, books, slug);
+  return countApprovedInventory(db, manifest);
 }
-
-export async function countApprovedInventory(db: any, slug: string, pages: BookPageRef[]): Promise<number> {
-  const expected = new Set(pages.map(p => `${p.chapter}:${p.page}`));
-  const { results } = await db.prepare(
-    "SELECT chapter_num, page_index FROM page_approvals WHERE book_slug = ? AND approved = 1"
-  ).bind(slug).all();
-  const approved = new Set<string>((results || []).map((r: any) => `${r.chapter_num}:${r.page_index}`));
-  return [...expected].filter(key => approved.has(key)).length;
+export async function countApprovedInventory(db: any, manifest: BookRevision): Promise<number> {
+  return (await approvedPages(db, manifest)).length;
 }
 
 export interface BookQcState {
@@ -39,6 +36,7 @@ export interface BookQcState {
   approvedCount: number | null;
   complete: boolean;
   label: string;
+  revision?: string;
 }
 
 /** Read the inventory once. An unavailable fact must never look like a zero. */
@@ -50,8 +48,10 @@ export async function getBookQcState(db: any, books: any, slug: string): Promise
       label: 'Unverified: page inventory could not be read. Retry when the book plans are available.' };
   }
   try {
-    const approvedCount = await countApprovedInventory(db, slug, pages);
-    return { totalPages: pages.length, approvedCount, complete: pages.length > 0 && approvedCount === pages.length,
+    const { manifest } = await captureApprovalRevision(db, books, slug);
+    await assertApprovedAssembly(books, manifest);
+    const approvedCount = await countApprovedInventory(db, manifest);
+    return { totalPages: pages.length, approvedCount, revision: manifest.revision, complete: pages.length > 0 && approvedCount === pages.length,
       label: `${approvedCount} of ${pages.length} pages approved.` };
   } catch {
     return { totalPages: pages.length, approvedCount: null, complete: false,

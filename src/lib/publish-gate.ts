@@ -1,4 +1,5 @@
-import { captureBookRevision, assertRevisionUnchanged, revisionHash } from '../../packages/core/src/book-revision';
+import { captureApprovalRevision, assertApprovedAssembly, approvalCountSql, orderedApprovalBindings } from './approval-identity';
+import { assertRevisionUnchanged, revisionHash } from '../../packages/core/src/book-revision';
 import { countApprovedInventory } from './book-plans';
 import { getPublishReadiness } from './publish-readiness';
 import { getDeliveryReadiness } from './delivery-readiness';
@@ -23,15 +24,15 @@ export async function publishVerifiedBook(
 
   let captured;
   try {
-    const deliverables = ['picture_book_key', 'coloring_book_key', 'color_book_key', 'epub_key', 'audiobook_key', 'cover_key']
-      .filter(field => book[field]).map(field => ({ key: String(book[field]), role: field }));
-    captured = await captureBookRevision(books, slug, deliverables);
+    captured = await captureApprovalRevision(db, books, slug);
   } catch {
     throw new PublishBlocked('inventory', 'The book revision could not be verified. Check its bible, plans and artifacts.');
   }
   const { manifest, observations } = captured;
+  try { await assertApprovedAssembly(books, manifest); }
+  catch { throw new PublishBlocked('assembly', 'Assembled PDFs are stale or unverified against the current plan and artifacts. Reassemble and review before publishing.'); }
   let approvedCount: number;
-  try { approvedCount = await countApprovedInventory(db, slug, manifest.pages); }
+  try { approvedCount = await countApprovedInventory(db, manifest); }
   catch { throw new PublishBlocked('approvals', 'Page approvals could not be verified.'); }
   if (approvedCount !== manifest.pages.length)
     throw new PublishBlocked('approvals', `Only ${approvedCount} of ${manifest.pages.length} pages are approved. Approve every page, including finales, before publishing.`);
@@ -68,7 +69,11 @@ export async function publishVerifiedBook(
 
   // Recheck object versions immediately before the DB transaction. This is a
   // race detector, not a substitute for immutable release keys (next slice).
-  try { await assertRevisionUnchanged(books, observations); }
+  try {
+    await assertRevisionUnchanged(books, observations);
+    if ((await captureApprovalRevision(db, books, slug)).manifest.revision !== manifest.revision)
+      throw new Error('Revision inventory changed');
+  }
   catch { throw new PublishBlocked('revision', 'Book artifacts changed during verification. Review the new revision and retry.'); }
   const now = Date.now();
   const releaseId = crypto.randomUUID();
@@ -76,7 +81,6 @@ export async function publishVerifiedBook(
   const bookFields = ['updated_at', 'status', 'price', 'price_print', 'picture_book_key',
     'coloring_book_key', 'color_book_key', 'epub_key', 'audiobook_key', 'cover_key'];
   const bookFence = bookFields.map(field => `${field} IS ?`).join(' AND ');
-  const approvalFence = manifest.pages.map(() => '(chapter_num = ? AND page_index = ?)').join(' OR ');
   try {
     // D1 batch is transactional. An audit failure must roll back publication,
     // and a publication failure must roll back its audit record.
@@ -84,11 +88,9 @@ export async function publishVerifiedBook(
       db.prepare(`INSERT INTO publish_releases
         (id, book_slug, revision, manifest_json, checks_json, override_json, actor, created_at)
         VALUES (CASE WHEN EXISTS (SELECT 1 FROM books WHERE slug = ? AND ${bookFence})
-          AND (SELECT COUNT(DISTINCT chapter_num || ':' || page_index) FROM page_approvals
-            WHERE book_slug = ? AND approved = 1 AND (${approvalFence})) = ?
+          AND (${approvalCountSql}) = ?
           THEN ? ELSE NULL END, ?, ?, ?, ?, ?, ?, ?)`)
-        .bind(slug, ...bookFields.map(field => book[field] ?? null), slug,
-          ...manifest.pages.flatMap(p => [p.chapter, p.page]), manifest.pages.length,
+        .bind(slug, ...bookFields.map(field => book[field] ?? null), ...orderedApprovalBindings(manifest), manifest.pages.length,
           releaseId, slug, manifest.revision, JSON.stringify(manifest), JSON.stringify({ audio, delivery, blockers }),
           override ? JSON.stringify({ reason: override.reason.trim(), checks: [...waived], waived: blockers, verification }) : null, actor, now),
       db.prepare('UPDATE books SET status = ?, price = ?, price_print = ?, updated_at = ? WHERE slug = ?')

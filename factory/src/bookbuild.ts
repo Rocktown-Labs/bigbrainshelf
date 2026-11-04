@@ -1,3 +1,5 @@
+import { assembleVerifiedPdf } from "./assembly";
+import { stampLine } from "../../packages/core/src/assembly-identity";
 import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // BookBuildWorkflow: full 8-stage book pipeline on Cloudflare.
 // Port of run_book_end_to_end.py (which remains the local reference).
@@ -13,9 +15,7 @@ import { linePurity, analyzePage, pageVerdict, purifyPage } from "./purity";
 import { gatewayConfigured, generateGatewayImage, generateGatewayImageMetered, colorPagePrompt, linePromptFromScene } from "./gateway";
 import { validateBible, normalizeBible } from "./biblegate";
 import { snapshotIfChanged } from "./versioning";
-import { toPdfJpeg } from "./transcode";
 import { clairicExtract, clairicHeadings, splitOnHeadings } from "./clairic";
-import { buildColoringBook, buildPictureBook } from "./pdf";
 import { composeMatter, ensureBackCoverImages } from "./matter";
 import { callModel } from "./models";
 import { buildBiblePrompt } from "./bibleprompt";
@@ -1455,6 +1455,8 @@ export class BookBuildWorkflow extends WorkflowEntrypoint<BookBuildEnv, BookBuil
               return;
             }
             await env.BOOKS.put(key, bytes, { httpMetadata: { contentType: "image/jpeg" } });
+            stampLine(bible, plan, plan.pages[pi], bytes);
+            await r2Put(env.BOOKS, `books/${slug}/plans/${ch}.json`, JSON.stringify(plan, null, 1), "application/json");
             if (plan.pages[pi].held) {
               delete plan.pages[pi].held;
               delete plan.pages[pi].heldReason;
@@ -1489,6 +1491,8 @@ export class BookBuildWorkflow extends WorkflowEntrypoint<BookBuildEnv, BookBuil
               return;
             }
             await env.BOOKS.put(fkey, bytes, { httpMetadata: { contentType: "image/jpeg" } });
+            stampLine(bible, plan, plan.finale, bytes);
+            await r2Put(env.BOOKS, `books/${slug}/plans/${ch}.json`, JSON.stringify(plan, null, 1), "application/json");
             if ((plan.finale as any).held) {
               delete (plan.finale as any).held;
               delete (plan.finale as any).heldReason;
@@ -1573,63 +1577,13 @@ export class BookBuildWorkflow extends WorkflowEntrypoint<BookBuildEnv, BookBuil
     // ---- 7. assemble ------------------------------------------------
     const pdfKeys: { pictureKey: string; coloringKey: string; held?: string[] } = await step.do("assemble", RETRIES, async () => {
       await setStage(env, slug, "assemble", "");
-      // No-ship rule at the book level: held pages block assembly.
-      const held = await heldPages(env, slug, n, "line");
-      if (held.length) {
-        await setStage(env, slug, "needs_review", `held pages: ${held.join(", ")}`);
-        return { pictureKey: "", coloringKey: "", held };
-      }
-      const pictureKey = `books/${slug}/picture-book.pdf`;
-      const coloringKey = `books/${slug}/coloring-book.pdf`;
-      const havePicture = await env.BOOKS.head(pictureKey);
-      const haveColoring = await env.BOOKS.head(coloringKey);
-      if (!havePicture || !haveColoring) {
-        const title = bible.bookTitle ?? slug;
-        const toc: string[] = [];
-        const coloringPages: { image: Uint8Array; caption: string }[] = [];
-        const storyPages: { image: Uint8Array; story: string }[] = [];
-        for (let i = 1; i <= n; i++) {
-          const ch = `S${i}`;
-          const plan = await r2GetJson(env.BOOKS, `books/${slug}/plans/${ch}.json`);
-          if (!plan) continue;
-          toc.push(plan.storyTitle ?? ch);
-          for (let pi = 0; pi < plan.pages.length; pi++) {
-            const lineImg = await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-page-${pi}.jpg`);
-            if (!lineImg) continue;
-            const pg = plan.pages[pi];
-            coloringPages.push({ image: await toPdfJpeg(lineImg), caption: coloringCaption(pg) });
-            // Base books are line art only, storybook included (factory
-            // reset, 2026-10-24). The full-color edition is a separate
-            // Colorize product; color twins never leak in here.
-            storyPages.push({ image: await toPdfJpeg(lineImg), story: pg.storyText ?? "" });
-          }
-          const fimg = await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-finale.jpg`);
-          if (fimg && plan.finale?.storyText) {
-            storyPages.push({ image: await toPdfJpeg(fimg), story: plan.finale.storyText });
-          }
-        }
-        if (!storyPages.length) throw new Error("no page images to assemble");
-        const imgs = await ensureBackCoverImages(env, slug, bible);
-        const matter = { ...composeMatter(bible), backImage: imgs.color, backLineImage: imgs.line };
-        const coverBytes = await r2GetBytes(env.BOOKS, `books/${slug}/cover.jpg`);
-        const titledCover = await r2GetBytes(env.BOOKS, `books/${slug}/cover-titled.jpg`);
-        if (!haveColoring) {
-          const pdf = await buildColoringBook(title, coloringPages, toc, matter, coverBytes, titledCover);
-          await r2Put(env.BOOKS, coloringKey, pdf, "application/pdf");
-        }
-        if (!havePicture) {
-          const pdf = await buildPictureBook(title, storyPages, null, toc, matter, coverBytes, titledCover);
-          await r2Put(env.BOOKS, pictureKey, pdf, "application/pdf");
-        }
-      }
-      if (pictureKey && coloringKey) {
-        await recordEdition(env, slug, "line", [
-          { key: pictureKey, role: "picture_book_pdf" },
-          { key: coloringKey, role: "coloring_book_pdf" },
-          { key: `books/${slug}/cover.jpg`, role: "cover" },
-        ]);
-      }
-      return { pictureKey, coloringKey, titledCover: !!titledCover };
+      const coloring = await assembleVerifiedPdf(env, slug, 'coloring');
+      const picture = await assembleVerifiedPdf(env, slug, 'picture', coloring.revision);
+      await recordEdition(env, slug, "line", [
+        { key: picture.key, role: "picture_book_pdf" }, { key: coloring.key, role: "coloring_book_pdf" },
+        { key: `books/${slug}/cover.jpg`, role: "cover" },
+      ]);
+      return { pictureKey: picture.key, coloringKey: coloring.key, titledCover: picture.titledCover };
     });
     if ((pdfKeys as any).held?.length) {
       return { slug, held: (pdfKeys as any).held };

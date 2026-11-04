@@ -533,8 +533,12 @@ export async function buildColoringBook(
   toc?: string[],
   matter?: BookMatter,
   coverArt?: Uint8Array | null,
-  composedCoverArt?: Uint8Array | null
+  composedCoverArt?: Uint8Array | null,
+  expectedInventoryPages?: number,
+  onPageCount?: (count: number) => void
 ): Promise<Uint8Array> {
+  if (expectedInventoryPages !== undefined && pages.length !== expectedInventoryPages)
+    throw new Error('PDF inputs do not reconcile to inventory');
   const pdf = await PDFDocument.create();
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -567,6 +571,7 @@ export async function buildColoringBook(
 
   if (toc?.length) await drawToc(pdf, bold, font, toc);
 
+  const interiorStart = pdf.getPageCount();
   let coloringPageNum = 0;
   for (const p of pages) {
     coloringPageNum += 1;
@@ -604,6 +609,8 @@ export async function buildColoringBook(
     }
     drawInteriorFooter(page, font, coloringPageNum);
   }
+  if (expectedInventoryPages !== undefined && pdf.getPageCount() - interiorStart !== expectedInventoryPages)
+    throw new Error('PDF interior count does not reconcile to inventory');
   if (matter) {
     drawGlossary(pdf, bold, font, matter.vocab);
     const age = (matter.ageLine.match(/ages (.+)\./)?.[1] ?? "4 to 8").toUpperCase();
@@ -614,6 +621,7 @@ export async function buildColoringBook(
       trustLine,
     });
   }
+  onPageCount?.(pdf.getPageCount());
   return pdf.save();
 }
 
@@ -624,8 +632,12 @@ export async function buildPictureBook(
   toc?: string[],
   matter?: BookMatter,
   coverArt?: Uint8Array | null,
-  composedCoverArt?: Uint8Array | null
+  composedCoverArt?: Uint8Array | null,
+  expectedInventoryPages?: number,
+  onPageCount?: (count: number) => void
 ): Promise<Uint8Array> {
+  if (expectedInventoryPages !== undefined && pages.length + (finale ? 1 : 0) !== expectedInventoryPages)
+    throw new Error('PDF inputs do not reconcile to inventory');
   const pdf = await PDFDocument.create();
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -657,6 +669,7 @@ export async function buildPictureBook(
   if (matter) await drawCopyrightPage(pdf, font, bold, oblique, title, matter.year);
 
   if (toc?.length) await drawToc(pdf, bold, font, toc);
+  const interiorStart = pdf.getPageCount();
   let storyPageNum = 0;
   for (const p of pages) {
     storyPageNum += 1;
@@ -666,6 +679,8 @@ export async function buildPictureBook(
     storyPageNum += 1;
     await drawStoryPage(pdf, font, bold, finale.image, finale.story, storyPageNum);
   }
+  if (expectedInventoryPages !== undefined && pdf.getPageCount() - interiorStart !== expectedInventoryPages)
+    throw new Error('PDF interior count does not reconcile to inventory');
   if (matter) {
     drawGlossary(pdf, bold, font, matter.vocab);
     const allPages = finale ? [...pages, finale] : pages;
@@ -674,5 +689,6 @@ export async function buildPictureBook(
       hook: matter.hook,
     });
   }
+  onPageCount?.(pdf.getPageCount());
   return pdf.save();
 }
