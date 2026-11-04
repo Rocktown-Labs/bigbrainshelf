@@ -129,9 +129,18 @@ export function bakedManifest(): GalleryManifest {
 const CACHE_TTL_MS = 60_000;
 let cache: { at: number; manifest: GalleryManifest } | null = null;
 
-export async function loadCastGallery(BOOKS: any): Promise<GalleryManifest> {
+export async function loadCastGallery(
+  BOOKS: any,
+  opts: { fresh?: boolean } = {}
+): Promise<GalleryManifest> {
   const now = Date.now();
-  if (cache && now - cache.at < CACHE_TTL_MS) return cache.manifest;
+  // The cache is per-isolate: a save updates the SAVING isolate's
+  // cache (via saveCastGallery), but any other warm isolate keeps
+  // serving its pre-save snapshot for up to the TTL. A plain read is
+  // fine for public pages; a mutation (or the crop editor itself)
+  // must never build on, or report, that snapshot: pass fresh to
+  // read through to R2 and refresh this isolate's cache.
+  if (!opts.fresh && cache && now - cache.at < CACHE_TTL_MS) return cache.manifest;
   try {
     const obj = await BOOKS.get(GALLERY_MANIFEST_KEY);
     if (obj) {
@@ -455,7 +464,7 @@ export async function saveCharacterGallery(
   portraitIndexIn: number,
   opts: SaveGalleryOptions = {}
 ): Promise<SaveResult> {
-  const manifest = await loadCastGallery(BOOKS);
+  const manifest = await loadCastGallery(BOOKS, { fresh: true });
   const entry = manifest.characters[slug];
   if (!entry) throw new Error(`no gallery entry for '${slug}'`);
   if (!entry.sheetKey) throw new Error(`gallery entry for '${slug}' has no sheetKey`);
@@ -640,7 +649,7 @@ export async function restoreCharacterGallery(
   BOOKS: any,
   slug: string
 ): Promise<{ entry: GalleryEntry; backupTs: number }> {
-  const manifest = await loadCastGallery(BOOKS);
+  const manifest = await loadCastGallery(BOOKS, { fresh: true });
   const entry = manifest.characters[slug];
   if (!entry) throw new Error(`no gallery entry for '${slug}'`);
   const ts = await latestBackup(BOOKS, slug);
@@ -724,7 +733,7 @@ export async function listPoseHistory(
   poseIndex: number,
   limit = 6
 ): Promise<PoseHistoryVersion[]> {
-  const manifest = await loadCastGallery(BOOKS);
+  const manifest = await loadCastGallery(BOOKS, { fresh: true });
   const entry = manifest.characters[slug];
   if (!entry) throw new Error(`no gallery entry for '${slug}'`);
   if (!Number.isInteger(poseIndex) || poseIndex < 0 || poseIndex >= (entry.poseCount || 0)) {
@@ -765,7 +774,7 @@ export async function restorePoseVersion(
   poseIndex: number,
   ts: number
 ): Promise<{ entry: GalleryEntry; restoredFrom: number; snapshotTs: number | null }> {
-  const manifest = await loadCastGallery(BOOKS);
+  const manifest = await loadCastGallery(BOOKS, { fresh: true });
   const entry = manifest.characters[slug];
   if (!entry) throw new Error(`no gallery entry for '${slug}'`);
   if (!Number.isInteger(poseIndex) || poseIndex < 0 || poseIndex >= (entry.poseCount || 0)) {
@@ -839,7 +848,7 @@ export async function applyLiftedPose(
   cutoutBytes: Uint8Array,
   box: GalleryBox
 ): Promise<SaveResult> {
-  const manifest = await loadCastGallery(BOOKS);
+  const manifest = await loadCastGallery(BOOKS, { fresh: true });
   const entry = manifest.characters[slug];
   if (!entry) throw new Error(`no gallery entry for '${slug}'`);
   if (!Number.isInteger(poseIndex) || poseIndex < 0 || poseIndex >= (entry.poseCount || 0)) {
