@@ -350,8 +350,8 @@
   "algorithms": {
    "card": "books/algorithms/cover-w400.webp",
    "hero": "books/algorithms/cover-w960.webp",
-   "sourceBytes": 481698,
-   "cardBytes": 35226
+   "sourceBytes": 484057,
+   "cardBytes": 35528
   },
   "richdadpoordad": {
    "card": "books/richdadpoordad/cover-w400.webp",
@@ -380,14 +380,14 @@
   "designpatterns": {
    "card": "books/designpatterns/cover-w400.webp",
    "hero": "books/designpatterns/cover-w960.webp",
-   "sourceBytes": 506633,
-   "cardBytes": 37422
+   "sourceBytes": 506057,
+   "cardBytes": 37170
   },
   "docker": {
    "card": "books/docker/cover-w400.webp",
    "hero": "books/docker/cover-w960.webp",
-   "sourceBytes": 325856,
-   "cardBytes": 20788
+   "sourceBytes": 294593,
+   "cardBytes": 22268
   }
  }
 }
