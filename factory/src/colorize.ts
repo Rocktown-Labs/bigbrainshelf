@@ -1,3 +1,4 @@
+import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // ColorizeWorkflow: the factory's color process (reset, 2026-10-24).
 //
 // Base books are black-and-white line art only. Color is a separate,
@@ -198,6 +199,7 @@ function chNum(key: string): number {
 
 export class ColorizeWorkflow extends WorkflowEntrypoint<BookBuildEnv, ColorizeParams> {
   async run(event: WorkflowEvent<ColorizeParams>, step: WorkflowStep) {
+    await recordWorkflowRun(this.env, step, event, "colorize", event.payload.slug);
     const env = this.env;
     const slug = event.payload.slug;
     const force = !!event.payload.force;

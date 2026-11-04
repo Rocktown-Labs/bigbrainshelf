@@ -6,7 +6,7 @@ import { resolveBookForPublicRoute, publicSlugFor } from "../../../../lib/public
 import { getDeliveryReadiness } from "../../../../lib/delivery-readiness";
 import { getPublishReadiness } from "../../../../lib/publish-readiness";
 import { deliverableList, formatBytes } from "../../../../lib/deliverables";
-import { countBookPages, countApprovedPages } from "../../../../lib/book-plans";
+import { getBookQcState } from "../../../../lib/book-plans";
 
 if (!Astro.locals.user) {
   return Astro.redirect("/admin/login");
@@ -29,9 +29,8 @@ const publish = book ? await getPublishReadiness(env.DB as any, (env as any).BOO
 
 // QC state: approvals live in page_approvals (written here via
 // the bulk approve, cleared per page whenever a page is redone).
-const totalPages = book ? await countBookPages((env as any).BOOKS, slug).catch(() => 0) : 0;
-const approvedCount = book ? await countApprovedPages(env.DB as any, (env as any).BOOKS, slug).catch(() => 0) : 0;
-const qcComplete = totalPages > 0 && approvedCount >= totalPages;
+const qcState = await getBookQcState(env.DB, (env as any).BOOKS, slug);
+const qcComplete = !!book && qcState.complete;
 
 // Colorize state: colored twins on file vs line pages.
 let colorTwins: number | null = null;
@@ -105,11 +104,11 @@ const marketingCheck = delivery?.checks.find((c) => c.id === "marketing-assets")
           <span class="font-bold text-stone-400">1</span>
           <div class="flex-1 min-w-[220px]">
             <p class="font-semibold">QC the pages</p>
-            <p class="text-sm text-stone-500">{totalPages ? `${approvedCount} of ${totalPages} pages approved. ` : ""}Review the pages in QC, then mark the book approved here. Redoing any page clears its approval again. Coloring waits for QC, always.</p>
+            <p class="text-sm text-stone-500">{qcState.label} Review the pages in QC, then mark the book approved here. Redoing any page clears its approval again. Coloring waits for QC, always.</p>
           </div>
           <a class="rounded-lg bg-orange-600 text-white text-sm font-semibold px-4 py-2" href={`/admin/books/${adminSlug}`}>Open QC</a>
-          <button id="approve-all-btn" data-slug={slug} class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 py-2 hover:border-stone-500">Approve all pages</button>
-          {approvedCount > 0 && <button id="approve-clear-btn" data-slug={slug} class="rounded-lg bg-white border border-stone-200 text-sm text-stone-500 px-3 py-2 hover:border-stone-400">Clear</button>}
+          <button id="approve-all-btn" data-slug={slug} disabled={!book || qcState.totalPages === null} class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 py-2 hover:border-stone-500 disabled:opacity-40">Approve all pages</button>
+          {qcState.approvedCount !== null && qcState.approvedCount > 0 && <button id="approve-clear-btn" data-slug={slug} class="rounded-lg bg-white border border-stone-200 text-sm text-stone-500 px-3 py-2 hover:border-stone-400">Clear</button>}
         </li>
         <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
           <span class="font-bold text-stone-400">2</span>

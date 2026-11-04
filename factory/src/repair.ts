@@ -1,3 +1,4 @@
+import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // RepairWorkflow: the factory's self-healing loop (CG, 2026-10-25).
 //
 // Born from a night of failures that all shared one shape: a pipeline
@@ -936,6 +937,7 @@ export interface ReassembleParams {
 // shape RepairWorkflow's assemble step already runs within budget.
 export class ReassembleWorkflow extends WorkflowEntrypoint<BookBuildEnv, ReassembleParams> {
   async run(event: WorkflowEvent<ReassembleParams>, step: WorkflowStep) {
+    await recordWorkflowRun(this.env, step, event, "reassemble", event.payload.slug);
     const slug = event.payload.slug;
     if (!slug) throw new Error("reassemble requires a slug");
     await step.do("reassemble coloring pdf", RETRIES, async () => {
@@ -956,6 +958,7 @@ export class ReassembleWorkflow extends WorkflowEntrypoint<BookBuildEnv, Reassem
 // ---------------------------------------------------------------- the workflow
 export class RepairWorkflow extends WorkflowEntrypoint<BookBuildEnv, RepairParams> {
   async run(event: WorkflowEvent<RepairParams>, step: WorkflowStep) {
+    await recordWorkflowRun(this.env, step, event, "repair", event.payload.slug);
     const env = this.env;
     const slug = event.payload.slug;
     if (!slug) throw new Error("repair requires a slug");

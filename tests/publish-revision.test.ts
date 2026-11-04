@@ -1,5 +1,6 @@
 import { test, expect } from 'bun:test';
 import { Database } from 'bun:sqlite';
+import { readFileSync } from 'node:fs';
 import { captureBookRevision, assertRevisionUnchanged, readPlanInventory, revisionHash } from '../packages/core/src/book-revision';
 import { publishVerifiedBook } from '../src/lib/publish-gate';
 import { getDeliveryReadiness } from '../src/lib/delivery-readiness';
@@ -35,6 +36,7 @@ function fixture(chapters = 1) {
     },
   };
   const raw = new Database(':memory:');
+  raw.exec(readFileSync(new URL('../db/migrations/0001_release_and_run_provenance.sql', import.meta.url), 'utf8'));
   raw.exec(`CREATE TABLE books (slug TEXT PRIMARY KEY, title TEXT, status TEXT, price INTEGER, price_print INTEGER,
     updated_at INTEGER, picture_book_key TEXT, coloring_book_key TEXT, color_book_key TEXT,
     epub_key TEXT, audiobook_key TEXT, cover_key TEXT);
@@ -143,7 +145,7 @@ test('duplicate approvals do not replace a missing finale approval', async () =>
 
 test('failed audit insert prevents publication', async () => {
   const f = fixture();
-  f.raw.exec(`CREATE TABLE publish_releases (id TEXT PRIMARY KEY, book_slug TEXT NOT NULL, revision TEXT NOT NULL,
+  f.raw.exec(`CREATE TABLE IF NOT EXISTS publish_releases (id TEXT PRIMARY KEY, book_slug TEXT NOT NULL, revision TEXT NOT NULL,
     manifest_json TEXT NOT NULL, checks_json TEXT NOT NULL, override_json TEXT, actor TEXT, created_at INTEGER);
     CREATE TRIGGER reject_audit BEFORE INSERT ON publish_releases BEGIN SELECT RAISE(ABORT, 'audit failure'); END;`);
   await expect(publishVerifiedBook(f.db, f.bucket, { book_slug: 'test' }, 'cg', f.checks)).rejects.toThrow('Publication could not be confirmed');

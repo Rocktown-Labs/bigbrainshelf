@@ -8,8 +8,11 @@
 // src/lib/club-scheduler.ts and its imports, nothing from Astro.
 
 import { runScheduledWork } from "../lib/club-scheduler";
+import { recordWorkerRun } from '../../packages/core/src/run-provenance';
 
 export async function handleScheduled(env: any): Promise<void> {
+  await recordWorkerRun(env, { worker: 'bigbrainshelf', runId: crypto.randomUUID(),
+    operation: 'scheduled', startedAt: Date.now() });
   const summary = await runScheduledWork(env.DB, env);
   console.log("scheduled work done", JSON.stringify(summary));
 }

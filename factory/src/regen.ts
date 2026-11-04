@@ -1,3 +1,4 @@
+import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // RegenWorkflow: durable chapter regeneration for an EXISTING book.
 //
 // BookBuildWorkflow refuses books that already exist (and docker outright);
@@ -65,6 +66,7 @@ function chNum(ch: string): number {
 
 export class RegenWorkflow extends WorkflowEntrypoint<BookBuildEnv, RegenParams> {
   async run(event: WorkflowEvent<RegenParams>, step: WorkflowStep) {
+    await recordWorkflowRun(this.env, step, event, "regen", event.payload.slug);
     const { slug } = event.payload;
     const mode = event.payload.mode ?? "both";
     const force = event.payload.force ?? false;

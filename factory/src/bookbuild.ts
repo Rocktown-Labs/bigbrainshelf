@@ -1,3 +1,4 @@
+import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // BookBuildWorkflow: full 8-stage book pipeline on Cloudflare.
 // Port of run_book_end_to_end.py (which remains the local reference).
 // Stages: extract -> split -> bookinfo -> bible -> plan -> images -> assemble -> register
@@ -31,6 +32,7 @@ export interface BookBuildParams {
 }
 
 export interface BookBuildEnv {
+  BBS_BUILD_PROVENANCE?: string;
   AI: any;
   BOOKS: R2Bucket;
   DB: D1Database;
@@ -1074,6 +1076,7 @@ async function loadLibrary(env: BookBuildEnv): Promise<any[]> {
 
 export class BookBuildWorkflow extends WorkflowEntrypoint<BookBuildEnv, BookBuildParams> {
   async run(event: WorkflowEvent<BookBuildParams>, step: WorkflowStep) {
+    await recordWorkflowRun(this.env, step, event, "bookbuild", event.payload.slug);
     const slug = event.payload.slug;
     if (!slug) throw new Error(`refusing to build slug '${slug}'`);
     try {
