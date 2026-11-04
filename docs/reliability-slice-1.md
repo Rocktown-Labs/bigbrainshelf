@@ -111,3 +111,40 @@ New tests exercise actual readiness frontmatter, no-write inventory failures,
 save failures, migration preservation, run replay/deployment attribution,
 unknown metadata/DB outages, and both uploaders with fake API transports,
 tampered bundles/source and append-only failure journals.
+
+Handoff base: `cb4cea3` (fetched main, Nov 3). The branch was rebased as main
+advanced from `ff1250f`, through `56189f0`, to this commit. Both base and candidate
+were tested per file with the same installed dependencies and a fetch guard
+that rejects external URLs and permits only loopback test servers.
+
+| Check | Result |
+| --- | --- |
+| Existing tests, 73 files on base and candidate | Zero exit-code or failure-signature deltas |
+| New tests, three files | 12 Bun tests pass, including nine Python unittest cases |
+| Astro compilation on candidate | Pass |
+| Full `bun run build` | Stops at existing missing local `esbuild` import in `prepare-worker-entry.mjs`; base wrapper fails identically |
+| Factory full bundle | Not run: declared factory dependencies are not installed locally |
+| `git diff --check` | Pass |
+
+The 11 existing failing files remain. Counts below are explicit `FAIL:` lines;
+the last two files abort with the same exceptions on base and candidate.
+
+| Existing failing test file | Base | Candidate | Delta |
+| --- | --- | --- | --- |
+| a2-pages | 3 | 3 | 0 |
+| audio-sample | 1 | 1 | 0 |
+| audiobooks | 10 | 10 | 0 |
+| cart-resolution | 2 | 2 | 0 |
+| cast-registry | 3 | 3 | 0 |
+| home-filters | 14 | 14 | 0 |
+| idempotency | 4 | 4 | 0 |
+| library | 2 | 2 | 0 |
+| m4b-stamp | 2 | 2 | 0 |
+| releases | missing `user` table | same | 0 |
+| transmedia-revops | Fenix/Fern assertion | same | 0 |
+
+The other 62 existing files pass on both trees. The temporary baseline worktree
+uses a shared node_modules symlink; its full Astro build also encounters a Vite
+compile-metadata path error. The candidate compiles Astro from the normal
+workspace. The packaging dependency failure was independently reproduced by
+running the unchanged wrapper directly on base. No baseline fixes are included.
