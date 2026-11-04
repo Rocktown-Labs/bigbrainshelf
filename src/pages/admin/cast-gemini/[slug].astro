@@ -644,7 +644,10 @@ const slugParam = Astro.params.slug ?? "";
         b.setAttribute("data-cand-for", c.name);
         b.setAttribute("data-cand-voice", cand.id);
         var v = voiceById(cand.id);
-        b.textContent = (v ? v.name : cand.id) + (cand.cast ? " (cast)" : "");
+        b.textContent = (v ? v.name : cand.id) +
+          (v && v.kind === "storyteller" ? " · Storyteller" : "") +
+          (v && v.gender ? " · " + cap(v.gender) : "") +
+          (cand.cast ? " (cast)" : "");
         b.addEventListener("click", function () {
           state.candidate[c.name] = cand.id;
           syncCandidateChips(c);
