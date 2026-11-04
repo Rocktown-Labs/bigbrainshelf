@@ -1,4 +1,4 @@
-import { assembleVerifiedPdf } from "./assembly";
+import { assembleVerifiedPdf, pretranscodeAssembly } from "./assembly";
 import { stampColor, holdColor, pageSourceRevision, bytesHash, colorIdentityCurrent } from "../../packages/core/src/assembly-identity";
 import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // ColorizeWorkflow: the factory's color process (reset, 2026-10-24).
@@ -302,6 +302,16 @@ export class ColorizeWorkflow extends WorkflowEntrypoint<BookBuildEnv, ColorizeP
           else if (did === "held") heldCount++;
           else skipped++;
         }
+      }
+
+      // Warm the transcode cache a chapter per step so the assemble
+      // step below only embeds: a whole book of PNG transcodes in one
+      // step exceeds the CPU limit (Fenix color assembly, 2026-11-04).
+      for (const ch of chapters) {
+        await step.do(`pretranscode color ${ch}`, RETRIES, async () => {
+          await pretranscodeAssembly(env, slug, 'color', parseInt(ch.slice(1), 10));
+          return true;
+        });
       }
 
       const assembled: any = await step.do("assemble color book", RETRIES, async () => {
