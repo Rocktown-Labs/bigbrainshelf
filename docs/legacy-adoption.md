@@ -43,7 +43,14 @@ bytes remain untouched; they are not new adoption claims.
 Color needs an additional binding: the color audit row must identify the exact
 current line SHA-256. Separate proofs that a line and a color image both exist
 are not proof they form a twin. No color identity is stamped without that
-pairing. Existing current color identities remain unchanged. Missing color
+pairing. The preserved judgment-run color audits predate this pairing field,
+so their rows record none. For those books the operator may supply a pairing
+supplement (`adoption-color-pairing/v1`, hash-pinned in the evidence index
+like every other source): it acts only as an index, filling the missing field
+for a page when its entry hash-matches BOTH captured artifacts, the color
+twin and the exact line page it claims to twin. It never overrides a pairing
+an audit recorded, matching or not, and an entry that fails either hash
+leaves the page reported. Existing current color identities remain unchanged. Missing color
 pointers are reported rather than silently attaching old orphan twins. In
 particular, Maisie's line pages can be adopted independently; unverified color
 pages and the prior-edition color PDF remain unverified. Tilda (`iwillteach`)
@@ -56,9 +63,16 @@ PDF and other files outside that predicate. Same-size edits cannot be detected
 by that checksum alone. Logging is best-effort in the current source, so an
 empty table cannot prove a closed log: the integrator's explicit attestation is
 required. The tool does not infer an operational guarantee from code that can
-drop bookkeeping errors. A size-changing Penny plan edit fails the strict full
-fingerprint rule even when classified text-only; it is reported, not silently
-exempted. No durability policy or budget fail-open behavior changes here.
+drop bookkeeping errors. A size-changing plan edit fails the strict full
+fingerprint rule even when classified text-only, with one bounded exception
+CG approved for Penny on 2026-11-04: a continuity export may name a
+`text-only-plan-edit` exception for a plan JSON key (at most four keys) when
+the edit touched no image bytes and its BEFORE bytes are archived under the
+book and hash-verify against the pinned digest during the proof. The
+fingerprint comparison is then adjusted for exactly those keys, and the
+proof records each exception. An exception that cannot verify fails the
+whole proof; it is never silently exempted, and no other write class is
+eligible. No durability policy or budget fail-open behavior changes here.
 
 ## RGM operator procedure
 
