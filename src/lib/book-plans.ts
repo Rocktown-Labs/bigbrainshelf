@@ -33,3 +33,28 @@ export async function countApprovedInventory(db: any, slug: string, pages: BookP
   const approved = new Set<string>((results || []).map((r: any) => `${r.chapter_num}:${r.page_index}`));
   return [...expected].filter(key => approved.has(key)).length;
 }
+
+export interface BookQcState {
+  totalPages: number | null;
+  approvedCount: number | null;
+  complete: boolean;
+  label: string;
+}
+
+/** Read the inventory once. An unavailable fact must never look like a zero. */
+export async function getBookQcState(db: any, books: any, slug: string): Promise<BookQcState> {
+  let pages: BookPageRef[];
+  try { pages = await listBookPages(books, slug); }
+  catch {
+    return { totalPages: null, approvedCount: null, complete: false,
+      label: 'Unverified: page inventory could not be read. Retry when the book plans are available.' };
+  }
+  try {
+    const approvedCount = await countApprovedInventory(db, slug, pages);
+    return { totalPages: pages.length, approvedCount, complete: pages.length > 0 && approvedCount === pages.length,
+      label: `${approvedCount} of ${pages.length} pages approved.` };
+  } catch {
+    return { totalPages: pages.length, approvedCount: null, complete: false,
+      label: 'Unverified: page approvals could not be read. Retry when approvals are available.' };
+  }
+}

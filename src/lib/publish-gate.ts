@@ -3,6 +3,7 @@ import { countApprovedInventory } from './book-plans';
 import { getPublishReadiness } from './publish-readiness';
 import { getDeliveryReadiness } from './delivery-readiness';
 import { publishPriceStamp } from './offers';
+import { recordWorkerRun } from '../../packages/core/src/run-provenance';
 
 export class PublishBlocked extends Error {
   constructor(public gate: string, message: string, public blockers: { id: string; detail: string }[] = [], public status = 409,
@@ -13,7 +14,7 @@ export class PublishBlocked extends Error {
 
 export async function publishVerifiedBook(
   db: any, books: any, input: any, actor: string | null,
-  checks = { audio: getPublishReadiness, delivery: getDeliveryReadiness }
+  checks = { audio: getPublishReadiness, delivery: getDeliveryReadiness }, provenanceBinding?: string
 ) {
   const slug = typeof input.book_slug === 'string' ? input.book_slug.trim() : '';
   if (!slug) throw new PublishBlocked('request', 'book_slug is required.', [], 400);
@@ -77,11 +78,6 @@ export async function publishVerifiedBook(
   const bookFence = bookFields.map(field => `${field} IS ?`).join(' AND ');
   const approvalFence = manifest.pages.map(() => '(chapter_num = ? AND page_index = ?)').join(' OR ');
   try {
-    await db.prepare(`CREATE TABLE IF NOT EXISTS publish_releases (
-      id TEXT PRIMARY KEY NOT NULL, book_slug TEXT NOT NULL, revision TEXT NOT NULL,
-      manifest_json TEXT NOT NULL, checks_json TEXT NOT NULL, override_json TEXT,
-      actor TEXT, created_at INTEGER NOT NULL
-    )`).run();
     // D1 batch is transactional. An audit failure must roll back publication,
     // and a publication failure must roll back its audit record.
     await db.batch([
@@ -101,6 +97,9 @@ export async function publishVerifiedBook(
   } catch {
     throw new PublishBlocked('record', 'Publication could not be confirmed. Check the release journal before retrying.', [], 503);
   }
+  await recordWorkerRun({ DB: db, BBS_BUILD_PROVENANCE: provenanceBinding }, {
+    worker: 'bigbrainshelf', runId: releaseId, operation: 'publish', bookSlug: slug, startedAt: now,
+  });
   return { slug, releaseId, revision: manifest.revision, totalPages: manifest.pages.length,
     approvedCount, audioState: audio?.state ?? 'unknown', override: override ? { recorded: true, checks: [...waived] } : null };
 }

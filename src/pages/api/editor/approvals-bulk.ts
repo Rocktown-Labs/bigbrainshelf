@@ -16,19 +16,29 @@ export const POST: APIRoute = async ({ request }) => {
   const slug = String(b.book_slug || "");
   if (!slug) return Response.json({ ok: false, error: "book_slug required" }, { status: 400 });
   const approved = b.approved !== false;
-  const pages = await listBookPages(e.BOOKS, slug);
+  let pages;
+  try { pages = await listBookPages(e.BOOKS, slug); }
+  catch {
+    return Response.json({ ok: false, code: 'INVENTORY_UNVERIFIED',
+      error: 'Page inventory could not be verified. No approvals were changed. Check the book plans and retry.' }, { status: 409 });
+  }
   if (!pages.length) {
     return Response.json({ ok: false, error: "no plans found for this book" }, { status: 404 });
   }
   const now = new Date().toISOString();
-  const stmt = e.DB.prepare(
+  try {
+    const stmt = e.DB.prepare(
     `INSERT INTO page_approvals (book_slug, chapter_num, page_index, approved, approved_at)
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (book_slug, chapter_num, page_index) DO UPDATE SET
        approved=excluded.approved, approved_at=excluded.approved_at`
   );
-  await e.DB.batch(
-    pages.map((p) => stmt.bind(slug, p.chapter, p.page, approved ? 1 : 0, approved ? now : null))
-  );
+    await e.DB.batch(
+      pages.map((p) => stmt.bind(slug, p.chapter, p.page, approved ? 1 : 0, approved ? now : null))
+    );
+  } catch {
+    return Response.json({ ok: false, code: 'APPROVAL_SAVE_UNCONFIRMED',
+      error: 'Approval changes could not be confirmed. Reload the book before retrying.' }, { status: 503 });
+  }
   return Response.json({ ok: true, pages: pages.length, approved });
 };

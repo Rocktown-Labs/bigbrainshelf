@@ -12,11 +12,11 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && node scripts/prepare-worker-entry.mjs",
+    "build": "python3 scripts/build_worker.py hub",
     "preview": "astro preview",
     "astro": "astro",
     "generate-types": "wrangler types",
-    "deploy": "cf deploy",
+    "deploy": "python3 deploy.py",
     "deploy:api": "python3 deploy.py"
   },
   "dependencies": {

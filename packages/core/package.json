@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./book-revision": "./src/book-revision.ts",
+    "./run-provenance": "./src/run-provenance.ts",
     "./offers": "../../src/lib/offers.ts",
     "./public-slugs": "../../src/lib/public-slugs.ts",
     "./family": "../../src/lib/family.ts"

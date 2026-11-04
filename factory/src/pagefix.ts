@@ -1,3 +1,4 @@
+import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // PageFixWorkflow: redo ONE page of an existing book (line + color)
 // with the owner's note as art direction.
 //
@@ -62,6 +63,7 @@ async function finishRequest(env: BookBuildEnv, requestId: string | undefined, s
 
 export class PageFixWorkflow extends WorkflowEntrypoint<BookBuildEnv, PageFixParams> {
   async run(event: WorkflowEvent<PageFixParams>, step: WorkflowStep) {
+    await recordWorkflowRun(this.env, step, event, "pagefix", event.payload.slug);
     const { slug, chapter, note, requestId } = event.payload;
     let page = event.payload.page;
     const env = this.env;

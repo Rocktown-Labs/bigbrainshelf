@@ -1,3 +1,4 @@
+import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 import { WorkflowEntrypoint, WorkflowStep } from "cloudflare:workers";
 import type { WorkflowEvent } from "cloudflare:workers";
 import { planChapter, generateImage, qcImage, ChapterPlan, StoryBible } from "./ai";
@@ -16,6 +17,8 @@ interface Params {
 }
 
 interface Env {
+  DB?: D1Database;
+  BBS_BUILD_PROVENANCE?: string;
   AI: any;
   BOOKS: R2Bucket;
   KIDSBOOK_WORKFLOW: Workflow;
@@ -25,6 +28,7 @@ const RETRIES = { limit: 3, delay: "10 seconds", backoff: "exponential" } as con
 
 export class KidsBookWorkflow extends WorkflowEntrypoint<Env, Params> {
   async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
+    await recordWorkflowRun(this.env, step, event, "chapter", event.payload.bookSlug);
     const p = event.payload;
     const language = p.language ?? "en";
     const pageCount = p.pageCount ?? 4;

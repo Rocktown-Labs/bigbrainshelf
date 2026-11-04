@@ -36,3 +36,14 @@ that exists only in a deployment workspace is not shared source.
 
 One-off migration and patch scripts from the VM were left behind; the
 judgment-run tooling above is the complete set that produced the ledgers.
+
+## Build and deployment provenance
+
+Use `python3 scripts/build_worker.py factory` from the repository root to build
+and seal committed factory source. The uploader reads that repository's
+`factory/dist/worker.js` plus its receipt, replacing the old absolute VM bundle
+path. RGM applies the shared SQL migration before rollout and deploys only
+merged source after checking workflow inactivity. Keep append-only
+`.deployment-records/` receipts outside generated dist. See
+[`docs/reliability-slice-1.md`](../docs/reliability-slice-1.md) for the contract
+and deliberately unchanged acceptance/budget policies.

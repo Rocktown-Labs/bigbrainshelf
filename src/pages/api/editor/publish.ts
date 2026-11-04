@@ -13,7 +13,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const b = await request.json().catch(() => ({}));
   let published;
   try {
-    published = await publishVerifiedBook(db, e.BOOKS, b, (locals as any).user?.email ?? null);
+    published = await publishVerifiedBook(db, e.BOOKS, b, (locals as any).user?.email ?? null, undefined, e.BBS_BUILD_PROVENANCE);
   } catch (error) {
     if (error instanceof PublishBlocked)
       return Response.json({ ok: false, gate: error.gate, reason: error.message, blockers: error.blockers,
