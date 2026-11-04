@@ -1,3 +1,5 @@
+import { assembleVerifiedPdf } from "./assembly";
+import { stampLine } from "../../packages/core/src/assembly-identity";
 import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // RegenWorkflow: durable chapter regeneration for an EXISTING book.
 //
@@ -17,7 +19,6 @@ import { WorkflowEntrypoint, WorkflowStep } from "cloudflare:workers";
 import type { WorkflowEvent } from "cloudflare:workers";
 import { planChapterAttempt } from "./planv3";
 import { anchoredPrompt } from "./ai";
-import { buildColoringBook, buildPictureBook } from "./pdf";
 import { composeMatter, ensureBackCoverImages, BACK_COVER_COLOR_KEY, BACK_COVER_LINE_KEY } from "./matter";
 import {
   BookBuildEnv,
@@ -36,7 +37,6 @@ import { emitEvent } from "./events";
 import { gatewayConfigured, linePromptFromScene } from "./gateway";
 import { cropsCoverage } from "./crops";
 import { snapshotIfChanged } from "./versioning";
-import { toPdfJpeg } from "./transcode";
 import { normalizeBible } from "./biblegate";
 
 export interface RegenParams {
@@ -233,6 +233,8 @@ export class RegenWorkflow extends WorkflowEntrypoint<BookBuildEnv, RegenParams>
                   return;
                 }
                 await env.BOOKS.put(ikey, bytes, { httpMetadata: { contentType: "image/jpeg" } });
+                stampLine(bible, plan, plan.pages[pi], bytes);
+                await r2Put(env.BOOKS, key, JSON.stringify(plan, null, 1), "application/json");
                 if (plan.pages[pi].held) {
                   delete plan.pages[pi].held;
                   delete plan.pages[pi].heldReason;
@@ -264,6 +266,8 @@ export class RegenWorkflow extends WorkflowEntrypoint<BookBuildEnv, RegenParams>
                   return;
                 }
                 await env.BOOKS.put(fkey, bytes, { httpMetadata: { contentType: "image/jpeg" } });
+                stampLine(bible, plan, plan.finale, bytes);
+                await r2Put(env.BOOKS, key, JSON.stringify(plan, null, 1), "application/json");
                 if ((plan.finale as any).held) {
                   delete (plan.finale as any).held;
                   delete (plan.finale as any).heldReason;
@@ -291,47 +295,10 @@ export class RegenWorkflow extends WorkflowEntrypoint<BookBuildEnv, RegenParams>
       // ---- assemble (always: text changes alone alter the PDFs) -----
       const counts: any = await step.do("regen assemble", RETRIES, async () => {
         await setStage(env, slug, "assemble");
-        const keys = (await r2ListAll(env.BOOKS, `books/${slug}/plans/`))
-          .filter((k) => /\/plans\/S\d+\.json$/.test(k))
-          .sort((a, b) => chNum(a) - chNum(b));
-        // No-ship rule: held pages block reassembly.
-        const held = await heldPages(env, slug, keys.length, "line");
-        if (held.length) throw new Error(`held pages need review: ${held.join(", ")}`);
-        const toc: string[] = [];
-        const storyPages: { image: Uint8Array; story: string }[] = [];
-        const coloringPages: { image: Uint8Array; caption: string }[] = [];
-        for (const key of keys) {
-          const ch = key.match(/\/plans\/(S\d+)\.json$/)![1];
-          const plan = await r2GetJson(env.BOOKS, key);
-          if (!plan?.pages?.length) continue;
-          toc.push(plan.storyTitle ?? ch);
-          for (let pi = 0; pi < plan.pages.length; pi++) {
-            const lineImg = await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-page-${pi}.jpg`);
-            if (!lineImg) continue;
-            const pg = plan.pages[pi];
-            coloringPages.push({ image: lineImg, caption: coloringCaption(pg) });
-            // Line art only in the base books (factory reset,
-            // 2026-10-24); color twins never leak into the storybook.
-            storyPages.push({ image: await toPdfJpeg(lineImg), story: pg.storyText ?? "" });
-          }
-          const fimg = await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-finale.jpg`);
-          if (fimg && plan.finale?.storyText) {
-            storyPages.push({ image: await toPdfJpeg(fimg), story: plan.finale.storyText });
-          }
-        }
-        if (!storyPages.length) throw new Error("no page images to assemble");
-        const title = bible.bookTitle ?? slug;
-        const backImage = await r2GetBytes(env.BOOKS, BACK_COVER_COLOR_KEY(slug));
-        const backLineImage = await r2GetBytes(env.BOOKS, BACK_COVER_LINE_KEY(slug));
-        const matter = { ...composeMatter(bible), backImage, backLineImage };
-        const rawCover = await r2GetBytes(env.BOOKS, `books/${slug}/cover.jpg`);
-        const titledCover = await r2GetBytes(env.BOOKS, `books/${slug}/cover-titled.jpg`);
-        usedTitledCover = !!titledCover;
-        const coloring = await buildColoringBook(title, coloringPages, toc, matter, rawCover, titledCover);
-        await r2Put(env.BOOKS, `books/${slug}/coloring-book.pdf`, coloring, "application/pdf");
-        const picture = await buildPictureBook(title, storyPages, null, toc, matter, rawCover, titledCover);
-        await r2Put(env.BOOKS, `books/${slug}/picture-book.pdf`, picture, "application/pdf");
-        return { storyPages: storyPages.length, coloringPages: coloringPages.length, chapters: toc.length };
+        const coloring = await assembleVerifiedPdf(env, slug, 'coloring');
+        const picture = await assembleVerifiedPdf(env, slug, 'picture', coloring.revision);
+        usedTitledCover = picture.titledCover;
+        return { storyPages: picture.pages, coloringPages: coloring.pages, chapters: picture.chapters };
       });
 
       // ---- register --------------------------------------------------

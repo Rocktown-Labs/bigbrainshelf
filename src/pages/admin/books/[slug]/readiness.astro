@@ -27,8 +27,7 @@ const title = book ? String(book.title || slug) : param;
 const delivery = book ? await getDeliveryReadiness(env.DB as any, (env as any).BOOKS, slug).catch(() => null) : null;
 const publish = book ? await getPublishReadiness(env.DB as any, (env as any).BOOKS, slug).catch(() => null) : null;
 
-// QC state: approvals live in page_approvals (written here via
-// the bulk approve, cleared per page whenever a page is redone).
+// QC state: append-only approvals bind the reviewed revision and artifact hashes.
 const qcState = await getBookQcState(env.DB, (env as any).BOOKS, slug);
 const qcComplete = !!book && qcState.complete;
 
@@ -107,7 +106,7 @@ const marketingCheck = delivery?.checks.find((c) => c.id === "marketing-assets")
             <p class="text-sm text-stone-500">{qcState.label} Review the pages in QC, then mark the book approved here. Redoing any page clears its approval again. Coloring waits for QC, always.</p>
           </div>
           <a class="rounded-lg bg-orange-600 text-white text-sm font-semibold px-4 py-2" href={`/admin/books/${adminSlug}`}>Open QC</a>
-          <button id="approve-all-btn" data-slug={slug} disabled={!book || qcState.totalPages === null} class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 py-2 hover:border-stone-500 disabled:opacity-40">Approve all pages</button>
+          <button id="approve-all-btn" data-slug={slug} data-revision={qcState.revision} disabled={!book || !qcState.revision} class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 py-2 hover:border-stone-500 disabled:opacity-40">Approve all pages</button>
           {qcState.approvedCount !== null && qcState.approvedCount > 0 && <button id="approve-clear-btn" data-slug={slug} class="rounded-lg bg-white border border-stone-200 text-sm text-stone-500 px-3 py-2 hover:border-stone-400">Clear</button>}
         </li>
         <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
@@ -210,7 +209,7 @@ const marketingCheck = delivery?.checks.find((c) => c.id === "marketing-assets")
         btn.addEventListener("click", function () {
           if (!window.confirm(label)) return;
           btn.disabled = true; say("Saving approvals...");
-          fetch("/api/editor/approvals-bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ book_slug: btn.getAttribute("data-slug"), approved: approved }) })
+          fetch("/api/editor/approvals-bulk", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ book_slug: btn.getAttribute("data-slug"), approved: approved, revision: document.getElementById("approve-all-btn").getAttribute("data-revision") }) })
             .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || ("HTTP " + r.status)); return j; }); })
             .then(function () { say("Saved. Reloading..."); setTimeout(function () { window.location.reload(); }, 600); })
             .catch(function (e) { say("Could not save: " + (e.message || e)); btn.disabled = false; });

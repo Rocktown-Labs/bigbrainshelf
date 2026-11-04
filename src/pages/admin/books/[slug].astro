@@ -214,11 +214,13 @@ if (fromAll) {
     // requests are the fix queue. When every page is green, QC is
     // complete and Colorize unlocks, here and on Readiness.
     var approvals = {};
+    var approvalRevision = null;
 
     function loadApprovals() {
       return fetch("/api/editor/approvals?book_slug=" + encodeURIComponent(slug))
         .then(function (r) { return r.json(); })
         .then(function (rows) {
+          if (!Array.isArray(rows) || (rows[0] && rows[0].revision !== approvalRevision)) throw new Error('Book changed. Reload to review.');
           approvals = {};
           (rows || []).forEach(function (r) { approvals[key(r.chapterNum, r.pageIndex)] = !!r.approved; });
           renderRail();
@@ -244,13 +246,12 @@ if (fromAll) {
     }
 
     function postApproval(cn, pi, ok) {
-      approvals[key(cn, pi)] = ok;
-      paintMarks(cn, pi);
       fetch("/api/editor/approvals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ book_slug: slug, chapterNum: cn, pageIndex: pi, approved: ok })
-      }).catch(function () { /* the paint already shows the mark; a reload re-reads the server */ });
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ book_slug: slug, chapterNum: cn, pageIndex: pi, approved: ok, revision: approvalRevision })
+      }).then(function(r) { return r.json().then(function(data) { if (!r.ok) throw new Error(data.error || "Approval failed"); return data; }); })
+        .then(function() { approvals[key(cn, pi)] = ok; paintMarks(cn, pi); })
+        .catch(function(error) { alert(error.message); });
     }
 
     function wireMark(idSuffix) {
@@ -804,6 +805,8 @@ if (fromAll) {
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        if (!data.revision) throw new Error(data.error || "Review identity is missing");
+        approvalRevision = data.revision;
         if (!book) document.getElementById("title").textContent = data.title || slug;
         (data.chapters || []).forEach(function (ch, ci) {
           (ch.pages || []).forEach(function (pg, pi) {
@@ -834,7 +837,7 @@ if (fromAll) {
             text: "",
             character: "",
             concept: "",
-            image: adminMedia(book.cover_key)
+            image: data.cover || ""
           });
         }
         // The whole assembled book, in order (CG, 2026-10-31):

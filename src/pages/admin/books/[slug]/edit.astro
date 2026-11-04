@@ -283,7 +283,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
   }
 
   var S = {
-    book: null, chapters: [], layouts: new Map(), approvals: new Map(),
+    approvalRevision: null, book: null, chapters: [], layouts: new Map(), approvals: new Map(),
     readiness: null, overrides: [], delivery: null,
     settings: { trimPreset: "letter", trimWidthIn: 8.5, trimHeightIn: 11, safeMarginIn: 0.5, showGuides: true, showBleed: false },
     chNum: 1, pgIdx: 0, layout: null, selection: null, editingText: false,
@@ -761,6 +761,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
         msg += " Updated pages are un-approved for a fresh QA pass.";
         alert(msg);
         return api("approvals?book_slug=" + BOOK_SLUG).then(function(rows) {
+          S.approvalRevision = null; // A take changed the viewed revision: reload before approving.
           S.approvals.clear();
           rows.forEach(function(a) { S.approvals.set(keyOf(a.chapterNum, a.pageIndex), a.approved); });
           S.bust = Date.now();
@@ -1025,6 +1026,8 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       S.title = book.title;
       $("book-title").textContent = book.title + " - Page Editor";
       res[1].forEach(function(l) { S.layouts.set(keyOf(l.chapterNum, l.pageIndex), l); });
+      S.approvalRevision = book.revision;
+      if (res[2][0] && res[2][0].revision !== S.approvalRevision) throw new Error("Book changed. Reload to review.");
       res[2].forEach(function(a) { S.approvals.set(keyOf(a.chapterNum, a.pageIndex), a.approved); });
       if (res[3]) S.settings = res[3];
       renderChapterSelect(); renderSettings();
@@ -1132,8 +1135,9 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
     });
     function setApproval(v) {
       api("approvals", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ book_slug: BOOK_SLUG, chapterNum: S.chNum, pageIndex: S.pgIdx, approved: v }) })
-        .then(function() { S.approvals.set(keyOf(S.chNum, S.pgIdx), v); renderPage(); });
+        body: JSON.stringify({ book_slug: BOOK_SLUG, chapterNum: S.chNum, pageIndex: S.pgIdx, approved: v, revision: S.approvalRevision }) })
+        .then(function() { S.approvals.set(keyOf(S.chNum, S.pgIdx), v); renderPage(); })
+        .catch(function(error) { alert(error.message || "Approval could not be confirmed. Reload before retrying."); });
     }
 
     $("btn-png").addEventListener("click", downloadPng);

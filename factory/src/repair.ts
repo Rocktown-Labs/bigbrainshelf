@@ -1,3 +1,5 @@
+import { assembleVerifiedPdf } from "./assembly";
+import { stampLine, bytesHash } from "../../packages/core/src/assembly-identity";
 import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // RepairWorkflow: the factory's self-healing loop (CG, 2026-10-25).
 //
@@ -48,9 +50,7 @@ import { buildBiblePrompt } from "./bibleprompt";
 import { anchoredPrompt, sheetKeyFor, judgeCastListing, castListingOk } from "./ai";
 import { linePurity, analyzePage, pageVerdict, purifyPage } from "./purity";
 import { gatewayConfigured, generateGatewayImage, linePromptFromScene } from "./gateway";
-import { buildPictureBook, buildColoringBook } from "./pdf";
 import { composeMatter, ensureBackCoverImages, BACK_COVER_COLOR_KEY, BACK_COVER_LINE_KEY } from "./matter";
-import { toPdfJpeg } from "./transcode";
 import { snapshotIfChanged } from "./versioning";
 import { recordEdition, standardArtifacts } from "./editions";
 
@@ -482,6 +482,9 @@ async function repairImage(env: BookBuildEnv, slug: string, bible: any, d: Defec
       return false;
     }
     await env.BOOKS.put(`books/${slug}/images/${d.chapter}-finale.jpg`, bytes, { httpMetadata: { contentType: "image/jpeg" } });
+    stampLine(bible, plan, plan.finale, bytes);
+    plan.finale.imageKey = `books/${slug}/images/${d.chapter}-finale.jpg`;
+    await r2Put(env.BOOKS, planKey, JSON.stringify(plan, null, 1), "application/json");
     if ((plan.finale as any).held) {
       delete (plan.finale as any).held;
       delete (plan.finale as any).heldReason;
@@ -501,6 +504,11 @@ async function repairImage(env: BookBuildEnv, slug: string, bible: any, d: Defec
       const fixed = purifyPage(existing);
       if (fixed && pageVerdict(analyzePage(fixed)).verdict === "clean") {
         await env.BOOKS.put(key, fixed, { httpMetadata: { contentType: "image/jpeg" } });
+        // A pixel cleanup cannot establish missing historical provenance.
+        if (pg.lineIdentity?.sha256 === bytesHash(existing)) {
+          pg.lineIdentity.sha256 = bytesHash(fixed);
+          await r2Put(env.BOOKS, planKey, JSON.stringify(plan, null, 1), "application/json");
+        }
         return "purified";
       }
     }
@@ -522,6 +530,9 @@ async function repairImage(env: BookBuildEnv, slug: string, bible: any, d: Defec
     return false;
   }
   await env.BOOKS.put(key, bytes, { httpMetadata: { contentType: "image/jpeg" } });
+  stampLine(bible, plan, pg, bytes);
+  pg.imageKey = key;
+  await r2Put(env.BOOKS, planKey, JSON.stringify(plan, null, 1), "application/json");
   if (pg.held) {
     delete pg.held;
     delete pg.heldReason;
@@ -727,36 +738,8 @@ async function repairCover(env: BookBuildEnv, slug: string, bible: any): Promise
 
 // Same assembly the regen performs: line art only in the base PDFs.
 async function reassemble(env: BookBuildEnv, slug: string, bible: any): Promise<void> {
-  const ladder: any[] = bible.conceptLadder ?? [];
-  const toc: string[] = [];
-  const coloringPages: { image: Uint8Array; caption: string }[] = [];
-  const storyPages: { image: Uint8Array; story: string }[] = [];
-  for (let i = 1; i <= ladder.length; i++) {
-    const ch = `S${i}`;
-    const plan = await r2GetJson(env.BOOKS, `books/${slug}/plans/${ch}.json`);
-    if (!plan?.pages?.length) continue;
-    toc.push(plan.storyTitle ?? ch);
-    for (let pi = 0; pi < plan.pages.length; pi++) {
-      const lineImg = await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-page-${pi}.jpg`);
-      if (!lineImg) continue;
-      const pg = plan.pages[pi];
-      coloringPages.push({ image: await toPdfJpeg(lineImg), caption: coloringCaption(pg) });
-      storyPages.push({ image: await toPdfJpeg(lineImg), story: pg.storyText ?? "" });
-    }
-    const fimg = await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-finale.jpg`);
-    if (fimg && plan.finale?.storyText) {
-      storyPages.push({ image: await toPdfJpeg(fimg), story: plan.finale.storyText });
-    }
-  }
-  if (!storyPages.length) throw new Error("no page images to assemble");
-  const title = bible.bookTitle ?? slug;
-  const imgs = await ensureBackCoverImages(env, slug, bible);
-  const matter = { ...composeMatter(bible), backImage: imgs.color, backLineImage: imgs.line };
-  const coverBytes = await r2GetBytes(env.BOOKS, `books/${slug}/cover.jpg`);
-  const coloring = await buildColoringBook(title, coloringPages, toc, matter, coverBytes);
-  await r2Put(env.BOOKS, `books/${slug}/coloring-book.pdf`, coloring, "application/pdf");
-  const picture = await buildPictureBook(title, storyPages, null, toc, matter, coverBytes);
-  await r2Put(env.BOOKS, `books/${slug}/picture-book.pdf`, picture, "application/pdf");
+  const coloring = await assembleVerifiedPdf(env, slug, 'coloring');
+  await assembleVerifiedPdf(env, slug, 'picture', coloring.revision);
   await rebuildEditorChapters(env, slug);
   const now = Math.floor(Date.now() / 1000);
   await env.DB.prepare(
@@ -768,93 +751,26 @@ async function reassemble(env: BookBuildEnv, slug: string, bible: any): Promise<
 
 // ---------------------------------------------------------- reassemble-only
 // POST /book/{slug}/reassemble (owner, 2026-10-29): rebuild the
-// downloadable PDFs from the book's EXISTING pages so assembly-level
-// changes (the interior footer in pdf.ts) reach finished books without
-// a rebuild. This path never generates anything: it refuses the book
-// when the stored back cover art is missing, because reassemble()'s
-// ensureBackCoverImages would otherwise try to create it (a paid
-// gateway call). The color edition is rebuilt the same way
-// ColorizeWorkflow's assemble step builds it, including its no-ship
-// rule for held pages.
-interface ReassembleInputs {
-  bible: any;
-  backColor: Uint8Array;
-  backLine: Uint8Array;
-}
-
-async function loadReassembleInputs(env: BookBuildEnv, slug: string): Promise<ReassembleInputs> {
-  const bible = await r2GetJson(env.BOOKS, `books/${slug}/bible.json`);
-  if (!bible?.conceptLadder?.length) throw new Error(`no bible for ${slug}`);
-  const backColor = await r2GetBytes(env.BOOKS, BACK_COVER_COLOR_KEY(slug));
-  const backLine = await r2GetBytes(env.BOOKS, BACK_COVER_LINE_KEY(slug));
-  if (!backColor || !backLine) {
-    throw new Error(
-      "back cover art missing; reassembly would trigger generation, refusing"
-    );
-  }
-  return { bible, backColor, backLine };
-}
-
+// downloadable PDFs from verified existing inputs. No generation branch;
+// missing covers or page artifacts fail explicitly in the shared validator.
 export async function reassembleBasePdfs(env: BookBuildEnv, slug: string): Promise<void> {
-  await reassembleColoringPdf(env, slug);
-  await reassemblePicturePdf(env, slug);
+  const revision = await reassembleColoringPdf(env, slug);
+  await reassemblePicturePdf(env, slug, revision);
 }
 
 // The two base PDFs assemble separately (the ReassembleWorkflow runs
 // them as separate steps): each step holds only its own book's page
 // bytes. Docker's combined set (60+ pages at full res, twice over
 // with the PDF transcodes) blew the worker memory limit when both
-// books were assembled in one step. Matter uses the pre-fetched back
-// cover bytes, so this path has no generation branch at all.
-export async function reassembleColoringPdf(env: BookBuildEnv, slug: string): Promise<void> {
-  const { bible, backColor, backLine } = await loadReassembleInputs(env, slug);
+// books were assembled in one step. The shared assembler loads verified
+// matter bytes and has no generation branch.
+export async function reassembleColoringPdf(env: BookBuildEnv, slug: string): Promise<string> {
   await snapshotIfChanged(env.BOOKS, slug, "reassemble");
-  const ladder: any[] = bible.conceptLadder ?? [];
-  const toc: string[] = [];
-  const coloringPages: { image: Uint8Array; caption: string }[] = [];
-  for (let i = 1; i <= ladder.length; i++) {
-    const ch = `S${i}`;
-    const plan = await r2GetJson(env.BOOKS, `books/${slug}/plans/${ch}.json`);
-    if (!plan?.pages?.length) continue;
-    toc.push(plan.storyTitle ?? ch);
-    for (let pi = 0; pi < plan.pages.length; pi++) {
-      const lineImg = await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-page-${pi}.jpg`);
-      if (!lineImg) continue;
-      coloringPages.push({ image: await toPdfJpeg(lineImg), caption: coloringCaption(plan.pages[pi]) });
-    }
-  }
-  if (!coloringPages.length) throw new Error("no page images to assemble");
-  const matter = { ...composeMatter(bible), backImage: backColor, backLineImage: backLine };
-  const coverBytes = await r2GetBytes(env.BOOKS, `books/${slug}/cover.jpg`);
-  const coloring = await buildColoringBook(bible.bookTitle ?? slug, coloringPages, toc, matter, coverBytes);
-  await r2Put(env.BOOKS, `books/${slug}/coloring-book.pdf`, coloring, "application/pdf");
+  return (await assembleVerifiedPdf(env, slug, 'coloring')).revision;
 }
 
-export async function reassemblePicturePdf(env: BookBuildEnv, slug: string): Promise<void> {
-  const { bible, backColor, backLine } = await loadReassembleInputs(env, slug);
-  const ladder: any[] = bible.conceptLadder ?? [];
-  const toc: string[] = [];
-  const storyPages: { image: Uint8Array; story: string }[] = [];
-  for (let i = 1; i <= ladder.length; i++) {
-    const ch = `S${i}`;
-    const plan = await r2GetJson(env.BOOKS, `books/${slug}/plans/${ch}.json`);
-    if (!plan?.pages?.length) continue;
-    toc.push(plan.storyTitle ?? ch);
-    for (let pi = 0; pi < plan.pages.length; pi++) {
-      const lineImg = await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-page-${pi}.jpg`);
-      if (!lineImg) continue;
-      storyPages.push({ image: await toPdfJpeg(lineImg), story: plan.pages[pi].storyText ?? "" });
-    }
-    const fimg = await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-finale.jpg`);
-    if (fimg && plan.finale?.storyText) {
-      storyPages.push({ image: await toPdfJpeg(fimg), story: plan.finale.storyText });
-    }
-  }
-  if (!storyPages.length) throw new Error("no page images to assemble");
-  const matter = { ...composeMatter(bible), backImage: backColor, backLineImage: backLine };
-  const coverBytes = await r2GetBytes(env.BOOKS, `books/${slug}/cover.jpg`);
-  const picture = await buildPictureBook(bible.bookTitle ?? slug, storyPages, null, toc, matter, coverBytes);
-  await r2Put(env.BOOKS, `books/${slug}/picture-book.pdf`, picture, "application/pdf");
+export async function reassemblePicturePdf(env: BookBuildEnv, slug: string, revision?: string): Promise<void> {
+  await assembleVerifiedPdf(env, slug, 'picture', revision);
   await rebuildEditorChapters(env, slug);
   const now = Math.floor(Date.now() / 1000);
   await env.DB.prepare(
@@ -867,63 +783,11 @@ export async function reassembleColorPdf(
   env: BookBuildEnv,
   slug: string
 ): Promise<{ color: boolean; colorNote?: string }> {
-  const { bible, backColor, backLine } = await loadReassembleInputs(env, slug);
-  const out: { color: boolean; colorNote?: string } = { color: false };
-
-  // Color edition, when the book has color pages on file.
-  const colorKeys = (await r2ListAll(env.BOOKS, `books/${slug}/images-color/`))
-    .filter((k) => /-page-\d+\.jpg$|-finale\.jpg$/.test(k));
-  if (!colorKeys.length) {
-    out.colorNote = "no color pages on file";
-    return out;
-  }
-  const planKeys = (await r2ListAll(env.BOOKS, `books/${slug}/plans/`))
-    .filter((k) => /\/plans\/S\d+\.json$/.test(k))
-    .sort();
-  const chapters: string[] = planKeys
-    .map((k) => (k.match(/\/(S\d+)\.json$/) ?? [])[1])
-    .filter(Boolean);
-  const heldLine = await heldPages(env, slug, chapters.length, "line");
-  const heldColor = await heldPages(env, slug, chapters.length, "color");
-  if (heldLine.length || heldColor.length) {
-    out.colorNote = `held pages block the color edition: ${[...heldLine, ...heldColor].join(", ")}`;
-    return out;
-  }
-  const toc: string[] = [];
-  const storyPages: { image: Uint8Array; story: string }[] = [];
-  for (const ch of chapters) {
-    const plan = await r2GetJson(env.BOOKS, `books/${slug}/plans/${ch}.json`);
-    if (!plan?.pages?.length) continue;
-    toc.push(plan.storyTitle ?? ch);
-    for (let pi = 0; pi < plan.pages.length; pi++) {
-      const color = await r2GetBytes(env.BOOKS, `books/${slug}/images-color/${ch}-page-${pi}.jpg`);
-      const line = color ? null : await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-page-${pi}.jpg`);
-      const img = color ?? line;
-      if (!img) continue;
-      storyPages.push({ image: await toPdfJpeg(img), story: plan.pages[pi].storyText ?? "" });
-    }
-    if (plan.finale?.storyText) {
-      const fcolor = await r2GetBytes(env.BOOKS, `books/${slug}/images-color/${ch}-finale.jpg`);
-      const fline = fcolor ? null : await r2GetBytes(env.BOOKS, `books/${slug}/images/${ch}-finale.jpg`);
-      const fimg = fcolor ?? fline;
-      if (fimg) storyPages.push({ image: await toPdfJpeg(fimg), story: plan.finale.storyText });
-    }
-  }
-  if (!storyPages.length) {
-    out.colorNote = "no color story pages assembled";
-    return out;
-  }
-  const matter = { ...composeMatter(bible), backImage: backColor, backLineImage: backLine };
-  const coverBytes = await r2GetBytes(env.BOOKS, `books/${slug}/cover.jpg`);
-  const pdf = await buildPictureBook(bible.bookTitle ?? slug, storyPages, null, toc, matter, coverBytes);
-  const key = `books/${slug}/picture-book-color.pdf`;
-  await r2Put(env.BOOKS, key, pdf, "application/pdf");
-  const now = Math.floor(Date.now() / 1000);
+  const assembled = await assembleVerifiedPdf(env, slug, 'color');
   await env.DB.prepare("UPDATE books SET color_book_key=?, updated_at=? WHERE slug=?")
-    .bind(key, now, slug).run();
+    .bind(assembled.key, Math.floor(Date.now() / 1000), slug).run();
   await recordEdition(env, slug, "color", standardArtifacts(slug, "color"));
-  out.color = true;
-  return out;
+  return { color: true };
 }
 
 export interface ReassembleParams {
@@ -940,12 +804,11 @@ export class ReassembleWorkflow extends WorkflowEntrypoint<BookBuildEnv, Reassem
     await recordWorkflowRun(this.env, step, event, "reassemble", event.payload.slug);
     const slug = event.payload.slug;
     if (!slug) throw new Error("reassemble requires a slug");
-    await step.do("reassemble coloring pdf", RETRIES, async () => {
-      await reassembleColoringPdf(this.env, slug);
-      return true;
+    const baseRevision = await step.do("reassemble coloring pdf", RETRIES, async () => {
+      return await reassembleColoringPdf(this.env, slug);
     });
     await step.do("reassemble picture pdf", RETRIES, async () => {
-      await reassemblePicturePdf(this.env, slug);
+      await reassemblePicturePdf(this.env, slug, baseRevision);
       return true;
     });
     const color = await step.do("reassemble color pdf", RETRIES, async () => {

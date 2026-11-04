@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 import { isSafeMediaKey, serveR2Object } from "../../../lib/media";
@@ -21,6 +22,19 @@ async function handle({ request, url, locals }: any) {
   const key = String(url.searchParams.get("key") || "");
   if (!isSafeMediaKey(key)) {
     return Response.json({ error: "Bad key" }, { status: 400 });
+  }
+  const expected = url.searchParams.get('sha256');
+  if (expected !== null) {
+    if (!/^[a-f0-9]{64}$/.test(expected)) return Response.json({ error: 'Bad artifact identity' }, { status: 400 });
+    const obj = await e.BOOKS.get(key);
+    if (!obj) return Response.json({ error: 'Reviewed artifact is missing. Reload the book.' }, { status: 409 });
+    const bytes = new Uint8Array(await obj.arrayBuffer());
+    if (createHash('sha256').update(bytes).digest('hex') !== expected)
+      return Response.json({ error: 'Reviewed artifact changed. Reload the book.' }, { status: 409 });
+    return new Response(request.method === 'HEAD' ? null : bytes, { headers: {
+      'Content-Type': obj.httpMetadata?.contentType ?? 'application/octet-stream',
+      'Content-Length': String(bytes.length), 'Cache-Control': 'private, no-store',
+    } });
   }
   return serveR2Object({
     books: e.BOOKS,

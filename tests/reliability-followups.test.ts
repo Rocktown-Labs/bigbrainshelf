@@ -1,3 +1,5 @@
+import { fixture, identityDatabase } from './helpers/identity-fixture';
+import { captureApprovalRevision, saveApprovals } from '../src/lib/approval-identity';
 import { test, expect, mock } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { countBookPages, countApprovedPages, getBookQcState } from '../src/lib/book-plans';
@@ -7,16 +9,7 @@ const db = { batch: async () => { throw new Error('must not write'); } };
 const bindings: any = { BOOKS: books, DB: db };
 mock.module('cloudflare:workers', () => ({ env: bindings }));
 
-function availableBooks() {
-  const data: Record<string, unknown> = {
-    'books/test/bible.json': { conceptLadder: [{}] },
-    'books/test/plans/S1.json': { pages: [{ storyText: 'Story' }], finale: { storyText: 'Finale' } },
-  };
-  return {
-    async get(key: string) { return data[key] ? { arrayBuffer: async () => new TextEncoder().encode(JSON.stringify(data[key])).buffer } : null; },
-    async list() { return { objects: [{ key: 'books/test/plans/S1.json' }], truncated: false }; },
-  };
-}
+function availableBooks() { return fixture().bucket; }
 
 test('readiness inventory failure renders Unverified instead of zero counts', async () => {
   const source = readFileSync(new URL('../src/pages/admin/books/[slug]/readiness.astro', import.meta.url), 'utf8');
@@ -48,20 +41,24 @@ test('unknown approval counts remain Unverified even with a complete inventory',
 });
 
 test('known counts include the finale and unlock only when every page is approved', async () => {
-  const result = await getBookQcState({ prepare() { return { bind() { return { async all() {
-    return { results: [{ chapter_num: 1, page_index: 0 }, { chapter_num: 1, page_index: 1 }] };
-  } }; } }; } }, availableBooks(), 'test');
+  const books = availableBooks(); const { db } = identityDatabase();
+  const snapshot = await captureApprovalRevision(db, books, 'test');
+  await saveApprovals(db, books, snapshot, snapshot.manifest.pages, true);
+  const result = await getBookQcState(db, books, 'test');
   expect(result).toMatchObject({ totalPages: 2, approvedCount: 2, complete: true, label: '2 of 2 pages approved.' });
 });
 
 test('a failed approval save returns a useful response without claiming success', async () => {
   bindings.BOOKS = availableBooks();
+  const { db: availableDb } = identityDatabase();
+  const snapshot = await captureApprovalRevision(availableDb, bindings.BOOKS, 'test');
+  bindings.DB = { ...availableDb, batch: db.batch };
   try {
     const { POST } = await import('../src/pages/api/editor/approvals-bulk');
     const response = await POST({ request: new Request('https://example.test/api/editor/approvals-bulk', {
-      method: 'POST', body: JSON.stringify({ book_slug: 'test' }),
+      method: 'POST', body: JSON.stringify({ book_slug: 'test', revision: snapshot.manifest.revision, approved: true }),
     }) } as any);
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ code: 'APPROVAL_SAVE_UNCONFIRMED', ok: false });
-  } finally { bindings.BOOKS = books; }
+  } finally { bindings.BOOKS = books; bindings.DB = db; }
 });
