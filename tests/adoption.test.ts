@@ -78,3 +78,10 @@ test('a saved JSON dry-run report remains reviewable and applicable after round 
   expect(f.journal.at(-1).event).toBe('completed');
   expect(f.journal[0].originalPlans[0].base64).toBe(Buffer.from(f.journal[0].originalPlans[0].body).toString('base64'));
 });
+
+test('a missing book_qa row is reported rather than treated as clean or adopted', async () => {
+  const f = legacy(); f.evidence.bookQa = 'null';
+  const report = await planAdoption(f.bucket, 'test', f.evidence);
+  expect(report.errors).toContain('Missing or invalid book_qa measurement export');
+  expect(report.canApply).toBe(false); expect(report.patches).toHaveLength(0);
+});

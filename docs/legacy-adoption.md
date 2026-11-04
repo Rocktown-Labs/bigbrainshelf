@@ -201,3 +201,48 @@ book's adoption proof, while independently supported page adoption may proceed
 under RGM's amended instruction. Missing color identity blocks color reassembly;
 line identity can still pass. Books with equal complete legacy/current counts
 prove equality directly. No plan text is rewritten to make the count fit.
+
+
+## Offline verification and handoff
+
+Base: fetched main `2ed7577`. The test harness runs every test file separately
+with external fetch disabled and loopback test servers allowed. The clean base
+and candidate share the same installed dependencies, including the core hash
+package. There are 83 shared test files and zero exit/failure-signature deltas:
+the same 41 explicit FAIL lines plus the existing releases/transmedia aborts
+remain. No unrelated baseline failures were fixed. The existing club-cycles
+flake documented in Slice 2 was not observed in these paired handoff runs.
+
+| Added test file | Result |
+| --- | --- |
+| adoption | 12 pass |
+| adoption-evidence | 8 pass |
+| adoption-proof | 6 pass |
+| adoption-transport | 3 pass |
+
+All 29 new tests pass. Regression coverage includes unhashed evidence without
+continuity, valid continuity, missing coverage, incomplete exports, unclassified
+and unknown writes, changed bytes, edition-chain tampering, accepted-attempt/QC
+binding, missing QA, review JSON round trips, conditional-write/logging failure,
+held-state preservation, partial color evidence, transport write restrictions,
+named count deltas, equal-count real PDF reassembly, and post-reassembly
+approvals. The production colorize identity predicate is shared with the proof;
+no generation function is invoked to test it.
+
+Hub Astro compilation and the complete factory browser-platform bundle pass.
+The sealed factory build is also checked from committed source. Generated
+bundles and local deployment receipts remain ignored. No new dependencies or
+D1 migration are needed. New fixture ledgers live under the Nov 3 adoption
+folder, labeled synthetic; historical ledgers are unchanged. No production
+catalog readiness or adoption success is claimed from fixture results.
+
+To repeat the new tests without module-mock contamination:
+
+```sh
+for file in tests/adoption*.test.ts; do bun test "$file"; done
+```
+
+The tool itself has never been invoked against production by Codex. No paid
+calls, production writes, platform workflow runs, deployment or merge occurred.
+Slice 3 has not started. RGM reviews/merges and executes book by book. CG's
+separate budget/canon/labeling/spend/threshold/durability decisions remain open.

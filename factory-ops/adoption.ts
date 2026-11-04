@@ -3,8 +3,7 @@ import { editionBindings, driftFixBinding } from './adoption-evidence';
 /** Offline-first legacy adoption. Identity of record is not approval or visual QC. */
 import { captureBookRevision, readPlanInventory, revisionHash, assertRevisionUnchanged } from '../packages/core/src/book-revision';
 import { bytesHash, pageSourceRevision } from '../packages/core/src/assembly-identity';
-import { fingerprintOf } from '../src/lib/takes';
-import { isSnapshotArtifact } from '../factory/src/versioning';
+import { fingerprintOf, isSnapshotArtifact } from '../factory/src/versioning';
 
 export interface AdoptionEvidence {
   inventory: string; line: string; color?: string; bookQa: string;
@@ -98,7 +97,7 @@ export async function planAdoption(books: any, slug: string, evidence: AdoptionE
     const local = JSON.parse(raw);
     const key = `books/${slug}/audit/${role === 'inventory' ? 'inventory' : `cast-audit-${role}`}.json`;
     const remote = await read(books, key);
-    if (!remote || bytesHash(remote.bytes) !== sources[role].sha256 || local.slug !== slug || (role !== 'inventory' && local.edition !== role)) errors.push(`Local/R2 ${role} evidence missing, changed or for another book`);
+    if (!remote || bytesHash(remote.bytes) !== sources[role].sha256 || local?.slug !== slug || (role !== 'inventory' && local.edition !== role)) errors.push(`Local/R2 ${role} evidence missing, changed or for another book`);
     else records[role] = local;
   }
   const count = records.inventory;
@@ -107,7 +106,7 @@ export async function planAdoption(books: any, slug: string, evidence: AdoptionE
     JSON.stringify(count.chapters_found) !== JSON.stringify(Array.from({ length: chapters }, (_, i) => `S${i + 1}`)) || count.line_images !== inventory.pages.length)
     errors.push('Current inventory/counts do not match judgment-run evidence');
   const qa = JSON.parse(evidence.bookQa);
-  if ((qa.slug ?? qa.book_slug) !== slug || !qa.source || !(Number.isFinite(qa.measured_at) && qa.measured_at > 0)) errors.push('Missing or invalid book_qa measurement export');
+  if ((qa?.slug ?? qa?.book_slug) !== slug || !qa?.source || !(Number.isFinite(qa?.measured_at) && qa?.measured_at > 0)) errors.push('Missing or invalid book_qa measurement export');
   const continuity = await continuityProof(books, slug, evidence.continuity);
   if (continuity.logOk && continuity.imageWrites?.length) {
     const unexplained: string[] = [];
