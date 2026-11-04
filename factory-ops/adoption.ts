@@ -7,7 +7,7 @@ import { fingerprintOf, isSnapshotArtifact } from '../factory/src/versioning';
 
 export interface AdoptionEvidence {
   inventory: string; line: string; color?: string; bookQa: string;
-  continuity?: string; editions?: string;
+  continuity?: string; editions?: string; colorPairing?: string;
 }
 interface Decision { identity?: { revision: string; sha256: string; lineSha256?: string }; status: 'eligible' | 'unchanged' | 'reported'; reason: string; tier?: string; evidence?: unknown }
 interface PageDecision { id: string; line: Decision; color: Decision }
@@ -52,8 +52,6 @@ async function continuityProof(books: any, slug: string, raw?: string): Promise<
   if (!baseline || typeof baseline.source !== 'string' || !baseline.source.trim() || !Number.isSafeInteger(baseline.version) || baseline.version < 1) return { ok: false, reason: 'No valid source-attributed version entry at or before audit' };
   const items = await listing(books, slug);
   if (new Set(items.map(i => i.key)).size !== items.length) return { ok: false, reason: 'Duplicate keys in fingerprint listing' };
-  const fingerprint = fingerprintOf(items);
-  const fpMatches = baseline.fingerprint === fingerprint && baseline.files === items.length && baseline.bytes === items.reduce((n, x) => n + x.size, 0);
   const rows: { ref: string; row: any }[] = [];
   for (const table of ['production_events', 'gen_attempts']) {
     if (!Array.isArray(log[table]) || log.counts?.[table] !== log[table].length) return { ok: false, reason: `Missing complete ${table} export` };
@@ -75,8 +73,39 @@ async function continuityProof(books: any, slug: string, raw?: string): Promise<
       return { ok: false, reason: `Accepted attempt cannot be classified as a non-image observation: ${ref}` };
     if (label.kind === 'image-write') imageWrites.push(label);
   }
-  return { ok: fpMatches, logOk: true, reason: fpMatches ? 'Approved continuity rule: matching file-set fingerprint plus operator-attested closed write log' : 'Current file-set fingerprint differs from pre-audit entry',
-    fingerprint, baseline, currentFileSet: items, versionsSha256: bytesHash(versionsObject.bytes), log, imageWrites };
+  // Text-only plan-edit exceptions (CG approved for Penny, 2026-11-04): a
+  // plan-JSON-only edit with no image bytes may adjust the fingerprint
+  // comparison for exactly the touched keys, but only when its BEFORE
+  // bytes are archived under the book and hash-verify here against the
+  // pinned digest. The strict rule otherwise does not move: an exception
+  // that cannot verify fails the whole proof, never just itself.
+  const textOnlyExceptions: any[] = [];
+  const adjustedSizes = new Map(items.map(i => [i.key, i.size]));
+  let adjustedBytes = items.reduce((n, x) => n + x.size, 0);
+  for (const ex of (log.exceptions ?? []).filter((x: any) => x?.kind === 'text-only-plan-edit')) {
+    const fail = (why: string) => ({ ok: false, reason: `Text-only plan edit exception does not verify: ${why}` });
+    if (textOnlyExceptions.length >= 4) return fail('too many exceptions');
+    if (typeof ex.key !== 'string' || !new RegExp(`^books/${slug}/plans/S[1-9][0-9]*\\.json$`).test(ex.key)) return fail('key is not a plan JSON');
+    if (!adjustedSizes.has(ex.key) || textOnlyExceptions.some(e => e.key === ex.key)) return fail(`duplicate or unknown key ${ex.key}`);
+    if (!/^[a-f0-9]{64}$/.test(ex.beforeSha256 ?? '') || !Number.isSafeInteger(ex.beforeBytes) || ex.beforeBytes < 0) return fail('before state is not pinned');
+    if (typeof ex.archiveKey !== 'string' || !ex.archiveKey.startsWith(`books/${slug}/`) || ex.archiveKey.includes('..')) return fail('archive key outside the book');
+    if (ex.ref !== undefined && ex.ref !== null) {
+      const label = log.classifications.find((x: any) => x.ref === ex.ref);
+      const found = rows.find(r => r.ref === ex.ref);
+      if (!label || !found || label.kind !== 'non-image' || label.rowHash !== revisionHash(found.row)) return fail('ref is not a classified non-image row');
+    }
+    const archived = await read(books, ex.archiveKey);
+    if (!archived || bytesHash(archived.bytes) !== ex.beforeSha256 || archived.bytes.length !== ex.beforeBytes) return fail(`archived before bytes do not match for ${ex.key}`);
+    adjustedBytes += ex.beforeBytes - adjustedSizes.get(ex.key)!;
+    adjustedSizes.set(ex.key, ex.beforeBytes);
+    textOnlyExceptions.push({ key: ex.key, ref: ex.ref ?? null, beforeSha256: ex.beforeSha256, beforeBytes: ex.beforeBytes, archiveKey: ex.archiveKey });
+  }
+  const fingerprint = fingerprintOf(items);
+  const fpMatches = baseline.fingerprint === fingerprintOf(items.map(i => ({ ...i, size: adjustedSizes.get(i.key)! }))) && baseline.files === items.length && baseline.bytes === adjustedBytes;
+  return { ok: fpMatches, logOk: true, reason: fpMatches
+      ? (textOnlyExceptions.length ? `Approved continuity rule: matching file-set fingerprint after ${textOnlyExceptions.length} verified text-only plan edit exception(s), plus operator-attested closed write log` : 'Approved continuity rule: matching file-set fingerprint plus operator-attested closed write log')
+      : 'Current file-set fingerprint differs from pre-audit entry',
+    fingerprint, baseline, currentFileSet: items, versionsSha256: bytesHash(versionsObject.bytes), log, imageWrites, textOnlyExceptions };
 }
 
 export async function planAdoption(books: any, slug: string, evidence: AdoptionEvidence) {
@@ -122,6 +151,26 @@ export async function planAdoption(books: any, slug: string, evidence: AdoptionE
   }
   const editions = await editionBindings(books, slug, evidence.editions);
   if (editions.error) errors.push(editions.error);
+  // Color pairing supplement (RGM amendment, 2026-11-04): the preserved
+  // judgment-run color audits predate line-hash pairing, so their rows
+  // carry no lineSha256. A supplement may fill that one field, but only
+  // as an index: every entry must hash-match BOTH captured artifacts
+  // (the color twin and the exact line page it claims to twin) at the
+  // pairing check below, so it can never pair a twin to the wrong line
+  // page on the operator's word alone. It never overrides a pairing the
+  // audit itself recorded.
+  const pairing = new Map<string, any>();
+  if (evidence.colorPairing) {
+    try {
+      const parsed = JSON.parse(evidence.colorPairing);
+      if (parsed?.schema !== 'adoption-color-pairing/v1' || parsed?.slug !== slug || !Array.isArray(parsed.rows)) throw new Error('shape');
+      for (const row of parsed.rows) {
+        const id = `${row?.page}|${row?.key}`;
+        if (!row?.page || typeof row?.key !== 'string' || !/^[a-f0-9]{64}$/.test(row?.colorSha256 ?? '') || !/^[a-f0-9]{64}$/.test(row?.lineSha256 ?? '') || typeof row?.lineKey !== 'string' || pairing.has(id)) throw new Error('shape');
+        pairing.set(id, row);
+      }
+    } catch { errors.push('Invalid color pairing supplement'); pairing.clear(); }
+  }
   const pages: PageDecision[] = [];
   for (const ref of inventory.pages) {
     const plan = plans.get(ref.planKey); const pg = ref.kind === 'finale' ? plan.finale : plan.pages[ref.page];
@@ -157,7 +206,15 @@ export async function planAdoption(books: any, slug: string, evidence: AdoptionE
       const artifact = captured.manifest.artifacts.find(a => a.key === ref.colorKey)!;
       color = await match('color', ref.colorKey, artifact.sha256, artifact.bytes);
       const row = (records.color?.results ?? []).find((r: any) => r.page === pageLabel && r.key === ref.colorKey);
-      if (row?.lineSha256 !== lineArtifact.sha256) color = denied('Color twin has no verified binding to this current line hash');
+      if (row && typeof row.lineSha256 !== 'string') {
+        // The audit recorded no pairing: the supplement may complete it,
+        // hash-verified against both captured artifacts. A pairing the
+        // audit DID record (matching or not) is never overridden.
+        const sup = pairing.get(`${pageLabel}|${ref.colorKey}`);
+        if (sup && sup.colorSha256 === artifact.sha256 && sup.lineSha256 === lineArtifact.sha256 && sup.lineKey === ref.lineKey) {
+          if (color.status === 'eligible') color.evidence = { ...(color.evidence as Record<string, unknown>), colorPairing: { lineKey: sup.lineKey, supplement: 'adoption-color-pairing/v1' } };
+        } else color = denied('Color twin has no verified binding to this current line hash');
+      } else if (row?.lineSha256 !== lineArtifact.sha256) color = denied('Color twin has no verified binding to this current line hash');
       const identity = { revision, lineSha256: lineArtifact.sha256, sha256: artifact.sha256 };
       if (pg.colorIdentity) color = revisionHash(pg.colorIdentity) !== revisionHash(identity) ? denied('Existing color provenance conflicts; not a legacy blank identity') : { status: 'unchanged', reason: 'Existing color identity already matches; no adoption claim or write' };
       if (color.status === 'eligible') { if (pg.colorIdentity) color.status = 'unchanged'; else pg.colorIdentity = identity; }
