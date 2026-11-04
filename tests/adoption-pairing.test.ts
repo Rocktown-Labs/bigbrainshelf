@@ -1,6 +1,6 @@
 import { test, expect } from 'bun:test';
 import { legacy } from './helpers/adoption-fixture';
-import { planAdoption } from '../factory-ops/adoption';
+import { planAdoption, applyAdoption } from '../factory-ops/adoption';
 
 /** The preserved judgment-run color audits carry no lineSha256. The
  * pairing supplement (adoption-color-pairing/v1) may fill that field
@@ -59,6 +59,21 @@ test('the supplement never overrides a pairing the audit itself recorded', async
   f.put('books/test/audit/cast-audit-color.json', f.evidence.color);
   const report = await planAdoption(f.bucket, 'test', { ...f.evidence, colorPairing: JSON.stringify(supplement) });
   expect(report.pages.every(p => p.color.status === 'reported')).toBe(true);
+});
+
+test('apply carries the pairing supplement into its fresh replan', async () => {
+  // Regression (2026-11-04, Mira's live apply): applyAdoption rebuilt
+  // its freshness-check evidence from the report sources but dropped
+  // colorPairing, so the replan reported every supplement-paired page
+  // and the fingerprint never matched. The apply must replay the
+  // exact evidence the reviewed dry-run used.
+  const { f, supplement } = unhashedColor();
+  const report = await planAdoption(f.bucket, 'test', { ...f.evidence, colorPairing: JSON.stringify(supplement) });
+  expect(report.canApply).toBe(true);
+  await applyAdoption(f.bucket, report, report.fingerprint, f.log);
+  expect(f.writes).toEqual(['books/test/plans/S1.json']);
+  const plan = JSON.parse(new TextDecoder().decode(f.values.get('books/test/plans/S1.json')!.bytes));
+  expect(plan.pages[0].colorIdentity).toBeDefined();
 });
 
 test('a malformed supplement is an evidence error, not a silent pass', async () => {
