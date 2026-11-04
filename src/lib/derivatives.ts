@@ -16,7 +16,11 @@
 // crop edit can never be masked by a stale derivative: pages fall back
 // to the original art until derivatives are regenerated. Cover entries
 // are keyed by book slug; regenerating derivatives after a cover swap
-// is part of the same script run.
+// is part of the same script run. The guard that the run happened:
+// factory-ops/image-derivatives/audit_derivatives.py compares this
+// map against live R2 cover bytes and fails loud on any drift (the
+// Nov 2026 rename pass replaced three covers, skipped the regen, and
+// stale sizes pinned the retired art until it was caught by eye).
 
 import baked from "../data/image-derivatives.json";
 // Derivative URLs are served from the hotlink-guarded media host

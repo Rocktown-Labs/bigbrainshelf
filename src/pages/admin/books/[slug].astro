@@ -195,7 +195,11 @@ if (fromAll) {
   </div>
 
   <script is:inline define:vars={{ slug, adminSlug }}>
-    var R2 = "https://media.bigbrainshelf.com/";
+    // Covers load through the gated admin media route, never the
+    // media host directly: the host serves raw keys immutable for a
+    // year, so a replaced cover would stay stale in admin.
+    var ADMIN_MEDIA = "/api/admin/media?key=";
+    function adminMedia(key) { return ADMIN_MEDIA + encodeURIComponent(key); }
     var pages = [];
     var cur = 0;
     var mode = "flip";
@@ -496,7 +500,7 @@ if (fromAll) {
 
     function renderCover() {
       var main = document.getElementById("main");
-      var cover = book && book.cover_key ? R2 + book.cover_key : "";
+      var cover = book && book.cover_key ? adminMedia(book.cover_key) : "";
       main.innerHTML = '<div class="panel">' +
         '<div class="card"><h2>Cover</h2>' +
         (cover ? '<img class="coverimg" src="' + esc(cover) + '" alt="Current cover" />' : '<p class="meta">No cover yet.</p>') +
@@ -830,7 +834,7 @@ if (fromAll) {
             text: "",
             character: "",
             concept: "",
-            image: R2 + book.cover_key
+            image: adminMedia(book.cover_key)
           });
         }
         // The whole assembled book, in order (CG, 2026-10-31):

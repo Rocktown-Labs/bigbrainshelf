@@ -131,7 +131,11 @@ if (!Astro.locals.user) {
   </div>
   <div id="bibles"><p>Loading...</p></div>
   <script is:inline>
-    var R2 = "https://media.bigbrainshelf.com/";
+    // Covers load through the gated admin media route, never the
+    // media host directly: the host serves raw keys immutable for a
+    // year, so a replaced cover would stay stale in admin.
+    var ADMIN_MEDIA = "/api/admin/media?key=";
+    function adminMedia(key) { return ADMIN_MEDIA + encodeURIComponent(key); }
     var shelfItems = [];
     function escH(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
     // The chip under each cover is the bible's factory-gate state,
@@ -146,7 +150,7 @@ if (!Astro.locals.user) {
     function shelfItemHtml(it) {
       var chip = chipFor(it.bible);
       var cover = it.cover
-        ? '<img src="' + R2 + it.cover + '" alt="' + escH(it.title) + '" loading="lazy" />'
+        ? '<img src="' + adminMedia(it.cover) + '" alt="' + escH(it.title) + '" loading="lazy" />'
         : '';
       return '<a class="shelf-item" href="/admin/bibles/' + escH(it.pub) + '">' +
         '<span class="shelf-cover">' + cover + '</span>' +

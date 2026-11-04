@@ -99,7 +99,11 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
       filter: "all",
       search: "",
     };
-    var R2 = "https://media.bigbrainshelf.com/";
+    // Covers load through the gated admin media route, never the
+    // media host directly: the host serves raw keys immutable for a
+    // year, so a replaced cover would stay stale in admin.
+    var ADMIN_MEDIA = "/api/admin/media?key=";
+    function adminMedia(key) { return ADMIN_MEDIA + encodeURIComponent(key); }
     var statusEl = document.getElementById("cast-status");
 
     function setStatus(msg) { statusEl.textContent = msg || ""; }
@@ -144,7 +148,7 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
       // aspect frame, extrabold two-line title, one chip on its own
       // row under the title with real spacing.
       var coverInner = book.coverKey
-        ? '<img src="' + R2 + esc(book.coverKey) + '" alt="' + esc(book.title) + '" width="300" height="400" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200" />'
+        ? '<img src="' + esc(adminMedia(book.coverKey)) + '" alt="' + esc(book.title) + '" width="300" height="400" loading="lazy" decoding="async" class="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200" />'
         : '<span class="flex items-center justify-center h-full px-3 text-center font-bold text-stone-500">' + esc(book.title) + "</span>";
       var href = "/admin/cast-gemini/" + encodeURIComponent(book.publicSlug || book.slug);
       return '<a class="shelf-card group block w-[calc(50%-0.5rem)] sm:w-auto" href="' + href + '">' +

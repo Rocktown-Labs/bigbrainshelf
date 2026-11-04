@@ -41,7 +41,11 @@ if (!Astro.locals.user) {
   <p>Every finished book can become a narrated, animated story video. Hit Build and the runner animates each page in color, reads the story aloud in the channel voice, and assembles a 16:9 video for YouTube. Animation runs about $0.09 a page; narration is about a cent a book. Built videos land back here, ready to watch.</p>
   <div id="books"><p>Loading...</p></div>
   <script is:inline>
-    var R2 = "https://media.bigbrainshelf.com/";
+    // Covers load through the gated admin media route, never the
+    // media host directly: the host serves raw keys immutable for a
+    // year, so a replaced cover would stay stale in admin.
+    var ADMIN_MEDIA = "/api/admin/media?key=";
+    function adminMedia(key) { return ADMIN_MEDIA + encodeURIComponent(key); }
     var allBooks = [];
     function escV(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function videoState(b) {
@@ -53,7 +57,7 @@ if (!Astro.locals.user) {
     }
     function cardHtml(b) {
       var vs = videoState(b);
-      var cover = b.cover_key ? '<img src="' + R2 + b.cover_key + '" alt="" style="width:74px;height:98px;object-fit:cover;border-radius:6px;border:1px solid #e7e5e4;flex-shrink:0" />' : '<div style="width:74px;height:98px;border-radius:6px;background:#f5f5f4;border:1px solid #e7e5e4;flex-shrink:0"></div>';
+      var cover = b.cover_key ? '<img src="' + adminMedia(b.cover_key) + '" alt="" style="width:74px;height:98px;object-fit:cover;border-radius:6px;border:1px solid #e7e5e4;flex-shrink:0" />' : '<div style="width:74px;height:98px;border-radius:6px;background:#f5f5f4;border:1px solid #e7e5e4;flex-shrink:0"></div>';
       var busy = vs.key === 'queued' || vs.key === 'running';
       var btn = busy
         ? '<button class="ghostbtn" disabled>' + (vs.key === 'queued' ? 'Queued' : 'Building...') + '</button>'

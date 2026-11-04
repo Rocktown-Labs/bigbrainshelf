@@ -89,6 +89,11 @@ const hasSample = samplePages.length >= 5;
 
 const R2 = "https://media.bigbrainshelf.com/";
 const cover = book.cover_key ? R2 + book.cover_key : "";
+// Every public emission of the cover (hero img, og:image, JSON-LD)
+// uses coverHero: the derivative URL carries a byte-size version, so
+// a replaced cover busts the media host's immutable cache. The raw
+// unversioned URL must never be emitted for a cover again; it stays
+// alive in caches for a year with whatever bytes it first served.
 const coverHero = coverDerivative(book.slug, "hero", book.cover_key) || cover;
 const price = "$" + (Number(book.price || 0) / 100).toFixed(2);
 const pricePrint = "$" + (Number(book.price_print || 0) / 100).toFixed(2);
@@ -221,7 +226,7 @@ const bookJsonLd: Record<string, unknown> = isLocalized
           "@type": "Book",
           name: displayTitle,
           ...(displayDescription ? { description: displayDescription } : {}),
-          ...(cover ? { image: cover } : {}),
+          ...(coverHero ? { image: coverHero } : {}),
           url: bookCanonical,
           inLanguage: langDef.bcp47,
           publisher: { "@type": "Organization", name: "Big Brain Shelf" },
@@ -235,7 +240,7 @@ const bookJsonLd: Record<string, unknown> = isLocalized
       "@type": "Book",
       name: book.title,
       ...(book.description ? { description: book.description } : {}),
-      ...(cover ? { image: cover } : {}),
+      ...(coverHero ? { image: coverHero } : {}),
       url: bookCanonical,
       publisher: { "@type": "Organization", name: "Big Brain Shelf" },
     },
@@ -245,7 +250,7 @@ const bookJsonLd: Record<string, unknown> = isLocalized
             "@type": "Product",
             name: book.title,
             ...(book.description ? { description: book.description } : {}),
-            ...(cover ? { image: cover } : {}),
+            ...(coverHero ? { image: coverHero } : {}),
             url: bookCanonical,
             offers: [
               {
@@ -305,7 +310,7 @@ const bookJsonLd: Record<string, unknown> = isLocalized
   <SeoHead
     title={`${displayTitle} — Big Brain Shelf`}
     socialDescription={displayDescription || undefined}
-    image={cover || undefined}
+    image={coverHero || undefined}
     imageAlt={`${displayTitle} ${bs.coverAltWord}`}
     jsonLd={bookJsonLd}
   />{isLocalized && (<><meta name="robots" content="noindex" /><meta property="og:locale" content={langDef.ogLocale} /><link rel="alternate" hreflang="en" href={absoluteUrl(bookPathForLocale("en", publicSlug))} /><link rel="alternate" hreflang={langDef.bcp47} href={absoluteUrl(bookPathForLocale(lang, publicSlug))} /><link rel="alternate" hreflang="x-default" href={absoluteUrl(bookPathForLocale("en", publicSlug))} /></>)}
