@@ -78,6 +78,99 @@ export async function saveCropsManifest(BOOKS: any, slug: string, crops: CropEnt
   });
 }
 
+// ------------------------------------------------------------ batch create
+
+export interface BatchCropItem {
+  character: string;
+  action: string;
+  bbox: { x: number; y: number; w: number; h: number };
+}
+
+export interface BatchSheet {
+  /** Canonical (bible) character name. */
+  name: string;
+  sheetKey: string | null;
+  bytes: Uint8Array | null;
+}
+
+export interface BatchCropResult {
+  created: CropEntry[];
+  errors: { index: number; character: string; error: string }[];
+}
+
+/** Create many crops in one pass: the cropper's staged save. Each
+ * item is cropped server-side from its character's sheet (bytes
+ * supplied by the caller, keyed by lowercase character name), its
+ * PNG is stored, and ALL created entries land in the manifest with
+ * ONE manifest write at the end, so a batch never leaves the
+ * manifest half-updated the way a sequence of single saves could.
+ * Pose numbers are allocated against the growing manifest, so the
+ * same character + action twice in one batch yields p1, p2, ...
+ * A bad item (unknown character, missing sheet, missing action,
+ * duplicate tag, failed crop) is reported per item and never
+ * blocks the rest of the batch. */
+export async function createCropsBatch(
+  BOOKS: any,
+  slug: string,
+  items: BatchCropItem[],
+  sheetsByName: Map<string, BatchSheet>
+): Promise<BatchCropResult> {
+  const crops = await getCropsManifest(BOOKS, slug);
+  const created: CropEntry[] = [];
+  const errors: BatchCropResult["errors"] = [];
+  const now = Math.floor(Date.now() / 1000);
+
+  for (let index = 0; index < items.length; index++) {
+    const item = items[index];
+    const character = String(item?.character ?? "").trim();
+    const action = actionSlug(String(item?.action ?? ""));
+    const bbox = item?.bbox;
+    const fail = (error: string) => errors.push({ index, character, error });
+    if (!character) { fail("character required"); continue; }
+    if (!action) { fail("an action tag is required (e.g. standing, flying, megaphone)"); continue; }
+    if (
+      !bbox || ![bbox.x, bbox.y, bbox.w, bbox.h].every((v: any) => typeof v === "number" && Number.isFinite(v)) ||
+      bbox.w <= 0 || bbox.h <= 0
+    ) { fail("bbox {x, y, w, h} as fractions is required"); continue; }
+    const sheet = sheetsByName.get(character.toLowerCase());
+    if (!sheet) { fail(`no character '${character}' in this book's bible`); continue; }
+    if (!sheet.sheetKey || !sheet.bytes) { fail(`no sheet on file for ${sheet.name}; approve a sheet first`); continue; }
+
+    let cropped;
+    try {
+      cropped = cropImagePng(sheet.bytes, bbox);
+    } catch (err: any) {
+      fail(`crop failed: ${String(err?.message || err)}`);
+      continue;
+    }
+    const poseNum = nextPoseNumber(crops, sheet.name);
+    const tag = makeTag(sheet.name, poseNum, action);
+    if (crops.some((c) => c.tag === tag)) {
+      fail(`tag ${tag} already exists; delete it first or use another action`);
+      continue;
+    }
+    const key = `books/${slug}/crops/${tag}.png`;
+    await BOOKS.put(key, cropped.png, { httpMetadata: { contentType: "image/png" } });
+    const entry: CropEntry = {
+      tag,
+      character: sheet.name,
+      action,
+      source: "sheet",
+      bbox: { x: bbox.x, y: bbox.y, w: bbox.w, h: bbox.h },
+      createdAt: now,
+      key,
+      sheetKey: sheet.sheetKey,
+    };
+    crops.push(entry);
+    created.push(entry);
+  }
+
+  if (created.length) {
+    await saveCropsManifest(BOOKS, slug, crops);
+  }
+  return { created, errors };
+}
+
 // ------------------------------------------------------------ image codecs
 
 export function isPng(bytes: Uint8Array): boolean {

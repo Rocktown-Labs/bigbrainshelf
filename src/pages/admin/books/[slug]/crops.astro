@@ -24,7 +24,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pose Crops - Kidsbook Hub</title>
   <style is:global>
-    :root { --bg: #f7f5f0; --surface: #ffffff; --text: #1c2733; --dim: #6b7280; --border: #e2ddd4; --accent: #2563eb; --accent-strong: #1d4ed8; --qa: #1f9d66; --bad: #b91c1c; }
+    :root { --bg: #f7f5f0; --surface: #ffffff; --text: #1c2733; --dim: #6b7280; --border: #e2ddd4; --accent: #2563eb; --accent-strong: #1d4ed8; --qa: #1f9d66; --bad: #b91c1c; --star: #ea580c; }
     @media (prefers-color-scheme: dark) { :root { --bg: #14181d; --surface: #1e242b; --text: #e8e6e1; --dim: #9aa0a8; --border: #333b44; } }
     * { box-sizing: border-box; }
     body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0 12px 40px; }
@@ -52,6 +52,15 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
     .tagcard .tag { font-size: 0.75rem; font-weight: 700; margin-top: 6px; word-break: break-all; }
     .tagcard .who { font-size: 0.72rem; color: var(--dim); }
     .tagcard button { margin-top: 6px; width: 100%; padding: 6px; font-size: 0.75rem; }
+    .staged-bar { position: sticky; top: 8px; z-index: 5; border: 1px solid var(--accent); background: var(--surface); border-radius: 16px; padding: 12px 16px; margin-top: 16px; box-shadow: 0 4px 18px rgba(0,0,0,0.08); }
+    .staged-bar h2 { margin: 0; font-size: 1rem; }
+    .staged-row { display: flex; gap: 10px; align-items: center; border-top: 1px solid var(--border); padding: 8px 0; flex-wrap: wrap; }
+    .staged-row img { width: 72px; height: 60px; object-fit: contain; background: #fff; border: 1px solid var(--border); border-radius: 6px; }
+    .staged-row input { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 10px; padding: 8px 10px; font-size: 0.95rem; }
+    .staged-row .who { font-size: 0.8rem; font-weight: 700; }
+    .staged-row .err { font-size: 0.78rem; color: var(--bad); width: 100%; }
+    .needs-tag { font-size: 0.75rem; font-weight: 700; color: var(--star); }
+    .tagcard.staged { border-style: dashed; border-color: var(--accent); }
     .note { border-radius: 12px; padding: 10px 12px; font-size: 0.85rem; margin-top: 12px; background: #f0fdf4; color: #14532d; }
     .warn { border-radius: 12px; padding: 10px 12px; font-size: 0.85rem; margin-top: 12px; background: #fef2f2; color: #7f1d1d; }
     @media (prefers-color-scheme: dark) { .note { background: #052e16; color: #bbf7d0; } .warn { background: #450a0a; color: #fecaca; } }
@@ -66,11 +75,22 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       <div>
         <a class="backlink" href={`/admin/books/${adminSlug}`}>&larr; Back to book</a>
         <h1>Pose crops</h1>
-        <p class="sub">Cut single poses from each character sheet and tag them. Page generation conditions on the one pose a scene casts instead of the whole sheet, which is what stops lead clones. Once this book has any crop, the factory will not draw art until every character has at least one tag.</p>
+        <p class="sub">Cut single poses from each character sheet and tag them. Page generation conditions on the one pose a scene casts instead of the whole sheet, which is what stops lead clones. Once this book has any crop, the factory will not draw art until every character has at least one tag. Cropping is staged: drag boxes (or let Detect poses find them), tag them in the save list, then save everything at once.</p>
       </div>
     </div>
     <div id="loading">Loading sheets and crops...</div>
     <div id="coverage"></div>
+    <div class="staged-bar hidden" id="staged-bar">
+      <h2>Save list <span class="readout" id="staged-count"></span></h2>
+      <p class="desc" style="font-size:0.8rem;color:var(--dim);margin:4px 0 0">These crops are staged on this page only. Nothing is saved until you press Save all crops, and leaving with a full save list asks first.</p>
+      <div id="staged-list"></div>
+      <div class="frow">
+        <button type="button" class="btn btn-primary" id="staged-save">Save all crops</button>
+        <button type="button" class="btn" id="staged-discard">Discard list</button>
+        <span class="readout" id="staged-status"></span>
+      </div>
+    </div>
+    <div id="staged-result"></div>
     <div id="characters"></div>
     <div class="card" id="all-crops-card">
       <h2>All tags for this book</h2>
@@ -82,7 +102,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
 
   <script is:inline define:vars={{ slug, adminSlug }}>
     const ACTIONS = ["standing","flying","swimming","running","sitting","carrying","pointing","megaphone","sleeping","eating","building","reading","waving","jumping","digging","singing","pulling","pushing"];
-    const state = { data: null, selections: {} }; // character name -> {x,y,w,h} fractions
+    const state = { data: null, selections: {}, staged: [] }; // staged: [{character, action, bbox, preview, error}]
 
     function esc(s) {
       return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -116,6 +136,9 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
         const card = document.createElement("div");
         card.className = "card";
         const mine = d.crops.filter((c) => c.character.toLowerCase() === ch.name.toLowerCase());
+        const stagedMine = state.staged
+          .map((item, index) => ({ item, index }))
+          .filter((s) => s.item.character.toLowerCase() === ch.name.toLowerCase());
         if (!ch.sheetUrl) {
           card.innerHTML = "<h2>" + esc(ch.name) + (ch.species ? ' <span style="color:var(--dim);font-weight:400">(' + esc(ch.species) + ")</span>" : "") + '</h2><p class="desc">No sheet on file for this character yet, so there is nothing to crop. Generate and approve a sheet first.</p>';
           host.appendChild(card);
@@ -124,13 +147,16 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
         card.innerHTML =
           "<h2>" + esc(ch.name) + (ch.species ? ' <span style="color:var(--dim);font-weight:400">(' + esc(ch.species) + ")</span>" : "") +
           (ch.tagged ? ' <span style="color:var(--qa);font-size:0.8rem">tagged</span>' : ' <span style="color:var(--bad);font-size:0.8rem">no tags yet</span>') + "</h2>" +
-          '<p class="desc">' + (ch.sheetKind === "line" ? "Line sheet" : "Color sheet") + ": drag a box around ONE pose, name the action, save. Props ride the action (e.g. megaphone).</p>" +
+          '<p class="desc">' + (ch.sheetKind === "line" ? "Line sheet" : "Color sheet") + ": drag a box around ONE pose and stage it, or let Detect poses find the boxes. Tag everything in the save list, then save once. Props ride the action (e.g. megaphone).</p>" +
           '<div class="sheet-wrap"><img alt="" draggable="false"><div class="selbox"></div></div>' +
           '<div class="frow"><input list="action-list" placeholder="action (e.g. flying)" size="18">' +
-          '<button type="button" class="btn btn-primary">Save crop</button>' +
+          '<button type="button" class="btn btn-primary">Stage crop</button>' +
+          '<button type="button" class="btn" data-detect="1">Detect poses</button>' +
           '<span class="readout">no box drawn yet</span></div>' +
-          (mine.length ? '<div class="taggrid">' + mine.map((c) =>
+          ((mine.length || stagedMine.length) ? '<div class="taggrid">' + mine.map((c) =>
             '<div class="tagcard"><img src="' + esc(c.url) + '" alt=""><div class="tag">' + esc(c.tag) + '</div><div class="who">' + esc(c.character) + " · " + esc(c.action) + '</div><button type="button" class="btn btn-danger" data-del="' + esc(c.tag) + '">Delete</button></div>'
+          ).join("") + stagedMine.map((s) =>
+            '<div class="tagcard staged">' + (s.item.preview ? '<img src="' + s.item.preview + '" alt="">' : "") + '<div class="tag">' + esc(s.item.action || "untagged") + '</div><div class="who">' + esc(s.item.character) + ' · <span class="needs-tag">not saved yet</span></div><button type="button" class="btn" data-unstage="' + s.index + '">Remove</button></div>'
           ).join("") + "</div>" : "");
         host.appendChild(card);
         wireCropTool(card, ch);
@@ -155,7 +181,142 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
           load();
         });
       });
+      document.querySelectorAll("[data-unstage]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.staged.splice(Number(btn.getAttribute("data-unstage")), 1);
+          renderStaged();
+          render();
+        });
+      });
+      renderStaged();
     }
+
+    // ---- staged (batch) saving -------------------------------------
+    // Crops are staged on the page (with a preview cut from the
+    // sheet image the admin is looking at) and persisted in ONE
+    // batch request when Save all is pressed: one manifest write
+    // on the server, so the set lands together or reports exactly
+    // which items failed.
+    function cropPreview(img, bbox) {
+      try {
+        if (!img || !img.naturalWidth) return "";
+        const sx = Math.max(0, Math.floor(bbox.x * img.naturalWidth));
+        const sy = Math.max(0, Math.floor(bbox.y * img.naturalHeight));
+        const sw = Math.max(1, Math.floor(bbox.w * img.naturalWidth));
+        const sh = Math.max(1, Math.floor(bbox.h * img.naturalHeight));
+        const scale = Math.min(1, 300 / sw);
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(sw * scale));
+        c.height = Math.max(1, Math.round(sh * scale));
+        c.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+        return c.toDataURL("image/jpeg", 0.85);
+      } catch { return ""; }
+    }
+
+    function stageCrop(character, action, bbox, img) {
+      state.staged.push({ character, action: action || "", bbox: { ...bbox }, preview: cropPreview(img, bbox), error: "" });
+      document.getElementById("staged-result").innerHTML = "";
+      renderStaged();
+    }
+
+    function refreshStageSaveBtn() {
+      const btn = document.getElementById("staged-save");
+      const untagged = state.staged.filter((s) => !s.action.trim()).length;
+      btn.disabled = !state.staged.length || untagged > 0;
+      btn.textContent = untagged > 0
+        ? "Save all crops (" + untagged + " still need a tag)"
+        : "Save all crops (" + state.staged.length + ")";
+    }
+
+    function renderStaged() {
+      const bar = document.getElementById("staged-bar");
+      const list = document.getElementById("staged-list");
+      bar.classList.toggle("hidden", state.staged.length === 0);
+      document.getElementById("staged-count").textContent =
+        state.staged.length ? "(" + state.staged.length + " waiting)" : "";
+      list.innerHTML = state.staged.map((s, i) =>
+        '<div class="staged-row">' +
+        (s.preview ? '<img src="' + s.preview + '" alt="">' : "") +
+        '<span class="who">' + esc(s.character) + '</span>' +
+        '<input list="action-list" placeholder="action tag (e.g. flying)" size="18" value="' + esc(s.action) + '" data-stage-action="' + i + '">' +
+        (s.action.trim() ? "" : '<span class="needs-tag">needs a tag</span>') +
+        '<span class="readout">x ' + s.bbox.x.toFixed(3) + ", y " + s.bbox.y.toFixed(3) + ", w " + s.bbox.w.toFixed(3) + ", h " + s.bbox.h.toFixed(3) + '</span>' +
+        '<button type="button" class="btn" data-unstage="' + i + '">Remove</button>' +
+        (s.error ? '<span class="err">' + esc(s.error) + '</span>' : "") +
+        "</div>"
+      ).join("");
+      list.querySelectorAll("[data-stage-action]").forEach((inp) => {
+        inp.addEventListener("input", () => {
+          const i = Number(inp.getAttribute("data-stage-action"));
+          state.staged[i].action = inp.value;
+          state.staged[i].error = "";
+          const tag = inp.parentElement.querySelector(".needs-tag");
+          if (tag) tag.style.display = inp.value.trim() ? "none" : "";
+          refreshStageSaveBtn();
+        });
+      });
+      list.querySelectorAll("[data-unstage]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.staged.splice(Number(btn.getAttribute("data-unstage")), 1);
+          renderStaged();
+          render();
+        });
+      });
+      refreshStageSaveBtn();
+    }
+
+    document.getElementById("staged-discard").addEventListener("click", () => {
+      if (!state.staged.length) return;
+      if (!confirm("Discard the whole save list? Nothing here has been saved yet.")) return;
+      state.staged = [];
+      document.getElementById("staged-status").textContent = "";
+      renderStaged();
+      render();
+    });
+
+    document.getElementById("staged-save").addEventListener("click", async () => {
+      const btn = document.getElementById("staged-save");
+      const status = document.getElementById("staged-status");
+      const submitted = state.staged.slice();
+      btn.disabled = true;
+      status.textContent = "Saving " + submitted.length + " crops...";
+      const r = await fetch("/api/editor/crops", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          batch: submitted.map((s) => ({ character: s.character, action: s.action, bbox: s.bbox })),
+        }),
+      });
+      const out = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        status.textContent = "Save failed: " + (out.error || r.status) + ". The list is untouched.";
+        btn.disabled = false;
+        return;
+      }
+      // Items the server rejected stay in the list with their
+      // reason (errors carry the index into the submitted batch);
+      // everything else is saved and leaves the list.
+      const failedAt = new Map((out.errors || []).map((e) => [e.index, e.error]));
+      const kept = [];
+      submitted.forEach((s, i) => { if (failedAt.has(i)) kept.push({ ...s, error: failedAt.get(i) }); });
+      state.staged = kept;
+      status.textContent = "";
+      // The result lives outside the save list: the list hides when
+      // it empties, and the confirmation must survive that.
+      document.getElementById("staged-result").innerHTML =
+        '<div class="note">Saved ' + (out.created || []).length + " crops." +
+        (kept.length ? " " + kept.length + " stayed in the save list with the reason shown." : "") + "</div>";
+      renderStaged();
+      load();
+    });
+
+    window.addEventListener("beforeunload", (ev) => {
+      if (state.staged.length) {
+        ev.preventDefault();
+        ev.returnValue = "";
+      }
+    });
 
     function wireCropTool(card, ch) {
       const wrap = card.querySelector(".sheet-wrap");
@@ -205,22 +366,35 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       img.addEventListener("pointerup", () => { start = null; });
       window.addEventListener("resize", paint);
 
-      save.addEventListener("click", async () => {
-        const action = input.value.trim();
+      save.addEventListener("click", () => {
         if (!sel || sel.w < 0.01 || sel.h < 0.01) { alert("Drag a box around one pose on the sheet first."); return; }
-        if (!action) { alert("Name the action for this pose (e.g. standing, flying, megaphone)."); return; }
-        save.disabled = true;
-        const r = await fetch("/api/editor/crops", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slug, character: ch.name, action, bbox: sel }),
-        });
-        const out = await r.json().catch(() => ({}));
-        if (!r.ok) { alert("Save failed: " + (out.error || r.status)); save.disabled = false; return; }
+        stageCrop(ch.name, input.value.trim(), sel, img);
         input.value = "";
         sel = null;
         paint();
-        load();
+        readout.textContent = "staged. Tag it in the save list if it has no tag yet, then keep cropping.";
+        render();
+      });
+
+      const detectBtn = card.querySelector("[data-detect]");
+      detectBtn.addEventListener("click", async () => {
+        detectBtn.disabled = true;
+        readout.textContent = "detecting poses on this sheet...";
+        const r = await fetch("/api/editor/crops", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slug, detect: true, character: ch.name }),
+        });
+        const out = await r.json().catch(() => ({}));
+        detectBtn.disabled = false;
+        if (!r.ok) { readout.textContent = "detect failed: " + (out.error || r.status); return; }
+        if (!out.boxes || !out.boxes.length) {
+          readout.textContent = "detect found no poses on this sheet. Drag boxes by hand.";
+          return;
+        }
+        for (const box of out.boxes) stageCrop(ch.name, "", box, img);
+        readout.textContent = "detect staged " + out.boxes.length + " poses. Tag them in the save list, then save.";
+        render();
       });
     }
 

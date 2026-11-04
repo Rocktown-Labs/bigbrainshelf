@@ -8,7 +8,8 @@ import {
 } from '../../../lib/cast-gallery';
 import { decodePngBase64 } from '../../../lib/lift-jobs';
 import { adminMediaUrl } from '../../../lib/media';
-import { ACTION_SUGGESTIONS } from '../../../lib/crops';
+import { ACTION_SUGGESTIONS, decodeImage } from '../../../lib/crops';
+import { detectPoseBoxes } from '../../../lib/detect-boxes';
 
 // Meet the Cast gallery crop editor. Admin-gated by the middleware
 // like every non-allowlisted /api route.
@@ -31,6 +32,9 @@ import { ACTION_SUGGESTIONS } from '../../../lib/crops';
 // POST /api/admin/cast-gallery { slug, restorePose: { poseIndex, ts } }
 //      -> roll that one pose back to a chosen backup version; the
 //         current gallery is snapshotted first, so it can be undone
+// POST /api/admin/cast-gallery { slug, detect: true }
+//      -> { boxes }: auto-detected pose boxes for the sheet, staged
+//         as unsaved work by the editor; nothing is written
 
 function badSlug(slug: string) {
   return !/^[a-z0-9-]+$/.test(slug);
@@ -56,7 +60,9 @@ function publicEntry(slug: string, entry: GalleryEntry) {
 
 export const GET: APIRoute = async ({ url }) => {
   const e = env as any;
-  const manifest = await loadCastGallery(e.BOOKS);
+  // The editor's read must be the saved truth, not a warm isolate's
+  // up-to-a-minute-old cache snapshot: read through to R2.
+  const manifest = await loadCastGallery(e.BOOKS, { fresh: true });
   const slug = (url.searchParams.get('slug') || '').trim();
   if (!slug) {
     const characters = Object.entries(manifest.characters)
@@ -105,6 +111,21 @@ export const POST: APIRoute = async ({ request }) => {
   if (!slug || badSlug(slug)) return Response.json({ error: 'slug required' }, { status: 400 });
 
   try {
+    if (b.detect === true) {
+      // Auto-detect pose boxes on the character's live sheet (the
+      // in-app port of the extraction pipeline's detection). Nothing
+      // is written: the editor loads the boxes as unsaved work and
+      // its one Save persists them.
+      const manifest = await loadCastGallery(e.BOOKS, { fresh: true });
+      const entry = manifest.characters[slug];
+      if (!entry) return Response.json({ error: `no gallery entry for '${slug}'` }, { status: 404 });
+      if (!entry.sheetKey) return Response.json({ error: `gallery entry for '${slug}' has no sheetKey` }, { status: 422 });
+      const obj = await e.BOOKS.get(entry.sheetKey);
+      if (!obj) return Response.json({ error: 'sheet bytes missing in R2' }, { status: 404 });
+      const boxes = detectPoseBoxes(decodeImage(new Uint8Array(await obj.arrayBuffer())));
+      return Response.json({ ok: true, boxes });
+    }
+
     if (b.restore === true) {
       const { entry, backupTs } = await restoreCharacterGallery(e.BOOKS, slug);
       const backup = await latestBackup(e.BOOKS, slug);

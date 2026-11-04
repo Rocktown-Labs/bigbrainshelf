@@ -97,7 +97,7 @@ if (!Astro.locals.user) {
       <div>
         <a class="backlink" id="back-link" href="/admin/characters">&larr; Back to Characters</a>
         <h1>Cast crop editor</h1>
-        <p class="sub">Frame the Meet the Cast art yourself. Drag a box to move it, drag its corners or edges to resize, or drag on empty sheet to draw a new pose. Star one box to make it the portrait. Use the arrows to reorder poses (the list order is the saved pose order: first is Pose 1), tag a pose with an action to feed the factory&rsquo;s crop conditioning, and set each pose&rsquo;s focal point so the public frames keep the right part in view. Saving is per character: the Save button only lights up when this character actually differs from its saved gallery, and leaving with unsaved changes asks you first. A pose that shares its box with a neighbor can be <b>lifted</b>: the Lift button on a selected pose queues a background job that cuts the subject off the sheet and places it on clean cream. A pose can also be <b>shaped</b>: the Shape button on a selected pose opens the whole sheet so you can trace an outline around the object itself and cut the pose to that outline. Extra content inside a pose can be <b>erased</b>: the Erase button on a selected pose opens a canvas where a brush paints the clean background back in, or one click removes a whole extra thing.</p>
+        <p class="sub">Frame the Meet the Cast art yourself. Drag a box to move it, drag its corners or edges to resize, or drag on empty sheet to draw a new pose. Detect poses proposes the boxes from the sheet itself; adjust what it finds, then save once. Star one box to make it the portrait. Use the arrows to reorder poses (the list order is the saved pose order: first is Pose 1), tag a pose with an action to feed the factory&rsquo;s crop conditioning, and set each pose&rsquo;s focal point so the public frames keep the right part in view. Saving is per character: the Save button only lights up when this character actually differs from its saved gallery, and leaving with unsaved changes asks you first. A pose that shares its box with a neighbor can be <b>lifted</b>: the Lift button on a selected pose queues a background job that cuts the subject off the sheet and places it on clean cream. A pose can also be <b>shaped</b>: the Shape button on a selected pose opens the whole sheet so you can trace an outline around the object itself and cut the pose to that outline. Extra content inside a pose can be <b>erased</b>: the Erase button on a selected pose opens a canvas where a brush paints the clean background back in, or one click removes a whole extra thing.</p>
       </div>
     </div>
 
@@ -129,6 +129,7 @@ if (!Astro.locals.user) {
             <p class="desc" id="sel-actions-hint">With a pose selected: Lift cuts it out whole onto clean cream. Shape traces around the object and cuts the rest away.</p>
             <div class="frow">
               <button type="button" class="btn" id="add-btn">+ Add pose box</button>
+              <button type="button" class="btn" id="detect-btn">Detect poses</button>
               <button type="button" class="btn btn-star" id="star-btn">&#9733; Make selected the portrait</button>
               <button type="button" class="btn btn-danger" id="del-btn">Delete selected</button>
               <span class="readout" id="sel-readout">no box selected</span>
@@ -836,6 +837,47 @@ if (!Astro.locals.user) {
       state.sel = state.boxes.length - 1;
       render();
       document.getElementById("status").textContent = "New box added in the middle of the sheet. Drag it onto a pose.";
+    });
+    // Detect poses: the server runs the extraction pipeline's box
+    // detection on this character's live sheet and the proposals
+    // become the working boxes, as UNSAVED work (the dirty pill and
+    // the leave guard treat them like any other edit). The admin
+    // adjusts, tags, and persists them with the one Save button.
+    document.getElementById("detect-btn").addEventListener("click", async () => {
+      if (!state.slug) return;
+      const btn = document.getElementById("detect-btn");
+      const status = document.getElementById("status");
+      if (state.boxes.length && boxesDirty()) {
+        if (!confirm("Replace the current boxes with freshly detected ones? Unsaved box edits will be lost.")) return;
+      }
+      btn.disabled = true;
+      status.textContent = "Detecting poses on this sheet...";
+      const r = await fetch("/api/admin/cast-gallery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: state.slug, detect: true }),
+      });
+      const out = await r.json().catch(() => ({}));
+      btn.disabled = false;
+      if (!r.ok) {
+        status.textContent = "Detect failed: " + (out.error || r.status);
+        return;
+      }
+      if (!out.boxes || !out.boxes.length) {
+        status.textContent = "Detect found no poses on this sheet. Add boxes by hand.";
+        return;
+      }
+      state.boxes = out.boxes.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h }));
+      state.poseMeta = state.boxes.map(() => ({ action: "", focal: { x: 0.5, y: 0.5 } }));
+      state.lifted = state.boxes.map(() => null);
+      state.edits = state.boxes.map(() => null);
+      state.shapeEdits = state.boxes.map(() => false);
+      state.editFp = state.boxes.map(() => "");
+      state.eraseInfo = state.boxes.map(() => null);
+      state.portraitIndex = 0;
+      state.sel = 0;
+      render();
+      status.textContent = "Detect found " + state.boxes.length + " poses. Adjust any box, tag the poses, then Save.";
     });
     document.getElementById("star-btn").addEventListener("click", () => {
       if (state.sel >= 0) { state.portraitIndex = state.sel; render(); }

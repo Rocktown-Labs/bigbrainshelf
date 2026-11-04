@@ -2,8 +2,10 @@ import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
 import {
   getCropsManifest, saveCropsManifest, cropImagePng, makeTag,
-  nextPoseNumber, actionSlug, decodeImage, type CropEntry,
+  nextPoseNumber, actionSlug, decodeImage, createCropsBatch,
+  type CropEntry, type BatchSheet,
 } from '../../../lib/crops';
+import { detectPoseBoxes } from '../../../lib/detect-boxes';
 import UPNG from "upng-js";
 import { nameKey } from '../../../lib/character-sheets';
 
@@ -17,6 +19,12 @@ import { nameKey } from '../../../lib/character-sheets';
 // POST   /api/editor/crops { slug, character, action, bbox }
 //        -> crops the region server-side from the character's sheet,
 //           stores the PNG, appends the manifest entry
+// POST   /api/editor/crops { slug, detect: true, character }
+//        -> { boxes }: auto-detected pose boxes for the sheet,
+//           staged (unsaved) by the cropper
+// POST   /api/editor/crops { slug, batch: [{character, action, bbox}] }
+//        -> the cropper's staged save: every crop created in one
+//           pass with ONE manifest write; per-item errors reported
 // DELETE /api/editor/crops { slug, tag } -> removes crop + entry
 
 import { adminMediaUrl } from '../../../lib/media';
@@ -107,10 +115,55 @@ export const POST: APIRoute = async ({ request }) => {
   const e = env as any;
   const b = await request.json().catch(() => ({}));
   const slug = String(b.slug || '').trim();
+  if (!slug || badSlug(slug)) return Response.json({ error: 'slug required' }, { status: 400 });
+
+  // Auto-detect: propose pose boxes for one character's sheet (the
+  // in-app port of the extraction pipeline's detection). Read-only:
+  // the cropper stages the boxes as unsaved work.
+  if (b.detect === true) {
+    const character = String(b.character || '').trim();
+    if (!character) return Response.json({ error: 'character required' }, { status: 400 });
+    const characters = await bookCharacters(e, slug);
+    const ch = characters.find((c) => c.name.toLowerCase() === character.toLowerCase());
+    if (!ch) return Response.json({ error: `no character '${character}' in this book's bible` }, { status: 404 });
+    if (!ch.sheetKey) return Response.json({ error: `no sheet on file for ${ch.name}; approve a sheet first` }, { status: 409 });
+    const obj = await e.BOOKS.get(ch.sheetKey);
+    if (!obj) return Response.json({ error: 'sheet bytes missing in R2' }, { status: 404 });
+    try {
+      const boxes = detectPoseBoxes(decodeImage(new Uint8Array(await obj.arrayBuffer())));
+      return Response.json({ ok: true, character: ch.name, boxes });
+    } catch (err: any) {
+      return Response.json({ error: `detect failed: ${String(err?.message || err)}` }, { status: 422 });
+    }
+  }
+
+  // Batch create: the cropper's staged crops, persisted in one pass
+  // (one manifest write). Per-item failures are reported, not fatal.
+  if (Array.isArray(b.batch)) {
+    if (!b.batch.length || b.batch.length > 48) {
+      return Response.json({ error: 'batch must be 1-48 crops' }, { status: 400 });
+    }
+    const characters = await bookCharacters(e, slug);
+    const sheetsByName = new Map<string, BatchSheet>();
+    for (const item of b.batch) {
+      const name = String(item?.character ?? '').trim().toLowerCase();
+      if (!name || sheetsByName.has(name)) continue;
+      const ch = characters.find((c) => c.name.toLowerCase() === name);
+      if (!ch) continue; // createCropsBatch reports it per item
+      let bytes: Uint8Array | null = null;
+      if (ch.sheetKey) {
+        const obj = await e.BOOKS.get(ch.sheetKey).catch(() => null);
+        if (obj) bytes = new Uint8Array(await obj.arrayBuffer());
+      }
+      sheetsByName.set(name, { name: ch.name, sheetKey: ch.sheetKey, bytes });
+    }
+    const { created, errors } = await createCropsBatch(e.BOOKS, slug, b.batch, sheetsByName);
+    return Response.json({ ok: true, created: created.map(publicEntry), errors });
+  }
+
   const character = String(b.character || '').trim();
   const action = actionSlug(String(b.action || ''));
   const bbox = b.bbox;
-  if (!slug || badSlug(slug)) return Response.json({ error: 'slug required' }, { status: 400 });
   if (!character) return Response.json({ error: 'character required' }, { status: 400 });
   if (!action) return Response.json({ error: 'an action is required (e.g. standing, flying, megaphone)' }, { status: 400 });
   if (
