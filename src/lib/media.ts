@@ -69,6 +69,29 @@ export function adminMediaUrl(key: string | null | undefined): string | null {
   return k ? `/api/admin/media?key=${encodeURIComponent(k)}` : null;
 }
 
+/** Widths the admin media route will serve as page derivatives.
+ * The zone is on Cloudflare Free, so plan-gated image resizing is
+ * unavailable; derivatives are produced locally by
+ * factory-ops/image-derivatives/mint_page_derivatives.py and stored
+ * content-addressed in R2. */
+export const PAGE_DERIVATIVE_WIDTHS = [200, 480, 960];
+
+/** Derivative object key for one page artifact, or null when the
+ * key is not a book artifact. The derivative lives under
+ * books/{slug}/derivatives/ (deliberately outside the factory
+ * snapshot predicate prefixes plans/, images/, images-color/, so
+ * minting derivatives never changes a book's versions fingerprint),
+ * named by the artifact's SHA-256: a replaced page has a new hash
+ * and therefore a new derivative, so a stale derivative can never
+ * be served for new art. */
+export function pageDerivativeKey(key: string, sha256: string, width: number): string | null {
+  if (!PAGE_DERIVATIVE_WIDTHS.includes(width)) return null;
+  if (!/^[a-f0-9]{64}$/.test(sha256)) return null;
+  const m = /^books\/([^/]+)\//.exec(key);
+  if (!m) return null;
+  return `books/${m[1]}/derivatives/${sha256}-w${width}.webp`;
+}
+
 /** Customer-gated reader page URL for one page-image key of a book. */
 export function libraryPageUrl(slug: string, key: string | null | undefined): string | null {
   const k = keyFromMediaValue(key);

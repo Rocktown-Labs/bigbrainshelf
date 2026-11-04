@@ -6,8 +6,9 @@ import { captureBookRevision, assertRevisionUnchanged, readPlanInventory, revisi
 import { captureApprovalRevision, saveApprovals } from '../src/lib/approval-identity';
 import { publishVerifiedBook } from '../src/lib/publish-gate';
 import { getDeliveryReadiness } from '../src/lib/delivery-readiness';
+import { recordSignoff } from '../src/lib/qc-signoffs';
 
-async function fixture(chapters = 1, approveFinales = true) {
+async function fixture(chapters = 1, approveFinales = true, signoffs = true) {
   const objects = new Map<string, { value: string; etag: string; customMetadata?: any }>();
   let version = 0;
   function put(key: string, value: unknown) {
@@ -15,13 +16,16 @@ async function fixture(chapters = 1, approveFinales = true) {
   }
   put('books/test/bible.json', { conceptLadder: Array.from({ length: chapters }, () => ({})) });
   for (let n = 1; n <= chapters; n++) {
-    const plan = { pages: [{ storyText: 'A story.' }], finale: { storyText: 'The finale.' } };
+    const plan = { pages: [{ storyText: 'A story.', imageColorKey: `books/test/images-color/S${n}-page-0.jpg` }],
+      finale: { storyText: 'The finale.', imageColorKey: `books/test/images-color/S${n}-finale.jpg` } };
     const bible = JSON.parse(objects.get('books/test/bible.json')!.value);
     stampLine(bible, plan, plan.pages[0], new TextEncoder().encode('LINE'));
     stampLine(bible, plan, plan.finale, new TextEncoder().encode('FINALE'));
     put(`books/test/plans/S${n}.json`, plan);
     put(`books/test/images/S${n}-page-0.jpg`, 'LINE');
     put(`books/test/images/S${n}-finale.jpg`, 'FINALE');
+    put(`books/test/images-color/S${n}-page-0.jpg`, 'COLORLINE');
+    put(`books/test/images-color/S${n}-finale.jpg`, 'COLORFINALE');
   }
   for (const name of ['cover.jpg', 'back-cover-color.jpg', 'back-cover-line.jpg']) put(`books/test/${name}`, 'COVER');
   put('books/test/picture-book.pdf', 'PICTURE');
@@ -45,6 +49,7 @@ async function fixture(chapters = 1, approveFinales = true) {
   const raw = new Database(':memory:');
   raw.exec(readFileSync(new URL('../db/migrations/0001_release_and_run_provenance.sql', import.meta.url), 'utf8'));
   raw.exec(readFileSync(new URL('../db/migrations/0002_artifact_approvals.sql', import.meta.url), 'utf8'));
+  raw.exec(readFileSync(new URL('../db/migrations/0003_qc_signoffs.sql', import.meta.url), 'utf8'));
   raw.exec(`CREATE TABLE books (slug TEXT PRIMARY KEY, title TEXT, status TEXT, price INTEGER, price_print INTEGER,
     updated_at INTEGER, picture_book_key TEXT, coloring_book_key TEXT, color_book_key TEXT,
     epub_key TEXT, audiobook_key TEXT, cover_key TEXT);
@@ -89,6 +94,10 @@ async function fixture(chapters = 1, approveFinales = true) {
   await refreshAssemblyEvidence();
   const approvalSnapshot = await captureApprovalRevision(db, bucket, 'test');
   await saveApprovals(db, bucket, approvalSnapshot, approvalSnapshot.manifest.pages.filter(p => approveFinales || p.kind !== 'finale'), true);
+  if (signoffs) {
+    await recordSignoff(db, 'test', 'story', approvalSnapshot.manifest.revision, 'cg');
+    await recordSignoff(db, 'test', 'color', approvalSnapshot.manifest.revision, 'cg');
+  }
   return { objects, put, bucket, raw, db, checks, status, refreshAssemblyEvidence };
 }
 
@@ -234,6 +243,17 @@ test('an override cannot confirm a different revision than the operator reviewed
   await expect(publishVerifiedBook(f.db, f.bucket, { book_slug: 'test', publishOverride: {
     reason: 'CG reviewed the earlier revision', checks: ['audio'], verification,
   } }, 'cg', f.checks)).rejects.toThrow('Readiness changed');
+  expect(f.status()).toBe('ready_for_qa');
+});
+
+test('publish blocks without QC sign-offs and an override cannot waive them', async () => {
+  const f = await fixture(1, true, false);
+  const blocked = await publishVerifiedBook(f.db, f.bucket, { book_slug: 'test' }, 'cg', f.checks).catch(error => error);
+  expect(blocked.message).toMatch(/sign-off/i);
+  expect(blocked.blockers.map((b: any) => b.id)).toEqual(expect.arrayContaining(['signoff:story', 'signoff:color']));
+  await expect(publishVerifiedBook(f.db, f.bucket, { book_slug: 'test', publishOverride: {
+    reason: 'CG wants it live', checks: ['signoff:story', 'signoff:color'], verification: blocked.verification,
+  } }, 'cg', f.checks)).rejects.toThrow('cannot be overridden');
   expect(f.status()).toBe('ready_for_qa');
 });
 

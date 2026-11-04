@@ -25,6 +25,7 @@ function facts(over: Partial<DeliveryFacts> = {}): DeliveryFacts {
     ],
     audioProduction: "full-cast",
     audioVoiceName: "Kore",
+    signoffs: { story: "done", color: "done" },
     qa: { coverTypeset: false, coloringCaptionsTruncated: 0, backCoverTruncated: false },
     marketing: { promoMain: true, promoParents: true, defects: null, kitMissing: [] },
     ...over,
@@ -72,6 +73,23 @@ function facts(over: Partial<DeliveryFacts> = {}): DeliveryFacts {
   assert.equal(r.blockers.length, 0);
   assert.ok(r.unknowns.includes("PDF content QA"));
   assert.ok(r.unknowns.includes("Audiobook cover"));
+}
+
+// QC sign-offs (CG, 2026-11-03): an outstanding story sign-off
+// blocks with the step named; a color sign-off that cannot exist
+// yet (incomplete color edition) blocks as not yet available; an
+// unchecked sign-off state is unverified, never a pass.
+{
+  const r = computeDeliveryReadiness(facts({ signoffs: { story: "outstanding", color: "done" } }));
+  assert.equal(r.verdict, "not-ready");
+  assert.match(r.blockers.join(" "), /Full story QC sign-off: outstanding/);
+  const u = computeDeliveryReadiness(facts({ signoffs: { story: "done", color: "unavailable" } }));
+  assert.equal(u.verdict, "not-ready");
+  assert.match(u.blockers.join(" "), /Full color QC sign-off: not yet available/);
+  const n = computeDeliveryReadiness(facts({ signoffs: null }));
+  assert.equal(n.verdict, "unverified");
+  assert.ok(n.unknowns.includes("Full story QC sign-off"));
+  assert.ok(n.unknowns.includes("Full color QC sign-off"));
 }
 
 // Marketing is the LAST step (CG, 2026-10-31): when it is the
