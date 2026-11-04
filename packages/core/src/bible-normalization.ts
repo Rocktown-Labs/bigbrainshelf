@@ -24,4 +24,3 @@ export function normalizeBible(bible: any): any {
 
   return b;
 }
-

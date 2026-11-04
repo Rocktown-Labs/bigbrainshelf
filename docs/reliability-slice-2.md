@@ -142,3 +142,23 @@ in 12 targeted reruns, base failed once and candidate failed three times with
 the same assertion. Both also pass in isolated reruns. Those small samples
 establish an existing flake, not a measured change in its frequency. No club
 code or test was changed, and this slice does not fix that flake.
+
+
+Final checks on this branch:
+
+| Check | Result |
+| --- | --- |
+| Existing tests, 76 files, per-file baseline comparison | Same outcomes/signatures in the handoff run; 65 pass, same 11 fail |
+| Seven new test files | 44 tests pass |
+| Existing publish-revision / reliability-followups | 20 / 5 pass with fixtures upgraded to the new contract |
+| Additional club-cycles repeats | Existing intermittent assertion reproduced on base and candidate, as detailed above |
+| Hub Astro compilation | Pass |
+| Full factory browser-platform bundle, only cloudflare:workers external | Pass |
+| Sealed factory build driver from committed source | Pass; original bytes and receipt retained locally |
+
+The installed Bun 1.3.10 cannot parse the repository's existing v2 lockfile.
+Core/factory dependencies for these checks were installed locally with npm,
+without lifecycle scripts, audit calls or new lockfiles. The only lockfile
+change is the new core workspace dependency on the already pinned noble package.
+This does not fix the root toolchain baseline or claim a new root packaging
+result. No generated bundle, dependency directory or local receipt is committed.
