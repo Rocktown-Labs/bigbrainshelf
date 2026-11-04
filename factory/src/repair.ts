@@ -1,4 +1,4 @@
-import { assembleVerifiedPdf } from "./assembly";
+import { assembleVerifiedPdf, pretranscodeAssembly, assemblyChapters, colorAssemblyReady } from "./assembly";
 import { stampLine, bytesHash } from "../../packages/core/src/assembly-identity";
 import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 // RepairWorkflow: the factory's self-healing loop (CG, 2026-10-25).
@@ -804,6 +804,20 @@ export class ReassembleWorkflow extends WorkflowEntrypoint<BookBuildEnv, Reassem
     await recordWorkflowRun(this.env, step, event, "reassemble", event.payload.slug);
     const slug = event.payload.slug;
     if (!slug) throw new Error("reassemble requires a slug");
+    // Warm the transcode cache a chapter per step before each assemble
+    // step: a whole book of PNG transcodes in one step exceeds the CPU
+    // limit (Fenix color assembly, 2026-11-04). Line art usually passes
+    // through untranscoded, but PNG line pages exist (Blaze) and cost
+    // the same when they do.
+    const lineChapters: number[] = await step.do("list line chapters", RETRIES, async () => {
+      return await assemblyChapters(this.env, slug, "picture");
+    });
+    for (const ch of lineChapters) {
+      await step.do(`pretranscode line S${ch}`, RETRIES, async () => {
+        await pretranscodeAssembly(this.env, slug, "picture", ch);
+        return true;
+      });
+    }
     const baseRevision = await step.do("reassemble coloring pdf", RETRIES, async () => {
       return await reassembleColoringPdf(this.env, slug);
     });
@@ -811,6 +825,24 @@ export class ReassembleWorkflow extends WorkflowEntrypoint<BookBuildEnv, Reassem
       await reassemblePicturePdf(this.env, slug, baseRevision);
       return true;
     });
+    // A book without a complete color edition has nothing to assemble
+    // here: report it in the result instead of erroring the whole run
+    // after the base PDFs already landed.
+    const hasColor: boolean = await step.do("probe color edition", RETRIES, async () => {
+      return await colorAssemblyReady(this.env, slug);
+    });
+    if (!hasColor) {
+      return { slug, picture: true, coloring: true, color: false, colorNote: "no complete color edition to assemble" };
+    }
+    const colorChapters: number[] = await step.do("list color chapters", RETRIES, async () => {
+      return await assemblyChapters(this.env, slug, "color");
+    });
+    for (const ch of colorChapters) {
+      await step.do(`pretranscode color S${ch}`, RETRIES, async () => {
+        await pretranscodeAssembly(this.env, slug, "color", ch);
+        return true;
+      });
+    }
     const color = await step.do("reassemble color pdf", RETRIES, async () => {
       return await reassembleColorPdf(this.env, slug);
     });

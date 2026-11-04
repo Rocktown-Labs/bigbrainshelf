@@ -31,8 +31,13 @@ export function isPng(bytes: Uint8Array): boolean {
   );
 }
 
+/** True when toPdfJpeg would actually convert (a PNG big enough to matter). */
+export function needsTranscode(bytes: Uint8Array): boolean {
+  return isPng(bytes) && bytes.length >= TRANSCODE_ABOVE;
+}
+
 export async function toPdfJpeg(bytes: Uint8Array): Promise<Uint8Array> {
-  if (!isPng(bytes) || bytes.length < TRANSCODE_ABOVE) return bytes;
+  if (!needsTranscode(bytes)) return bytes;
   const buf =
     bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
       ? (bytes.buffer as ArrayBuffer)

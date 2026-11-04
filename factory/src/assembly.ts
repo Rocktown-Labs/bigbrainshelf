@@ -1,7 +1,77 @@
 import { prepareAssembly, loadAssemblyPage, assertAssemblyCurrent, bytesHash } from '../../packages/core/src/assembly-identity';
 import { buildColoringBook, buildPictureBook } from './pdf';
 import { composeMatter } from './matter';
-import { toPdfJpeg } from './transcode';
+import { toPdfJpeg, needsTranscode } from './transcode';
+
+// Transcoding a 2K PNG page (UPNG decode + jpeg-js encode) is the single
+// most CPU-expensive thing assembly does, and a whole book of color pages
+// in one workflow step exceeds the CPU limit (Fenix's 67-page color
+// assembly died twice on 2026-11-04, after the line editions landed).
+// Transcode results are therefore cached in R2, content-addressed by the
+// source page's SHA-256: a cached JPEG is valid for exactly those source
+// bytes forever, and workflows warm the cache a chapter at a time in
+// separate steps (pretranscodeAssembly) so the assemble step itself only
+// embeds. The cache prefix sits outside the book snapshot predicate, so
+// warming it never changes a book's revision or fingerprint. Bump the
+// version segment if the transcode parameters ever change.
+const TRANSCODE_CACHE_VERSION = 'v1';
+
+export function transcodeCacheKey(slug: string, sourceSha256: string): string {
+  return `books/${slug}/assembly-transcode/${TRANSCODE_CACHE_VERSION}/${sourceSha256}.jpg`;
+}
+
+async function pdfJpegForPage(env: { BOOKS: R2Bucket }, slug: string, bytes: Uint8Array): Promise<{ image: Uint8Array; warmed: boolean }> {
+  if (!needsTranscode(bytes)) return { image: bytes, warmed: false };
+  const key = transcodeCacheKey(slug, bytesHash(bytes));
+  const hit = await env.BOOKS.get(key);
+  if (hit) {
+    const data = new Uint8Array(await hit.arrayBuffer());
+    // A hit is trusted only if it at least looks like the JPEG the
+    // transcode would have produced; anything else is recomputed.
+    if (data.length > 2 && data[0] === 0xff && data[1] === 0xd8) return { image: data, warmed: false };
+  }
+  const image = await toPdfJpeg(bytes);
+  await env.BOOKS.put(key, image, { httpMetadata: { contentType: 'image/jpeg' } });
+  return { image, warmed: true };
+}
+
+/**
+ * Warm the transcode cache for one chapter of one edition, without
+ * building any PDF. Workflows call this once per chapter in its own
+ * step before the assemble step, bounding each step to a chapter's
+ * worth of PNG transcodes. Throws exactly like prepareAssembly when
+ * the edition's inventory does not verify.
+ */
+export async function pretranscodeAssembly(env: { BOOKS: R2Bucket }, slug: string, kind: 'picture' | 'coloring' | 'color', chapter: number) {
+  const snapshot = await prepareAssembly(env.BOOKS, slug, kind === 'color' ? 'color' : 'line');
+  let warmed = 0;
+  let alreadyCached = 0;
+  for (const entry of snapshot.entries) {
+    if (entry.ref.chapter !== chapter) continue;
+    const bytes = await loadAssemblyPage(env.BOOKS, snapshot, entry);
+    if (!needsTranscode(bytes)) continue;
+    if (await env.BOOKS.head(transcodeCacheKey(slug, bytesHash(bytes)))) { alreadyCached++; continue; }
+    await pdfJpegForPage(env, slug, bytes);
+    warmed++;
+  }
+  return { warmed, alreadyCached, revision: snapshot.manifest.revision };
+}
+
+/** Chapter numbers in the verified inventory of one edition, ascending. */
+export async function assemblyChapters(env: { BOOKS: R2Bucket }, slug: string, kind: 'picture' | 'coloring' | 'color'): Promise<number[]> {
+  const snapshot = await prepareAssembly(env.BOOKS, slug, kind === 'color' ? 'color' : 'line');
+  return [...new Set(snapshot.entries.map(e => e.ref.chapter))].sort((a, b) => a - b);
+}
+
+/** True when the color edition's inventory verifies end to end. */
+export async function colorAssemblyReady(env: { BOOKS: R2Bucket }, slug: string): Promise<boolean> {
+  try {
+    await prepareAssembly(env.BOOKS, slug, 'color');
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** The only full-book PDF assembly path. No generation and no line/color fallback. */
 export async function assembleVerifiedPdf(env: { BOOKS: R2Bucket }, slug: string, kind: 'picture' | 'coloring' | 'color', expectedRevision?: string) {
@@ -9,7 +79,7 @@ export async function assembleVerifiedPdf(env: { BOOKS: R2Bucket }, slug: string
   if (expectedRevision && snapshot.manifest.revision !== expectedRevision) throw new Error('Base assembly revision changed between PDFs');
   const pages = [];
   for (const entry of snapshot.entries) {
-    const image = await toPdfJpeg(await loadAssemblyPage(env.BOOKS, snapshot, entry));
+    const { image } = await pdfJpegForPage(env, slug, await loadAssemblyPage(env.BOOKS, snapshot, entry));
     pages.push({ image, story: entry.page.storyText, caption: entry.page.storyText });
   }
   if (pages.length !== snapshot.manifest.pages.length || new Set(snapshot.entries.map(e => e.ref.id)).size !== pages.length)
