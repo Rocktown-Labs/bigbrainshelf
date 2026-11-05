@@ -12,6 +12,7 @@ import {
   ensureClubCycleTables,
   getClubBox,
   listEligibleClubBooks,
+  resolveClubBoxForAdmin,
   setClubBoxPack,
   updateClubBoxByAdmin,
 } from "../../../lib/club-cycles";
@@ -22,7 +23,7 @@ import { markSeen } from "../../../lib/seen";
 import { flushOutbox } from "../../../lib/email";
 import { loadBooksByAnySlug, normalizePackState, parsePackState } from "../../../lib/orders";
 import { boxContentsComplete, packLinesForBox, packProgress } from "../../../lib/packing";
-import { buyDestinationLabel, destinationFromStored, getDestinationLabelQuote, pickupStateFor, requestPickup, shippoStatus } from "../../../lib/shippo";
+import { buyDestinationLabel, buyUspsLabelForDestination, destinationFromStored, getDestinationLabelQuote, pickupStateFor, requestPickup, shippoStatus } from "../../../lib/shippo";
 import { coverDerivative } from "../../../lib/derivatives";
 import { adminMediaUrl } from "../../../lib/media";
 
@@ -48,6 +49,9 @@ import { adminMediaUrl } from "../../../lib/media";
 //        for the box's one parcel to the member's club address.
 // POST { action: "buy_box_label", box_id, shipment_id, rate_id } ->
 //        buy the quoted label and store it on the box row.
+// POST { action: "buy_box_label_usps", box_id } -> one-click USPS
+//        label (quote and buy in one call; shipping is inside the
+//        club price, so there is no rate for the operator to pick).
 // POST { action: "schedule_pickup", box_id } -> Shippo pickup for the
 //        box's label (USPS Priority-class / DHL Express only).
 
@@ -139,12 +143,31 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const boxId = url.searchParams.get("box_id");
   if (boxId) {
     await ensureClubCycleTables(e.DB);
-    const box = await e.DB.prepare(
+    let box = await e.DB.prepare(
       `SELECT b.*, s.name AS member_name, s.email AS member_email
        FROM club_cycle_boxes b JOIN club_signups s ON s.id = b.signup_id
        WHERE b.id = ?`
     ).bind(boxId).first() as any;
     if (!box) return Response.json({ error: "box not found" }, { status: 404 });
+    // A Mystery box never waits on a human to pick its books (CG,
+    // 2026-11-05): fill any unresolved surprise slot on the spot,
+    // with the lock-time rules, before the payload is built. A
+    // resolver failure must never break the page, so it is logged
+    // and swallowed.
+    if (box.status === "awaiting_selection" || box.status === "needs_attention") {
+      try {
+        const fullMember = await e.DB.prepare(
+          "SELECT * FROM club_signups WHERE id = ?"
+        ).bind(String(box.signup_id)).first();
+        if (fullMember) {
+          const resolved = await resolveClubBoxForAdmin(e.DB, box, fullMember);
+          // getClubBox rows lack the member join fields above; keep them.
+          if (resolved) box = { ...resolved, member_name: box.member_name, member_email: box.member_email };
+        }
+      } catch (err) {
+        console.error("club box auto-resolve failed", boxId, err);
+      }
+    }
     const member = await e.DB.prepare(
       "SELECT id, name, email, ship_name, ship_address FROM club_signups WHERE id = ?"
     ).bind(String(box.signup_id)).first();
@@ -330,6 +353,32 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return Response.json({ ok: true });
   }
 
+  if (body.action === "buy_box_label_usps") {
+    await ensureClubCycleTables(e.DB);
+    const box = await getClubBox(e.DB, boxId);
+    if (!box) return Response.json({ error: "box not found" }, { status: 404 });
+    if (box.label_url) return Response.json({ error: "A label has already been bought for this box." }, { status: 400 });
+    const member = await e.DB.prepare(
+      "SELECT ship_name, ship_address FROM club_signups WHERE id = ?"
+    ).bind(String(box.signup_id)).first() as any;
+    const parsed = destinationFromStored(member?.ship_name, member?.ship_address);
+    if (!parsed.ok) {
+      return Response.json({ error: `This member's saved address is missing ${parsed.missing.join(", ")}. Fix the address before buying a label.` }, { status: 400 });
+    }
+    try {
+      // One parcel: the club book's gift set plus the second book.
+      const label = await buyUspsLabelForDestination(e, parsed.dest, [{ format: "giftset" }, { format: "printed" }]);
+      await e.DB.prepare(
+        `UPDATE club_cycle_boxes SET carrier = ?, carrier_service = ?, tracking_number = ?, label_url = ?,
+           label_cost_cents = ?, shippo_shipment_id = ?, shippo_transaction_id = ?, updated_at = ? WHERE id = ?`
+      ).bind(label.carrier, label.service, label.trackingNumber, label.labelUrl, label.amountCents, label.shipmentId, label.transactionId, Date.now(), boxId).run();
+      const updated = await getClubBox(e.DB, boxId);
+      return Response.json({ ok: true, label, box: updated });
+    } catch (err: any) {
+      return Response.json({ error: String(err?.message || "Label purchase failed.") }, { status: 400 });
+    }
+  }
+
   if (body.action === "box_label_quote" || body.action === "buy_box_label") {
     await ensureClubCycleTables(e.DB);
     const box = await getClubBox(e.DB, boxId);
@@ -396,8 +445,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return Response.json({ error: "Unknown action." }, { status: 400 });
   }
   // Ship gate (admin redesign S4): a box ships only with a purchased
-  // label and a fully ticked pack checklist, label confirmation
-  // included, mirroring the store-order gate in /api/admin/orders.
+  // label and a fully ticked pack checklist, mirroring the
+  // store-order gate in /api/admin/orders. (The old extra "label
+  // printed" tick went away in the 2026-11-05 fulfillment cleanup:
+  // buying the label is the step, printing it is not a checklist
+  // item of its own.)
   if (body.status === "shipped") {
     const box = await getClubBox(e.DB, boxId).catch(() => null);
     if (!box) return Response.json({ error: "box not found" }, { status: 404 });
@@ -413,9 +465,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
     ].filter(Boolean);
     const books = await loadBooksByAnySlug(e.DB, slotSlugs, "slug, title, cover_key, public_slug").catch(() => new Map());
     const progress = packProgress(packLinesForBox(box, books as Map<string, any>), parsePackState((box as any).pack_json));
-    if (!progress.labelPrinted) {
-      return Response.json({ error: "Tick \"Shipping label printed\" in the pack checklist first: the label has to be on the box before it ships." }, { status: 400 });
-    }
     if (!progress.complete) {
       return Response.json({ error: `Pack the box first: ${progress.done} of ${progress.total} items are ticked.` }, { status: 400 });
     }

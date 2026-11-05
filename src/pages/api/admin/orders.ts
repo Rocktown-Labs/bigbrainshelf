@@ -23,8 +23,10 @@ import { markSeen } from "../../../lib/seen";
 //      rate by the 2-day fulfillment rule (chooseRate) and returns
 //      it for the admin to confirm. Never purchases anything.
 // POST { action: "buy_label", order_id, shipment_id?, rate_id? }
-//      buys the quoted label (or a fresh rate picked by the 2-day
-//      fulfillment rule) and stores it on the order. It does NOT move
+//      buys the quoted label when rate ids are given; with none it
+//      takes the one-click path and buys the USPS rate outright
+//      (CG, 2026-11-05: the buyer already paid shipping at
+//      checkout). Stores the label on the order. It does NOT move
 //      the fulfillment stage (owner, 2026-10-29): the operator marks
 //      packed and shipped as physical reality happens, and the Mark
 //      shipped step fires the shipped email with the stored tracking.
@@ -260,9 +262,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const orderId = String(body?.order_id || "");
     const status = String(body?.status || "");
     // Ship gate (admin redesign S4): an order ships only with a
-    // purchased label and a fully ticked pack checklist, label
-    // confirmation included. Enforced here so every caller (detail
-    // page, list advance, kebab) gets the same plain refusal.
+    // purchased label and a fully ticked pack checklist. Enforced
+    // here so every caller (detail page, list advance, kebab) gets
+    // the same plain refusal. (The old extra "label printed" tick
+    // went away in the 2026-11-05 fulfillment cleanup.)
     if (status === "shipped") {
       await ensureOrderPackColumns(e.DB).catch(() => {});
       const row = await e.DB.prepare("SELECT id, items, book_slugs, label_url, pack_json FROM orders WHERE id = ?")
@@ -274,9 +277,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
       const pick = await orderPickList(e.DB, [row]).catch(() => new Map());
       const lines = packLinesForGroups(pick.get(row.id) || []);
       const progress = packProgress(lines, parsePackState(row.pack_json));
-      if (!progress.labelPrinted) {
-        return Response.json({ error: "Tick \"Shipping label printed\" in the pack checklist first: the label has to be on the box before it ships." }, { status: 400 });
-      }
       if (!progress.complete) {
         return Response.json({ error: `Pack the box first: ${progress.done} of ${progress.total} items are ticked.` }, { status: 400 });
       }

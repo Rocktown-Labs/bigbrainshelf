@@ -7,6 +7,8 @@ import {
   parcelForItems,
   pickRate,
   chooseRate,
+  chooseUspsRate,
+  transactionError,
   rateDays,
   shippoOrigin,
   shippoMissing,
@@ -131,6 +133,29 @@ const FULL_ENV = {
   // No USPS/UPS rates at all: nothing to buy.
   const none = chooseRate([rate("FedEx", "4.00", 1), rate("DHL", "3.00", 1)]);
   assert(none.rate === null && none.twoDay === false, "chooseRate: USPS/UPS only, empty pool yields null");
+}
+
+// --- One-click fulfillment rule (chooseUspsRate, CG 2026-11-05):
+// USPS only, cheapest rate that is not absurdly slow. -------------
+{
+  const pick = chooseUspsRate([rate("UPS", "5.00", 2), rate("USPS", "9.00", 3), rate("USPS", "7.50", 5), rate("FedEx", "3.00", 1)]);
+  assert(pick?.provider === "USPS" && pick?.amount === "7.50", "chooseUspsRate: cheapest timely USPS wins; UPS and FedEx never enter the pool");
+
+  const slow = chooseUspsRate([rate("USPS", "4.00", 14), rate("UPS", "6.00", 2)]);
+  assert(slow?.provider === "USPS" && slow?.amount === "4.00", "chooseUspsRate: when every USPS rate is slow, the cheapest slow USPS rate still wins over UPS");
+
+  const timely = chooseUspsRate([rate("USPS", "4.00", 14), rate("USPS", "9.00", 3)]);
+  assert(timely?.amount === "9.00", "chooseUspsRate: a timely USPS rate beats a cheaper absurdly slow one");
+
+  const none = chooseUspsRate([rate("UPS", "5.00", 2), rate("FedEx", "3.00", 1)]);
+  assert(none === null, "chooseUspsRate: no USPS rate at all yields null (the caller fails loudly)");
+
+  // Provider error cleanup: the carrier-registration wall becomes
+  // one clean sentence; other provider text passes through.
+  const wall = transactionError({ messages: [{ text: "The UPS account is not yet registered. Please register via webapp at https://apps.goshippo.com/settings/carriers by clicking on 'Activate Account' for UPS." }] });
+  assert(!/goshippo\.com/.test(wall) && /not active in Shippo/.test(wall), "transactionError: the registration wall is rewritten without the raw provider URL");
+  assert(transactionError({ messages: [{ text: "Address is invalid." }] }) === "Address is invalid.", "transactionError: ordinary provider text passes through");
+  assert(transactionError({}) === "Label purchase failed.", "transactionError: no provider message falls back to a plain failure line");
 }
 
 if (failures) { console.error(failures + " shippo test(s) failed"); process.exit(1); }

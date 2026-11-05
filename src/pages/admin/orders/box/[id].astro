@@ -5,11 +5,15 @@ export const prerender = false;
 // Club box fulfillment (admin redesign S4, 2026-11-03): a club box
 // is an order, so it is fulfilled in the SAME view shape as a store
 // order, opened from the Orders packing shelf (slice S2 removed
-// packing from /admin/club). Steps: pick the books (only when the
-// box's contents are not set yet, a Mystery box the member left to
-// us), print the label, pack the box, shipped, delivered. Data and
-// actions come from /api/admin/club (box_id GET + update_box /
-// set_pack / box_label_quote / buy_box_label / schedule_pickup).
+// packing from /admin/club). Steps follow the real workflow (CG,
+// 2026-11-05): make the books, pack the box, print the label, ship
+// it, delivered. A Mystery box assigns its own books when the page
+// loads (the API resolves surprise slots on read), so the pick step
+// is a review-and-change accordion, not a chore. The label step is
+// one click: buy_box_label_usps buys the USPS label outright,
+// because shipping is inside the club price. Data and actions come
+// from /api/admin/club (box_id GET + update_box / set_pack /
+// buy_box_label_usps / schedule_pickup).
 const boxId = String(Astro.params.id || "");
 ---
 <!doctype html>
@@ -43,6 +47,11 @@ const boxId = String(Astro.params.id || "");
     /* Pick step: a cover grid per slot; the chosen cover wears the
        orange ring. Tap saves that slot immediately. */
     .pickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px}
+    /* The accordion state for a settled pick. This rule must come
+       AFTER .pickgrid: the page's own display:grid used to beat
+       Tailwind's .hidden utility in the cascade, so both grids hung
+       open forever under their summaries (CG, 2026-11-05). */
+    .pickgrid.closed{display:none}
     .pickbook{border:2px solid #e7e5e4;border-radius:12px;padding:6px;background:#fff;cursor:pointer;text-align:left}
     .pickbook img,.pickbook .pick-nocover{display:block;width:100%;height:104px;object-fit:cover;border-radius:8px;background:#f5f5f4}
     .pickbook .pick-nocover{display:grid;place-items:center;color:#a8a29e;font-size:.65rem;font-weight:700}
@@ -70,7 +79,7 @@ const boxId = String(Astro.params.id || "");
   </main>
 
   <script is:inline define:vars={{ boxId }}>
-    var STEP_LABELS = ["Pick books", "Print label", "Pack the box", "Shipped", "Delivered"];
+    var STEP_LABELS = ["Make the books", "Pack the box", "Print label", "Ship it", "Delivered"];
     var STATUS_LABELS = {
       awaiting_selection: "Waiting for picks", needs_attention: "Needs a pick",
       locked: "Locked in", preparing: "Preparing", shipped: "Shipped",
@@ -97,16 +106,18 @@ const boxId = String(Astro.params.id || "");
       return { resp: resp, out: out };
     }
 
-    // Which of the five steps the box is on. Contents first, then
-    // the label, then the pack, then the carrier.
+    // Which of the five steps the box is on, in the order the work
+    // actually happens: books made (contents set), box packed,
+    // label printed, shipped, delivered.
     function stageIdxFor(data) {
       var b = data.box;
       if (b.status === "delivered") return 4;
       if (b.status === "shipped") return 3;
       if (!data.contents_complete) return 0;
-      if (b.status === "preparing") return 2;
-      if (!b.label_url) return 1;
-      return 2;
+      var prog = data.pack_progress || { complete: false };
+      if (!prog.complete) return 1;
+      if (!b.label_url) return 2;
+      return 3;
     }
 
     function pickHtml(data) {
@@ -127,10 +138,17 @@ const boxId = String(Astro.params.id || "");
         var msg = '<p class="text-[13px] text-stone-500 mt-1.5" data-pick-msg="' + slot + '" role="status"></p>';
         if (current) {
           var cur = bySlug[current];
+          var pickedLine = b.selection_source === "surprise"
+            ? "Mystery pick, assigned automatically."
+            : b.selection_source === "member"
+              ? "Picked by the member."
+              : b.selection_source === "admin"
+                ? "Picked in admin."
+                : "Picked for this box.";
           var summary = '<div class="picksum mt-2">' +
             (cur && cur.cover ? '<img src="' + esc(cur.cover) + '" alt="" loading="lazy">' : '<span class="pick-nocover">Big Brain Shelf</span>') +
             '<span class="min-w-0 flex-1"><span class="block text-sm font-bold leading-snug">' + esc(cur ? cur.title : current) + '</span>' +
-            '<span class="block text-[13px] text-stone-500">Picked for this box.</span></span>' +
+            '<span class="block text-[13px] text-stone-500">' + pickedLine + '</span></span>' +
             '<button type="button" class="pickbtn tap" data-change="' + slot + '">Change</button>' +
             '<button type="button" class="pickbtn danger tap" data-clear="' + slot + '">Clear</button></div>';
           var grid = books.map(function (bk) {
@@ -145,7 +163,7 @@ const boxId = String(Astro.params.id || "");
               '<span class="pick-title">' + esc(bk.title) + "</span></button>";
           }).join("");
           return head + summary +
-            '<div class="pickgrid mt-2 hidden" data-grid="' + slot + '">' + grid + "</div>" + msg + "</div>";
+            '<div class="pickgrid closed mt-2" data-grid="' + slot + '">' + grid + "</div>" + msg + "</div>";
         }
         var openGrid = books.map(function (bk) {
           if (bk.slug === other) {
@@ -163,8 +181,8 @@ const boxId = String(Astro.params.id || "");
             : '<p class="text-sm text-stone-400 mt-2">No books are eligible for club boxes right now.</p>') +
           msg + "</div>";
       }
-      return '<section class="card mt-4"><h2 class="font-bold">Pick the books</h2>' +
-        '<p class="text-sm text-stone-500 mt-1">Choose the club book (it ships as the gift set: storybook plus coloring book) and the second story book. Tapping a cover saves that slot. A pick can be changed or cleared until the box ships, and a box never carries the same book twice.</p>' +
+      return '<section class="card mt-4"><h2 class="font-bold">Make the books</h2>' +
+        '<p class="text-sm text-stone-500 mt-1">The club book ships as the gift set (storybook plus coloring book) and the second slot is another printed story book. A Mystery box assigns both books on its own; use Change only when you want a different book. Tapping a cover saves that slot, a pick can be changed or cleared until the box ships, and a box never carries the same book twice.</p>' +
         slotHtml(1, cur1, cur2, "Book 1: the club book", "Ships as the full gift set.") +
         slotHtml(2, cur2, cur1, "Book 2: the second story book", "A second printed storybook in the same box.") +
       "</section>";
@@ -183,7 +201,13 @@ const boxId = String(Astro.params.id || "");
       }
       if (!shippo.configured) return '<p class="text-sm text-stone-400 mt-2">Label buying is not set up yet (see the Shippo note on the orders page).</p>';
       if (!shippo.originConfigured) return '<p class="text-sm text-stone-400 mt-2">Ship-from address not configured yet (see the checklist on the orders page).</p>';
-      return '<div class="mt-3 flex flex-wrap items-center gap-2"><button id="quote-label" class="tap rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 min-h-[44px]">Get shipping rate</button><span id="quote-slot" class="inline-block align-middle"></span></div>';
+      // One click (CG, 2026-11-05): shipping is inside the club
+      // price, so there is no rate for the operator to pick. The
+      // button buys the USPS label outright and errors land inline.
+      return '<div class="mt-3">' +
+        '<button id="buy-label-usps" class="tap rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 min-h-[44px]">Print label (USPS)</button>' +
+        '<p class="text-[13px] text-stone-500 mt-1.5">Buys the USPS label for this box in one click. Shipping is inside the club price.</p>' +
+        '<p id="label-error" class="text-sm text-red-600 mt-1.5" role="alert"></p></div>';
     }
 
     function packHtml(data) {
@@ -191,19 +215,8 @@ const boxId = String(Astro.params.id || "");
       var b = data.box;
       var lines = data.pack_lines || [];
       var state = data.pack_state || {};
-      var prog = data.pack_progress || { done: 0, total: lines.length, complete: false, labelPrinted: false };
+      var prog = data.pack_progress || { done: 0, total: lines.length, complete: false };
       var locked = b.status === "shipped" || b.status === "delivered";
-      var total = prog.total + 1;
-      var doneCount = prog.done + (prog.labelPrinted ? 1 : 0);
-      var serviceLine = [b.carrier, b.carrier_service].filter(Boolean).join(" ");
-      var labelRow =
-        '<div class="packrow">' +
-          '<input type="checkbox" data-pack="__label" aria-label="Shipping label printed"' +
-            (prog.labelPrinted ? " checked" : "") + ((b.label_url && !locked) ? "" : " disabled") + ">" +
-          '<span class="pack-nocover">LBL</span>' +
-          '<span class="min-w-0 flex-1"><span class="block text-sm font-semibold leading-snug">Shipping label printed</span>' +
-          '<span class="block text-[13px] text-stone-500">' + (b.label_url ? esc(serviceLine || "Label bought") + ". Print it and put it on the box, then tick." : "Buy the label above first.") + "</span></span>" +
-        "</div>";
       var rows = lines.map(function (l) {
         return '<div class="packrow">' +
           '<input type="checkbox" data-pack="' + esc(l.key) + '" aria-label="Packed: ' + esc(l.label) + '"' +
@@ -216,8 +229,8 @@ const boxId = String(Astro.params.id || "");
       }).join("");
       return '<div class="mt-4 border-t border-stone-100 pt-3">' +
         '<h3 class="font-bold text-sm">Pack the box</h3>' +
-        '<p class="text-[13px] text-stone-500 mt-0.5">' + doneCount + " of " + total + " packed. Tick each item as it goes in; the ticks save themselves.</p>" +
-        '<div class="mt-1">' + labelRow + rows + "</div></div>";
+        '<p class="text-[13px] text-stone-500 mt-0.5">' + prog.done + " of " + prog.total + " packed. Tick each item as it goes in; the ticks save themselves.</p>" +
+        '<div class="mt-1">' + rows + "</div></div>";
     }
 
     function pickupHtml(data) {
@@ -250,7 +263,7 @@ const boxId = String(Astro.params.id || "");
         return '<div class="step' + (i <= stageIdx ? " on" : "") + '"><span class="l">' + s + "</span></div>";
       }).join("") + "</div>";
       // Ship gate, mirrored from the API: label bought + pack done.
-      var shipReady = Boolean(b.label_url && data.pack_progress && data.pack_progress.complete && data.pack_progress.labelPrinted);
+      var shipReady = Boolean(b.label_url && data.pack_progress && data.pack_progress.complete);
       var stageBtns = "";
       var shipHint = "";
       var btns = [];
@@ -274,8 +287,8 @@ const boxId = String(Astro.params.id || "");
         if (btns.some(function (x) { return x.gated; })) {
           shipHint = '<p class="text-[13px] text-stone-500 mt-2">' +
             (!b.label_url
-              ? "Mark shipped unlocks once the label is bought, printed, and the box is packed."
-              : "Mark shipped unlocks when the label is printed and every pack line below is ticked.") +
+              ? "Mark shipped unlocks once the box is packed and the USPS label is bought."
+              : "Mark shipped unlocks once every pack line above is ticked.") +
             "</p>";
         }
       }
@@ -300,8 +313,8 @@ const boxId = String(Astro.params.id || "");
         pickHtml(data) +
 
         '<section class="card mt-4" id="label"><h2 class="font-bold">Fulfillment</h2>' + steps + stageBtns + shipHint +
-          labelHtml(data) +
           packHtml(data) +
+          '<div class="mt-4 border-t border-stone-100 pt-3"><h3 class="font-bold text-sm">Print the label</h3>' + labelHtml(data) + "</div>" +
           pickupHtml(data) +
         "</section>";
 
@@ -310,7 +323,7 @@ const boxId = String(Astro.params.id || "");
       root.querySelectorAll("[data-change]").forEach(function (btn) {
         btn.addEventListener("click", function () {
           var grid = root.querySelector('[data-grid="' + btn.getAttribute("data-change") + '"]');
-          if (grid) grid.classList.toggle("hidden");
+          if (grid) grid.classList.toggle("closed");
         });
       });
       root.querySelectorAll("[data-clear]").forEach(function (btn) {
@@ -379,40 +392,20 @@ const boxId = String(Astro.params.id || "");
         }
         load();
       });
-      var qBtn = document.getElementById("quote-label");
-      if (qBtn) qBtn.addEventListener("click", async function () {
-        var slot = document.getElementById("quote-slot");
-        qBtn.disabled = true;
-        qBtn.textContent = "Getting rate...";
-        var res = await post({ action: "box_label_quote", box_id: b.id });
-        if (!res.resp.ok || !res.out.ok || !res.out.quote) {
-          qBtn.disabled = false;
-          qBtn.textContent = "Get shipping rate";
-          alert(res.out.error || "Could not get rates for this box.");
+      var buyBtn = document.getElementById("buy-label-usps");
+      if (buyBtn) buyBtn.addEventListener("click", async function () {
+        var errEl = document.getElementById("label-error");
+        buyBtn.disabled = true;
+        buyBtn.textContent = "Buying label...";
+        if (errEl) errEl.textContent = "";
+        var res = await post({ action: "buy_box_label_usps", box_id: b.id });
+        if (!res.resp.ok || !res.out.ok) {
+          buyBtn.disabled = false;
+          buyBtn.textContent = "Print label (USPS)";
+          if (errEl) errEl.textContent = res.out.error || "Label purchase failed.";
           return;
         }
-        var q = res.out.quote;
-        qBtn.classList.add("hidden");
-        slot.innerHTML = '<span class="text-sm text-stone-600">' +
-          esc(q.carrier) + " " + esc(q.service) + " · $" + Number(q.amount).toFixed(2) +
-          (q.estimatedDays != null ? " · about " + q.estimatedDays + " days" : "") +
-          (q.twoDay === false ? '<span class="block text-sm text-amber-700 font-medium">No 2-day rate for this address; using the cheapest USPS/UPS option.</span>' : "") +
-          '</span> <span class="inline-flex flex-wrap gap-2 mt-2"><button id="confirm-label" class="tap rounded-lg bg-orange-600 text-white text-sm font-bold px-4 min-h-[44px]">Buy this label</button>' +
-          ' <button id="cancel-label" class="tap rounded-lg border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">Cancel</button></span>';
-        document.getElementById("cancel-label").addEventListener("click", function () { load(); });
-        document.getElementById("confirm-label").addEventListener("click", async function () {
-          var btn = document.getElementById("confirm-label");
-          btn.disabled = true;
-          btn.textContent = "Buying label...";
-          var res2 = await post({ action: "buy_box_label", box_id: b.id, shipment_id: q.shipmentId, rate_id: q.rateId });
-          if (!res2.resp.ok || !res2.out.ok) {
-            btn.disabled = false;
-            btn.textContent = "Buy this label";
-            alert(res2.out.error || "Label purchase failed.");
-            return;
-          }
-          load();
-        });
+        load();
       });
     }
     load();

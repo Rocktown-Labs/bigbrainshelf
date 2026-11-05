@@ -141,8 +141,9 @@ const orderId = String(Astro.params.id || "");
       return a;
     }
     // The label block: an existing label (PDF link, carrier, tracking,
-    // cost vs what the buyer was charged) or the rate/buy flow when
-    // Shippo is ready. Mirrors the pre-redesign list behavior exactly.
+    // cost vs what the buyer was charged) or, when Shippo is ready,
+    // the one-click USPS buy (2026-11-05: the buyer already paid
+    // shipping at checkout, so there is no rate step).
     function labelHtml(o, shippo) {
       if (!o.physical_status || o.status !== "complete") return "";
       var quotedLine = "";
@@ -171,48 +172,30 @@ const orderId = String(Astro.params.id || "");
       if (!shippo || !shippo.configured) return quotedLine + '<p class="text-sm text-stone-400 mt-2">Label buying is not set up yet (see the Shippo note on the orders page).</p>';
       if (!shippo.originConfigured) return quotedLine + '<p class="text-sm text-stone-400 mt-2">Ship-from address not configured yet (see the checklist on the orders page).</p>';
       if (!o.ship_address) return quotedLine + '<p class="text-sm text-stone-400 mt-2">No shipping address on this order.</p>';
-      // The checkout rate is the primary path (admin redesign fix,
-      // 2026-11-03): checkout already quoted this parcel and charged
-      // the buyer, so step 1 is buying THAT label, not a fresh quote.
-      // The quote flow below stays as the fallback for orders with no
-      // stored rate; when a stored-rate purchase fails as expired the
-      // API clears the stored rate and this page reloads into it.
-      if (o.shippo_rate_id) {
-        var via = [o.quoted_carrier, o.quoted_service].filter(Boolean).join(" ");
-        return quotedLine +
-          '<div class="mt-3 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3">' +
-            '<p class="text-sm font-bold">Checkout rate' + (via ? ": " + esc(via) : "") + "</p>" +
-            '<p class="text-[13px] text-stone-500 mt-0.5">Quoted at checkout and already charged to the buyer. Buy this exact label first; the printed-label step follows.</p>' +
-            '<button id="buy-stored-label" class="tap mt-2.5 rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 min-h-[44px]">Buy label at the checkout rate</button>' +
-            '<span id="stored-buy-msg" class="block text-[13px] text-stone-500 mt-1.5" role="status"></span>' +
-          "</div>" +
-          '<div class="mt-3 flex flex-wrap items-center gap-2"><button id="quote-label" class="tap rounded-lg border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">Get a fresh rate instead</button><span id="quote-slot" class="inline-block align-middle"></span></div>';
-      }
-      return quotedLine + '<div class="mt-3 flex flex-wrap items-center gap-2"><button id="quote-label" class="tap rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 min-h-[44px]">Get shipping rate</button><span id="quote-slot" class="inline-block align-middle"></span></div>';
+      // One click (CG, 2026-11-05): the buyer already paid shipping
+      // at checkout (the line above), so there is no rate for the
+      // operator to pick. The button buys the USPS label outright
+      // through the API's no-quote path; errors land inline.
+      return quotedLine +
+        '<div class="mt-3">' +
+          '<button id="buy-label-usps" class="tap rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 min-h-[44px]">Print label (USPS)</button>' +
+          '<p class="text-[13px] text-stone-500 mt-1.5">Buys the USPS label for this order in one click.</p>' +
+          '<p id="label-error" class="text-sm text-red-600 mt-1.5" role="alert"></p>' +
+        "</div>";
     }
 
-    // The pack checklist (S4): the label line first (its tick is the
-    // "label printed and on the box" confirmation, enabled only once
-    // a label actually exists), then one row per physical piece with
+    // The pack checklist (S4): one row per physical piece with
     // cover, book code, and quantity. Ticks save to the order row on
     // every change; a shipped or delivered order's list is read-only.
+    // (The old "shipping label printed" row went away in the
+    // 2026-11-05 fulfillment cleanup: the label is its own step
+    // below the checklist now, not a pack line.)
     function packHtml(o) {
       var lines = o.pack_lines || [];
       if (!lines.length) return "";
       var state = o.pack_state || {};
-      var prog = o.pack_progress || { done: 0, total: lines.length, complete: false, labelPrinted: false };
+      var prog = o.pack_progress || { done: 0, total: lines.length, complete: false };
       var locked = o.physical_status === "shipped" || o.physical_status === "delivered";
-      var total = prog.total + 1;
-      var doneCount = prog.done + (prog.labelPrinted ? 1 : 0);
-      var serviceLine = [o.carrier, o.carrier_service].filter(Boolean).join(" ");
-      var labelRow =
-        '<div class="packrow">' +
-          '<input type="checkbox" data-pack="__label" aria-label="Shipping label printed"' +
-            (prog.labelPrinted ? " checked" : "") + ((o.label_url && !locked) ? "" : " disabled") + ">" +
-          '<span class="pack-nocover">LBL</span>' +
-          '<span class="min-w-0 flex-1"><span class="block text-sm font-semibold leading-snug">Shipping label printed</span>' +
-          '<span class="block text-[13px] text-stone-500">' + (o.label_url ? esc(serviceLine || "Label bought") + ". Print it and put it on the box, then tick." : "Buy the label above first.") + "</span></span>" +
-        "</div>";
       var rows = lines.map(function (l) {
         return '<div class="packrow">' +
           '<input type="checkbox" data-pack="' + esc(l.key) + '" aria-label="Packed: ' + esc(l.label) + '"' +
@@ -226,8 +209,8 @@ const orderId = String(Astro.params.id || "");
       }).join("");
       return '<div class="mt-4 border-t border-stone-100 pt-3">' +
         '<h3 class="font-bold text-sm">Pack the box</h3>' +
-        '<p class="text-[13px] text-stone-500 mt-0.5">' + doneCount + " of " + total + " packed. Tick each item as it goes in; the ticks save themselves.</p>" +
-        '<div class="mt-1">' + labelRow + rows + "</div></div>";
+        '<p class="text-[13px] text-stone-500 mt-0.5">' + prog.done + " of " + prog.total + " packed. Tick each item as it goes in; the ticks save themselves.</p>" +
+        '<div class="mt-1">' + rows + "</div></div>";
     }
     // Pickup (S4): the button renders ONLY for labels Shippo pickups
     // cover (USPS Priority-class or DHL Express; the API computes
@@ -357,7 +340,7 @@ const orderId = String(Astro.params.id || "");
       // Mark shipped is locked until the ship gate passes: a
       // purchased label AND a fully ticked pack checklist (the API
       // enforces the same gate; the button state just says it first).
-      var shipReady = Boolean(o.label_url && o.pack_progress && o.pack_progress.complete && o.pack_progress.labelPrinted);
+      var shipReady = Boolean(o.label_url && o.pack_progress && o.pack_progress.complete);
       var stageBtns = "";
       var shipHint = "";
       if (o.physical_status) {
@@ -370,8 +353,8 @@ const orderId = String(Astro.params.id || "");
           if (fwd.indexOf("shipped") >= 0 && !shipReady) {
             shipHint = '<p class="text-[13px] text-stone-500 mt-2">' +
               (!o.label_url
-                ? "Mark shipped unlocks once the label is bought, printed, and the box is packed."
-                : "Mark shipped unlocks when the label is printed and every pack line below is ticked.") +
+                ? "Mark shipped unlocks once the box is packed and the USPS label is bought."
+                : "Mark shipped unlocks once every pack line above is ticked.") +
               "</p>";
           }
         }
@@ -419,8 +402,8 @@ const orderId = String(Astro.params.id || "");
           '<section class="card mt-4" id="label"><h2 class="font-bold">Fulfillment</h2>' + steps + stageBtns + shipHint +
             (o.tracking_status ? '<p class="text-sm text-stone-600 mt-2">Carrier status: ' + esc(o.tracking_status) + "</p>" : "") +
             (o.tracking_number && !o.label_url ? '<p class="text-sm text-stone-600 mt-2">Tracking: <span class="font-mono text-[13px]">' + esc(([o.carrier, o.carrier_service].filter(Boolean).join(" ") + " " + o.tracking_number).trim()) + "</span></p>" : "") +
-            labelHtml(o, shippo) +
             packHtml(o) +
+            '<div class="mt-4 border-t border-stone-100 pt-3"><h3 class="font-bold text-sm">Print the label</h3>' + labelHtml(o, shippo) + "</div>" +
             pickupHtml(o) +
           "</section>" :
           '<section class="card mt-4"><h2 class="font-bold">Fulfillment</h2>' +
@@ -529,71 +512,27 @@ const orderId = String(Astro.params.id || "");
         }
         load();
       });
-      var storedBtn = document.getElementById("buy-stored-label");
-      if (storedBtn) storedBtn.addEventListener("click", async function () {
-        var msg = document.getElementById("stored-buy-msg");
-        storedBtn.disabled = true;
-        storedBtn.textContent = "Buying label...";
+      // One-click USPS label: no rate ids are sent, so the API
+      // takes its fresh-shipment path and buys the USPS rate.
+      var buyBtn = document.getElementById("buy-label-usps");
+      if (buyBtn) buyBtn.addEventListener("click", async function () {
+        var errEl = document.getElementById("label-error");
+        buyBtn.disabled = true;
+        buyBtn.textContent = "Buying label...";
+        if (errEl) errEl.textContent = "";
         var resp = await fetch("/api/admin/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "buy_label", order_id: o.id, shipment_id: o.shippo_shipment_id || "", rate_id: o.shippo_rate_id }),
+          body: JSON.stringify({ action: "buy_label", order_id: o.id }),
         });
         var out = await resp.json().catch(function () { return {}; });
         if (!resp.ok || !out.ok) {
-          // An expired stored rate is cleared by the API on this
-          // failure; reloading repaints into the fresh-quote fallback.
-          if (msg) msg.textContent = (out.error || "Label purchase failed.") + " Reloading...";
-          setTimeout(load, 900);
+          buyBtn.disabled = false;
+          buyBtn.textContent = "Print label (USPS)";
+          if (errEl) errEl.textContent = out.error || "Label purchase failed.";
           return;
         }
         load();
-      });
-      var qBtn = document.getElementById("quote-label");
-      if (qBtn) qBtn.addEventListener("click", async function () {
-        var slot = document.getElementById("quote-slot");
-        qBtn.disabled = true;
-        qBtn.textContent = "Getting rate...";
-        var resp = await fetch("/api/admin/orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "label_quote", order_id: o.id }),
-        });
-        var out = await resp.json().catch(function () { return {}; });
-        if (!resp.ok || !out.ok || !out.quote) {
-          qBtn.textContent = "Get shipping rate";
-          qBtn.disabled = false;
-          alert(out.error || "Could not get rates for this order.");
-          return;
-        }
-        var q = out.quote;
-        qBtn.classList.add("hidden");
-        slot.innerHTML = '<span class="text-sm text-stone-600">' +
-          esc(q.carrier) + " " + esc(q.service) + " · $" + Number(q.amount).toFixed(2) +
-          (q.estimatedDays != null ? " · about " + q.estimatedDays + " days" : "") +
-          (q.stored ? " · the rate quoted at checkout" : "") +
-          (q.twoDay === false ? '<span class="block text-sm text-amber-700 font-medium">No 2-day rate for this address; using the cheapest USPS/UPS option.</span>' : "") +
-          '</span> <span class="inline-flex flex-wrap gap-2 mt-2"><button id="confirm-label" class="tap rounded-lg bg-orange-600 text-white text-sm font-bold px-4 min-h-[44px]">Buy this label</button>' +
-          ' <button id="cancel-label" class="tap rounded-lg border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">Cancel</button></span>';
-        document.getElementById("cancel-label").addEventListener("click", function () { load(); });
-        document.getElementById("confirm-label").addEventListener("click", async function () {
-          var btn = document.getElementById("confirm-label");
-          btn.disabled = true;
-          btn.textContent = "Buying label...";
-          var resp2 = await fetch("/api/admin/orders", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "buy_label", order_id: o.id, shipment_id: q.shipmentId, rate_id: q.rateId }),
-          });
-          var out2 = await resp2.json().catch(function () { return {}; });
-          if (!resp2.ok || !out2.ok) {
-            btn.disabled = false;
-            btn.textContent = "Buy this label";
-            alert(out2.error || "Label purchase failed.");
-            return;
-          }
-          load();
-        });
       });
     }
     load();

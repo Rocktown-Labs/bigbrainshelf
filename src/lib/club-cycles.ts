@@ -220,6 +220,37 @@ export async function getOwnedBookSlugs(db: DBLike, member: any): Promise<Set<st
   return owned;
 }
 
+// Physical ownership (CG, 2026-11-05): for box resolution, a book
+// counts as owned only when the member physically has it, meaning a
+// completed order that included it in a printed or gift set format.
+// A digital or audio copy does NOT take the book out of the box
+// pool: "if a customer doesn't physically own a book, it's
+// available to be sent to them."
+export async function getPhysicallyOwnedBookSlugs(db: DBLike, member: any): Promise<Set<string>> {
+  const owned = new Set<string>();
+  const userId = member?.user_id ? String(member.user_id) : "";
+  const email = String(member?.email || "").trim().toLowerCase();
+  const { results } = await db
+    .prepare(
+      "SELECT items FROM orders WHERE status = 'complete' AND (user_id = ? OR email = ?) ORDER BY created_at ASC"
+    )
+    .bind(userId, email)
+    .all();
+  for (const row of (results || []) as any[]) {
+    let items: any[] = [];
+    try {
+      const parsed = JSON.parse(row.items || "[]");
+      if (Array.isArray(parsed)) items = parsed;
+    } catch { /* unparseable items carry no physical books */ }
+    for (const it of items) {
+      if (it && (it.format === "printed" || it.format === "giftset") && it.slug) {
+        owned.add(String(it.slug));
+      }
+    }
+  }
+  return owned;
+}
+
 // Books already committed to this member by another club box: a title
 // picked for a future box, locked, being prepared, shipped, or
 // delivered must never be surprise-picked (or silently re-picked) for
@@ -545,8 +576,10 @@ export async function saveClubSelection(
 // Resolve one awaiting box at its lock (Option A: TWO title slots).
 // Slot 1 is the club book (ships as the gift set); slot 2 is the
 // second printed storybook from the back catalog. An explicit pick
-// locks in; a surprise resolves to an unowned, never-sent title, with
-// slot 2 additionally excluding whatever slot 1 took, so a box never
+// locks in; a surprise resolves to a title the member does not
+// PHYSICALLY own (CG, 2026-11-05: a digital or audio copy leaves the
+// book available to send) and has not already been sent, with slot 2
+// additionally excluding whatever slot 1 took, so a box never
 // carries the same book twice. The box locks only when BOTH slots are
 // filled; if either slot has nothing new to take, the box goes to
 // needs_attention (keeping whichever slot did resolve) rather than
@@ -563,7 +596,7 @@ export async function resolveClubBoxAtLock(
   const ts = nowSeconds();
   const eligible = await listEligibleClubBooks(db);
   const excluded = new Set<string>([
-    ...(await getOwnedBookSlugs(db, member)),
+    ...(await getPhysicallyOwnedBookSlugs(db, member)),
     ...(await getPriorClubBookSlugs(db, String(member.id), String(box.id))),
   ]);
   const surprise = (): string | null => {
@@ -579,6 +612,62 @@ export async function resolveClubBoxAtLock(
       `UPDATE club_cycle_boxes SET resolved_book_slug = ?, second_resolved_book_slug = ?,
          status = ?, locked_at = ?, updated_at = ?
        WHERE id = ? AND status = 'awaiting_selection'`
+    )
+    .bind(first, second, complete ? "locked" : "needs_attention", complete ? ts : box.locked_at, ts, box.id)
+    .run();
+  return getClubBox(db, box.id);
+}
+
+// Admin-side surprise resolution (CG, 2026-11-05): a Mystery box
+// never sits in the admin waiting for a human to pick its books.
+// The box page calls this when it loads a box that still has an
+// unresolved surprise slot, and the slot is filled on the spot with
+// the lock-time rules (physical ownership + prior box commitments
+// excluded). An awaiting box goes through the full lock resolution;
+// a needs_attention box gets only its still-open slots filled
+// (member picks are never touched), and locks when both slots end
+// up filled. Returns the freshest box row either way.
+export async function resolveClubBoxForAdmin(
+  db: DBLike,
+  box: any,
+  member: any,
+  rng: () => number = Math.random
+): Promise<any> {
+  if (!box) return box;
+  if (box.status === "awaiting_selection") {
+    return resolveClubBoxAtLock(db, box, member, rng);
+  }
+  if (box.status !== "needs_attention") return box;
+  const slot1Open = !box.selected_book_slug && !box.resolved_book_slug;
+  const slot2Open = !box.second_selected_book_slug && !box.second_resolved_book_slug;
+  if (!slot1Open && !slot2Open) return box;
+  const eligible = await listEligibleClubBooks(db);
+  const excluded = new Set<string>([
+    ...(await getPhysicallyOwnedBookSlugs(db, member)),
+    ...(await getPriorClubBookSlugs(db, String(box.signup_id), String(box.id))),
+  ]);
+  let first = box.resolved_book_slug ? String(box.resolved_book_slug) : null;
+  let second = box.second_resolved_book_slug ? String(box.second_resolved_book_slug) : null;
+  if (slot1Open) {
+    const pick = chooseSurpriseBook(eligible, excluded, rng);
+    if (pick) first = String(pick.slug);
+  }
+  const slot1Final = box.selected_book_slug ? String(box.selected_book_slug) : first;
+  if (slot1Final) excluded.add(slot1Final);
+  if (slot2Open) {
+    const pick = chooseSurpriseBook(eligible, excluded, rng);
+    if (pick) second = String(pick.slug);
+  }
+  if (first === (box.resolved_book_slug || null) && second === (box.second_resolved_book_slug || null)) {
+    return box;
+  }
+  const complete = !!slot1Final && !!(box.second_selected_book_slug || second);
+  const ts = nowSeconds();
+  await db
+    .prepare(
+      `UPDATE club_cycle_boxes SET resolved_book_slug = ?, second_resolved_book_slug = ?,
+         status = ?, locked_at = ?, updated_at = ?
+       WHERE id = ? AND status = 'needs_attention'`
     )
     .bind(first, second, complete ? "locked" : "needs_attention", complete ? ts : box.locked_at, ts, box.id)
     .run();
