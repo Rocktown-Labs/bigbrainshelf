@@ -52,7 +52,7 @@ for (const action of ["set_physical_status", "label_quote", "buy_label", "retry_
   assert(ordersApi.includes(action), `orders API action survives: ${action}`);
 }
 const orderDetail = read("../src/pages/admin/orders/[id].astro");
-for (const marker of ["Buyer", "Fulfillment", "Emails for this order", "Get shipping rate", "Buy this label"]) {
+for (const marker of ["Buyer", "Fulfillment", "Emails for this order", "Print label (USPS)", "Pack the box"]) {
   assert(orderDetail.includes(marker), `order detail carries: ${marker}`);
 }
 assert(orderDetail.includes("set_physical_status"), "order detail keeps the fulfillment advance action");

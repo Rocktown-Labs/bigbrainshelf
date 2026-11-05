@@ -10,7 +10,9 @@ import {
   ensureClubCycleTables,
   generateUpcomingCyclesForMember,
   getClubBoxForCycle,
+  getPhysicallyOwnedBookSlugs,
   listEligibleClubBooks,
+  resolveClubBoxForAdmin,
   saveClubSelection,
   saveClubSecondSelection,
   updateClubBoxByAdmin,
@@ -97,6 +99,18 @@ function insertOrder(userId: string, email: string, slugs: string[]) {
   raw.query(
     "INSERT INTO orders (id, user_id, email, book_slugs, stripe_session_id, amount, status, created_at, items) VALUES (?, ?, ?, ?, ?, 100, 'complete', ?, '[]')"
   ).run(`order-${seq}`, userId, email, JSON.stringify(slugs), `cs_${seq}`, 1700000000 + seq);
+}
+// An order whose items are physical (printed): the member actually
+// has these books on a shelf, which is what box resolution excludes
+// on (CG, 2026-11-05). insertOrder above writes no items, so its
+// books are owned in the any-format sense only (the member-facing
+// repeat-pick guard), never physically.
+function insertPhysicalOrder(userId: string, email: string, slugs: string[]) {
+  seq += 1;
+  const items = JSON.stringify(slugs.map((slug) => ({ slug, format: "printed", qty: 1 })));
+  raw.query(
+    "INSERT INTO orders (id, user_id, email, book_slugs, stripe_session_id, amount, status, created_at, items) VALUES (?, ?, ?, ?, ?, 100, 'complete', ?, ?)"
+  ).run(`order-${seq}`, userId, email, JSON.stringify(slugs), `cs_${seq}`, 1700000000 + seq, items);
 }
 // Boxes are minted by the live scheduler on real dates; scenarios run
 // on fake dates, so a scenario's boxes get their created_at pinned to
@@ -189,9 +203,9 @@ assert(!lockedSave.ok, "a locked box refuses selection changes");
 const m2Box = await getClubBoxForCycle(db, m2.id, "2026-10-28");
 assert(m2Box.status === "locked" && m2Box.resolved_book_slug === "beta" && outboxCountForBox(m2Box.id, "club_cycle_reminder_14") === 0, "an explicit pick locks in and is never reminded");
 
-// --- Surprise exclusion: owned plus prior club boxes
+// --- Surprise exclusion: physically owned plus prior club boxes
 const m4 = insertMember("m4@example.com", { anchor: "2026-07-28" });
-insertOrder(m4.user_id, m4.email, ["alpha"]);
+insertPhysicalOrder(m4.user_id, m4.email, ["alpha"]);
 raw.query(
   `INSERT INTO club_cycle_boxes (id, signup_id, ship_date, selected_book_slug, resolved_book_slug, selection_source, allow_repeat, status, created_at, updated_at)
    VALUES ('m4-prior', ?, '2026-07-28', NULL, 'beta', 'surprise', 0, 'shipped', 1, 1)`
@@ -200,12 +214,12 @@ await generateUpcomingCyclesForMember(db, m4, "2026-10-28");
 pinBoxCreation(m4.id, "2026-10-28");
 await runClubCycleScheduler(db, { site: SITE, now: at("2026-11-03"), rng: () => 0 });
 const m4Box = await getClubBoxForCycle(db, m4.id, "2026-10-28");
-assert(m4Box.status === "locked" && m4Box.resolved_book_slug === "gamma", "surprise skips owned books and prior club books");
-assert(m4Box.second_resolved_book_slug === "harbor", "slot 2 surprise excludes owned, prior boxes, and slot 1's pick");
+assert(m4Box.status === "locked" && m4Box.resolved_book_slug === "gamma", "surprise skips physically owned books and prior club books");
+assert(m4Box.second_resolved_book_slug === "harbor", "slot 2 surprise excludes physical ownership, prior boxes, and slot 1's pick");
 
-// --- No unowned book: needs_attention, email, explicit repeat resolves
+// --- No physically unowned book: needs_attention, email, explicit repeat resolves
 const m5 = insertMember("m5@example.com");
-insertOrder(m5.user_id, m5.email, ["alpha", "beta", "gamma", "harbor", "island"]);
+insertPhysicalOrder(m5.user_id, m5.email, ["alpha", "beta", "gamma", "harbor", "island"]);
 await generateUpcomingCyclesForMember(db, m5, "2026-10-28");
 pinBoxCreation(m5.id, "2026-10-28");
 await runClubCycleScheduler(db, { site: SITE, now: at("2026-11-03"), rng: () => 0 });
@@ -339,6 +353,47 @@ const summary = await runScheduledWork(db, deadTransport, { now: at("2027-01-14"
 assert(typeof summary.flushedBefore.attempted === "number" && typeof summary.flushedAfter.attempted === "number", "scheduled work reports its outbox flushes");
 const m9Box2 = await getClubBoxForCycle(db, m9.id, "2027-01-28");
 assert(!!m9Box2 && outboxCountForBox(m9Box2.id, "club_cycle_reminder_14") === 1, "scheduled work generates cycles and enqueues reminders");
+
+// --- Physical ownership rule (CG, 2026-11-05): a digital or audio
+// copy does NOT take a book out of the box pool; only a printed or
+// gift set copy does.
+const m13 = insertMember("m13@example.com");
+{
+  seq += 1;
+  const items = JSON.stringify([
+    { slug: "alpha", format: "digital", qty: 1 },
+    { slug: "beta", format: "printed", qty: 1 },
+    { slug: "gamma", format: "giftset", qty: 1 },
+    { slug: "harbor", format: "audio", qty: 1 },
+  ]);
+  raw.query(
+    "INSERT INTO orders (id, user_id, email, book_slugs, stripe_session_id, amount, status, created_at, items) VALUES (?, ?, ?, ?, ?, 100, 'complete', ?, ?)"
+  ).run(`order-${seq}`, m13.user_id, m13.email, JSON.stringify(["alpha", "beta", "gamma", "harbor"]), `cs_${seq}`, 1700000000 + seq, items);
+}
+const physical13 = await getPhysicallyOwnedBookSlugs(db, m13);
+assert(physical13.has("beta") && physical13.has("gamma") && physical13.size === 2, "physical ownership counts printed and gift set copies only, never digital or audio");
+await generateUpcomingCyclesForMember(db, m13, "2026-10-28");
+pinBoxCreation(m13.id, "2026-10-28");
+await runClubCycleScheduler(db, { site: SITE, now: at("2026-11-03"), rng: () => 0 });
+const m13Box = await getClubBoxForCycle(db, m13.id, "2026-10-28");
+assert(m13Box.status === "locked" && m13Box.resolved_book_slug === "alpha", "a digitally owned book is still available to send: surprise picks it");
+assert(m13Box.second_resolved_book_slug === "harbor", "an audio-owned book is available too: slot 2 takes it after the physical copies are excluded");
+
+// --- Admin auto-resolve (CG, 2026-11-05): a Mystery box fills
+// itself when the admin opens it; member picks are never touched.
+const m14 = insertMember("m14@example.com");
+raw.query(
+  `INSERT INTO club_cycle_boxes (id, signup_id, ship_date, selected_book_slug, resolved_book_slug, second_selected_book_slug, second_resolved_book_slug, selection_source, allow_repeat, status, created_at, updated_at)
+   VALUES ('m14-box', ?, '2026-10-28', NULL, NULL, NULL, NULL, 'surprise', 0, 'needs_attention', 1, 1)`
+).run(m14.id);
+const m14Resolved = await resolveClubBoxForAdmin(db, { id: "m14-box", signup_id: m14.id, status: "needs_attention", selected_book_slug: null, resolved_book_slug: null, second_selected_book_slug: null, second_resolved_book_slug: null, locked_at: null }, m14, () => 0);
+assert(m14Resolved.status === "locked" && m14Resolved.resolved_book_slug === "alpha" && m14Resolved.second_resolved_book_slug === "beta", "admin resolve fills both open mystery slots and locks the box");
+raw.query(
+  `INSERT INTO club_cycle_boxes (id, signup_id, ship_date, selected_book_slug, resolved_book_slug, second_selected_book_slug, second_resolved_book_slug, selection_source, allow_repeat, status, created_at, updated_at)
+   VALUES ('m14-box2', ?, '2027-01-28', 'gamma', 'gamma', NULL, NULL, 'member', 0, 'needs_attention', 1, 1)`
+).run(m14.id);
+const m14Partial = await resolveClubBoxForAdmin(db, { id: "m14-box2", signup_id: m14.id, status: "needs_attention", selected_book_slug: "gamma", resolved_book_slug: "gamma", second_selected_book_slug: null, second_resolved_book_slug: null, locked_at: null }, m14, () => 0);
+assert(m14Partial.status === "locked" && m14Partial.resolved_book_slug === "gamma" && m14Partial.second_resolved_book_slug === "harbor", "admin resolve fills only the open slot, keeps the member pick, and excludes titles committed to the member's other box");
 
 console.log(failures === 0 ? "\nALL CLUB CYCLE TESTS PASSED" : `\n${failures} FAILURES`);
 process.exit(failures ? 1 : 0);

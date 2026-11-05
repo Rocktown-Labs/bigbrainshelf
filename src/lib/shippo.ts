@@ -197,6 +197,41 @@ export function chooseRate(rates: ShippoRate[]): { rate: ShippoRate | null; twoD
   return { rate: [...carriers].sort(byPrice)[0], twoDay: false };
 }
 
+// The one-click fulfillment rule (CG, 2026-11-05): fulfillment
+// labels are USPS, bought without a rate decision. The customer
+// already paid shipping at checkout (or it is inside the club
+// price), so there is nothing to shop for: take the cheapest USPS
+// rate that is not absurdly slow, with the full USPS pool as the
+// fallback when every USPS rate is slow. No USPS rate at all returns
+// null and the caller fails loudly, rather than silently buying
+// another carrier (the Shippo UPS account is not registered, which
+// is exactly how the old quote-then-buy flow died).
+export function chooseUspsRate(rates: ShippoRate[]): ShippoRate | null {
+  const usps = rates.filter((r) => String(r.provider || "") === "USPS");
+  if (!usps.length) return null;
+  const timely = usps.filter((r) => {
+    const d = rateDays(r);
+    return d == null || d <= MAX_SENSIBLE_RATE_DAYS;
+  });
+  const pool = timely.length ? timely : usps;
+  return [...pool].sort((a, b) => Number(a.amount) - Number(b.amount))[0];
+}
+
+// A failed Shippo transaction's operator-facing message. Provider
+// text is passed through except the carrier-registration wall,
+// which names Shippo's web settings in a raw URL; that class of
+// failure gets one clean sentence instead.
+export function transactionError(tx: any): string {
+  const raw =
+    Array.isArray(tx?.messages) && tx.messages.length
+      ? String(tx.messages[0]?.text || "")
+      : "";
+  if (/not yet registered|activate account/i.test(raw)) {
+    return "The carrier account for this label is not active in Shippo yet. Activate it in Shippo's carrier settings, then try again.";
+  }
+  return raw || "Label purchase failed.";
+}
+
 function parseShipAddress(order: any): any | null {
   try {
     const a = JSON.parse(order?.ship_address || "null");
@@ -659,16 +694,17 @@ export async function getLabelQuote(
     } catch { /* stored rate unreadable: fall through to a fresh quote */ }
   }
   const { shipment, rates } = await createShipmentForOrder(e, order);
-  // Fresh fulfillment quotes follow the 2-day rule (chooseRate), not
-  // the checkout pickRate rule.
-  const picked = chooseRate(rates);
-  if (!picked.rate) throw new Error("Shippo returned no usable USPS or UPS rates for this address.");
+  // Fresh fulfillment quotes are USPS-only (CG, 2026-11-05): the
+  // buyer already paid shipping at checkout, so fulfillment does not
+  // rate-shop; it quotes the USPS label it would buy.
+  const rate = chooseUspsRate(rates);
+  if (!rate) throw new Error("Shippo returned no USPS rates for this address.");
   await ensureOrderLabelColumns(db);
   await db
     .prepare("UPDATE orders SET shippo_shipment_id = ? WHERE id = ?")
     .bind(String(shipment.object_id || ""), order.id)
     .run();
-  return { ...quoteFromRate(shipment, picked.rate), twoDay: picked.twoDay };
+  return quoteFromRate(shipment, rate);
 }
 
 // Buy the label for an order. With quoteIds (from getLabelQuote) the
@@ -696,10 +732,10 @@ export async function buyLabelForOrder(
   } else {
     const created = await createShipmentForOrder(e, order);
     shipment = created.shipment;
-    // A direct purchase (no prior quote) follows the same 2-day
-    // fulfillment rule as getLabelQuote.
-    rate = chooseRate(created.rates).rate;
-    if (!rate) throw new Error("Shippo returned no usable USPS or UPS rates for this address.");
+    // A direct purchase (no prior quote) is the one-click path: it
+    // buys the USPS rate, same as getLabelQuote's fresh quote.
+    rate = chooseUspsRate(created.rates);
+    if (!rate) throw new Error("Shippo returned no USPS rates for this address.");
   }
 
   const tx = await shippoFetch(e, "/transactions/", {
@@ -707,10 +743,7 @@ export async function buyLabelForOrder(
     body: JSON.stringify({ rate: rate.object_id, label_file_type: "PDF", async: false }),
   });
   if (tx?.status !== "SUCCESS" || !tx?.label_url) {
-    const msg = Array.isArray(tx?.messages) && tx.messages.length
-      ? String(tx.messages[0]?.text || "Label purchase failed.")
-      : "Label purchase failed.";
-    throw new Error(msg);
+    throw new Error(transactionError(tx));
   }
   const carrier = String(rate.provider || "");
   const service = String(rate.servicelevel?.name || rate.servicelevel?.token || "");
@@ -917,10 +950,11 @@ export async function schedulePickupForOrder(
 // Labels for an arbitrary destination parcel set: the club box flow.
 // A club box ships ONE parcel (the one-parcel combined quote passed
 // its gate 2026-10-31) to the member's saved club address. The quote
-// and purchase mirror the order versions (createShipment + chooseRate,
-// then POST /transactions/) but persist NOTHING: the club API writes
-// the result onto the club_cycle_boxes row, whose label columns are
-// ensured by lib/club-cycles.ts.
+// and purchase mirror the order versions (createShipment +
+// chooseUspsRate, then POST /transactions/) but persist NOTHING: the
+// club API writes the result onto the club_cycle_boxes row, whose
+// label columns are ensured by lib/club-cycles.ts. The box page buys
+// through buyUspsLabelForDestination (one click, USPS).
 
 export async function getDestinationLabelQuote(
   e: any,
@@ -929,9 +963,9 @@ export async function getDestinationLabelQuote(
 ): Promise<LabelQuote> {
   if (!shippoConfigured(e)) throw new Error("Shippo is not connected yet.");
   const { shipment, rates } = await createShipment(e, dest, items);
-  const { rate, twoDay } = chooseRate(rates);
-  if (!rate) throw new Error("Shippo returned no usable USPS or UPS rates for this address.");
-  return { ...quoteFromRate(shipment, rate), twoDay };
+  const rate = chooseUspsRate(rates);
+  if (!rate) throw new Error("Shippo returned no USPS rates for this address.");
+  return quoteFromRate(shipment, rate);
 }
 
 export async function buyDestinationLabel(
@@ -948,10 +982,39 @@ export async function buyDestinationLabel(
     body: JSON.stringify({ rate: rate.object_id, label_file_type: "PDF", async: false }),
   });
   if (tx?.status !== "SUCCESS" || !tx?.label_url) {
-    const msg = Array.isArray(tx?.messages) && tx.messages.length
-      ? String(tx.messages[0]?.text || "Label purchase failed.")
-      : "Label purchase failed.";
-    throw new Error(msg);
+    throw new Error(transactionError(tx));
+  }
+  return {
+    carrier: String(rate.provider || ""),
+    service: String(rate.servicelevel?.name || rate.servicelevel?.token || ""),
+    trackingNumber: String(tx.tracking_number || ""),
+    labelUrl: String(tx.label_url || ""),
+    amountCents: Math.round(Number(rate.amount || 0) * 100),
+    shipmentId: String(shipment.object_id || ""),
+    transactionId: String(tx.object_id || ""),
+  };
+}
+
+// One-click USPS label for an arbitrary destination (CG,
+// 2026-11-05): quote and buy in a single call, no rate list and no
+// second confirm, because the shipping money was already collected
+// (checkout, or inside the club price). Persists nothing; the
+// caller writes the result onto its own row.
+export async function buyUspsLabelForDestination(
+  e: any,
+  dest: ShipDestination,
+  items: { format: string }[]
+): Promise<{ carrier: string; service: string; trackingNumber: string; labelUrl: string; amountCents: number; shipmentId: string; transactionId: string }> {
+  if (!shippoConfigured(e)) throw new Error("Shippo is not connected yet.");
+  const { shipment, rates } = await createShipment(e, dest, items);
+  const rate = chooseUspsRate(rates);
+  if (!rate) throw new Error("Shippo returned no USPS rates for this address.");
+  const tx = await shippoFetch(e, "/transactions/", {
+    method: "POST",
+    body: JSON.stringify({ rate: rate.object_id, label_file_type: "PDF", async: false }),
+  });
+  if (tx?.status !== "SUCCESS" || !tx?.label_url) {
+    throw new Error(transactionError(tx));
   }
   return {
     carrier: String(rate.provider || ""),

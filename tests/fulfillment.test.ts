@@ -140,12 +140,12 @@ assert(ordersPage.includes('packed: "Packed"'), "orders table: stage labels incl
 const detailPage = read("../src/pages/admin/orders/[id].astro");
 assert(detailPage.includes('id="label"'), "detail: fulfillment card is the #label deep-link target");
 assert(detailPage.includes("data-stage") && detailPage.includes("Mark ' + LABELS[s]"), "detail: forward-stage buttons render for every remaining stage");
-assert(detailPage.includes("No 2-day rate for this address; using the cheapest USPS/UPS option"), "detail: quote UI surfaces the no-2-day fallback");
+assert(detailPage.includes("Print label (USPS)") && detailPage.includes('id="label-error"'), "detail: the label step is one USPS button with inline errors (2026-11-05 cleanup; the buyer already paid shipping at checkout)");
 assert(detailPage.includes("Carrier status: "), "detail: carrier status text shows on the fulfillment card");
 assert(detailPage.includes("repeat(5,1fr)"), "detail: stepper is five stages wide");
 
 const shippoSrc = read("../src/lib/shippo.ts");
-assert(shippoSrc.includes("chooseRate(rates)") && shippoSrc.includes("chooseRate(created.rates)"), "shippo: fulfillment quote and direct buy both use the 2-day rule");
+assert(shippoSrc.includes("chooseUspsRate(rates)") && shippoSrc.includes("chooseUspsRate(created.rates)"), "shippo: fulfillment quote and direct buy both use the one-click USPS rule");
 assert(shippoSrc.includes("/tracks/"), "shippo: tracking lookup uses the Shippo tracks endpoint");
 
 const checkoutApi = read("../src/pages/api/club/checkout.ts");
