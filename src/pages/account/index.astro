@@ -179,18 +179,22 @@ if (showSuccess) {
 
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900">
+        <h1 id="dash-welcome" class="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900">
           Welcome, {firstName}
         </h1>
         <p class="text-sm text-stone-600 mt-1">
           Here is your family's shelf at a glance.
         </p>
       </div>
-      {(session.user.displayUsername || session.user.username) && (
-        <span class="rounded-full bg-orange-100 text-orange-800 px-2.5 py-0.5 text-xs font-extrabold">
-          @{session.user.displayUsername || session.user.username}
-        </span>
-      )}
+      {/* The identity chip follows the active profile: the parent's
+          @handle in Parent View, the child's in Kid View (CG,
+          2026-11-05). The swap script sits at the end of the page. */}
+      <span
+        id="dash-handle-chip"
+        class={`rounded-full bg-orange-100 text-orange-800 px-2.5 py-0.5 text-xs font-extrabold ${(session.user.displayUsername || session.user.username) ? "" : "hidden"}`}
+      >
+        @{session.user.displayUsername || session.user.username || ""}
+      </span>
     </div>
 
     <!-- Action buttons -->
@@ -374,6 +378,52 @@ if (showSuccess) {
 
     <p class="text-[11px] text-stone-400 mt-8">For your family's personal use.</p>
   </main>
+
+  <script is:inline>
+    // The dashboard identity follows the active profile (CG,
+    // 2026-11-05): Kid View shows the child's name and @handle,
+    // Parent View shows the parent's.
+    (function () {
+      var title = document.getElementById("dash-welcome");
+      var chip = document.getElementById("dash-handle-chip");
+      if (!title) return;
+      var parentTitle = title.textContent;
+      var parentChip = chip ? chip.textContent : "";
+      function apply(detail) {
+        if (detail && detail.isKid) {
+          title.textContent = "Welcome, " + (detail.kidName || "Reader");
+          if (chip) {
+            chip.textContent = detail.kidHandle ? "@" + detail.kidHandle : detail.kidName || "";
+            chip.classList.remove("hidden");
+          }
+        } else {
+          title.textContent = parentTitle;
+          if (chip) {
+            chip.textContent = parentChip;
+            chip.classList.toggle("hidden", !parentChip);
+          }
+        }
+      }
+      window.addEventListener("bbs:profile-change", function (ev) {
+        apply(ev.detail);
+      });
+      try {
+        var pid = window.localStorage.getItem("bbs.activeProfileId");
+        if (pid && pid !== "parent") {
+          var opt = document.querySelector(
+            '#cust-profile-switcher option[value="' + pid + '"]'
+          );
+          if (opt) {
+            apply({
+              isKid: true,
+              kidName: opt.getAttribute("data-kid-name") || "",
+              kidHandle: opt.getAttribute("data-kid-handle") || "",
+            });
+          }
+        }
+      } catch (e) {}
+    })();
+  </script>
 
   <style is:global>
     .shelf-plank {

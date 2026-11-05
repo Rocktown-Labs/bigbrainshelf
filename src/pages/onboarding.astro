@@ -6,6 +6,7 @@ import { ClientRouter } from "astro:transitions";
 import TransitionHooks from "../components/TransitionHooks.astro";
 import SiteHeader from "../components/SiteHeader.astro";
 import CartSheet from "../components/CartSheet.astro";
+import GlobalPlayer from "../components/GlobalPlayer.astro";
 import { loadCustomerHubContext } from "../lib/account-data";
 import {
   KID_AVATARS,
@@ -50,6 +51,10 @@ const {
 <body class="bg-white text-stone-900 antialiased pb-16">
   <SiteHeader search cartMode="sheet" />
   <CartSheet />
+  {/* The shared audio element must exist on this page too, or a
+      soft navigation here (the setup finish pill) drops it and the
+      story stops (CG, 2026-11-05). */}
+  <GlobalPlayer />
 
   <main class="max-w-3xl mx-auto px-4 py-7 sm:py-10">
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -105,6 +110,8 @@ const {
     </div>
 
     <form id="onboarding-wizard-form" class="mt-6 rounded-3xl border border-stone-200 bg-[#fcfaf6] p-5 sm:p-7 shadow-xs">
+      <p id="ob-form-error" class="hidden mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs font-bold text-red-700" role="alert"></p>
+      <input type="hidden" name="first_kid_id" value={defaultKidProfile?.id || ""} />
       <!-- STEP 1: PARENT & USERNAME -->
       <div data-ob-step-panel="1" class="space-y-4">
         <div>
@@ -136,7 +143,10 @@ const {
               name="parent_pin"
               type="password"
               inputmode="numeric"
-              maxlength="8"
+              maxlength="4"
+              pattern="[0-9]{4}"
+              autocomplete="off"
+              title="Four digits"
               value={parentOnboarding?.parent_pin || ""}
               placeholder="e.g., 1234"
               class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm font-semibold focus:border-orange-500 focus:outline-none"
@@ -236,25 +246,49 @@ const {
 
           <div>
             <label for="ob-kid-dob" class="block text-xs font-bold text-stone-700">
-              Child's Birthday (for their annual $10 Birthday Gift email 🎂)
+              Child's Birthday (for their annual Birthday Gift email 🎂)
             </label>
             <input
               id="ob-kid-dob"
               name="first_kid_dob"
               type="date"
-              value={defaultKidProfile?.dob || parentOnboarding?.child_dob || ""}
+              value={defaultKidProfile?.birth_date || ""}
               class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm font-semibold focus:border-orange-500 focus:outline-none"
             />
           </div>
 
           <div>
             <label for="ob-kid-handle" class="block text-xs font-bold text-stone-700">Child's @handle (optional)</label>
+            <div class="mt-1 flex items-center gap-2">
+              <input
+                id="ob-kid-handle"
+                name="first_kid_handle"
+                type="text"
+                value={defaultKidProfile?.handle ? "@" + defaultKidProfile.handle : ""}
+                placeholder="e.g., @rubyjoyhs"
+                class="w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm font-semibold focus:border-orange-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                id="ob-check-kid-handle-btn"
+                class="cust-pressable shrink-0 rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-xs font-extrabold text-stone-700 hover:border-stone-500 cursor-pointer"
+              >
+                Check
+              </button>
+            </div>
+            <p id="ob-kid-handle-status" class="mt-1.5 text-[11px] font-semibold text-stone-500">
+              Their sign-in name in Kid View, if you want one.
+            </p>
+          </div>
+
+          <div>
+            <label for="ob-kid-email" class="block text-xs font-bold text-stone-700">Child's Email (optional, if they have one)</label>
             <input
-              id="ob-kid-handle"
-              name="first_kid_handle"
-              type="text"
-              value={defaultKidProfile?.handle ? "@" + defaultKidProfile.handle : ""}
-              placeholder="e.g., @rubyjoyhs"
+              id="ob-kid-email"
+              name="first_kid_email"
+              type="email"
+              value={defaultKidProfile?.email || ""}
+              placeholder="e.g., ruby@example.com"
               class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm font-semibold focus:border-orange-500 focus:outline-none"
             />
           </div>
@@ -454,7 +488,7 @@ const {
               class="mt-0.5 rounded border-stone-300 text-orange-600 focus:ring-orange-500"
             />
             <span>
-              Send me new book releases, reading tips, and my child's annual <strong>Birthday Gift email ($10 off code BDAY10)</strong>.
+              Send me new book releases, reading tips, and my child's annual <strong>Birthday Gift email</strong>.
             </span>
           </label>
         </div>
@@ -511,7 +545,11 @@ const {
         });
         document.querySelectorAll("[data-ob-next]").forEach(function (btn) {
           btn.addEventListener("click", function () {
-            showStep(btn.getAttribute("data-ob-next"));
+            var target = Number(btn.getAttribute("data-ob-next"));
+            // Validate the step being left before advancing (CG,
+            // 2026-11-05: the form validated nothing).
+            if (!validateStep(target - 1)) return;
+            showStep(target);
           });
         });
         document.querySelectorAll("[data-ob-prev]").forEach(function (btn) {
@@ -519,6 +557,62 @@ const {
             showStep(btn.getAttribute("data-ob-prev"));
           });
         });
+
+        var formError = document.getElementById("ob-form-error");
+        function showFormError(step, message) {
+          if (formError) {
+            formError.textContent = message;
+            formError.classList.remove("hidden");
+            formError.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          }
+          if (step) showStep(step);
+          return false;
+        }
+        function clearFormError() {
+          if (formError) {
+            formError.textContent = "";
+            formError.classList.add("hidden");
+          }
+        }
+
+        // Field rules for the whole wizard, checked per step on the
+        // way forward and all together on save. Optional fields are
+        // only checked when they carry a value.
+        function validateStep(step) {
+          clearFormError();
+          if (step === 1) {
+            var parentName = String((form.querySelector('[name="parent_name"]') || {}).value || "").trim();
+            if (!parentName) return showFormError(1, "Please add the parent or guardian name.");
+            var pin = String((document.getElementById("ob-parent-pin") || {}).value || "").trim();
+            if (pin && !/^[0-9]{4}$/.test(pin)) {
+              return showFormError(1, "The parent PIN is exactly 4 digits. Please enter a 4-digit PIN.");
+            }
+            var choiceEl = form.querySelector('input[name="username_choice"]:checked');
+            var wantsUsername = !choiceEl || choiceEl.value !== "email";
+            var uname = String((document.getElementById("ob-username") || {}).value || "").trim().replace(/^@+/, "");
+            if (wantsUsername && uname && !/^[a-zA-Z0-9_.]{3,30}$/.test(uname)) {
+              return showFormError(1, "Usernames use 3-30 letters, numbers, underscores, or dots.");
+            }
+          }
+          if (step === 2) {
+            var handle = String((document.getElementById("ob-kid-handle") || {}).value || "").trim().replace(/^@+/, "");
+            if (handle && !/^[a-zA-Z0-9_.]{3,30}$/.test(handle)) {
+              return showFormError(2, "Your child's @handle uses 3-30 letters, numbers, underscores, or dots.");
+            }
+            var email = String((document.getElementById("ob-kid-email") || {}).value || "").trim();
+            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+              return showFormError(2, "That email does not look complete. Please check it or leave it blank.");
+            }
+            var dob = String((document.getElementById("ob-kid-dob") || {}).value || "");
+            if (dob) {
+              var dobDate = new Date(dob + "T00:00:00");
+              if (isNaN(dobDate.getTime()) || dobDate.getTime() > Date.now()) {
+                return showFormError(2, "Please pick a birthday that has already happened.");
+              }
+            }
+          }
+          return true;
+        }
 
         var usernameInput = document.getElementById("ob-username");
         var usernameWrap = document.getElementById("ob-username-input-wrap");
@@ -578,6 +672,61 @@ const {
           });
         }
 
+        // The child's @handle gets the same availability check as
+        // the parent's username (CG, 2026-11-05: step 2 never
+        // checked, so taken handles saved silently).
+        var kidHandleInput = document.getElementById("ob-kid-handle");
+        var kidHandleStatus = document.getElementById("ob-kid-handle-status");
+        var checkKidHandleBtn = document.getElementById("ob-check-kid-handle-btn");
+        var kidIdInput = form.querySelector('[name="first_kid_id"]');
+        function checkKidHandleAvailability(raw) {
+          var clean = String(raw || "").trim().replace(/^@+/, "").toLowerCase();
+          if (!clean) return Promise.resolve(null);
+          if (!/^[a-z0-9_.]{3,30}$/.test(clean)) {
+            if (kidHandleStatus) {
+              kidHandleStatus.textContent = "Use 3-30 letters, numbers, underscores, or dots.";
+              kidHandleStatus.className = "mt-1.5 text-[11px] font-bold text-amber-700";
+            }
+            return Promise.resolve(false);
+          }
+          if (kidHandleStatus) {
+            kidHandleStatus.textContent = "Checking @" + clean + "…";
+            kidHandleStatus.className = "mt-1.5 text-[11px] font-semibold text-stone-500";
+          }
+          return fetch("/api/account/family", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "check_kid_handle",
+              handle: clean,
+              exclude_profile_id: kidIdInput && kidIdInput.value ? kidIdInput.value : undefined,
+            }),
+          })
+            .then(function (r) {
+              return r.json();
+            })
+            .then(function (res) {
+              var available = Boolean(res && res.available);
+              if (kidHandleStatus) {
+                kidHandleStatus.textContent = available
+                  ? "✓ @" + clean + " is available!"
+                  : "✕ @" + clean + " is already taken.";
+                kidHandleStatus.className = available
+                  ? "mt-1.5 text-[11px] font-extrabold text-green-700"
+                  : "mt-1.5 text-[11px] font-extrabold text-red-600";
+              }
+              return available;
+            })
+            .catch(function () {
+              return null;
+            });
+        }
+        if (checkKidHandleBtn && kidHandleInput) {
+          checkKidHandleBtn.addEventListener("click", function () {
+            checkKidHandleAvailability(kidHandleInput.value);
+          });
+        }
+
         var skipBtn = document.getElementById("onboarding-skip-btn");
         if (skipBtn) {
           skipBtn.addEventListener("click", function () {
@@ -597,6 +746,7 @@ const {
         var saveMsg = document.getElementById("onboarding-save-msg");
         form.addEventListener("submit", function (ev) {
           ev.preventDefault();
+          if (!validateStep(1) || !validateStep(2)) return;
           var fd = new FormData(form);
           var favTopics = fd.getAll("favorite_topics").map(String);
           var futTopics = fd.getAll("future_topics").map(String);
@@ -638,8 +788,12 @@ const {
           var kidName = String(fd.get("first_kid_name") || "").trim();
           if (kidName) {
             payload.kid_profile = {
+              // Carry the existing profile's id so re-saving the
+              // wizard updates this child instead of adding a copy.
+              id: String(fd.get("first_kid_id") || "") || undefined,
               name: kidName,
               handle: String(fd.get("first_kid_handle") || "").trim() || null,
+              email: String(fd.get("first_kid_email") || "").trim() || null,
               birth_date: kidDob || null,
               age: kidAge,
               age_group: String(fd.get("first_kid_age_group") || "4-8"),

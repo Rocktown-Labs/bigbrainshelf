@@ -170,8 +170,9 @@ export interface KidProfileRecord {
   user_id: string;
   name: string;
   handle: string | null;
-  birth_date: string | null;
-  birthday_gift_sent_year: number | null;
+  /** The child's own email, when they have one (CG, 2026-11-05). */
+  email: string | null;
+  birth_date: string | null;  birthday_gift_sent_year: number | null;
   age: number;
   age_group: AgeGroup;
   avatar_key: string;
@@ -187,6 +188,9 @@ export interface KidProfileRecord {
   created_at: number;
   updated_at: number;
 }
+
+/** Short alias used by the account data layer. */
+export type KidProfile = KidProfileRecord;
 
 export type ReaderViewEdition = "story" | "coloring" | "fullcolor" | "cover" | "readalong";
 export type ReaderViewMode = "flip" | "scroll";
@@ -259,8 +263,11 @@ export function generateReferralCode(seedName: string | null | undefined, userId
 
 export function normalizePin(pin: string | null | undefined): string | null {
   if (!pin) return null;
-  const digits = String(pin).replace(/\D/g, "").slice(0, 6);
-  return digits.length >= 4 ? digits : null;
+  // The PIN is four digits, exactly (CG, 2026-11-05: the field used
+  // to accept up to six, so "4-digit" pins of five or six digits
+  // silently worked). Anything else is not a PIN.
+  const digits = String(pin).replace(/\D/g, "");
+  return digits.length === 4 ? digits : null;
 }
 
 export interface NotificationPrefs {
@@ -347,6 +354,7 @@ const KID_PROFILES_ADDITIVE_COLS: Record<string, string> = {
   birth_date: "TEXT",
   birthday_gift_sent_year: "INTEGER",
   handle: "TEXT",
+  email: "TEXT",
 };
 
 export async function ensureFamilyTables(db: DBLike): Promise<void> {
@@ -513,6 +521,7 @@ function hydrateKidProfile(row: any, today: string): KidProfileRecord {
     user_id: String(row.user_id),
     name: String(row.name || "Reader"),
     handle: row.handle ? String(row.handle) : null,
+    email: row.email ? String(row.email) : null,
     birth_date: birthDate,
     birthday_gift_sent_year: row.birthday_gift_sent_year
       ? Number(row.birthday_gift_sent_year)
@@ -940,7 +949,10 @@ export async function verifyParentPin(
     // If no PIN has been configured yet, allow access so the parent isn't locked out.
     return true;
   }
-  return onboarding.parent_pin === String(candidatePin || "").trim();
+  const candidate = String(candidatePin || "").trim();
+  // Raw comparison first so a legacy longer PIN saved before the
+  // strict four-digit rule keeps working; then the normalized one.
+  return onboarding.parent_pin === candidate || normalizePin(candidate) === onboarding.parent_pin;
 }
 
 export async function listKidProfiles(
@@ -961,6 +973,7 @@ export interface UpsertKidProfileInput {
   id?: string;
   name: string;
   handle?: string | null;
+  email?: string | null;
   birth_date?: string | null;
   age?: number;
   age_group?: AgeGroup;
@@ -984,7 +997,31 @@ export async function upsertKidProfile(
   const today = chicagoDateString();
   const existingProfiles = await listKidProfiles(db, userId);
 
-  const id = input.id && String(input.id).trim() ? String(input.id).trim() : crypto.randomUUID();
+  // No explicit id means "create", but a re-save of the same child
+  // must update, not duplicate: the onboarding wizard sent no id,
+  // so finishing setup twice made two copies of the same kid (CG,
+  // 2026-11-05). Match on the handle when one is set, else on
+  // name + birthday.
+  const requestedId = input.id && String(input.id).trim() ? String(input.id).trim() : null;
+  let dedupeMatch: KidProfileRecord | null = null;
+  if (!requestedId) {
+    const wantedHandle = String(input.handle || "")
+      .trim()
+      .replace(/^@+/, "")
+      .toLowerCase();
+    const wantedName = String(input.name || "").trim().toLowerCase();
+    const wantedDob = input.birth_date ? String(input.birth_date).trim().slice(0, 16) : null;
+    dedupeMatch =
+      existingProfiles.find((p) => wantedHandle !== "" && p.handle === wantedHandle) ||
+      existingProfiles.find(
+        (p) =>
+          wantedDob !== null &&
+          p.birth_date === wantedDob &&
+          p.name.trim().toLowerCase() === wantedName
+      ) ||
+      null;
+  }
+  const id = requestedId || dedupeMatch?.id || crypto.randomUUID();
   const current = existingProfiles.find((p) => p.id === id) || null;
 
   const cleanName = String(input.name || current?.name || "Reader").trim().slice(0, 40) || "Reader";
@@ -998,6 +1035,16 @@ export async function upsertKidProfile(
           return /^[a-z0-9_.]{3,30}$/.test(h) ? h : null;
         })()
       : (current?.handle ?? null);
+  // The child's own email, when they have one; an invalid or empty
+  // value clears to null rather than failing the save (same rule
+  // as the handle).
+  const email =
+    input.email !== undefined
+      ? (() => {
+          const em = String(input.email || "").trim().toLowerCase().slice(0, 120);
+          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em) ? em : null;
+        })()
+      : (current?.email ?? null);
   const birthDate =
     input.birth_date !== undefined
       ? (input.birth_date ? String(input.birth_date).trim().slice(0, 16) : null)
@@ -1066,11 +1113,12 @@ export async function upsertKidProfile(
   await db
     .prepare(
       `INSERT INTO kid_profiles
-         (id, user_id, name, handle, birth_date, birthday_gift_sent_year, age, age_group, avatar_key, favorite_themes, daily_limit_minutes, default_sleep_timer_minutes, bedtime_cutoff, allow_audio_autoplay, allowed_book_slugs, daily_minutes_used, daily_minutes_date, is_default, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         (id, user_id, name, handle, email, birth_date, birthday_gift_sent_year, age, age_group, avatar_key, favorite_themes, daily_limit_minutes, default_sleep_timer_minutes, bedtime_cutoff, allow_audio_autoplay, allowed_book_slugs, daily_minutes_used, daily_minutes_date, is_default, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
          handle = excluded.handle,
+         email = excluded.email,
          birth_date = excluded.birth_date,
          age = excluded.age,
          age_group = excluded.age_group,
@@ -1089,6 +1137,7 @@ export async function upsertKidProfile(
       userId,
       cleanName,
       handle,
+      email,
       birthDate,
       current?.birthday_gift_sent_year ?? null,
       age,
@@ -1110,6 +1159,29 @@ export async function upsertKidProfile(
 
   const updated = await listKidProfiles(db, userId);
   return updated.find((p) => p.id === id) || updated[0];
+}
+
+/**
+ * Is this @handle already carried by a child profile (any family's)?
+ * Kid handles are sign-in identities alongside account usernames, so
+ * they share one namespace; the caller checks account usernames via
+ * checkUsernameAvailabilityInDb and kid handles here. The profile
+ * being edited may keep its own handle (excludeProfileId).
+ */
+export async function isKidHandleTaken(
+  db: DBLike,
+  handle: string,
+  excludeProfileId?: string | null
+): Promise<boolean> {
+  const h = String(handle || "").trim().replace(/^@+/, "").toLowerCase();
+  if (!h) return false;
+  await ensureFamilyTables(db);
+  const row = (await db
+    .prepare("SELECT id FROM kid_profiles WHERE lower(handle) = ? LIMIT 1")
+    .bind(h)
+    .first()) as any;
+  if (!row) return false;
+  return String(row.id) !== String(excludeProfileId || "");
 }
 
 export async function deleteKidProfile(

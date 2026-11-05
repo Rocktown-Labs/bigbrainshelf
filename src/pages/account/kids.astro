@@ -6,6 +6,7 @@ import { ClientRouter } from "astro:transitions";
 import TransitionHooks from "../../components/TransitionHooks.astro";
 import CustomerShell from "../../components/CustomerShell.astro";
 import { loadCustomerHubContext } from "../../lib/account-data";
+import { formatDateUS } from "../../lib/dates";
 import {
   KID_AVATARS,
   SLEEP_TIMER_PRESETS,
@@ -153,6 +154,15 @@ const {
           />
         </div>
         <div>
+          <label class="block text-xs font-bold text-stone-700">Child's Email (optional, if they have one)</label>
+          <input
+            type="email"
+            name="email"
+            placeholder="e.g., ruby@example.com"
+            class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-semibold"
+          />
+        </div>
+        <div>
           <label class="block text-xs font-bold text-stone-700">Birthday (for annual Birthday Gift 🎂)</label>
           <input
             type="date"
@@ -243,7 +253,7 @@ const {
                       </span>
                       <div>
                         <h2 class="text-base font-extrabold text-stone-900">{kid.name}</h2>
-                        <p class="text-xs font-semibold text-stone-500">Ages {kid.age_group}</p>
+                        <p class="text-xs font-semibold text-stone-500">Ages {kid.age_group}{kid.handle ? ` · @${kid.handle}` : ""}</p>
                       </div>
                     </div>
                     <button
@@ -267,7 +277,12 @@ const {
                     </span>
                     {kid.birth_date && (
                       <span class="rounded-lg bg-orange-50 border border-orange-200 text-orange-800 px-2.5 py-1">
-                        🎂 Birthday: {kid.birth_date}
+                        🎂 Birthday: {formatDateUS(kid.birth_date)}
+                      </span>
+                    )}
+                    {kid.email && (
+                      <span class="rounded-lg bg-white border border-stone-200 px-2.5 py-1">
+                        ✉️ {kid.email}
                       </span>
                     )}
                   </div>
@@ -280,7 +295,7 @@ const {
                       data-send-bday-kid-id={kid.id}
                       class="text-[11px] font-extrabold text-orange-700 hover:underline cursor-pointer"
                     >
-                      🎂 Email $10 Birthday Gift (BDAY10)
+                      🎂 Email the Birthday Gift
                     </button>
                   ) : (
                     <span class="text-[11px] text-stone-400">No birthday set</span>
@@ -344,6 +359,7 @@ const {
                 action: "upsert_kid",
                 name: String(fd.get("name") || ""),
                 handle: String(fd.get("handle") || "") || null,
+                email: String(fd.get("email") || "") || null,
                 birth_date: String(fd.get("birth_date") || ""),
                 age_group: String(fd.get("age_group") || "4-8"),
                 avatar_key: String(fd.get("avatar_key") || "mira"),

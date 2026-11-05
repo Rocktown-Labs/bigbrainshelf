@@ -142,6 +142,12 @@ const ICONS: Record<string, string> = {
   body[data-kid-mode="true"] [data-parent-only="true"] {
     display: none !important;
   }
+  /* In Kid View a nav group whose items are all parent-only hides
+     whole, label included, instead of leaving an empty category
+     header in the sidebar (CG, 2026-11-05). */
+  body[data-kid-mode="true"] .cust-group:not(:has(> a:not([data-parent-only="true"]))) {
+    display: none;
+  }
   .cust-pressable {
     transition:
       transform 140ms var(--cust-ease-out),
@@ -494,17 +500,18 @@ const ICONS: Record<string, string> = {
       class="cust-profile-select"
       aria-label="Switch between Parent View and Child Profiles"
     >
-      <option value="parent">👩‍👧 Parent View (All pages)</option>
+      <option value="parent">👩‍👧 Parent View{username ? ` (@${username})` : ""} (All pages)</option>
       {kidProfiles.map((kid) => {
         const emoji = avatarEmojiMap.get(kid.avatar_key) || "🦊";
         return (
           <option
             value={kid.id}
             data-kid-name={kid.name}
+            data-kid-handle={kid.handle || ""}
             data-sleep-minutes={kid.default_sleep_timer_minutes}
             data-daily-limit={kid.daily_limit_minutes}
           >
-            {emoji} {kid.name} ({kid.age_group} · {kid.default_sleep_timer_minutes}m timer)
+            {emoji} {kid.name}{kid.handle ? ` · @${kid.handle}` : ""} ({kid.age_group} · {kid.default_sleep_timer_minutes}m timer)
           </option>
         );
       })}
@@ -821,6 +828,7 @@ const ICONS: Record<string, string> = {
         var selectedOpt = switcher && switcher.selectedOptions ? switcher.selectedOptions[0] : null;
         var sleepMins = selectedOpt ? Number(selectedOpt.getAttribute("data-sleep-minutes") || "60") : 60;
         var kidName = selectedOpt ? selectedOpt.getAttribute("data-kid-name") || "" : "";
+        var kidHandle = selectedOpt ? selectedOpt.getAttribute("data-kid-handle") || "" : "";
 
         // Kid View belongs on the library and the reader; anywhere
         // else, send them to the library.
@@ -835,6 +843,7 @@ const ICONS: Record<string, string> = {
               profileId: isKid ? profileId : null,
               isKid: Boolean(isKid),
               kidName: kidName,
+              kidHandle: kidHandle,
               sleepMinutes: sleepMins,
             },
           })

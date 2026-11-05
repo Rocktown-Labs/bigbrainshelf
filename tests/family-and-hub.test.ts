@@ -35,6 +35,9 @@ import {
   normalizeUsername,
   authClient,
 } from "../src/lib/auth-client";
+import { normalizePin, isKidHandleTaken } from "../src/lib/family";
+import { formatDateUS, formatDateLong } from "../src/lib/dates";
+import { buildCast } from "../src/lib/cast-public";
 import {
   ensureAuthUserSchema,
   checkUsernameAvailabilityInDb,
@@ -674,5 +677,111 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     const revopsSrc = readFileSync(resolve(root, "src/lib/revops.ts"), "utf8");
     expect(revopsSrc).toContain("parseNotificationPrefs");
     expect(revopsSrc).toContain("family_notes");
+  });
+});
+
+describe("Customer-view fixes (CG, 2026-11-05)", () => {
+  test("the parent PIN is exactly four digits", async () => {
+    expect(normalizePin("1234")).toBe("1234");
+    expect(normalizePin("12345")).toBeNull();
+    expect(normalizePin("123456")).toBeNull();
+    expect(normalizePin("123")).toBeNull();
+    expect(normalizePin("")).toBeNull();
+    expect(normalizePin(null)).toBeNull();
+
+    // A longer PIN saved before the strict rule still verifies raw,
+    // so nobody is locked out of Kid View by the tightened field.
+    const db = makeD1FromSqlite();
+    await ensureFamilyTables(db);
+    await saveParentOnboarding(db, "user_pin", "p@example.com", { parent_name: "Pat" }, "https://bigbrainshelf.com");
+    await db
+      .prepare("UPDATE parent_onboarding SET parent_pin = ? WHERE user_id = ?")
+      .bind("123456", "user_pin")
+      .run();
+    expect(await verifyParentPin(db, "user_pin", "123456")).toBe(true);
+    expect(await verifyParentPin(db, "user_pin", "1234")).toBe(false);
+  });
+
+  test("re-saving a kid without an id updates instead of duplicating", async () => {
+    const db = makeD1FromSqlite();
+    await ensureFamilyTables(db);
+
+    const first = await upsertKidProfile(db, "user_dup", {
+      name: "Ruby",
+      handle: "rubyjoy",
+      birth_date: "2021-03-25",
+      age: 5,
+    });
+    // The wizard's old payload: same child, no id.
+    const second = await upsertKidProfile(db, "user_dup", {
+      name: "Ruby",
+      handle: "rubyjoy",
+      birth_date: "2021-03-25",
+      age: 5,
+      default_sleep_timer_minutes: 45,
+    });
+    expect(second.id).toBe(first.id);
+    expect(second.default_sleep_timer_minutes).toBe(45);
+    expect((await listKidProfiles(db, "user_dup")).length).toBe(1);
+
+    // Name + birthday alone also match when no handle is in play.
+    const third = await upsertKidProfile(db, "user_dup", {
+      name: "Ruby",
+      birth_date: "2021-03-25",
+      age: 5,
+    });
+    expect(third.id).toBe(first.id);
+    expect((await listKidProfiles(db, "user_dup")).length).toBe(1);
+
+    // A genuinely different child still creates a second profile.
+    await upsertKidProfile(db, "user_dup", { name: "Leo", birth_date: "2019-06-01", age: 7 });
+    expect((await listKidProfiles(db, "user_dup")).length).toBe(2);
+  });
+
+  test("kid email is stored when valid and cleared when not", async () => {
+    const db = makeD1FromSqlite();
+    await ensureFamilyTables(db);
+    const kid = await upsertKidProfile(db, "user_mail", {
+      name: "Ruby",
+      email: "Ruby@Example.com",
+      age: 5,
+    });
+    expect(kid.email).toBe("ruby@example.com");
+    const cleared = await upsertKidProfile(db, "user_mail", {
+      id: kid.id,
+      name: "Ruby",
+      email: "not-an-email",
+      age: 5,
+    });
+    expect(cleared.email).toBeNull();
+  });
+
+  test("kid handle availability spans profiles but not the profile itself", async () => {
+    const db = makeD1FromSqlite();
+    await ensureFamilyTables(db);
+    const kid = await upsertKidProfile(db, "user_h", { name: "Ruby", handle: "rubyjoy", age: 5 });
+    expect(await isKidHandleTaken(db, "rubyjoy")).toBe(true);
+    expect(await isKidHandleTaken(db, "@RubyJoy")).toBe(true);
+    expect(await isKidHandleTaken(db, "rubyjoy", kid.id)).toBe(false);
+    expect(await isKidHandleTaken(db, "freehandle")).toBe(false);
+  });
+
+  test("customer dates render US style, never ISO", () => {
+    expect(formatDateUS("2021-03-25")).toBe("03/25/2021");
+    expect(formatDateUS("2026-11-05")).toBe("11/05/2026");
+    expect(formatDateLong("2021-03-25")).toBe("March 25, 2021");
+    expect(formatDateUS(null)).toBe("");
+    expect(formatDateUS("not a date")).toBe("not a date");
+  });
+
+  test("Meet the Cast includes the renamed heroes via the gallery aliases", () => {
+    const rows = [
+      { name: "Fenix", species: "Fox", book_slug: "algorithms", book_title: "Fenix the Fox and the Clever Trails", book_topic: "tech", picture_book_key: "books/algorithms/picture-book.pdf", book_public_slug: "fenix-the-fox-and-the-clever-trails" },
+      { name: "Blaze", species: "Beaver", book_slug: "designpatterns", book_title: "Blaze the Beaver and the Pattern Book", book_topic: "tech", picture_book_key: "books/designpatterns/picture-book.pdf", book_public_slug: "blaze-the-beaver-and-the-pattern-book" },
+      { name: "Wells", species: "Whale", book_slug: "docker", book_title: "Wells the Whale and the Great Harbor", book_topic: "tech", picture_book_key: "books/docker/picture-book.pdf", book_public_slug: "wells-the-whale-and-the-great-harbor" },
+    ];
+    const members = buildCast(rows as any[]);
+    expect(members.map((m) => m.slug).sort()).toEqual(["blaze", "fenix", "wells"]);
+    for (const m of members) expect(m.portrait).toBeTruthy();
   });
 });

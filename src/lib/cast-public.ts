@@ -78,11 +78,24 @@ interface GalleryEntry {
   poseMeta?: GalleryPoseMeta[];
 }
 
+// The pose galleries were baked under the heroes' retired names
+// (Fern, Basil, Wally); the registry now carries Fenix, Blaze, and
+// Wells, so those rows found no gallery entry and silently dropped
+// off Meet the Cast (CG, 2026-11-05). Until the galleries are
+// re-baked under the current names, resolve the retired gallery
+// keys as aliases. Member slugs stay the current names everywhere.
+export const GALLERY_NAME_ALIASES: Record<string, string> = {
+  fenix: "fern",
+  blaze: "basil",
+  wells: "wally",
+};
+
 export function galleryEntry(
   slug: string,
   manifest: GalleryManifest = bakedManifest()
 ): GalleryEntry | null {
-  return (manifest.characters[slug] as GalleryEntry) || null;
+  const characters = manifest.characters as Record<string, GalleryEntry>;
+  return characters[slug] || characters[GALLERY_NAME_ALIASES[slug] || ""] || null;
 }
 
 // Build the full cast from D1 character rows (joined with their books).
@@ -95,12 +108,15 @@ export function buildCast(rows: any[], manifest: GalleryManifest = bakedManifest
   const members: CastMember[] = [];
   for (const row of rows) {
     const slug = nameKey(String(row.name));
-    const entry = GALLERY[slug];
+    const entry = galleryEntry(slug, manifest);
     if (!entry) continue;
+    // Derivatives are keyed in the gallery's slug space, so look
+    // them up under the key the entry actually lives at.
+    const gallerySlug = GALLERY[slug] ? slug : GALLERY_NAME_ALIASES[slug] || slug;
     const key = `${String(row.book_slug)}:${String(row.name)}`;
     const overview = CAST_OVERVIEWS[key];
     const bio = CAST_BIOS[key];
-    const deriv = castDerivatives(slug, entry.v);
+    const deriv = castDerivatives(gallerySlug, entry.v);
     members.push({
       slug,
       name: String(row.name),
