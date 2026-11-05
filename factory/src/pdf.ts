@@ -156,6 +156,71 @@ async function drawCopyrightPage(pdf: any, font: any, bold: any, oblique: any, t
   }
 }
 
+// The blank dedication page (CG, 2026-11-05): the store coloring
+// book is a pre-built file, so unlike the picture book (whose
+// dedication is stamped per buyer at download) it must carry the
+// page from assembly, with the write-in line blank for the family
+// to fill in by hand. The layout mirrors the download stamper's
+// dedication page (hub src/lib/pdf-stamp.ts): double frame, the
+// typeset wordmark (Brain in orange), PRESENTS, the title, the
+// belongs-to line over a blank orange rule, and the house blurb.
+// The factory has no logo asset at assembly time, so the wordmark
+// is the text treatment, the same fallback the stamper uses.
+const DEDICATION_BLURB =
+  "To a curious reader: every big idea starts as a small question. May you ask a thousand more.";
+
+function drawDedicationPage(pdf: any, font: any, bold: any, oblique: any, title: string): void {
+  const page = pdf.addPage([W, H]);
+  const ink = rgb(0.28, 0.25, 0.23);
+  const centered = (s: string, f: any, size: number) => (W - f.widthOfTextAtSize(s, size)) / 2;
+
+  page.drawRectangle({ x: 26, y: 26, width: W - 52, height: H - 52, borderWidth: 2.5, borderColor: NAVY });
+  page.drawRectangle({ x: 33, y: 33, width: W - 66, height: H - 66, borderWidth: 1, borderColor: ORANGE });
+
+  let cursor = H * 0.855;
+  const parts: Array<[string, any]> = [["BIG ", ink], ["BRAIN", ORANGE], [" SHELF", ink]];
+  const wordmarkSize = 17;
+  const total = parts.reduce((acc, [t]) => acc + bold.widthOfTextAtSize(t, wordmarkSize), 0);
+  let x = Math.max(0, (W - total) / 2);
+  for (const [t, color] of parts) {
+    page.drawText(t, { x, y: cursor - wordmarkSize, size: wordmarkSize, font: bold, color });
+    x += bold.widthOfTextAtSize(t, wordmarkSize);
+  }
+  cursor -= wordmarkSize;
+
+  cursor -= 24;
+  const presents = "P R E S E N T S";
+  page.drawText(presents, { x: centered(presents, font, 11), y: cursor, size: 11, font, color: ink });
+
+  const titleLines = wrap(title.toUpperCase(), bold, 15, W * 0.78).slice(0, 2);
+  titleLines.forEach((line, i) => {
+    page.drawText(line, { x: centered(line, bold, 15), y: cursor - 36 - i * 20, size: 15, font: bold, color: NAVY });
+  });
+  cursor = cursor - 36 - (titleLines.length - 1) * 20 - 14;
+  page.drawRectangle({ x: (W - 54) / 2, y: cursor, width: 54, height: 2.5, color: ORANGE });
+
+  const belongs = "This book belongs to";
+  page.drawText(belongs, { x: centered(belongs, font, 16), y: cursor - 44, size: 16, font, color: ink });
+
+  const lineW = W * 0.52;
+  const nameY = cursor - 44 - 52;
+  page.drawRectangle({ x: (W - lineW) / 2, y: nameY - 4, width: lineW, height: 2.5, color: ORANGE });
+
+  const blurbLines = wrap(DEDICATION_BLURB, oblique, 13.5, W * 0.68);
+  blurbLines.forEach((line, i) => {
+    page.drawText(line, { x: centered(line, oblique, 13.5), y: nameY - 62 - i * 19, size: 13.5, font: oblique, color: ink });
+  });
+
+  const happy = "Happy reading!";
+  page.drawText(happy, {
+    x: centered(happy, font, 13),
+    y: nameY - 62 - blurbLines.length * 19 - 14,
+    size: 13,
+    font,
+    color: ink,
+  });
+}
+
 const GLOSSARY_RUNGS = [
   { head: 14.5, def: 12.5, headLead: 21, defLead: 18, gap: 14 },
   { head: 13, def: 11.5, headLead: 19, defLead: 16.5, gap: 12 },
@@ -624,6 +689,10 @@ export async function buildColoringBook(
 
   if (matter) await drawCopyrightPage(pdf, font, bold, oblique, title, matter.year);
 
+  // Front matter order matches the KDP interior: copyright,
+  // dedication, contents.
+  if (matter) drawDedicationPage(pdf, font, bold, oblique, title);
+
   if (toc?.length) await drawToc(pdf, bold, font, toc);
 
   const interiorStart = pdf.getPageCount();
@@ -743,7 +812,7 @@ export async function buildPictureBook(
 
 
 /** Count current matter with the exact glossary layout; no book/PDF bytes are written. */
-export async function expectedBookPageCount(interiorPages: number, chapterCount: number, vocab: BookMatter['vocab']): Promise<number> {
+export async function expectedBookPageCount(interiorPages: number, chapterCount: number, vocab: BookMatter['vocab'], kind: 'picture' | 'coloring' | 'color' = 'picture'): Promise<number> {
   if (!Number.isSafeInteger(interiorPages) || interiorPages < 0 || !Number.isSafeInteger(chapterCount) || chapterCount < 0)
     throw new Error('Invalid inventory count');
   const pdf = await PDFDocument.create();
@@ -751,5 +820,8 @@ export async function expectedBookPageCount(interiorPages: number, chapterCount:
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   drawGlossary(pdf, bold, font, vocab);
   // Front cover, copyright, optional contents, glossary, back cover.
-  return interiorPages + 3 + (chapterCount ? 1 : 0) + pdf.getPageCount();
+  // The coloring book carries one more front-matter page than the
+  // picture builds: the blank dedication page (2026-11-05), which
+  // the picture book instead receives per buyer at download time.
+  return interiorPages + 3 + (chapterCount ? 1 : 0) + pdf.getPageCount() + (kind === 'coloring' ? 1 : 0);
 }

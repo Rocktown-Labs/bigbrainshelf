@@ -26,8 +26,12 @@ async function legacyPdfFixture() {
   const coloring = await buildColoringBook('Test', inputs, ['One'], fullMatter, png);
   f.put('books/test/picture-book.pdf', pdf); f.put('books/test/coloring-book.pdf', coloring); f.put('books/test/picture-book-color.pdf', pdf);
   const legacyCount = (await PDFDocument.load(pdf)).getPageCount();
+  // The coloring build carries a front-matter page the picture
+  // build does not (the blank dedication page, 2026-11-05), so the
+  // legacy counts are per-kind, not one shared number.
+  const legacyColoringCount = (await PDFDocument.load(coloring)).getPageCount();
   const evidence = {
-    inventory: JSON.stringify({ slug: 'test', chapters_found: ['S1'], planned_pages: 2, planned_story_pages: 1, line_images: 2, color_images: 2, pdf_pages: { picture: legacyCount, coloring: legacyCount, color: legacyCount } }),
+    inventory: JSON.stringify({ slug: 'test', chapters_found: ['S1'], planned_pages: 2, planned_story_pages: 1, line_images: 2, color_images: 2, pdf_pages: { picture: legacyCount, coloring: legacyColoringCount, color: legacyCount } }),
     line: JSON.stringify({ slug: 'test', edition: 'line', results: auditRows }),
     color: JSON.stringify({ slug: 'test', edition: 'color', results: auditRows.map(r => ({ ...r, key: r.key.replace('/images/', '/images-color/'), lineSha256: r.sha256 })) }),
     bookQa: JSON.stringify({ slug: 'test', source: 'offline-only', measured_at: 1, line_purity: 0 }),
@@ -38,7 +42,7 @@ async function legacyPdfFixture() {
     if (opts?.onlyIf && f.values.get(key)?.version !== opts.onlyIf.etagMatches) return null;
     writes.push(key); f.put(key, value, opts?.customMetadata); return { etag: f.values.get(key)!.version };
   } };
-  return { ...f, bucket, evidence, writes, ledger, legacyCount };
+  return { ...f, bucket, evidence, writes, ledger, legacyCount, legacyColoringCount };
 }
 
 test('adoption alters only plans, then reassembly and approvals validate the adopted inventory with unchanged counts', async () => {
@@ -55,8 +59,7 @@ test('adoption alters only plans, then reassembly and approvals validate the ado
   raw.exec('ALTER TABLE books ADD COLUMN picture_book_key TEXT; ALTER TABLE books ADD COLUMN coloring_book_key TEXT; ALTER TABLE books ADD COLUMN color_book_key TEXT;');
   for (const [kind, field] of [['picture', 'picture_book_key'], ['coloring', 'coloring_book_key'], ['color', 'color_book_key']] as const) {
     const result = await assembleVerifiedPdf({ BOOKS: f.bucket }, 'test', kind);
-    expect(result.totalPages).toBe(report.proof.expected);
-    expect(result.totalPages).toBe(f.legacyCount);
+    expect(result.totalPages).toBe(kind === 'coloring' ? f.legacyColoringCount : f.legacyCount);
     raw.query(`UPDATE books SET ${field} = ?`).run(result.key);
   }
   const snapshot = await captureApprovalRevision(db, f.bucket, 'test');

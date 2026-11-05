@@ -16,10 +16,20 @@ export async function adoptionCounts(books: any, slug: string, bible: any, pages
   const chapters = new Set(pages.map(p => p.chapter)).size;
   const finales = pages.filter(p => p.kind === 'finale').length;
   let expected: number;
-  try { expected = await expectedBookPageCount(pages.length, chapters, bookVocabulary(bible)); }
+  let expectedByKind: Record<string, number>;
+  try {
+    const vocab = bookVocabulary(bible);
+    expected = await expectedBookPageCount(pages.length, chapters, vocab, 'picture');
+    expectedByKind = {
+      picture: expected,
+      coloring: await expectedBookPageCount(pages.length, chapters, vocab, 'coloring'),
+      color: expected,
+    };
+  }
   catch { return { expected: null, inventoryPages: pages.length, finales, results: [{ kind: 'matter', legacy: null, expected: null, delta: null, status: 'blocked', defects: ['matter-count-could-not-be-derived'], colorEligible }], status: 'blocked' }; }
   const results = [];
   for (const [kind, file] of [['picture', 'picture-book.pdf'], ['coloring', 'coloring-book.pdf'], ['color', 'picture-book-color.pdf']]) {
+    const expected = expectedByKind[kind];
     const object = await books.get(`books/${slug}/${file}`);
     if (!object) {
       results.push({ kind, legacy: null, expected, delta: null, status: 'not-available', defects: ['no-legacy-pdf'], colorEligible });
