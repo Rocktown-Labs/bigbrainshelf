@@ -26,6 +26,7 @@ import { boxContentsComplete, packLinesForBox, packProgress } from "../../../lib
 import { buyDestinationLabel, buyUspsLabelForDestination, destinationFromStored, getDestinationLabelQuote, pickupStateFor, requestPickup, shippoStatus } from "../../../lib/shippo";
 import { coverDerivative } from "../../../lib/derivatives";
 import { adminMediaUrl } from "../../../lib/media";
+import { getOrMintSerial, listSerialsForBox, serialLabel } from "../../../lib/serials";
 
 // Admin Book Club queue. Gated by the middleware's admin session cookie,
 // with the locals.user check as defense in depth (same pattern as
@@ -176,6 +177,31 @@ export const GET: APIRoute = async ({ locals, url }) => {
       String(box.second_resolved_book_slug || box.second_selected_book_slug || ""),
     ].filter(Boolean);
     const books = await loadBooksByAnySlug(e.DB, slotSlugs, "slug, title, cover_key, public_slug").catch(() => new Map());
+    // Copy serials (CG, 2026-11-05): once the box's books are set,
+    // each physical copy mints its number (slot 1 the gift set,
+    // slot 2 the printed book) so the operator sees it while
+    // packing. Idempotent; a mint failure never breaks the page.
+    let serials: any[] = [];
+    try {
+      if (boxContentsComplete(box)) {
+        const slotFormats: [string, string][] = [
+          [String(box.resolved_book_slug || box.selected_book_slug || ""), "giftset"],
+          [String(box.second_resolved_book_slug || box.second_selected_book_slug || ""), "printed"],
+        ];
+        for (let i = 0; i < slotFormats.length; i++) {
+          const [slug, format] = slotFormats[i];
+          if (!slug) continue;
+          await getOrMintSerial(e.DB, {
+            bookSlug: slug,
+            grantKey: `club-box:${boxId}:${slug}:slot${i + 1}`,
+            format,
+            clubBoxId: boxId,
+          });
+        }
+      }
+      const rows = await listSerialsForBox(e.DB, boxId);
+      serials = rows.map((s) => ({ slug: s.bookSlug, label: serialLabel(s.volume, s.serial), code: s.code, format: s.format }));
+    } catch { /* serials are a display extra, never a blocker */ }
     const packState = parsePackState(box.pack_json);
     const packLines = packLinesForBox(box, books as Map<string, any>);
     const eligible = await listEligibleClubBooks(e.DB).catch(() => []);
@@ -196,6 +222,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
       pack_state: packState,
       pack_progress: packProgress(packLines, packState),
       pickup: pickupStateFor(box),
+      serials,
       eligibleBooks,
       shippo: shippoStatus(e),
     });

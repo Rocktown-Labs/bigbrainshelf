@@ -418,6 +418,15 @@ const orderId = String(Astro.params.id || "");
 
         // Reference data, deliberately last and quiet: the full id
         // and the Stripe session reference in small monospace.
+        ((o.serials && o.serials.length)
+          ? '<div class="mt-6 px-1"><p class="font-bold uppercase tracking-wider text-[10px] text-stone-400">Numbered copies</p>' +
+            o.serials.map(function (s) {
+              return '<p class="text-[12px] text-stone-500 mt-1"><strong class="text-stone-700">' + esc(s.label) + "</strong> · " +
+                esc(s.title) + " · " + esc(s.format) +
+                ' · <span class="font-mono">/v/' + esc(s.code) + "</span></p>";
+            }).join("") + "</div>"
+          : "") +
+
         '<div class="mt-6 px-1 text-[11px] leading-relaxed text-stone-400">' +
           '<p class="font-bold uppercase tracking-wider text-[10px]">Order details</p>' +
           '<p class="font-mono break-all mt-1">Order ID: ' + esc(o.id) + "</p>" +

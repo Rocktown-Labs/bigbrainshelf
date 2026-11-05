@@ -30,7 +30,10 @@
 // child's first name (PdfStampInfo.childName): one page after the
 // cover, "This book belongs to {name}", drawn in the brand navy with
 // an orange rule. Personal to the family, generated per download,
-// never stored.
+// never stored. When the caller supplies the copy's minted serial
+// (PdfStampInfo.serialLabel, lib/serials), the dedication page also
+// carries the copy's number ("Vol. 1 #42") and its verification
+// path: the direct-sale mark a KDP copy never has.
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { logoStackedPngBytes } from "./logo-art";
 
@@ -55,6 +58,15 @@ export interface PdfStampInfo {
   producedOn?: string | null;
   /** Stacked brand logo PNG bytes for the dedication page, if loadable. */
   logoPng?: Uint8Array | null;
+  /**
+   * The copy's minted serial label ("Vol. 1 #42", lib/serials) when
+   * this download's grant has one: direct-sold copies are numbered,
+   * and the dedication page carries the number above its footer.
+   * Null for grants with no mint (the page prints without it).
+   */
+  serialLabel?: string | null;
+  /** The serial's short public code; the page prints its /v/ path. */
+  serialCode?: string | null;
   /** "#A1B2C3D4" display form of the order id, or null for club-box grants. */
   shortId: string | null;
   /**
@@ -232,6 +244,31 @@ async function insertDedicationPage(doc: PDFDocument, name: string | null, info:
     color: INK,
   });
 
+  // The copy's serial (direct sales only): the number in navy bold
+  // above the footer block, with its verification path under it in
+  // the footer's small gray. A KDP file never passes through here,
+  // so it never carries either line.
+  if (info.serialLabel) {
+    const label = cleanText(info.serialLabel);
+    page.drawText(label, {
+      x: centerX(label, bold, 11),
+      y: height * 0.115 + 46,
+      size: 11,
+      font: bold,
+      color: NAVY,
+    });
+    if (info.serialCode) {
+      const verify = `Verify this copy at bigbrainshelf.com/v/${cleanText(info.serialCode)}`;
+      page.drawText(verify, {
+        x: centerX(verify, regular, 8.5),
+        y: height * 0.115 + 31,
+        size: 8.5,
+        font: regular,
+        color: FOOT_GRAY,
+      });
+    }
+  }
+
   // Footer: production date, then the two made-in lines.
   const foot: string[] = [];
   if (info.producedOn) foot.push(`Produced on ${cleanText(info.producedOn)}`);
@@ -260,6 +297,7 @@ export async function stampPdfForBuyer(
     info.markerIsOrder ? `bbs-order:${info.marker}` : `bbs-grant:${info.marker}`,
     `bbs-buyer:${cleanText(info.email)}`,
   ];
+  if (info.serialCode) keywords.push(`bbs-serial:${cleanText(info.serialCode)}`);
   doc.setKeywords(keywords);
 
   const pages = doc.getPages();
