@@ -156,8 +156,47 @@ async function drawCopyrightPage(pdf: any, font: any, bold: any, oblique: any, t
   }
 }
 
+const GLOSSARY_RUNGS = [
+  { head: 14.5, def: 12.5, headLead: 21, defLead: 18, gap: 14 },
+  { head: 13, def: 11.5, headLead: 19, defLead: 16.5, gap: 12 },
+  { head: 12, def: 10.8, headLead: 17, defLead: 15.5, gap: 10 },
+  { head: 11.5, def: 10, headLead: 16, defLead: 14.5, gap: 9 },
+];
+
+function glossaryLines(bold: any, font: any, vocab: BookMatter["vocab"], rung: (typeof GLOSSARY_RUNGS)[number]) {
+  return vocab.map((v) => {
+    const head = v.storyName ? `${v.term}: in the story, ${v.storyName}` : v.term;
+    return {
+      headLines: wrap(head, bold, rung.head, W - MARGIN * 2),
+      defLines: v.definition ? wrap(v.definition, font, rung.def, W - MARGIN * 2 - 14) : [],
+    };
+  });
+}
+
 function drawGlossary(pdf: any, bold: any, font: any, vocab: BookMatter["vocab"]): void {
   if (!vocab.length) return;
+  // The glossary belongs on ONE page (CG, 2026-11-05: at the
+  // original sizes a full glossary spilled onto a second page).
+  // Entry sizes step down the ladder until the whole list fits
+  // page one; only a glossary too long for even the smallest rung
+  // paginates, and then at that rung.
+  const available = H - 185 - 70;
+  let rung = GLOSSARY_RUNGS[GLOSSARY_RUNGS.length - 1];
+  let laid = glossaryLines(bold, font, vocab, rung);
+  let onePage = false;
+  for (const candidate of GLOSSARY_RUNGS) {
+    const lines = glossaryLines(bold, font, vocab, candidate);
+    const need = lines.reduce(
+      (sum, e) => sum + e.headLines.length * candidate.headLead + e.defLines.length * candidate.defLead + candidate.gap,
+      0
+    );
+    if (need <= available) {
+      rung = candidate;
+      laid = lines;
+      onePage = true;
+      break;
+    }
+  }
   let page = pdf.addPage([W, H]);
   const heading = "Words to Know";
   page.drawText(heading, {
@@ -176,24 +215,21 @@ function drawGlossary(pdf: any, bold: any, font: any, vocab: BookMatter["vocab"]
     color: GRAY,
   });
   let y = H - 185;
-  for (const v of vocab) {
-    const head = v.storyName ? `${v.term}: in the story, ${v.storyName}` : v.term;
-    const headLines = wrap(head, bold, 14.5, W - MARGIN * 2);
-    const defLines = v.definition ? wrap(v.definition, font, 12.5, W - MARGIN * 2 - 14) : [];
-    const need = headLines.length * 21 + defLines.length * 18 + 14;
-    if (y - need < 70) {
+  for (const entry of laid) {
+    const need = entry.headLines.length * rung.headLead + entry.defLines.length * rung.defLead + rung.gap;
+    if (!onePage && y - need < 70) {
       page = pdf.addPage([W, H]);
       y = H - 110;
     }
-    for (const line of headLines) {
-      page.drawText(line, { x: MARGIN, y, size: 14.5, font: bold, color: rgb(0.12, 0.12, 0.12) });
-      y -= 21;
+    for (const line of entry.headLines) {
+      page.drawText(line, { x: MARGIN, y, size: rung.head, font: bold, color: rgb(0.12, 0.12, 0.12) });
+      y -= rung.headLead;
     }
-    for (const line of defLines) {
-      page.drawText(line, { x: MARGIN + 14, y, size: 12.5, font, color: GRAY });
-      y -= 18;
+    for (const line of entry.defLines) {
+      page.drawText(line, { x: MARGIN + 14, y, size: rung.def, font, color: GRAY });
+      y -= rung.defLead;
     }
-    y -= 14;
+    y -= rung.gap;
   }
 }
 
@@ -521,11 +557,30 @@ async function drawComposedCover(pdf: any, bold: any, title: string, coverArt: U
   drawPill(page, bold, MARGIN, 7);
 }
 
-// (fitCaption, the one-line caption ellipsizer, was deleted
-// 2026-10-31: captions carry the full story text, wrapped. There
-// is deliberately no truncating helper left in this file to
-// reach for; text that does not fit steps its size down or the
-// layout yields room, in that order.)
+// Coloring captions (CG, 2026-11-05): a coloring page carries ONE
+// generated line that describes its image (stored in the book's
+// captions.json sidecar, supplied by assembly), drawn dash-led at
+// the bottom-left under the art. History: the original one-line
+// captions were machine-cut story text that doubled names and cut
+// mid-word, so they were removed (2026-10-27); the interim build
+// wrapped the full story text under the art (2026-10-31). The
+// restored captions are written as captions, short enough to fit
+// whole at small type; the fit helper below steps the size down
+// and throws rather than ever truncating a line.
+
+/**
+ * The size at which a one-line coloring caption fits `maxWidth`,
+ * stepping down from 11pt in half points to an 8pt floor. Throws
+ * when the line does not fit even at the floor: the caption is
+ * flagged for regeneration, never truncated (CG, 2026-11-05).
+ */
+export function oneLineCaptionSize(font: any, line: string, maxWidth: number): number {
+  let size = 11;
+  while (size > 8 && font.widthOfTextAtSize(line, size) > maxWidth) size -= 0.5;
+  if (font.widthOfTextAtSize(line, size) > maxWidth)
+    throw new Error(`Coloring caption does not fit on one line at the 8pt floor: "${line}"`);
+  return size;
+}
 
 export async function buildColoringBook(
   title: string,
@@ -577,35 +632,28 @@ export async function buildColoringBook(
     coloringPageNum += 1;
     const page = pdf.addPage([W, H]);
     const jpg = await embedImg(pdf, p.image);
-    // The page's FULL story text, wrapped under the art. Never
-    // truncated: the one-line fitCaption this replaces ellipsized
-    // 28 of Mira's 32 captions mid-sentence (CG defect pass,
-    // 2026-10-31). The size steps down before the lines multiply,
-    // and the art yields the room: caption block first, art in
-    // what is left.
+    // One-line caption under the art (CG, 2026-11-05): a generated
+    // one-liner describing the image, dash-led, bottom-left under
+    // the art at the house caption baseline (y=40, above the footer
+    // at y=22), auto-fit from 11pt down to an 8pt floor and drawn
+    // whole or not at all (oneLineCaptionSize throws). The art
+    // keeps the documented coloring geometry (top margin 56,
+    // lowest edge y=80) whether or not the page carries a caption.
     const caption = String(p.caption ?? "").replace(/\s+/g, " ").trim();
-    let capSize = 11.5;
-    let capLines = wrap(caption, font, capSize, W - MARGIN * 2);
-    while (capLines.length > 4 && capSize > 9.5) {
-      capSize -= 1;
-      capLines = wrap(caption, font, capSize, W - MARGIN * 2);
-    }
-    const capTop = 96;
-    const artMaxH = H - 56 - (capTop + 14);
+    const artMaxH = H - 56 - 80;
     const scale = Math.min((W - MARGIN * 2) / jpg.width, artMaxH / jpg.height);
     const iw = jpg.width * scale;
     const ih = jpg.height * scale;
     page.drawImage(jpg, { x: (W - iw) / 2, y: H - 56 - ih, width: iw, height: ih });
-    let cy = capTop;
-    for (const line of capLines) {
+    if (caption) {
+      const line = `- ${caption}`;
       page.drawText(line, {
-        x: (W - font.widthOfTextAtSize(line, capSize)) / 2,
-        y: cy,
-        size: capSize,
+        x: (W - iw) / 2,
+        y: 40,
+        size: oneLineCaptionSize(font, line, iw),
         font,
         color: rgb(0.3, 0.3, 0.3),
       });
-      cy -= capSize * 1.35;
     }
     drawInteriorFooter(page, font, coloringPageNum);
   }
