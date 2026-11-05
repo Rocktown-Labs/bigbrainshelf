@@ -23,6 +23,7 @@ import {
   deleteKidProfile,
   saveReadingProgress,
   getReadingProgress,
+  toReadingProgressRow,
   enqueueBirthdayGiftEmail,
   SLEEP_TIMER_PRESETS,
   KID_AVATARS,
@@ -279,6 +280,59 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
 
     await deleteKidProfile(db, "user_2", kid.id);
     expect((await listKidProfiles(db, "user_2")).length).toBe(0);
+  });
+
+  test("Progress rows carry book-level listening position and the reader page count (2026-11-05)", async () => {
+    const db = makeD1FromSqlite();
+    await ensureFamilyTables(db);
+
+    // Half the pages read, a quarter of the audiobook heard: the
+    // row reports the further one and calls it reading.
+    const read = await saveReadingProgress(db, "user_9", {
+      profile_id: "default",
+      book_slug: "halfway",
+      page_index: 11,
+      reader_total_pages: 24,
+      audio_elapsed_sec: 300,
+      audio_total_sec: 1200,
+    });
+    expect(read.progress.reader_total_pages).toBe(24);
+    expect(read.progress.audio_elapsed_sec).toBe(300);
+    expect(read.progress.audio_total_sec).toBe(1200);
+    const readRow = toReadingProgressRow(read.progress);
+    expect(readRow.current_page).toBe(12);
+    expect(readRow.total_pages).toBe(24);
+    expect(readRow.read_pct).toBe(50);
+    expect(readRow.listen_pct).toBe(25);
+    expect(readRow.pct).toBe(50);
+    expect(readRow.kind).toBe("reading");
+    expect(readRow.finished).toBe(false);
+
+    // Listening ahead of reading flips the kind; near the end of
+    // the audiobook counts as finished.
+    const heard = await saveReadingProgress(db, "user_9", {
+      profile_id: "default",
+      book_slug: "halfway",
+      audio_elapsed_sec: 1190,
+      audio_total_sec: 1200,
+    });
+    const heardRow = toReadingProgressRow(heard.progress);
+    expect(heardRow.kind).toBe("listening");
+    expect(heardRow.pct).toBe(99);
+    expect(heardRow.finished).toBe(true);
+    // Untouched fields keep their saved values across partial saves.
+    expect(heardRow.read_pct).toBe(50);
+
+    // A row saved before page counts existed reads as no progress,
+    // never as a made-up percentage.
+    const legacy = await saveReadingProgress(db, "user_9", {
+      profile_id: "default",
+      book_slug: "old-book",
+      page_index: 3,
+    });
+    const legacyRow = toReadingProgressRow(legacy.progress);
+    expect(legacyRow.pct).toBe(0);
+    expect(legacyRow.total_pages).toBe(0);
   });
 
   test("Customer Hub surfaces (/account, /accounts, /read/[slug] QC reader) include sleep timer and sync controls", () => {

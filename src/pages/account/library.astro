@@ -21,12 +21,36 @@ if (!hub) {
 const { session, books, audioBooksCount, parentOnboarding, kidProfiles, readingProgressList, onboardingChecklist } = hub;
 
 const R2 = "https://media.bigbrainshelf.com/";
+// Progress bars belong to the active profile (progress tracking,
+// 2026-11-05): the server paints the parent's own row, and the
+// script at the end of the page repaints for whoever is viewing
+// (Kid View shows that reader's bar). Every profile's rows ride
+// along as JSON for the painter.
+const progressByBook: Record<string, any[]> = {};
+for (const p of readingProgressList) {
+  (progressByBook[p.book_slug] ||= []).push({
+    profile_id: p.profile_id,
+    pct: p.pct,
+    kind: p.kind,
+    finished: p.finished,
+    current_page: p.current_page,
+    total_pages: p.total_pages,
+  });
+}
+const progLabelFor = (prog: any) =>
+  !prog
+    ? ""
+    : prog.finished
+      ? `${prog.pct}% · Finished`
+      : prog.kind === "listening"
+        ? `${prog.pct}% · Listening`
+        : prog.total_pages > 0
+          ? `${prog.pct}% · page ${prog.current_page} of ${prog.total_pages}`
+          : `${prog.pct}%`;
 const cardFor = (b: any) => {
-  const prog = readingProgressList.find((p) => p.book_slug === b.slug);
-  const pct =
-    prog && prog.total_pages > 0
-      ? Math.min(100, Math.round((prog.current_page / prog.total_pages) * 100))
-      : 0;
+  const prog = readingProgressList.find(
+    (p) => p.book_slug === b.slug && p.profile_id === "default"
+  );
   return {
     b,
     cover: coverDerivative(b.slug, "card", b.cover_key) || (b.cover_key ? R2 + b.cover_key : null),
@@ -36,9 +60,8 @@ const cardFor = (b: any) => {
     digital: Boolean(b.digital),
     audio: Boolean(b.audio),
     club: Boolean(b.clubPlan) && !b.owned,
-    pct,
-    progPage: prog?.current_page,
-    progTotal: prog?.total_pages,
+    pct: prog ? prog.pct : 0,
+    progLabel: progLabelFor(prog),
   };
 };
 const boards: any[][] = [];
@@ -178,14 +201,12 @@ for (let i = 0; i < books.length; i += 4) boards.push((books as any[]).slice(i, 
                   )}
                   <p class="text-[11px] text-stone-500">{c.b.topic}</p>
                 </div>
-                {c.pct > 0 && (
-                  <div class="mt-1.5" aria-label={`Reading progress ${c.pct}%`}>
-                    <div class="h-1 rounded-full bg-stone-200 overflow-hidden">
-                      <div class="h-full bg-orange-500 rounded-full" style={`width:${c.pct}%`}></div>
-                    </div>
-                    <p class="text-[10px] font-bold text-stone-500 mt-0.5">{c.pct}% · page {c.progPage} of {c.progTotal}</p>
+                <div class="mt-1.5" data-progress hidden={c.pct <= 0} aria-label={c.pct > 0 ? `Progress ${c.pct}%` : undefined}>
+                  <div class="h-1 rounded-full bg-stone-200 overflow-hidden">
+                    <div class="h-full bg-orange-500 rounded-full" data-progress-fill style={`width:${c.pct}%`}></div>
                   </div>
-                )}
+                  <p class="text-[10px] font-bold text-stone-500 mt-0.5" data-progress-label>{c.progLabel}</p>
+                </div>
               </a>
               {i % 2 === 1 && (
                 <div class="shelf-plank w-full sm:hidden" aria-hidden="true"></div>
@@ -202,5 +223,57 @@ for (let i = 0; i < books.length; i += 4) boards.push((books as any[]).slice(i, 
       <p class="text-[11px] text-stone-400 mt-6">For your family's personal use.</p>
     )}
   </main>
+
+  <script type="application/json" id="progress-by-book" set:html={JSON.stringify(progressByBook)} />
+  <script is:inline>
+    // Repaint the shelf's progress bars for the active profile:
+    // Parent View shows the parent's own bars, Kid View shows that
+    // reader's. The server paint is the parent's.
+    (function () {
+      var dataEl = document.getElementById("progress-by-book");
+      if (!dataEl) return;
+      var byBook = {};
+      try {
+        byBook = JSON.parse(dataEl.textContent || "{}");
+      } catch (e) {}
+      function labelFor(r) {
+        if (r.finished) return r.pct + "% · Finished";
+        if (r.kind === "listening") return r.pct + "% · Listening";
+        if (r.total_pages > 0) return r.pct + "% · page " + r.current_page + " of " + r.total_pages;
+        return r.pct + "%";
+      }
+      function paint(profileId) {
+        var pid = !profileId || profileId === "parent" ? "default" : profileId;
+        document.querySelectorAll("[data-book-card-slug]").forEach(function (card) {
+          var wrap = card.querySelector("[data-progress]");
+          if (!wrap) return;
+          var rows = byBook[card.getAttribute("data-book-card-slug")] || [];
+          var row = null;
+          for (var i = 0; i < rows.length; i++) {
+            if (rows[i].profile_id === pid) { row = rows[i]; break; }
+          }
+          if (!row || row.pct <= 0) {
+            wrap.hidden = true;
+            return;
+          }
+          wrap.hidden = false;
+          wrap.setAttribute("aria-label", "Progress " + row.pct + "%");
+          var fill = wrap.querySelector("[data-progress-fill]");
+          if (fill) fill.style.width = row.pct + "%";
+          var label = wrap.querySelector("[data-progress-label]");
+          if (label) label.textContent = labelFor(row);
+        });
+      }
+      window.addEventListener("bbs:profile-change", function (ev) {
+        paint(ev.detail && ev.detail.isKid ? ev.detail.profileId : "default");
+      });
+      try {
+        var pid = window.localStorage.getItem("bbs.activeProfileId");
+        paint(pid && pid !== "parent" ? pid : "default");
+      } catch (e) {
+        paint("default");
+      }
+    })();
+  </script>
 </body>
 </html>

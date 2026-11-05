@@ -207,8 +207,57 @@ export interface ReadingProgressRecord {
   audio_track_id: string | null;
   audio_position_sec: number;
   audio_duration_sec: number;
+  // Book-level listening position (progress tracking, 2026-11-05):
+  // elapsed/total across the whole audiobook, computed by the
+  // player from its playlist. The per-track pair above cannot say
+  // how far through the BOOK a listener is; this pair can.
+  audio_elapsed_sec: number;
+  audio_total_sec: number;
+  // The reader's page count for this book, saved by the reader
+  // itself (it is the only surface that knows it). Reading percent
+  // is (page_index + 1) / reader_total_pages.
+  reader_total_pages: number;
   sync_enabled: boolean;
   updated_at: number;
+}
+
+/**
+ * The shape the account pages consume (dashboard Continue Reading,
+ * library bars, Recently Played). The pages were written against
+ * current_page/total_pages in 2026-11-01, but the record never
+ * carried them, so every bar silently read 0% (CG's "no progress
+ * tracking" finding, 2026-11-05). This row derives them in one
+ * place: pct is the further of reading and listening, kind names
+ * whichever is ahead, finished at the end of either.
+ */
+export interface ReadingProgressRow extends ReadingProgressRecord {
+  current_page: number;
+  total_pages: number;
+  read_pct: number;
+  listen_pct: number;
+  pct: number;
+  kind: "reading" | "listening";
+  finished: boolean;
+}
+
+export function toReadingProgressRow(rec: ReadingProgressRecord): ReadingProgressRow {
+  const totalPages = Math.max(0, Math.round(Number(rec.reader_total_pages || 0)));
+  const currentPage = totalPages > 0 ? Math.min(totalPages, Math.max(0, Math.round(Number(rec.page_index || 0))) + 1) : 0;
+  const readPct = totalPages > 0 ? Math.min(100, Math.round((currentPage / totalPages) * 100)) : 0;
+  const audioTotal = Math.max(0, Number(rec.audio_total_sec || 0));
+  const audioElapsed = Math.max(0, Number(rec.audio_elapsed_sec || 0));
+  const listenPct = audioTotal > 0 ? Math.min(100, Math.round((audioElapsed / audioTotal) * 100)) : 0;
+  const pct = Math.max(readPct, listenPct);
+  return {
+    ...rec,
+    current_page: currentPage,
+    total_pages: totalPages,
+    read_pct: readPct,
+    listen_pct: listenPct,
+    pct,
+    kind: listenPct > readPct ? "listening" : "reading",
+    finished: readPct >= 100 || listenPct >= 98,
+  };
 }
 
 export function classifyAgeGroup(age: number): AgeGroup {
@@ -456,6 +505,9 @@ export async function ensureFamilyTables(db: DBLike): Promise<void> {
            audio_track_id TEXT,
            audio_position_sec REAL NOT NULL DEFAULT 0,
            audio_duration_sec REAL NOT NULL DEFAULT 0,
+           audio_elapsed_sec REAL NOT NULL DEFAULT 0,
+           audio_total_sec REAL NOT NULL DEFAULT 0,
+           reader_total_pages INTEGER NOT NULL DEFAULT 0,
            sync_enabled INTEGER NOT NULL DEFAULT 1,
            updated_at INTEGER NOT NULL,
            UNIQUE(user_id, profile_id, book_slug)
@@ -463,6 +515,28 @@ export async function ensureFamilyTables(db: DBLike): Promise<void> {
       )
       .bind()
       .run();
+
+    // Book-level listening position + the reader's page count
+    // (progress tracking, 2026-11-05): additive on existing tables.
+    const { results: rpCols } = await db
+      .prepare("PRAGMA table_info(reading_progress)")
+      .bind()
+      .all();
+    const haveRpCols = new Set(((rpCols || []) as any[]).map((r) => String(r.name)));
+    const RP_ADDITIVE: Record<string, string> = {
+      audio_elapsed_sec: "REAL NOT NULL DEFAULT 0",
+      audio_total_sec: "REAL NOT NULL DEFAULT 0",
+      reader_total_pages: "INTEGER NOT NULL DEFAULT 0",
+    };
+    for (const [col, def] of Object.entries(RP_ADDITIVE)) {
+      if (!haveRpCols.has(col)) {
+        try {
+          await db.prepare(`ALTER TABLE reading_progress ADD COLUMN ${col} ${def}`).bind().run();
+        } catch {
+          // Column already present
+        }
+      }
+    }
 
     const indexes = [
       "CREATE INDEX IF NOT EXISTS kid_profiles_user_idx ON kid_profiles(user_id, created_at)",
@@ -566,6 +640,9 @@ function hydrateReadingProgress(row: any): ReadingProgressRecord {
     audio_track_id: row.audio_track_id ? String(row.audio_track_id) : null,
     audio_position_sec: Math.max(0, Number(row.audio_position_sec || 0)),
     audio_duration_sec: Math.max(0, Number(row.audio_duration_sec || 0)),
+    audio_elapsed_sec: Math.max(0, Number(row.audio_elapsed_sec || 0)),
+    audio_total_sec: Math.max(0, Number(row.audio_total_sec || 0)),
+    reader_total_pages: Math.max(0, Math.round(Number(row.reader_total_pages || 0))),
     sync_enabled: Number(row.sync_enabled ?? 1) !== 0,
     updated_at: Number(row.updated_at || 0),
   };
@@ -1275,6 +1352,9 @@ export interface SaveReadingProgressInput {
   audio_track_id?: string | null;
   audio_position_sec?: number;
   audio_duration_sec?: number;
+  audio_elapsed_sec?: number;
+  audio_total_sec?: number;
+  reader_total_pages?: number;
   sync_enabled?: boolean;
   elapsed_minutes_delta?: number;
 }
@@ -1327,6 +1407,18 @@ export async function saveReadingProgress(
     input.audio_duration_sec !== undefined
       ? Math.max(0, Number(input.audio_duration_sec))
       : (existing?.audio_duration_sec ?? 0);
+  const audioElapsedSec =
+    input.audio_elapsed_sec !== undefined
+      ? Math.max(0, Number(input.audio_elapsed_sec))
+      : (existing?.audio_elapsed_sec ?? 0);
+  const audioTotalSec =
+    input.audio_total_sec !== undefined
+      ? Math.max(0, Number(input.audio_total_sec))
+      : (existing?.audio_total_sec ?? 0);
+  const readerTotalPages =
+    input.reader_total_pages !== undefined
+      ? Math.max(0, Math.round(Number(input.reader_total_pages)))
+      : (existing?.reader_total_pages ?? 0);
   const syncEnabled =
     input.sync_enabled !== undefined
       ? Boolean(input.sync_enabled)
@@ -1335,8 +1427,8 @@ export async function saveReadingProgress(
   await db
     .prepare(
       `INSERT INTO reading_progress
-         (id, user_id, profile_id, book_slug, chapter_num, page_index, view_edition, view_mode, audio_track_id, audio_position_sec, audio_duration_sec, sync_enabled, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         (id, user_id, profile_id, book_slug, chapter_num, page_index, view_edition, view_mode, audio_track_id, audio_position_sec, audio_duration_sec, audio_elapsed_sec, audio_total_sec, reader_total_pages, sync_enabled, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(user_id, profile_id, book_slug) DO UPDATE SET
          chapter_num = excluded.chapter_num,
          page_index = excluded.page_index,
@@ -1345,6 +1437,9 @@ export async function saveReadingProgress(
          audio_track_id = excluded.audio_track_id,
          audio_position_sec = excluded.audio_position_sec,
          audio_duration_sec = excluded.audio_duration_sec,
+         audio_elapsed_sec = excluded.audio_elapsed_sec,
+         audio_total_sec = excluded.audio_total_sec,
+         reader_total_pages = excluded.reader_total_pages,
          sync_enabled = excluded.sync_enabled,
          updated_at = excluded.updated_at`
     )
@@ -1360,6 +1455,9 @@ export async function saveReadingProgress(
       audioTrackId,
       audioPositionSec,
       audioDurationSec,
+      audioElapsedSec,
+      audioTotalSec,
+      readerTotalPages,
       syncEnabled ? 1 : 0,
       now
     )
