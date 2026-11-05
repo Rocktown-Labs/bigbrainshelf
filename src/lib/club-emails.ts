@@ -19,6 +19,7 @@
 
 import { enqueueEmail, type DBLike } from "./orders";
 import { NEWS_EMAIL } from "./email";
+import { mediaUrl } from "./media";
 import { getOrCreateUnsubscribeToken, isOptedOut } from "./marketing";
 import { boxCreatedDateString, clubCycleTiming, formatClubDate } from "./club-cycle-dates";
 
@@ -54,6 +55,11 @@ export interface ClubCycleEmailModel {
   heading: string;
   paragraphs: string[];
   bookTitle: string | null;
+  // The resolved club book's cover, as an absolute media-host URL
+  // for the HTML render (CG, 2026-11-05: the locked-in email should
+  // show the book). Null until a book is resolved; the template
+  // shows it on the locked and shipped emails only.
+  bookCoverUrl: string | null;
   shipDateLabel: string;
   lockDateLabel: string | null;
   accountUrl: string;
@@ -68,6 +74,7 @@ export function buildClubCycleEmailModel(args: {
   shipDate: string;
   lockDate?: string | null;
   bookTitle?: string | null;
+  bookCoverUrl?: string | null;
   surprise?: boolean;
   carrier?: string | null;
   trackingNumber?: string | null;
@@ -79,6 +86,7 @@ export function buildClubCycleEmailModel(args: {
   const base = {
     kind: args.kind,
     bookTitle: args.bookTitle || null,
+    bookCoverUrl: args.bookCoverUrl || null,
     shipDateLabel: shipLabel,
     lockDateLabel: lockLabel,
     accountUrl,
@@ -173,7 +181,7 @@ export function buildClubCycleEmailText(model: ClubCycleEmailModel): string {
 }
 
 // Load everything an email render needs for one outbox row: the box,
-// its member, the resolved book's title, and the cycle timing.
+// its member, the resolved book's title and cover, and the timing.
 export async function loadClubCycleEmailModel(
   db: DBLike,
   site: string,
@@ -182,7 +190,7 @@ export async function loadClubCycleEmailModel(
   if (!row.club_box_id || !isClubCycleEmailKind(row.kind)) return null;
   const box = await db
     .prepare(
-      `SELECT b.*, bk.title AS book_title
+      `SELECT b.*, bk.title AS book_title, bk.cover_key AS book_cover_key
        FROM club_cycle_boxes b
        LEFT JOIN books bk ON bk.slug = b.resolved_book_slug
        WHERE b.id = ?`
@@ -201,6 +209,7 @@ export async function loadClubCycleEmailModel(
     shipDate: String(box.ship_date),
     lockDate: timing.lockDate,
     bookTitle: box.book_title || null,
+    bookCoverUrl: box.book_cover_key ? mediaUrl(String(box.book_cover_key)) : null,
     carrier: box.carrier || null,
     trackingNumber: box.tracking_number || null,
     unsubscribeToken: token,
