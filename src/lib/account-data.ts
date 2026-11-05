@@ -6,6 +6,7 @@ import {
   getParentOnboarding,
   listKidProfiles,
   listReadingProgress,
+  toReadingProgressRow,
   type KidProfile,
   type OnboardingChecklist,
   type ParentOnboarding,
@@ -39,7 +40,7 @@ export async function loadCustomerHubContext(
   const session = await getEffectiveSession(request, locals, db);
   if (!session) return null;
 
-  const [libraryBooks, parentOnboarding, kidProfiles, readingProgressList] = await Promise.all([
+  const [libraryBooks, parentOnboarding, kidProfiles, progressRecords] = await Promise.all([
     getLibraryBooks(db, {
       id: session.user.id,
       email: String(session.user.email || ""),
@@ -48,6 +49,9 @@ export async function loadCustomerHubContext(
     listKidProfiles(db, session.user.id).catch(() => []),
     listReadingProgress(db, session.user.id).catch(() => []),
   ]);
+  // The pages consume progress as rows (current_page, total_pages,
+  // pct, kind, finished), derived in family.ts in one place.
+  const readingProgressList: ReadingProgressRow[] = (progressRecords || []).map(toReadingProgressRow);
 
   let books: any[] = (libraryBooks || []) as any[];
   // If an admin account has no test orders yet, seed published books onto the

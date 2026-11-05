@@ -335,7 +335,7 @@ if (entitlement.owned) {
     )}
   </main>
 
-  <script is:inline define:vars={{ playerData, audioChapterCount, listenMode, hasColor: reader.hasColor }}>
+  <script is:inline define:vars={{ playerData, audioChapterCount, listenMode, hasColor: reader.hasColor, bookSlug: book.slug }}>
     // Defaults (DESIGN.md + CG 2026-11-01): the reader opens like
     // the admin QC stage, one page at a time, in the full-color
     // edition when the book has one. Scroll and Line stay one tap away.
@@ -353,6 +353,70 @@ if (entitlement.owned) {
       }
     });
     var flipIndex = 0;
+
+    // ---------- Progress saves (2026-11-05) ----------
+    // Progress belongs to whoever is reading: the shell's active
+    // profile decides the row. Parent View reads under "default"
+    // (the long-standing parent row); a kid's view reads under
+    // their profile id. The full save (pages + audio) lives in the
+    // player branch and registers itself on window; books without
+    // an audiobook use the page-only save here, so every book
+    // tracks. Saves ride page turns (debounced), audio pauses, and
+    // pagehide.
+    function activeProgressProfile() {
+      try {
+        var stored = window.localStorage.getItem("bbs.activeProfileId");
+        return !stored || stored === "parent" ? "default" : stored;
+      } catch (e) {
+        return "default";
+      }
+    }
+    function savePageProgress() {
+      if (!bookSlug) return;
+      var pid = activeProgressProfile();
+      var payload = {
+        profile_id: pid,
+        book_slug: bookSlug,
+        page_index: flipIndex,
+        reader_total_pages: pageEls.length,
+        total_pages: pageEls.length,
+        view_edition: artMode === "color" ? "fullcolor" : "story",
+        view_mode: viewMode,
+        sync_enabled: true,
+      };
+      try {
+        window.localStorage.setItem("bbs-progress:" + pid + ":" + bookSlug, JSON.stringify(payload));
+      } catch (e) {}
+      fetch("/api/account/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).catch(function () {});
+    }
+    var progressSaveTimer = 0;
+    function scheduleProgressSave() {
+      if (progressSaveTimer) window.clearTimeout(progressSaveTimer);
+      progressSaveTimer = window.setTimeout(function () {
+        if (typeof window.__bbsSaveFullProgress === "function") window.__bbsSaveFullProgress();
+        else savePageProgress();
+      }, 800);
+    }
+    window.addEventListener("pagehide", function () {
+      if (typeof window.__bbsSaveFullProgress === "function") window.__bbsSaveFullProgress();
+      else savePageProgress();
+    });
+
+    // Without a player there is no player branch to restore
+    // progress: land a returning reader on their saved page.
+    if (!playerData) {
+      try {
+        var rawSaved = window.localStorage.getItem("bbs-progress:" + activeProgressProfile() + ":" + bookSlug);
+        var savedPage = rawSaved ? JSON.parse(rawSaved) : null;
+        if (savedPage && typeof savedPage.page_index === "number" && savedPage.page_index > 0) {
+          flipIndex = Math.min(savedPage.page_index, pageEls.length - 1);
+        }
+      } catch (e) {}
+    }
 
     // ---------- Artwork (line/color) ----------
     var artLine = document.getElementById("art-line");
@@ -434,6 +498,7 @@ if (entitlement.owned) {
     }
     function setFlip(i, scroll) {
       if (i < 0 || i >= pageEls.length) return;
+      var changed = i !== flipIndex;
       flipIndex = i;
       if (viewMode === "flip") {
         renderFlip();
@@ -442,6 +507,9 @@ if (entitlement.owned) {
           if (col) col.scrollIntoView({ block: "start", behavior: "smooth" });
         }
       }
+      // Reading is progress too (2026-11-05): a silent reader used
+      // to save nothing, because saves only rode audio events.
+      if (changed) scheduleProgressSave();
     }
     function flipBy(delta) { setFlip(flipIndex + delta); }
     if (viewScrollBtn) viewScrollBtn.addEventListener("click", function () { viewMode = "scroll"; applyView(); });
@@ -686,12 +754,30 @@ if (entitlement.owned) {
 
       function saveReaderProgress() {
         if (!playerData || !playerData.slug) return;
-        var currentTrack = playlist()[index] || null;
+        var pid = activeProgressProfile();
+        var tracks = playlist();
+        var currentTrack = tracks[index] || null;
+        // Book-level listening position: whole tracks before this
+        // one plus the position inside it, over the playlist's
+        // total. Only sent when the playlist's durations are known,
+        // so a partial save never zeroes a good total.
+        var audioElapsed = 0;
+        var audioTotal = 0;
+        tracks.forEach(function (t, i) {
+          var d = Number(t.duration || 0);
+          if (d > 0) {
+            audioTotal += d;
+            if (i < index) audioElapsed += d;
+          }
+        });
+        if (index >= 0 && isFinite(audio.currentTime)) audioElapsed += audio.currentTime;
         var payload = {
-          profile_id: "default",
+          profile_id: pid,
           book_slug: playerData.slug,
           chapter_num: currentTrack && currentTrack.chapter ? currentTrack.chapter : 1,
           page_index: flipIndex,
+          reader_total_pages: pageEls.length,
+          total_pages: pageEls.length,
           view_edition: artMode === "color" ? "fullcolor" : "story",
           view_mode: viewMode,
           audio_track_id: currentTrack ? currentTrack.id : null,
@@ -699,8 +785,12 @@ if (entitlement.owned) {
           audio_duration_sec: isFinite(audio.duration) ? Math.round(audio.duration * 10) / 10 : 0,
           sync_enabled: true,
         };
+        if (audioTotal > 0) {
+          payload.audio_elapsed_sec = Math.round(audioElapsed * 10) / 10;
+          payload.audio_total_sec = Math.round(audioTotal * 10) / 10;
+        }
         try {
-          window.localStorage.setItem("bbs-progress:default:" + playerData.slug, JSON.stringify(payload));
+          window.localStorage.setItem("bbs-progress:" + pid + ":" + playerData.slug, JSON.stringify(payload));
         } catch (e) {}
         fetch("/api/account/progress", {
           method: "POST",
@@ -710,6 +800,9 @@ if (entitlement.owned) {
       }
 
       audio.addEventListener("pause", saveReaderProgress);
+      // The top-level scheduler and pagehide hook call the full
+      // save (pages + audio) through here when the player exists.
+      window.__bbsSaveFullProgress = saveReaderProgress;
 
       // Adopt the live session when we land back on a book the
       // global player kept playing (CG, 2026-11-05): paint this
@@ -762,9 +855,14 @@ if (entitlement.owned) {
         if (adoptedLive) return;
         if (!playerData || !playerData.slug) return;
         try {
-          var raw = window.localStorage.getItem("bbs-progress:default:" + playerData.slug);
+          var raw = window.localStorage.getItem("bbs-progress:" + activeProgressProfile() + ":" + playerData.slug);
           if (!raw) return;
           var saved = JSON.parse(raw);
+          // The page position restores too, not just the audio: a
+          // silent reader used to land back on page one every time.
+          if (saved && typeof saved.page_index === "number" && saved.page_index > 0) {
+            setFlip(Math.min(saved.page_index, pageEls.length - 1), false);
+          }
           if (saved && saved.audio_track_id) {
             var tracks = playlist();
             for (var i = 0; i < tracks.length; i++) {

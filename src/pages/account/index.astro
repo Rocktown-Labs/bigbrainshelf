@@ -40,18 +40,37 @@ const firstName =
   String(session.user.email || "").split("@")[0];
 const ownedCount = (books as any[]).filter((b: any) => b.owned).length;
 
-// Continue reading: the furthest-along unfinished book.
-const inProgress = (books as any[])
-  .map((b: any) => {
-    const prog = readingProgressList.find((p) => p.book_slug === b.slug);
-    const pct =
-      prog && prog.total_pages > 0
-        ? Math.min(100, Math.round((prog.current_page / prog.total_pages) * 100))
-        : 0;
-    return { b, prog, pct };
-  })
-  .filter((x) => x.pct > 0 && x.pct < 100)
-  .sort((a, b) => b.pct - a.pct)[0];
+// Recently played (progress tracking, 2026-11-05): every
+// profile's latest reading and listening, newest first
+// (readingProgressList arrives sorted by updated_at desc). The
+// section below renders all rows and the profile script filters
+// them to the active profile; Parent View shows everyone, labeled
+// by reader. The Continue button points at the newest unfinished
+// entry.
+const bookBySlug = new Map((books as any[]).map((b: any) => [String(b.slug), b]));
+const profileLabelFor = (pid: string) =>
+  pid === "default"
+    ? "Parent"
+    : (kidProfiles.find((k: any) => k.id === pid)?.name || "Reader");
+const recentlyPlayed = readingProgressList
+  .filter((p) => bookBySlug.has(p.book_slug) && p.pct > 0)
+  .slice(0, 8)
+  .map((p) => {
+    const b = bookBySlug.get(p.book_slug);
+    return {
+      row: p,
+      b,
+      cover:
+        coverDerivative(b.slug, "card", b.cover_key) ||
+        (b.cover_key ? R2 + b.cover_key : null),
+      href: `/read/${publicSlugFor(b)}${p.kind === "listening" ? "?listen=1" : ""}`,
+      profileLabel: profileLabelFor(p.profile_id),
+    };
+  });
+const inProgressEntry = recentlyPlayed.find((x) => !x.row.finished);
+const inProgress = inProgressEntry
+  ? { b: inProgressEntry.b, prog: inProgressEntry.row, pct: inProgressEntry.row.pct, href: inProgressEntry.href }
+  : undefined;
 
 // Club state for the stat card + club panel.
 let clubSignup: any = null;
@@ -83,10 +102,7 @@ const clubLabel = !clubSignup
 // Shelf preview: the first board only (4 books).
 const previewCards = (books as any[]).slice(0, 4).map((b: any) => {
   const prog = readingProgressList.find((p) => p.book_slug === b.slug);
-  const pct =
-    prog && prog.total_pages > 0
-      ? Math.min(100, Math.round((prog.current_page / prog.total_pages) * 100))
-      : 0;
+  const pct = prog ? prog.pct : 0;
   return {
     b,
     cover: coverDerivative(b.slug, "card", b.cover_key) || (b.cover_key ? R2 + b.cover_key : null),
@@ -201,7 +217,8 @@ if (showSuccess) {
     <div class="mt-5 flex flex-wrap items-center gap-2" data-parent-only="true">
       {inProgress && (
         <a
-          href={`/read/${publicSlugFor(inProgress.b)}`}
+          id="continue-btn"
+          href={inProgress.href}
           class="cust-pressable rounded-full bg-orange-600 px-4 py-2 text-xs font-extrabold text-white hover:bg-orange-700"
         >
           ▶ Continue {inProgress.b.title} ({inProgress.pct}%)
@@ -263,36 +280,74 @@ if (showSuccess) {
       </a>
     </section>
 
-    <!-- Continue reading -->
-    {inProgress && (
-      <section class="mt-6 rounded-3xl border border-orange-200 bg-orange-50/60 p-5 flex flex-wrap items-center gap-4" aria-label="Continue reading">
-        {inProgress.b.cover_key && (
-          <img
-            src={coverDerivative(inProgress.b.slug, "card", inProgress.b.cover_key) || R2 + inProgress.b.cover_key}
-            alt=""
-            width="72"
-            height="72"
-            class="w-[72px] h-[72px] rounded-xl object-cover border border-orange-200"
-          />
-        )}
-        <div class="min-w-0 flex-1">
-          <p class="text-[11px] font-extrabold uppercase tracking-wider text-orange-700">Continue reading</p>
-          <h2 class="text-base sm:text-lg font-extrabold text-stone-900 truncate">{inProgress.b.title}</h2>
-          <div class="mt-2 max-w-sm">
-            <div class="h-1.5 rounded-full bg-white overflow-hidden border border-orange-100">
-              <div class="h-full bg-orange-500 rounded-full" style={`width:${inProgress.pct}%`}></div>
-            </div>
-            <p class="text-[11px] font-bold text-stone-500 mt-1">Page {inProgress.prog?.current_page} of {inProgress.prog?.total_pages} · {inProgress.pct}%</p>
-          </div>
+    <!-- Recently played: every profile's progress, filtered to
+         the active profile by the script at the end of the page. -->
+    <section class="mt-6" aria-label="Recently played">
+      <h2 class="text-lg font-extrabold tracking-tight text-stone-900">Recently played</h2>
+      {recentlyPlayed.length === 0 ? (
+        <div class="mt-3 rounded-3xl border border-stone-200 bg-[#fcfaf6] p-6">
+          <p class="text-sm font-bold text-stone-800">Nothing here yet</p>
+          <p class="text-sm text-stone-500 mt-1">
+            Open a book from your shelf and read or listen for a bit. It will show up here with how far you got.
+          </p>
+          <a
+            href="/account/library"
+            class="cust-pressable mt-4 inline-block rounded-full bg-[#1a3454] px-4 py-2 text-xs font-extrabold text-white"
+          >
+            Go to your library
+          </a>
         </div>
-        <a
-          href={`/read/${publicSlugFor(inProgress.b)}`}
-          class="cust-pressable rounded-full bg-orange-600 px-5 py-2.5 text-sm font-extrabold text-white hover:bg-orange-700"
-        >
-          Keep reading →
-        </a>
-      </section>
-    )}
+      ) : (
+        <div class="mt-3 grid gap-3" id="recent-list">
+          {recentlyPlayed.map((x) => (
+            <a
+              href={x.href}
+              data-recent-row
+              data-profile={x.row.profile_id}
+              data-finished={x.row.finished ? "1" : ""}
+              data-pct={x.row.pct}
+              data-title={x.b.title}
+              class="flex items-center gap-4 rounded-3xl border border-stone-200 bg-[#fcfaf6] p-4 hover:border-stone-300 transition"
+            >
+              {x.cover && (
+                <img
+                  src={x.cover}
+                  alt=""
+                  width="48"
+                  height="64"
+                  class="w-12 h-16 rounded-lg object-cover border border-stone-200 shrink-0"
+                />
+              )}
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-extrabold text-stone-900 truncate">{x.b.title}</p>
+                <p class="text-[11px] font-bold text-stone-500 mt-0.5">
+                  <span data-profile-label>{x.profileLabel}</span>
+                  {" · "}
+                  {x.row.kind === "listening" ? "Listening" : "Reading"}
+                  {" · "}
+                  {x.row.pct}%
+                  {x.row.finished ? " · Finished" : ""}
+                  {x.row.kind === "reading" && x.row.total_pages > 0
+                    ? ` · Page ${x.row.current_page} of ${x.row.total_pages}`
+                    : ""}
+                </p>
+                <div class="mt-2 max-w-sm">
+                  <div class="h-1.5 rounded-full bg-stone-200 overflow-hidden">
+                    <div class="h-full bg-orange-500 rounded-full" style={`width:${x.row.pct}%`}></div>
+                  </div>
+                </div>
+              </div>
+              <span class="text-xs font-extrabold text-orange-700 shrink-0">
+                {x.row.finished ? "Read again →" : x.row.kind === "listening" ? "Keep listening →" : "Keep reading →"}
+              </span>
+            </a>
+          ))}
+          <p id="recent-empty" class="hidden rounded-3xl border border-stone-200 bg-[#fcfaf6] p-6 text-sm text-stone-500">
+            Nothing here yet for this reader. Their progress will show up as they read and listen.
+          </p>
+        </div>
+      )}
+    </section>
 
     <!-- Shelf preview -->
     <section class="mt-8" aria-label="From your shelf">
@@ -427,6 +482,50 @@ if (showSuccess) {
             });
           }
         }
+      } catch (e) {}
+    })();
+  </script>
+
+  <script is:inline>
+    // Recently played follows the active profile (progress
+    // tracking, 2026-11-05): Parent View shows every reader's rows,
+    // labeled; Kid View shows only that reader's rows, and the
+    // Continue button follows the first visible unfinished row.
+    (function () {
+      var rows = Array.prototype.slice.call(document.querySelectorAll("[data-recent-row]"));
+      if (!rows.length) return;
+      var empty = document.getElementById("recent-empty");
+      var btn = document.getElementById("continue-btn");
+      function apply(detail) {
+        var kidId = detail && detail.isKid ? detail.profileId : null;
+        var visible = 0;
+        var firstOpen = null;
+        rows.forEach(function (r) {
+          var show = !kidId || r.getAttribute("data-profile") === kidId;
+          r.style.display = show ? "" : "none";
+          if (show) {
+            visible++;
+            if (!firstOpen && !r.getAttribute("data-finished")) firstOpen = r;
+          }
+        });
+        if (empty) empty.classList.toggle("hidden", visible > 0);
+        if (btn) {
+          if (firstOpen) {
+            btn.style.display = "";
+            btn.setAttribute("href", firstOpen.getAttribute("href"));
+            btn.textContent =
+              "▶ Continue " + firstOpen.getAttribute("data-title") + " (" + firstOpen.getAttribute("data-pct") + "%)";
+          } else {
+            btn.style.display = "none";
+          }
+        }
+      }
+      window.addEventListener("bbs:profile-change", function (ev) {
+        apply(ev.detail);
+      });
+      try {
+        var pid = window.localStorage.getItem("bbs.activeProfileId");
+        if (pid && pid !== "parent") apply({ isKid: true, profileId: pid });
       } catch (e) {}
     })();
   </script>

@@ -66,6 +66,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     audio_track_id: body.audio_track_id,
     audio_position_sec: body.audio_position_sec,
     audio_duration_sec: body.audio_duration_sec,
+    audio_elapsed_sec: body.audio_elapsed_sec,
+    audio_total_sec: body.audio_total_sec,
+    reader_total_pages: body.reader_total_pages,
     sync_enabled: body.sync_enabled,
     elapsed_minutes_delta: body.elapsed_minutes_delta,
   });
