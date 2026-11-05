@@ -35,7 +35,7 @@ import {
   normalizeUsername,
   authClient,
 } from "../src/lib/auth-client";
-import { normalizePin, isKidHandleTaken } from "../src/lib/family";
+import { normalizePin, isKidHandleTaken, buildFamilyWelcomeEmailText } from "../src/lib/family";
 import { formatDateUS, formatDateLong } from "../src/lib/dates";
 import { buildCast } from "../src/lib/cast-public";
 import {
@@ -791,5 +791,75 @@ describe("Customer-view follow-up (2026-11-05)", () => {
     const dash = readFileSync(resolve(root, "src/pages/account/index.astro"), "utf8");
     expect(dash).toContain("parentChipHidden");
     expect(dash).toContain('classList.contains("hidden")');
+  });
+});
+
+describe("Onboarding option ids (CG, 2026-11-05)", () => {
+  test("saves keep only registered option ids, so 'on' can never be stored again", async () => {
+    const db = makeD1FromSqlite();
+    await ensureFamilyTables(db);
+    const saved = await saveParentOnboarding(
+      db,
+      "user_topics",
+      "t@example.com",
+      {
+        parent_name: "Pat",
+        future_topics: ["on", "science", "on", "math", "science"],
+        favorite_topics: ["on", "tech"],
+        reading_goals: ["bogus", "read_along"],
+        discovery_source: "Google or web search",
+      },
+      "https://bigbrainshelf.com"
+    );
+    expect(saved.future_topics).toEqual(["science", "math"]);
+    expect(saved.favorite_topics).toEqual(["tech"]);
+    expect(saved.reading_goals).toEqual(["read_along"]);
+    expect(saved.discovery_source).toBeNull();
+
+    const again = await saveParentOnboarding(
+      db,
+      "user_topics",
+      "t@example.com",
+      { discovery_source: "search" },
+      "https://bigbrainshelf.com"
+    );
+    expect(again.discovery_source).toBe("search");
+    // Untouched lists survive an unrelated save.
+    expect(again.future_topics).toEqual(["science", "math"]);
+  });
+
+  test("the welcome email prints topic labels and drops unknown ids", () => {
+    const { bodyText } = buildFamilyWelcomeEmailText({
+      parentName: "CG",
+      familyNickname: null,
+      kidName: "Ruby",
+      sleepMinutes: 60,
+      futureTopics: ["on", "science"],
+      referralCode: "SHELF-TEST",
+      site: "https://bigbrainshelf.com",
+    });
+    expect(bodyText).toContain("Science & Nature");
+    expect(bodyText).not.toContain("(on");
+    const none = buildFamilyWelcomeEmailText({
+      parentName: "CG",
+      familyNickname: null,
+      kidName: "Ruby",
+      sleepMinutes: 60,
+      futureTopics: ["on"],
+      site: "https://bigbrainshelf.com",
+    });
+    expect(none.bodyText).not.toContain("explore next");
+  });
+
+  test("the wizard and Kids page bind option ids, never .key", () => {
+    const onboarding = readFileSync(resolve(root, "src/pages/onboarding.astro"), "utf8");
+    expect(onboarding).not.toContain("t.key");
+    expect(onboarding).not.toContain("g.key");
+    expect(onboarding).not.toContain("d.key");
+    expect(onboarding).not.toContain("a.key");
+    expect(onboarding).toContain("reading_goals:");
+    const kids = readFileSync(resolve(root, "src/pages/account/kids.astro"), "utf8");
+    expect(kids).not.toContain("a.key");
+    expect(kids).toContain("a.id === kid.avatar_key");
   });
 });

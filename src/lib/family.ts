@@ -653,9 +653,13 @@ export function buildFamilyWelcomeEmailText(opts: {
         ? `after ${opts.sleepMinutes} minutes`
         : "whenever you pause it";
 
+  // Only ids from the option registry may render. The wizard once
+  // sent the literal string "on" for every checked topic (its
+  // checkboxes carried no value), and the fallback printed that raw
+  // into a family's welcome email (CG, 2026-11-05).
   const futureLabels = (opts.futureTopics || [])
-    .map((id) => FUTURE_TOPIC_OPTIONS.find((o) => o.id === id)?.label || id)
-    .filter(Boolean);
+    .map((id) => FUTURE_TOPIC_OPTIONS.find((o) => o.id === id)?.label)
+    .filter((label): label is string => Boolean(label));
 
   const subject = opts.kidName?.trim()
     ? `${opts.kidName.trim()}'s Big Brain Shelf is ready for story time`
@@ -786,21 +790,46 @@ export async function saveParentOnboarding(
     input.family_nickname !== undefined
       ? (input.family_nickname ? String(input.family_nickname).trim().slice(0, 80) : null)
       : (existing?.family_nickname ?? null);
-  const discoverySource =
+  const discoverySourceRaw =
     input.discovery_source !== undefined
       ? (input.discovery_source ? String(input.discovery_source).trim().slice(0, 80) : null)
       : (existing?.discovery_source ?? null);
+  // Only a registered discovery id is stored; free text (an old
+  // client once submitted the option labels) clears to null.
+  const discoverySource =
+    discoverySourceRaw &&
+    (DISCOVERY_SOURCE_OPTIONS as readonly { id: string }[]).some((o) => o.id === discoverySourceRaw)
+      ? discoverySourceRaw
+      : null;
+  // Topic and goal lists keep only ids from their option
+  // registries, deduped. A client that submits anything else (the
+  // wizard's value-less checkboxes sent "on") can no longer store
+  // or email garbage picks.
+  const sanitizeIds = (
+    values: string[],
+    options: readonly { id: string }[],
+    cap: number
+  ): string[] => {
+    const allowed = new Set(options.map((o) => o.id));
+    const out: string[] = [];
+    for (const v of values) {
+      const id = String(v).trim();
+      if (allowed.has(id) && !out.includes(id)) out.push(id);
+      if (out.length >= cap) break;
+    }
+    return out;
+  };
   const readingGoals =
     input.reading_goals !== undefined
-      ? input.reading_goals.map((g) => String(g).trim()).filter(Boolean).slice(0, 10)
+      ? sanitizeIds(input.reading_goals, READING_GOAL_OPTIONS, 10)
       : (existing?.reading_goals ?? []);
   const favoriteTopics =
     input.favorite_topics !== undefined
-      ? input.favorite_topics.map((t) => String(t).trim()).filter(Boolean).slice(0, 10)
+      ? sanitizeIds(input.favorite_topics, CURRENT_TOPIC_OPTIONS, 10)
       : (existing?.favorite_topics ?? ["tech", "money", "courage"]);
   const futureTopics =
     input.future_topics !== undefined
-      ? input.future_topics.map((t) => String(t).trim()).filter(Boolean).slice(0, 15)
+      ? sanitizeIds(input.future_topics, FUTURE_TOPIC_OPTIONS, 15)
       : (existing?.future_topics ?? []);
   const customTopicRequest =
     input.custom_topic_request !== undefined
