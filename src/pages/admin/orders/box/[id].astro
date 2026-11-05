@@ -145,10 +145,12 @@ const boxId = String(Astro.params.id || "");
               : b.selection_source === "admin"
                 ? "Picked in admin."
                 : "Picked for this box.";
+          var ser = (data.serials || []).filter(function (s) { return s.slug === current; })[0];
           var summary = '<div class="picksum mt-2">' +
             (cur && cur.cover ? '<img src="' + esc(cur.cover) + '" alt="" loading="lazy">' : '<span class="pick-nocover">Big Brain Shelf</span>') +
             '<span class="min-w-0 flex-1"><span class="block text-sm font-bold leading-snug">' + esc(cur ? cur.title : current) + '</span>' +
-            '<span class="block text-[13px] text-stone-500">' + pickedLine + '</span></span>' +
+            '<span class="block text-[13px] text-stone-500">' + pickedLine +
+            (ser ? ' Copy serial: <strong class="text-stone-700">' + esc(ser.label) + "</strong>." : "") + '</span></span>' +
             '<button type="button" class="pickbtn tap" data-change="' + slot + '">Change</button>' +
             '<button type="button" class="pickbtn danger tap" data-clear="' + slot + '">Clear</button></div>';
           var grid = books.map(function (bk) {

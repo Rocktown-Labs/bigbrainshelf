@@ -1,0 +1,86 @@
+---
+// The copy badge (serial minting, CG 2026-11-05): every direct-sold
+// copy carries "Vol. 1 #N" and a short code; this public page is
+// what the code printed in the book resolves to. It verifies the
+// copy: the book, its number, and that it was sold here. A KDP copy
+// has no code and no page, which is the point: the numbered edition
+// exists only on bigbrainshelf.com.
+import { env } from "cloudflare:workers";
+import "../../styles/global.css";
+import SiteFooter from "../../components/SiteFooter.astro";
+import SiteHeader from "../../components/SiteHeader.astro";
+import SeoHead from "../../components/SeoHead.astro";
+import { ClientRouter } from "astro:transitions";
+import { getSerialByCode, serialLabel } from "../../lib/serials";
+import { coverDerivative } from "../../lib/derivatives";
+import { mediaUrl } from "../../lib/media";
+import { formatDateLong } from "../../lib/dates";
+
+export const prerender = false;
+const e = env as any;
+const code = String(Astro.params.code || "");
+const serial = await getSerialByCode(e.DB, code).catch(() => null);
+let book: any = null;
+if (serial) {
+  book = await e.DB.prepare(
+    "SELECT title, public_slug, cover_key FROM books WHERE slug = ?"
+  ).bind(serial.bookSlug).first().catch(() => null);
+}
+if (!serial || !book) Astro.response.status = 404;
+const cover = serial && book
+  ? coverDerivative(serial.bookSlug, "card", book.cover_key) || (book.cover_key ? mediaUrl(book.cover_key) : null)
+  : null;
+const label = serial ? serialLabel(serial.volume, serial.serial) : null;
+const mintedLabel = serial
+  ? formatDateLong(new Date(serial.mintedAt * 1000).toISOString().slice(0, 10))
+  : null;
+const bookUrl = book?.public_slug ? `/books/${book.public_slug}` : "/";
+---
+
+<html lang="en">
+<head>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#1a3454" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>{serial ? `${label} · ${book.title} · Big Brain Shelf` : "Copy not found · Big Brain Shelf"}</title>
+  <SeoHead title={serial ? `A numbered copy of ${book.title}` : "Copy not found"} socialDescription="Numbered copies are sold only at bigbrainshelf.com." />
+  <ClientRouter />
+</head>
+<body class="bg-[#faf6ef] text-stone-800 antialiased">
+  <SiteHeader />
+  <main class="mx-auto max-w-xl px-5 py-12 sm:py-16">
+    {serial && book ? (
+      <div class="text-center">
+        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-orange-600">A numbered copy</p>
+        {cover ? (
+          <img src={cover} alt={`${book.title} cover`} class="mx-auto mt-6 w-52 rounded-lg shadow-lg ring-1 ring-stone-900/10" />
+        ) : null}
+        <h1 class="mt-6 text-2xl font-black leading-tight text-[#1a3454]">{book.title}</h1>
+        <p class="mt-3 text-4xl font-black tracking-tight text-[#1a3454]">{label}</p>
+        <p class="mt-2 text-sm font-semibold uppercase tracking-widest text-stone-500">First Edition Printing</p>
+        <p class="mx-auto mt-5 max-w-sm text-[15px] leading-relaxed text-stone-600">
+          This copy was sold at bigbrainshelf.com{mintedLabel ? `, numbered on ${mintedLabel}` : ""}.
+          Numbered copies are made only for this store. A copy from anywhere else is a different edition.
+        </p>
+        <a href={bookUrl} class="mt-8 inline-block rounded-full bg-[#1a3454] px-6 py-3 text-sm font-bold text-white">
+          See this book
+        </a>
+      </div>
+    ) : (
+      <div class="text-center">
+        <h1 class="text-2xl font-black text-[#1a3454]">We could not find that copy</h1>
+        <p class="mx-auto mt-4 max-w-sm text-[15px] leading-relaxed text-stone-600">
+          The code in the book does not match a numbered copy in our records.
+          Numbered copies are sold only at bigbrainshelf.com.
+        </p>
+        <a href="/" class="mt-8 inline-block rounded-full bg-[#1a3454] px-6 py-3 text-sm font-bold text-white">
+          Browse the shelf
+        </a>
+      </div>
+    )}
+  </main>
+  <SiteFooter />
+</body>
+</html>

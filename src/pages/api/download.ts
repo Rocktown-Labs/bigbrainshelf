@@ -11,6 +11,7 @@ import {
   type DownloadGrant,
 } from "../../lib/download-guard";
 import { stampPdfForBuyer } from "../../lib/pdf-stamp";
+import { getOrMintDownloadSerial, serialLabel } from "../../lib/serials";
 import { emitStoreEvent } from "../../lib/metrics";
 import { listKidProfiles } from "../../lib/family";
 import { serveStampedM4b } from "../../lib/m4b-stamp";
@@ -147,6 +148,25 @@ export const GET: APIRoute = async ({ request, url }) => {
         year: "numeric",
       }).format(when);
     } catch { /* the date line is optional */ }
+    // The copy's serial (CG, 2026-11-05): a direct-sold copy is
+    // numbered, and the number mints at this first stamped download
+    // against the granting order or club box, then rides every
+    // later download of the same copy. Best effort like everything
+    // on this page: a mint failure never blocks the file.
+    let serial: { label: string; code: string } | null = null;
+    try {
+      const clubBoxId = grant.marker.startsWith("club-box:")
+        ? grant.marker.slice("club-box:".length)
+        : null;
+      const minted = await getOrMintDownloadSerial(e.DB, {
+        bookSlug: slug,
+        orderId: grant.orderId,
+        clubBoxId,
+      });
+      if (minted) serial = { label: serialLabel(minted.volume, minted.serial), code: minted.code };
+    } catch (err) {
+      console.error("serial mint failed, stamping without it", (err as any)?.message || err);
+    }
     try {
       body = await stampPdfForBuyer(raw, {
         email: grant.buyerEmail,
@@ -156,6 +176,8 @@ export const GET: APIRoute = async ({ request, url }) => {
         childName,
         bookTitle: book?.title ? String(book.title) : null,
         producedOn,
+        serialLabel: serial?.label || null,
+        serialCode: serial?.code || null,
       });
     } catch (err) {
       console.error("pdf stamp failed, serving original", (err as any)?.message || err);

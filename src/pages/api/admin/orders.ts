@@ -6,6 +6,7 @@ import { shippoStatus, ensureOrderLabelColumns, ensureOrderQuoteColumns, ensureO
 import { packLinesForGroups, packProgress, getPackingQueue, getCompletedParcels } from "../../../lib/packing";
 import { downloadCountsForOrder, resetDownloadsForOrder, DOWNLOAD_LIMIT } from "../../../lib/download-guard";
 import { markSeen } from "../../../lib/seen";
+import { listSerialsForOrder, mintOrderPrintSerials, serialLabel } from "../../../lib/serials";
 
 // Admin order operations. Gated by the middleware's admin session cookie,
 // with the locals.user check as defense in depth (same pattern as
@@ -102,6 +103,32 @@ export const GET: APIRoute = async ({ locals, url }) => {
     (order as any).pack_state = packState;
     (order as any).pack_progress = packProgress(packLines, packState);
     (order as any).pickup = pickupStateFor(order as any);
+    // Copy serials (CG, 2026-11-05): direct-sold copies are
+    // numbered. Print and gift set units mint when the order
+    // reaches the pack stage, so the operator sees each copy's
+    // number while packing; digital copies mint at download. All
+    // of the order's serials ride the payload with public titles.
+    (order as any).serials = [];
+    try {
+      const stage = String((order as any).physical_status || "");
+      if ((order as any).status === "complete" && ["packed", "shipped", "delivered"].includes(stage)) {
+        await mintOrderPrintSerials(e.DB, order as any);
+      }
+      const serials = await listSerialsForOrder(e.DB, detailId);
+      if (serials.length) {
+        const slugs = [...new Set(serials.map((s) => s.bookSlug))];
+        const titleRows = await e.DB.prepare(
+          `SELECT slug, title FROM books WHERE slug IN (${slugs.map(() => "?").join(",")})`
+        ).bind(...slugs).all();
+        const titles = new Map(((titleRows.results || []) as any[]).map((r) => [String(r.slug), String(r.title)]));
+        (order as any).serials = serials.map((s) => ({
+          label: serialLabel(s.volume, s.serial),
+          code: s.code,
+          title: titles.get(s.bookSlug) || s.bookSlug,
+          format: s.format,
+        }));
+      }
+    } catch { /* serials are a display extra, never a blocker */ }
     (order as any).short_id = shortOrderId(String((order as any).id));
     let emails: any[] = [];
     try {
