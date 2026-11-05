@@ -24,6 +24,7 @@ import {
   saveParentOnboarding,
   upsertKidProfile,
   verifyParentPin,
+  isKidHandleTaken,
 } from "../../../lib/family";
 
 export const prerender = false;
@@ -104,6 +105,28 @@ export const POST: APIRoute = async ({ request, url, locals }) => {
     return json({ ok: valid, valid }, valid ? 200 : 403);
   }
 
+  if (action === "check_kid_handle") {
+    // Step 2 of the wizard checks the child's @handle the way step 1
+    // checks the parent's username (CG, 2026-11-05): one namespace
+    // across account usernames and kid handles, with the profile
+    // being edited allowed to keep its own.
+    const raw = String(body.handle || "").trim().replace(/^@+/, "").toLowerCase();
+    if (!/^[a-z0-9_.]{3,30}$/.test(raw)) {
+      return json({ ok: true, available: false, error: "Use 3-30 letters, numbers, underscores, or dots." });
+    }
+    const exclude = body.exclude_profile_id ? String(body.exclude_profile_id) : null;
+    const [usernameCheck, kidTaken] = await Promise.all([
+      checkUsernameAvailabilityInDb(db, raw),
+      isKidHandleTaken(db, raw, exclude),
+    ]);
+    const available = usernameCheck.available && !kidTaken;
+    return json({
+      ok: true,
+      available,
+      error: available ? undefined : "That @handle is already taken.",
+    });
+  }
+
   if (action === "send_birthday_gift") {
     if (!userEmail) {
       return json({ error: "Account email required" }, 400);
@@ -151,6 +174,7 @@ export const POST: APIRoute = async ({ request, url, locals }) => {
         id: body.kid_profile.id,
         name: String(body.kid_profile.name),
         handle: body.kid_profile.handle ? String(body.kid_profile.handle) : null,
+        email: body.kid_profile.email ? String(body.kid_profile.email) : null,
         birth_date: body.kid_profile.birth_date || null,
         age: Number(body.kid_profile.age || 6),
         age_group: body.kid_profile.age_group,
