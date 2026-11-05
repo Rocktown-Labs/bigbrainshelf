@@ -41,8 +41,10 @@ function facts(over: Partial<DeliveryFacts> = {}): DeliveryFacts {
 }
 
 // Mira's real 2026-10-31 fact pattern is NOT ready, with the true
-// blockers named: no color edition, Ansel + Dell uncast, the
-// audiobook a single-voice draft, dirty PDF QA.
+// blockers named: no color edition, dirty PDF QA. Under the
+// single-voice standard (CG, 2026-11-04) Ansel + Dell uncast and a
+// single-voice production are NOT blockers: the lead is cast and
+// the lead's voice reading the whole book is the final form.
 {
   const r = computeDeliveryReadiness(
     facts({
@@ -59,11 +61,30 @@ function facts(over: Partial<DeliveryFacts> = {}): DeliveryFacts {
   assert.equal(r.verdict, "not-ready");
   const text = r.blockers.join(" ");
   assert.match(text, /Color edition/);
-  assert.match(text, /Ansel, Dell/);
-  assert.match(text, /single-voice draft/);
+  assert.doesNotMatch(text, /Ansel, Dell/);
+  assert.doesNotMatch(text, /single-voice draft/);
   assert.match(text, /typeset/);
   assert.match(text, /28 coloring captions/);
   assert.match(text, /back-cover/);
+  const castCheck = r.checks.find((c) => c.id === "cast-complete");
+  assert.equal(castCheck?.state, "pass");
+  const audioCheck = r.checks.find((c) => c.id === "audio-production");
+  assert.equal(audioCheck?.state, "pass");
+}
+
+// An uncast LEAD still blocks: the audiobook is read in the
+// lead's voice, so there is nothing to record with.
+{
+  const r = computeDeliveryReadiness(
+    facts({
+      cast: [
+        { name: "Mira", cast: false },
+        { name: "Ansel", cast: true },
+      ],
+    })
+  );
+  assert.equal(r.verdict, "not-ready");
+  assert.match(r.blockers.join(" "), /Mira, the lead, is not cast yet/);
 }
 
 // Unmeasured is unverified, never ready.
