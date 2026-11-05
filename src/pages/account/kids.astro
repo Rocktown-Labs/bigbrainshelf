@@ -11,7 +11,14 @@ import {
   KID_AVATARS,
   SLEEP_TIMER_PRESETS,
   DAILY_LIMIT_PRESETS,
+  CURRENT_TOPIC_OPTIONS,
+  READING_GOAL_OPTIONS,
 } from "../../lib/family";
+
+const topicLabel = (id: string) =>
+  CURRENT_TOPIC_OPTIONS.find((t) => t.id === id)?.label || id;
+const goalLabel = (id: string) =>
+  READING_GOAL_OPTIONS.find((g) => g.id === id)?.label || id;
 
 const e = env as any;
 const hub = await loadCustomerHubContext(Astro.request, Astro.locals, e.DB, Astro.url.origin);
@@ -116,8 +123,8 @@ const {
           <h2 class="text-sm font-extrabold text-stone-900">Family setup</h2>
           <p class="text-xs text-stone-600 mt-1">
             {parentOnboarding?.parent_name ? <>Parent: <b>{parentOnboarding.parent_name}</b>. </> : "No parent name yet. "}
-            {parentOnboarding?.favorite_topics?.length ? <>Topics: <b>{parentOnboarding.favorite_topics.join(", ")}</b>. </> : null}
-            {parentOnboarding?.reading_goals?.length ? <>Goals: <b>{parentOnboarding.reading_goals.join(", ")}</b>.</> : null}
+            {parentOnboarding?.favorite_topics?.length ? <>Topics: <b>{parentOnboarding.favorite_topics.map(topicLabel).join(", ")}</b>. </> : null}
+            {parentOnboarding?.reading_goals?.length ? <>Goals: <b>{parentOnboarding.reading_goals.map(goalLabel).join(", ")}</b>.</> : null}
           </p>
         </div>
         <a href="/onboarding" class="cust-pressable shrink-0 rounded-full bg-[#1a3454] px-4 py-2 text-xs font-extrabold text-white hover:bg-[#132741]">Edit setup</a>
@@ -184,7 +191,7 @@ const {
           <label class="block text-xs font-bold text-stone-700">Character Buddy</label>
           <select name="avatar_key" class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-semibold">
             {KID_AVATARS.map((a) => (
-              <option value={a.key}>{a.emoji} {a.label}</option>
+              <option value={a.id}>{a.emoji} {a.label}</option>
             ))}
           </select>
         </div>
@@ -241,7 +248,7 @@ const {
       ) : (
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {kidProfiles.map((kid) => {
-            const avatar = KID_AVATARS.find((a) => a.key === kid.avatar_key) || KID_AVATARS[0];
+            const avatar = KID_AVATARS.find((a) => a.id === kid.avatar_key) || KID_AVATARS[0];
             const kidProgressCount = readingProgressList.filter((p) => p.kid_profile_id === kid.id).length;
             return (
               <article class="rounded-2xl border border-stone-200 bg-[#fcfaf6] p-5 flex flex-col justify-between">

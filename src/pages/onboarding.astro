@@ -316,7 +316,7 @@ const {
               class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm font-semibold"
             >
               {KID_AVATARS.map((a) => (
-                <option value={a.key} selected={defaultKidProfile?.avatar_key === a.key}>
+                <option value={a.id} selected={defaultKidProfile?.avatar_key === a.id}>
                   {a.emoji} {a.label}
                 </option>
               ))}
@@ -390,7 +390,7 @@ const {
               class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm font-semibold"
             >
               {READING_GOAL_OPTIONS.map((g) => (
-                <option value={g.key} selected={parentOnboarding?.reading_goal === g.key}>
+                <option value={g.id} selected={parentOnboarding?.reading_goals?.includes(g.id)}>
                   {g.label}
                 </option>
               ))}
@@ -406,7 +406,7 @@ const {
             >
               <option value="">Choose one (optional)</option>
               {DISCOVERY_SOURCE_OPTIONS.map((d) => (
-                <option value={d.key} selected={parentOnboarding?.discovery_source === d.key}>
+                <option value={d.id} selected={parentOnboarding?.discovery_source === d.id}>
                   {d.label}
                 </option>
               ))}
@@ -420,13 +420,13 @@ const {
             <p class="text-xs font-extrabold text-stone-900">Which current shelves does your child enjoy?</p>
             <div class="mt-2.5 flex flex-wrap gap-1.5">
               {CURRENT_TOPIC_OPTIONS.map((t) => {
-                const checked = parentOnboarding?.favorite_topics?.includes(t.key) ?? false;
+                const checked = parentOnboarding?.favorite_topics?.includes(t.id) ?? false;
                 return (
                   <label class="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-xs font-semibold text-stone-700 cursor-pointer hover:border-orange-300">
                     <input
                       type="checkbox"
                       name="favorite_topics"
-                      value={t.key}
+                      value={t.id}
                       checked={checked}
                       class="rounded border-stone-300 text-orange-600 focus:ring-orange-500"
                     />
@@ -441,13 +441,13 @@ const {
             <p class="text-xs font-extrabold text-stone-900">What future topics should we write next?</p>
             <div class="mt-2.5 flex flex-wrap gap-1.5">
               {FUTURE_TOPIC_OPTIONS.map((t) => {
-                const checked = parentOnboarding?.future_topics?.includes(t.key) ?? false;
+                const checked = parentOnboarding?.future_topics?.includes(t.id) ?? false;
                 return (
                   <label class="inline-flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 px-2.5 py-1.5 text-xs font-semibold text-stone-700 cursor-pointer hover:border-orange-300">
                     <input
                       type="checkbox"
                       name="future_topics"
-                      value={t.key}
+                      value={t.id}
                       checked={checked}
                       class="rounded border-stone-300 text-orange-600 focus:ring-orange-500"
                     />
@@ -775,7 +775,11 @@ const {
           var payload = {
             action: "save_onboarding",
             parent_name: String(fd.get("parent_name") || ""),
-            reading_goal: String(fd.get("reading_goal") || "bedtime_calm"),
+            // The API stores reading_goals as a list; the wizard's
+            // single Primary Reading Goal select rides as a
+            // one-item list (it used to send a singular field the
+            // API never read, so the pick was silently dropped).
+            reading_goals: [String(fd.get("reading_goal") || "bedtime_calm")],
             parent_pin: String(fd.get("parent_pin") || ""),
             tos_accepted: fd.get("tos_accepted") !== null,
             marketing_opt_in: fd.get("marketing_opt_in") !== null,
