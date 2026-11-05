@@ -73,14 +73,53 @@ export async function colorAssemblyReady(env: { BOOKS: R2Bucket }, slug: string)
   }
 }
 
+/**
+ * Coloring captions live in a sidecar, `books/{slug}/captions.json`,
+ * keyed `S{chapter}p{page}` / `S{chapter} finale` (CG, 2026-11-05):
+ * one generated line per page describing its image. The sidecar is
+ * not part of the plan JSONs, so captions never move a page's
+ * source revision or its identity stamps. No sidecar means the
+ * book has no captions yet and its coloring pages ship bare; a
+ * sidecar that exists but does not cover every inventory page (or
+ * is not a JSON object of strings) fails the assembly loudly, the
+ * same as any other missing assembly input.
+ */
+async function loadColoringCaptions(
+  env: { BOOKS: R2Bucket },
+  slug: string,
+  snapshot: Awaited<ReturnType<typeof prepareAssembly>>
+): Promise<Map<string, string> | null> {
+  const key = `books/${slug}/captions.json`;
+  const obj = await env.BOOKS.get(key);
+  if (!obj) return null;
+  let map: Record<string, unknown>;
+  try {
+    map = JSON.parse(new TextDecoder().decode(await obj.arrayBuffer()));
+  } catch {
+    throw new Error(`Coloring captions sidecar is not valid JSON: ${key}`);
+  }
+  if (!map || typeof map !== 'object' || Array.isArray(map))
+    throw new Error(`Coloring captions sidecar is not a JSON object: ${key}`);
+  const captions = new Map<string, string>();
+  for (const entry of snapshot.entries) {
+    const capKey = entry.ref.kind === 'finale' ? `S${entry.ref.chapter} finale` : `S${entry.ref.chapter}p${entry.ref.page}`;
+    const value = map[capKey];
+    if (typeof value !== 'string' || !value.trim())
+      throw new Error(`Coloring captions sidecar has no caption for ${capKey}`);
+    captions.set(entry.ref.id, value);
+  }
+  return captions;
+}
+
 /** The only full-book PDF assembly path. No generation and no line/color fallback. */
 export async function assembleVerifiedPdf(env: { BOOKS: R2Bucket }, slug: string, kind: 'picture' | 'coloring' | 'color', expectedRevision?: string) {
   const snapshot = await prepareAssembly(env.BOOKS, slug, kind === 'color' ? 'color' : 'line');
   if (expectedRevision && snapshot.manifest.revision !== expectedRevision) throw new Error('Base assembly revision changed between PDFs');
+  const captions = kind === 'coloring' ? await loadColoringCaptions(env, slug, snapshot) : null;
   const pages = [];
   for (const entry of snapshot.entries) {
     const { image } = await pdfJpegForPage(env, slug, await loadAssemblyPage(env.BOOKS, snapshot, entry));
-    pages.push({ image, story: entry.page.storyText, caption: entry.page.storyText });
+    pages.push({ image, story: entry.page.storyText, caption: captions?.get(entry.ref.id) ?? '' });
   }
   if (pages.length !== snapshot.manifest.pages.length || new Set(snapshot.entries.map(e => e.ref.id)).size !== pages.length)
     throw new Error('Assembly page count does not reconcile to exact plan inventory');
@@ -111,6 +150,7 @@ export async function assembleVerifiedPdf(env: { BOOKS: R2Bucket }, slug: string
   await env.BOOKS.put(`${candidate}/${name}`, pdf, { httpMetadata: { contentType: 'application/pdf' } });
   await env.BOOKS.put(`${candidate}/receipt.json`, JSON.stringify({ schema: 'assembly/v1', kind,
     revision: snapshot.manifest.revision, manifest: snapshot.manifest, inventoryPages: count, totalPages,
+    coloringCaptions: captions?.size ?? 0,
     pdf: { key: `${candidate}/${name}`, sha256: bytesHash(pdf), bytes: pdf.length } }), { httpMetadata: { contentType: 'application/json' } });
   await assertAssemblyCurrent(env.BOOKS, snapshot);
   await env.BOOKS.put(key, pdf, { httpMetadata: { contentType: 'application/pdf' }, customMetadata: {
