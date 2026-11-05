@@ -785,3 +785,11 @@ describe("Customer-view fixes (CG, 2026-11-05)", () => {
     for (const m of members) expect(m.portrait).toBeTruthy();
   });
 });
+
+describe("Customer-view follow-up (2026-11-05)", () => {
+  test("dashboard chip restore keys visibility off the server-rendered state", () => {
+    const dash = readFileSync(resolve(root, "src/pages/account/index.astro"), "utf8");
+    expect(dash).toContain("parentChipHidden");
+    expect(dash).toContain('classList.contains("hidden")');
+  });
+});

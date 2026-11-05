@@ -388,7 +388,13 @@ if (showSuccess) {
       var chip = document.getElementById("dash-handle-chip");
       if (!title) return;
       var parentTitle = title.textContent;
-      var parentChip = chip ? chip.textContent : "";
+      // The server-rendered chip text is "@handle"; keep the bare
+      // handle and the server-chosen visibility apart, so restoring
+      // Parent View never unhides an empty "@" chip on accounts
+      // with no username (the shell fires a profile-change event
+      // on every page load).
+      var parentHandle = chip ? chip.textContent.replace(/^@/, "").trim() : "";
+      var parentChipHidden = chip ? chip.classList.contains("hidden") : true;
       function apply(detail) {
         if (detail && detail.isKid) {
           title.textContent = "Welcome, " + (detail.kidName || "Reader");
@@ -399,8 +405,8 @@ if (showSuccess) {
         } else {
           title.textContent = parentTitle;
           if (chip) {
-            chip.textContent = parentChip;
-            chip.classList.toggle("hidden", !parentChip);
+            chip.textContent = parentHandle ? "@" + parentHandle : "@";
+            chip.classList.toggle("hidden", parentChipHidden || !parentHandle);
           }
         }
       }
