@@ -83,6 +83,7 @@ export function buildForbidden(pack: SourcePack, sourceTermsUsed: string[], book
   if (id?.title) seeds.push(id.title.replace(/-/g, " "));
   if (id?.surname) seeds.push(id.surname);
   seeds.push(...(pack?.labels ?? []));
+  seeds.push(...(pack?.keyTerms ?? []));
   seeds.push(...(sourceTermsUsed ?? []));
   return expandVariants(seeds).slice(0, 60);
 }
