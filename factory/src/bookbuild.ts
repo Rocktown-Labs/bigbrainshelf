@@ -18,7 +18,9 @@ import { snapshotIfChanged } from "./versioning";
 import { clairicExtract, clairicHeadings, splitOnHeadings } from "./clairic";
 import { composeMatter, ensureBackCoverImages } from "./matter";
 import { callModel } from "./models";
-import { buildBiblePrompt, buildBibleRepairPrompt } from "./bibleprompt";
+import { buildBibleRepairPrompt } from "./bibleprompt";
+import { readSource } from "./reader";
+import { buildBibleStaged } from "./biblebuild";
 import { planChapterAttempt } from "./planv3";
 import { runReadPass } from "./readpass";
 import { checkSourceDuplicate, duplicateMessage, parseSourceIdentity } from "./sourceguard";
@@ -1265,6 +1267,18 @@ export class BookBuildWorkflow extends WorkflowEntrypoint<BookBuildEnv, BookBuil
       return { slug, blocked: "duplicate_source", message: sourceVerdict.message };
     }
 
+    // ---- 3c. read the source -----------------------------------------
+    // A frontier model reads every chapter and writes the source pack
+    // (per-chapter idea cards, labels, terms, world notes) that the
+    // staged bible build works from. Skipped when a bible already
+    // exists (the bible step will reuse it) or a pack is on file.
+    const sourcePack: any = await step.do("read source", RETRIES, async () => {
+      await setStage(env, slug, "read", "");
+      const existingBible = await r2GetJson(env.BOOKS, `books/${slug}/bible.json`);
+      if (existingBible?.conceptLadder?.length) return { chapters: [], skipped: "bible exists" };
+      return await readSource(env, slug, bookInfo, splits);
+    });
+
     // ---- 4. bible ---------------------------------------------------
     const rawBible: any = await step.do("bible", RETRIES, async () => {
       await setStage(env, slug, "bible", "");
@@ -1285,15 +1299,15 @@ export class BookBuildWorkflow extends WorkflowEntrypoint<BookBuildEnv, BookBuil
           }
         }
       } catch { /* no attached bible: generate below */ }
-      const library = await loadLibrary(env);
+      // Staged build (2026-11-06 rework): cast, ladder, and inventory
+      // are separate small calls behind their own gates, built from
+      // the reader's source pack. The character library is never shown
+      // to the writer; only the taken-names blocklist is. A hero named
+      // on book_info (hero: {name, species}) is honored exactly;
+      // otherwise casting invents the hero from the source's world.
       const taken = await takenNameSet(env, slug);
-      const prompt = buildBiblePrompt(bookInfo, library, [...taken]);
-      // 32768, not 8192: the schema's tail sections (worldInventory,
-      // vocab) sit late in the output and came back starved and
-      // under-filled at 8192 on all three 2026-11-06 hero builds.
-      const { data, model } = await callModel(env, prompt, 32768, "writer", { slug, purpose: "bible" });
-      if (!data.conceptLadder?.length) throw new Error("bible response has no conceptLadder");
-      data._bible_model = model;
+      const data = await buildBibleStaged(env, slug, bookInfo, sourcePack, taken, (bookInfo as any)?.hero ?? null);
+      if (!data.conceptLadder?.length) throw new Error("staged bible has no conceptLadder");
       await r2Put(env.BOOKS, `books/${slug}/bible.json`, JSON.stringify(data, null, 1), "application/json");
       return data;
     });

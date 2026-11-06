@@ -135,16 +135,25 @@ export function lintWorldInventory(rawBible: any): WorldLint {
     problems.push(`worldInventory.forbiddenSourceTerms has ${forbidden.length} items (minimum 10)`);
   }
 
-  // Every forbidden term must be mapped: present in vocab as a real
-  // term with a storyName, so writers have a legal way to say it.
+  // Every forbidden term must be mapped to a storyName, so writers have
+  // a legal way to say it. The mapping may live in vocab (the printed
+  // glossary, for terms the book teaches) OR in bible.termMap, the
+  // production-only mapping table for source labels that must never be
+  // taught or printed (author-coined labels on ideas sources). Accepting
+  // either ends the old collision between this check and the
+  // de-referencing rule that an author's label is never a vocab term.
   const vocabTerms = new Set(
     (Array.isArray(bible.vocab) ? bible.vocab : []).map((v: any) =>
       String(v?.term ?? "").trim().toLowerCase()
     )
   );
+  for (const m of Array.isArray(bible.termMap) ? bible.termMap : []) {
+    const t = String(m?.term ?? "").trim().toLowerCase();
+    if (t) vocabTerms.add(t);
+  }
   for (const t of forbidden) {
     if (!vocabTerms.has(t)) {
-      problems.push(`forbiddenSourceTerm '${t}' has no vocab entry with a storyName`);
+      problems.push(`forbiddenSourceTerm '${t}' has no vocab or termMap entry with a storyName`);
     }
   }
 

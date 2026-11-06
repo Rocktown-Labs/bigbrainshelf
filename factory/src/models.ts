@@ -311,7 +311,7 @@ async function callGemmaRaw(env: any, prompt: string, maxTokens: number): Promis
   return { data: extractJson(extractText(r)), usage: workersAiUsage(r) };
 }
 
-export type ModelRole = "writer" | "judge";
+export type ModelRole = "writer" | "judge" | "hands";
 
 export function writerOrder(env: any): string[] {
   return String(env.WRITER_ORDER ?? "opus,gemini,v4flash,deepseek,gemma")
@@ -332,6 +332,17 @@ export function plannerOrder(env: any): string[] {
   return writerOrder(env);
 }
 
+// The "hands" chain: cheap, competent models for delegated piecework
+// (casting, outlines, term mapping, list work) under the staged bible
+// build. Frontier models head the writer chain for reading and the
+// ladder; the hands never carry those. Env-tweakable like the others.
+export function handsOrder(env: any): string[] {
+  return String(env.HANDS_ORDER ?? "gemini,v4flash,deepseek,gemma")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 const FNS: Record<string, (env: any, prompt: string, maxTokens: number) => Promise<RawResult>> = {
   opus: callOpusRaw,
   glm: callGlmRaw,
@@ -348,7 +359,7 @@ export async function callModel(
   role: ModelRole = "writer",
   meter?: MeterCtx
 ): Promise<ModelResult> {
-  const order = role === "judge" ? judgeOrder(env) : writerOrder(env);
+  const order = role === "judge" ? judgeOrder(env) : role === "hands" ? handsOrder(env) : writerOrder(env);
   const errors: string[] = [];
   for (const name of order) {
     const fn = FNS[name];
