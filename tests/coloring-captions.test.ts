@@ -114,10 +114,30 @@ test('a sidecar that is not valid JSON fails the assembly', async () => {
 test('the glossary fits on one page at the stepped-down sizes', async () => {
   const f = pdfFixture();
   const result = await assembleVerifiedPdf({ BOOKS: f.bucket }, 'test', 'coloring');
-  // Cover, copyright, contents, two interiors, ONE glossary page, back cover.
-  expect(result.totalPages).toBe(7);
+  // Cover, copyright, dedication, contents, two interiors, ONE glossary page, back cover.
+  expect(result.totalPages).toBe(8);
   const text = pdfText(f.values.get(result.key)!.bytes);
   for (const v of VOCAB) expect(text).toContain(v.term);
+});
+
+test('the coloring book carries the blank dedication page (CG, 2026-11-05)', async () => {
+  const f = pdfFixture();
+  const result = await assembleVerifiedPdf({ BOOKS: f.bucket }, 'test', 'coloring');
+  const text = pdfText(f.values.get(result.key)!.bytes);
+  // The pre-built store file ships the page with the write-in line
+  // blank: the belongs-to line and the house blurb print, and
+  // nothing fills the name in.
+  expect(text).toContain('This book belongs to');
+  expect(text).toContain('every big idea starts as a small question');
+  expect(text).toContain('Happy reading!');
+  // Order: copyright (Searcy) before the dedication, the dedication
+  // before the contents.
+  const searcyAt = text.indexOf('Searcy, Arkansas');
+  const belongsAt = text.indexOf('This book belongs to');
+  const contentsAt = text.indexOf('Contents');
+  expect(searcyAt).toBeGreaterThanOrEqual(0);
+  expect(belongsAt).toBeGreaterThan(searcyAt);
+  expect(contentsAt).toBeGreaterThan(belongsAt);
 });
 
 test('the copyright page names Searcy, never Little Rock', async () => {

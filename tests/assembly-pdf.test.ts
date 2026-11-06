@@ -23,16 +23,25 @@ function pdfFixture() {
 
 test('real PDFs include both story and finale, with reconciled total page counts and append-only receipts', async () => {
   const f = pdfFixture();
+  // Cover, copyright, contents, two interiors, and back cover; empty
+  // glossary contributes none. The coloring book carries one more:
+  // the blank dedication page (CG, 2026-11-05).
+  const expectedTotals = { coloring: 7, picture: 6, color: 6 } as const;
+  const totalsByKind = new Map<string, number>();
   for (const kind of ['coloring', 'picture', 'color'] as const) {
     const result = await assembleVerifiedPdf({ BOOKS: f.bucket }, 'test', kind);
     expect(result.pages).toBe(2);
-    // Cover, copyright, contents, two interiors, and back cover; empty glossary contributes none.
-    expect(result.totalPages).toBe(6);
+    expect(result.totalPages).toBe(expectedTotals[kind]);
+    totalsByKind.set(kind, result.totalPages);
     expect((await PDFDocument.load(f.values.get(result.key)!.bytes)).getPageCount()).toBe(result.totalPages);
   }
   const receipts = f.writes.filter(key => key.endsWith('/receipt.json'));
   expect(receipts).toHaveLength(3);
-  for (const key of receipts) expect(JSON.parse(new TextDecoder().decode(f.values.get(key)!.bytes))).toMatchObject({ inventoryPages: 2, totalPages: 6 });
+  for (const key of receipts) {
+    const receipt = JSON.parse(new TextDecoder().decode(f.values.get(key)!.bytes));
+    expect(receipt.inventoryPages).toBe(2);
+    expect(receipt.totalPages).toBe(totalsByKind.get(receipt.kind));
+  }
 });
 
 test.each(['missing-plan', 'missing-line', 'missing-finale', 'missing-color', 'held', 'color-held'])('%s never installs a PDF', async fault => {
