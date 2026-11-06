@@ -18,7 +18,7 @@ import { snapshotIfChanged } from "./versioning";
 import { clairicExtract, clairicHeadings, splitOnHeadings } from "./clairic";
 import { composeMatter, ensureBackCoverImages } from "./matter";
 import { callModel } from "./models";
-import { buildBiblePrompt } from "./bibleprompt";
+import { buildBiblePrompt, buildBibleRepairPrompt } from "./bibleprompt";
 import { planChapterAttempt } from "./planv3";
 import { runReadPass } from "./readpass";
 import { checkSourceDuplicate, duplicateMessage, parseSourceIdentity } from "./sourceguard";
@@ -1055,6 +1055,16 @@ export async function genPictureColorWithQC(
   return null;
 }
 
+/** Character names other books already own; the bible gate's set. */
+async function takenNameSet(env: BookBuildEnv, slug: string): Promise<Set<string>> {
+  const rows: any = await env.DB.prepare(
+    "SELECT name FROM characters WHERE book_slug != ?"
+  ).bind(slug).all();
+  return new Set<string>(
+    ((rows?.results ?? []) as any[]).map((r) => String(r.name).toLowerCase())
+  );
+}
+
 async function loadLibrary(env: BookBuildEnv): Promise<any[]> {
   try {
     const keys = await r2ListAll(env.BOOKS, "library/characters/");
@@ -1276,8 +1286,12 @@ export class BookBuildWorkflow extends WorkflowEntrypoint<BookBuildEnv, BookBuil
         }
       } catch { /* no attached bible: generate below */ }
       const library = await loadLibrary(env);
-      const prompt = buildBiblePrompt(bookInfo, library);
-      const { data, model } = await callModel(env, prompt, 8192, "writer", { slug, purpose: "bible" });
+      const taken = await takenNameSet(env, slug);
+      const prompt = buildBiblePrompt(bookInfo, library, [...taken]);
+      // 32768, not 8192: the schema's tail sections (worldInventory,
+      // vocab) sit late in the output and came back starved and
+      // under-filled at 8192 on all three 2026-11-06 hero builds.
+      const { data, model } = await callModel(env, prompt, 32768, "writer", { slug, purpose: "bible" });
       if (!data.conceptLadder?.length) throw new Error("bible response has no conceptLadder");
       data._bible_model = model;
       await r2Put(env.BOOKS, `books/${slug}/bible.json`, JSON.stringify(data, null, 1), "application/json");
@@ -1292,23 +1306,33 @@ export class BookBuildWorkflow extends WorkflowEntrypoint<BookBuildEnv, BookBuil
     // failure case where the bible carries them, and no character name
     // another book already owns (names never repeat across stories).
     const bible: any = await step.do("bible gate", RETRIES, async () => {
-      const normalized = normalizeBible(rawBible);
-      if (JSON.stringify(normalized) !== JSON.stringify(rawBible)) {
-        await r2Put(env.BOOKS, `books/${slug}/bible.json`, JSON.stringify(normalized, null, 1), "application/json");
+      const taken = await takenNameSet(env, slug);
+      let current = normalizeBible(rawBible);
+      if (JSON.stringify(current) !== JSON.stringify(rawBible)) {
+        await r2Put(env.BOOKS, `books/${slug}/bible.json`, JSON.stringify(current, null, 1), "application/json");
         console.log(`bible normalized for ${slug} (cast + metaphors folded into canonical shape)`);
       }
-      const rows: any = await env.DB.prepare(
-        "SELECT name FROM characters WHERE book_slug != ?"
-      ).bind(slug).all();
-      const taken = new Set<string>(
-        ((rows?.results ?? []) as any[]).map((r) => String(r.name).toLowerCase())
-      );
-      const reasons = validateBible(normalized, taken);
+      let reasons = validateBible(current, taken);
+      // Gate-feedback repair (2026-11-06): a bible that fails on
+      // fixable shortfalls gets the gate's own reasons back for up
+      // to two revision passes instead of killing the build on the
+      // first draft. All three hero builds died at this gate on
+      // under-filled world inventories, unmapped forbidden terms,
+      // and library names cast as new characters, because the
+      // writer never saw the verdict it was judged by.
+      for (let attempt = 1; attempt <= 2 && reasons.length; attempt++) {
+        console.log(`bible gate repair ${attempt} for ${slug}: ${reasons.join("; ").slice(0, 300)}`);
+        const { data } = await callModel(env, buildBibleRepairPrompt(current, reasons, [...taken]), 32768, "writer", { slug, purpose: "bible-repair" });
+        if (!data?.conceptLadder?.length) break;
+        current = normalizeBible(data);
+        await r2Put(env.BOOKS, `books/${slug}/bible.json`, JSON.stringify(current, null, 1), "application/json");
+        reasons = validateBible(current, taken);
+      }
       if (reasons.length) {
         throw new Error(`bible gate failed: ${reasons.join("; ").slice(0, 400)}`);
       }
       await setStage(env, slug, "bible", "gate passed");
-      return normalized;
+      return current;
     });
     const ladder: any[] = bible.conceptLadder;
     const n = ladder.length;
