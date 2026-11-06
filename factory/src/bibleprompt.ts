@@ -16,9 +16,12 @@ You are a children's book author and a technical educator. You will read a non-f
 {chapter_summaries}
   (One paragraph per chapter: what it teaches, key mechanisms, important terms.)
 
-**Existing character library (reuse these if they fit; do not duplicate):**
+**Existing character library (reference only):**
 {character_library}
-  (JSON list of established characters with their visual descriptions. If a character from the library fits this book's world, cast them instead of inventing a new one.)
+  (JSON list of characters who star in OTHER books of this series. They are NOT available to cast: every book gets its own fresh cast, and character names are never reused across stories. Read the list only so this book's cast does not duplicate one of them.)
+
+**Taken names (never use any of these for a character in this book):**
+{taken_names}
 
 ### OUTPUT
 
@@ -75,9 +78,9 @@ Reply with ONLY a JSON object with these exact sections:
   "runningGags": ["3-4 recurring motifs that evolve across chapters"],
   "openingJob": "ONE concrete physical job the protagonist is in the middle of when the story opens, with a visible finish line (e.g. 'helping Pip move her cakes across the harbor to open her bakery on Saturday'). Under 30 words. Every chapter's idea must arrive as a tool the protagonist grabs mid-job, never as a lesson.",
   "worldInventory": {
-    "exists": ["20-40 plain nouns: the physical things that exist in this story world (its places, objects, creatures, weather, tools). Every object used by any chapter metaphor must be listed here."],
-    "doesNotExist": ["10-20 things from the source book's real-world domain that must NEVER appear in this story world: real technology, real-world labels, real places, anything the animal world has no version of."],
-    "forbiddenSourceTerms": ["every technical term from the source book that kids must never see in story text or image prompts, lowercase, including plurals and variants. Each one must also appear as a vocab term with a storyName."]
+    "exists": ["AT LEAST 20 (production minimum; aim 25-35): plain nouns, the physical things that exist in this story world (its places, objects, creatures, weather, tools). Every object used by any chapter metaphor must be listed here. A list under 20 fails production."],
+    "doesNotExist": ["AT LEAST 10 (production minimum; aim 12-20): things from the source book's real-world domain that must NEVER appear in this story world: real technology, real-world labels, real places, anything the animal world has no version of. A list under 10 fails production."],
+    "forbiddenSourceTerms": ["AT LEAST 12 (production minimum): every technical term from the source book that kids must never see in story text or image prompts, lowercase, including plurals and variants. EVERY one must also appear in vocab below as a term with a storyName; a forbidden term with no vocab entry fails production."]
   },
   "bannedOpeners": ["4-8 chapter-opening phrases THIS book must never use, derived from this book's own source and early chapters: e.g. the stale old-way contrast the first chapters already used up. Phrases only, lowercase."],
   "starNote": "one short clause naming the character who must not star every chapter, e.g. 'do not make the lead the star every chapter'. Generated from THIS book's cast.",
@@ -150,7 +153,7 @@ export interface LibraryChar {
   name: string; species: string; visual: string; personality?: string[];
 }
 
-export function buildBiblePrompt(info: BookInfo, library: LibraryChar[]): string {
+export function buildBiblePrompt(info: BookInfo, library: LibraryChar[], takenNames: string[] = []): string {
   const chapters_md = info.chapters.map(c => `**${c.title}**\n${c.summary}`).join("\n");
   const lib_md = library.length ? JSON.stringify(library, null, 1) : "(library is empty)";
   return TEMPLATE
@@ -158,5 +161,34 @@ export function buildBiblePrompt(info: BookInfo, library: LibraryChar[]): string
     .replace("{book_subject}", info.subject)
     .replace("{cover_description}", info.cover_description)
     .replace("{chapter_summaries}", chapters_md)
-    .replace("{character_library}", lib_md);
+    .replace("{character_library}", lib_md)
+    .replace("{taken_names}", takenNames.length ? takenNames.join(", ") : "(none)");
+}
+
+/**
+ * Repair prompt for the bible gate (2026-11-06): a generated bible
+ * that fails production checks gets the gate's own reasons back and
+ * one or two chances to fix them, instead of the build dying on the
+ * first draft. The three hero builds all died at this gate on
+ * fixable shortfalls (under-filled world inventories, unmapped
+ * forbidden terms, library names cast as new characters) because
+ * the writer never saw the gate's verdict.
+ */
+export function buildBibleRepairPrompt(bible: any, reasons: string[], takenNames: string[] = []): string {
+  return `You wrote the story bible JSON below for a children's picture book. It FAILED production checks. Fix EVERY problem listed and reply with ONLY the complete corrected JSON object, same schema as before. Change nothing that a fix does not require.
+
+PROBLEMS TO FIX:
+${reasons.map(r => `- ${r}`).join("\n")}
+
+HARD RULES FOR THE FIX:
+- The cast is 1 to 3 characters total, each a different species, each with a visual description (shape and features only, no color words).
+- NEVER use any of these taken names for a character (they belong to other books): ${takenNames.length ? takenNames.join(", ") : "(none)"}. If a character in the bible carries a taken name, rename that character and update EVERY mention of the old name in the whole JSON (cast lists, openingJob, starNote, ladder, metaphors, gags, arc).
+- worldInventory.exists: at least 20 plain physical nouns, covering every object any chapter metaphor uses.
+- worldInventory.doesNotExist: at least 10 items.
+- worldInventory.forbiddenSourceTerms: at least 12 terms, lowercase with plurals and variants, and EVERY forbidden term must also appear in vocab as a term with a storyName and a plain definition. Add the missing vocab entries; do not drop forbidden terms to make the list match.
+- No forbidden term may appear in the bible's own descriptive fields (setting, locations, arc, runningGags, metaphors); vocab.term and a supporting character's realMapsTo are the only legal homes for real terms.
+- Never name the source work or its author anywhere. No em dashes.
+
+THE BIBLE TO FIX:
+${JSON.stringify(bible, null, 1)}`;
 }
