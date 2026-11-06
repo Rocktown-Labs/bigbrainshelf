@@ -1,7 +1,21 @@
 import { prepareAssembly } from '../../packages/core/src/assembly-identity';
 import { captureBookRevision, readPlanInventory, revisionHash, assertRevisionUnchanged, type BookRevision, type RevisionPage } from '../../packages/core/src/book-revision';
 
-export async function captureApprovalRevision(db: any, books: any, slug: string) {
+/** Bounded-concurrency map for HEAD probes; order of results matches input. */
+async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < items.length) {
+      const i = cursor++;
+      out[i] = await fn(items[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+export async function captureApprovalRevision(db: any, books: any, slug: string, options: { readOnly?: boolean } = {}) {
   const book = await db.prepare('SELECT * FROM books WHERE slug = ?').bind(slug).first();
   if (!book) throw new Error('Book not found');
   const targets = ['picture_book_key', 'coloring_book_key', 'color_book_key', 'epub_key', 'audiobook_key', 'cover_key']
@@ -12,7 +26,56 @@ export async function captureApprovalRevision(db: any, books: any, slug: string)
     if (!targets.some(a => a.key === key) && await books.head(key)) targets.push({ key, role: file });
   }
   const inventory = await readPlanInventory(books, slug);
-  return { ...await captureBookRevision(books, slug, targets, inventory), inventory };
+
+  // Version fingerprint (2026-11-06): the deep capture below reads
+  // and SHA-256s every artifact in the book, which is the right
+  // check when something changed and a punishing one on every QC
+  // click (100+ MB per click; most clicks died before they saved).
+  // HEAD every artifact the capture covers and fingerprint the
+  // etags: when a byte-verified manifest is cached under that
+  // fingerprint, reuse it. Any artifact change moves an etag,
+  // misses the cache, and re-runs the deep capture. The etag is a
+  // version identifier, not a content hash; the manifest in the
+  // cache was still derived from a full byte capture, and publish
+  // keeps its own deep assembly verification.
+  const versioned = new Map<string, string>();
+  for (const s of inventory.sources) if (s.etag) versioned.set(s.key, s.etag);
+  const probeKeys = new Set<string>();
+  for (const p of inventory.pages) { probeKeys.add(p.lineKey); if (p.colorKey) probeKeys.add(p.colorKey); }
+  for (const t of targets) probeKeys.add(t.key);
+  const headKeys = [...probeKeys].filter(k => !versioned.has(k));
+  const heads = await mapPool(headKeys, 12, async (key) => ({ key, head: await books.head(key).catch(() => null) }));
+  let fingerprint: string | null = null;
+  if (heads.every(h => h.head && h.head.etag)) {
+    for (const h of heads) versioned.set(h.key, h.head.etag);
+    fingerprint = revisionHash({
+      slug,
+      targets: targets.map(t => [t.key, t.role]),
+      versions: [...versioned.entries()].sort((a, b) => a[0].localeCompare(b[0])),
+    });
+    try {
+      const row = await db.prepare('SELECT manifest_json FROM revision_cache WHERE book_slug = ? AND fingerprint = ?').bind(slug, fingerprint).first();
+      const manifest = row?.manifest_json ? JSON.parse(row.manifest_json) : null;
+      if (manifest && manifest.slug === slug && typeof manifest.revision === 'string' && Array.isArray(manifest.pages) && Array.isArray(manifest.artifacts)) {
+        return { manifest, observations: [...versioned.entries()].map(([key, etag]) => ({ key, etag })), inventory };
+      }
+    } catch { /* the cache is an optimization; the deep path is the truth */ }
+  }
+
+  const deep = await captureBookRevision(books, slug, targets, inventory);
+  if (fingerprint && !options.readOnly) {
+    // Cache only when the byte capture observed exactly the versions
+    // the fingerprint was built from. A mid-capture change skips the
+    // write; the next request fingerprints fresh either way.
+    const observed = new Map(deep.observations.map(o => [o.key, o.etag]));
+    if (observed.size === versioned.size && [...versioned.entries()].every(([k, v]) => observed.get(k) === v)) {
+      try {
+        await db.prepare('INSERT OR REPLACE INTO revision_cache (book_slug, fingerprint, manifest_json, captured_at) VALUES (?, ?, ?, ?)')
+          .bind(slug, fingerprint, JSON.stringify(deep.manifest), new Date().toISOString()).run();
+      } catch { /* best-effort */ }
+    }
+  }
+  return { ...deep, inventory };
 }
 // Viewer chapter 0 marks cover/matter. They share the whole revision identity.
 export function approvalTargets(manifest: BookRevision): RevisionPage[] {

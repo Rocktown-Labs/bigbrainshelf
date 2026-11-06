@@ -678,7 +678,7 @@ export async function getDeliveryReadiness(
   // read, reports null and renders unknown, never signed.
   let signoffs: DeliveryFacts["signoffs"] = null;
   try {
-    const snapshot = await captureApprovalRevision(db, books, slug);
+    const snapshot = await captureApprovalRevision(db, books, slug, { readOnly: !!options.readOnly });
     const states = await getSignoffStates(
       db, slug, snapshot.manifest.revision, colorEditionComplete(snapshot.manifest)
     );

@@ -44,6 +44,43 @@ test('a change between review snapshot and approval save writes no approvals', a
 });
 
 
+function cachedDatabase() {
+  const { raw, db } = database();
+  raw.exec(readFileSync(new URL('../db/migrations/0004_revision_cache.sql', import.meta.url), 'utf8'));
+  return { raw, db };
+}
+
+test('a second capture reuses the cached revision without re-reading page artifacts', async () => {
+  const f = fixture(); const { db } = cachedDatabase();
+  f.put('books/test/cover.jpg', 'COVER');
+  const first = await captureApprovalRevision(db, f.bucket, 'test');
+  const reads: string[] = [];
+  const origGet = f.bucket.get.bind(f.bucket);
+  (f.bucket as any).get = async (key: string) => { reads.push(key); return origGet(key); };
+  const second = await captureApprovalRevision(db, f.bucket, 'test');
+  expect(second.manifest.revision).toBe(first.manifest.revision);
+  // Inventory sources (bible + plan JSON) are still read on a cache
+  // hit; page art and deliverables are only HEAD-probed.
+  expect(reads.filter(k => k.includes('/images') || k.endsWith('.jpg'))).toHaveLength(0);
+});
+
+test('changing a page after caching invalidates the cache and the approvals', async () => {
+  const f = fixture(); const { db } = cachedDatabase();
+  const s = await captureApprovalRevision(db, f.bucket, 'test');
+  await saveApprovals(db, f.bucket, s, s.manifest.pages, true);
+  expect(await approvedPages(db, s.manifest)).toHaveLength(2);
+  f.put('books/test/images/S1-page-0.jpg', 'EDIT');
+  const next = await captureApprovalRevision(db, f.bucket, 'test');
+  expect(next.manifest.revision).not.toBe(s.manifest.revision);
+  expect(await approvedPages(db, next.manifest)).toHaveLength(0);
+});
+
+test('capture still works when the revision cache table does not exist', async () => {
+  const f = fixture(); const { db } = database(); // 0004 not applied
+  const s = await captureApprovalRevision(db, f.bucket, 'test');
+  expect(s.manifest.pages.length).toBeGreaterThan(0);
+});
+
 test('migration enforces append-only approval evidence and is safe to apply twice', async () => {
   const f = fixture(); const { db, raw } = database(); const s = await captureApprovalRevision(db, f.bucket, 'test');
   await saveApprovals(db, f.bucket, s, [s.manifest.pages[0]], true);
