@@ -672,8 +672,34 @@ export default {
         // of the catalog's color leaks and pose clones (2026-10-27):
         // line art now conditions on line sheets; color sheets stay
         // for colorize.
-        const kind = body?.kind === "line" ? "line" : "color";
+        //
+        // kind: "views" (2026-11-06, CG): a rich multi-view study
+        // (turnaround, poses, expressions, prop and world elements)
+        // kept as the character's modeling and promotion reference.
+        // It conditions NOTHING in page generation, so it can carry
+        // every view a future 3D model or promo needs without
+        // re-opening the pose-clone problem the single-pose line
+        // sheet solved.
+        const kind = body?.kind === "line" ? "line" : body?.kind === "views" ? "views" : "color";
         const nameKey = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+        // The views sheet wants the character's world, not just their
+        // look: pull trait + setting from the book's bible when the
+        // caller did not supply them.
+        let worldBits = String(body?.world ?? "").trim();
+        if (kind !== "line" && !worldBits) {
+          try {
+            const bible: any = await r2GetJson(env.BOOKS, `books/${slug}/bible.json`);
+            const member = (bible?.characters ?? []).find(
+              (c: any) => String(c?.name ?? "").toLowerCase() === name.toLowerCase()
+            );
+            const bits = [
+              member?.trait ? `Personality: ${member.trait}` : "",
+              bible?.setting ? `Their world: ${bible.setting}` : "",
+              Array.isArray(bible?.locations) ? `Places: ${bible.locations.slice(0, 4).join(", ")}` : "",
+            ].filter(Boolean);
+            worldBits = bits.join(". ");
+          } catch { /* bible optional for the views sheet */ }
+        }
         const prompt =
           kind === "line"
             ? "Single character reference for a children's coloring book. ONE character, ONE pose, " +
@@ -681,16 +707,31 @@ export default {
               "Clean black outlines only, no color, no shading, no gray fills. Only one figure in " +
               "the image, no other views, no turnaround, no pose sheet. No text, no labels, no " +
               `words anywhere in the image. ${visual}`
-            : "Character reference sheet for a children's picture book, plain light background, " +
-              "clean storybook illustration, soft warm colors. No text, no labels, no words anywhere " +
-              `in the image. ${visual}`;
+            : kind === "views"
+              ? "Character model sheet for a children's picture book, clean black outlines on a pure " +
+                "white background, no color, no shading, no gray fills, no text, no labels, no words " +
+                "anywhere in the image. Lay the sheet out in tidy rows of separate studies of the SAME " +
+                "single character, identical in every study: TOP ROW, a turnaround: front view, side " +
+                "view, back view, full body, standing. MIDDLE ROW, three full-body poses: walking, " +
+                "working at the thing they love, and sitting down resting. BOTTOM ROW, four head " +
+                "studies showing expressions: happy, determined, worried, surprised; beside them, " +
+                "their signature object drawn alone, and two small elements from their home. " +
+                `The character: ${visual}${worldBits ? ` ${worldBits}` : ""}`
+              : "Character reference sheet for a children's picture book, plain light background, " +
+                "clean storybook illustration, soft warm colors. Lay the sheet out in tidy rows of " +
+                "separate studies of the SAME single character, identical in every study: a turnaround " +
+                "row (front view, side view, back view, full body), a poses row (walking, working at " +
+                "the thing they love, sitting), a row of head studies (happy, determined, worried, " +
+                "surprised), and along the bottom their signature object and two small elements from " +
+                "their home. No text, no labels, no words anywhere in the image. " +
+                `The character: ${visual}${worldBits ? ` ${worldBits}` : ""}`;
         let bytes: Uint8Array;
         try {
           bytes = await generateGatewayImage(env, prompt, []);
         } catch (e: any) {
           return Response.json({ error: `gateway generation failed: ${e?.message ?? e}` }, { status: 502 });
         }
-        const pendingPrefix = kind === "line" ? "characters/pending-line" : "characters/pending";
+        const pendingPrefix = kind === "line" ? "characters/pending-line" : kind === "views" ? "characters/pending-views" : "characters/pending";
         const pendingKey = `${pendingPrefix}/${slug}-${nameKey}.png`;
         await env.BOOKS.put(pendingKey, bytes, { httpMetadata: { contentType: "image/png" } });
         await env.BOOKS.put(
@@ -716,15 +757,21 @@ export default {
         }
         const name = String(body?.name ?? "").trim();
         if (!name) return Response.json({ error: "name required" }, { status: 400 });
-        const kind = body?.kind === "line" ? "line" : "color";
+        const kind = body?.kind === "line" ? "line" : body?.kind === "views" ? "views" : "color";
         const nameKey = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-        const pendingPrefix = kind === "line" ? "characters/pending-line" : "characters/pending";
+        const pendingPrefix = kind === "line" ? "characters/pending-line" : kind === "views" ? "characters/pending-views" : "characters/pending";
         const pendingKey = `${pendingPrefix}/${slug}-${nameKey}.png`;
         const obj = await env.BOOKS.get(pendingKey);
         if (!obj) return Response.json({ error: "no pending sheet for that character" }, { status: 404 });
         const bytes = new Uint8Array(await obj.arrayBuffer());
-        const jpgKey = kind === "line" ? `characters/line/${nameKey}.png` : `characters/${nameKey}.png`;
+        const jpgKey = kind === "line" ? `characters/line/${nameKey}.png` : kind === "views" ? `characters/views/${nameKey}.png` : `characters/${nameKey}.png`;
         await env.BOOKS.put(jpgKey, bytes, { httpMetadata: { contentType: "image/png" } });
+        if (kind === "views") {
+          // The views sheet is a modeling/promotion reference only: it
+          // is not a conditioning sheet, so there is no registry row
+          // to upsert. Approval is just the canonical copy.
+          return Response.json({ slug, name, kind, key: jpgKey });
+        }
         // Registry metadata: prefer the book's bible cast entry (it
         // carries species/personality/maps-to), fall back to the
         // sidecar the generate step wrote.
