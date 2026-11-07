@@ -42,6 +42,12 @@ assert(!merch.includes("/api/checkout"), "merch cannot reach checkout");
 assert(merch.includes("<CartSheet"), "merch ships the shared cart sheet (the storefront-wide header drawer); its placeholder products stay unwired");
 assert(merch.includes("/just-buy-it.webp"), "merch covers keep the deterrent overlay");
 
+// ---- Merch flag (CG, 2026-11-07): the route is dark until MERCH_ENABLED --
+const merchFlag = read("../src/lib/merch-flag.ts");
+assert(merchFlag.includes("MERCH_ENABLED") && merchFlag.includes("export function merchEnabled"), "the merch flag reads MERCH_ENABLED");
+assert(merch.includes("merchEnabled()") && merch.includes("status: 404"), "merch 404s while the flag is off");
+assert(nav.includes("merchEnabled()") && nav.includes('r.id !== "merch"'), "the routes bar drops the Merch entry while the flag is off");
+
 // ---- Book club: hero, no January copy, mobile switch, wiring -----------
 const club = read("../src/pages/clubs.astro");
 const bookClubPage = read("../src/pages/clubs/book-club.astro");
