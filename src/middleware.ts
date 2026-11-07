@@ -185,6 +185,10 @@ const gate = async (context: any, next: any) => {
     // completes jobs here; the route verifies the LIFT_WORKER_TOKEN
     // bearer secret on every call.
     if (pathname === "/api/lift/worker") return next();
+    // Lulu print-file fetches: the route authenticates by its
+    // unguessable per-file token (lib/print-fulfillment), the same
+    // shape as the lift worker's bearer check.
+    if (pathname.startsWith("/api/print-file/")) return next();
     const routeTier = classifyApiRoute(pathname, context.request.method, context.url.searchParams);
     if (routeTier !== "admin") return next();
     if (!email) {

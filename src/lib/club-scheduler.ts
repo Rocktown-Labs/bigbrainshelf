@@ -107,6 +107,15 @@ export interface ScheduledWorkSummary {
   birthdayGifts?: { checkedKids: number; queuedBirthdayEmails: number };
   adminDigest?: { queued: number; urgentTotal: number };
   delayEmails?: { ordersQueued: number; boxesQueued: number };
+  printFulfillment?: {
+    submitted: number;
+    failed: number;
+    dispatchErrors: number;
+    synced: number;
+    shipped: number;
+    delivered: number;
+    syncErrors: number;
+  };
   tracking: TrackingPollSummary;
   flushedAfter: OutboxFlushSummary;
 }
@@ -124,7 +133,7 @@ export async function runScheduledWork(
   } catch (err: any) {
     console.error("scheduled outbox flush (before) failed", err?.message || err);
   }
-  const club = await runClubCycleScheduler(db, { site, now: opts.now, batch });
+  const club = await runClubCycleScheduler(db, { site, now: opts.now, batch, env });
   // Comp memberships (granted free years) whose window has closed
   // flip to canceled here, so status-only readers (member counts,
   // the admin list) agree with the time-boxed access guards.
@@ -163,11 +172,35 @@ export async function runScheduledWork(
   } catch (err: any) {
     console.error("scheduled tracking poll failed", err?.message || err);
   }
+  // Lulu print fulfillment (dispatcher + status poll). A quiet
+  // no-op unless FULFILLMENT_PROVIDER=lulu and the credential pair
+  // for the selected Lulu environment is present: submit queued
+  // print jobs, then mirror Lulu's progress (per-item shipments,
+  // derived order physical_status) back onto our rows.
+  let printFulfillment = {
+    submitted: 0, failed: 0, dispatchErrors: 0,
+    synced: 0, shipped: 0, delivered: 0, syncErrors: 0,
+  };
+  try {
+    const { runPrintFulfillmentPass } = await import("./print-fulfillment");
+    const pass = await runPrintFulfillmentPass(db, env, { site, batch: 25 });
+    printFulfillment = {
+      submitted: pass.dispatched.submitted,
+      failed: pass.dispatched.failed,
+      dispatchErrors: pass.dispatched.errors,
+      synced: pass.synced.synced,
+      shipped: pass.synced.shipped,
+      delivered: pass.synced.delivered,
+      syncErrors: pass.synced.errors,
+    };
+  } catch (err: any) {
+    console.error("scheduled print fulfillment pass failed", err?.message || err);
+  }
   let flushedAfter = emptyFlush();
   try {
     flushedAfter = await flushOutbox(db, env, batch, site);
   } catch (err: any) {
     console.error("scheduled outbox flush (after) failed", err?.message || err);
   }
-  return { flushedBefore, club, birthdayGifts, adminDigest, delayEmails, tracking, flushedAfter };
+  return { flushedBefore, club, birthdayGifts, adminDigest, delayEmails, tracking, printFulfillment, flushedAfter };
 }

@@ -141,11 +141,16 @@ function wrapLines(text: string, font: any, size: number, maxWidth: number): str
  * size so it sits naturally in the book, and it carries no licensed
  * footer: it is front matter, like a gift inscription.
  */
-async function insertDedicationPage(doc: PDFDocument, name: string | null, info: PdfStampInfo): Promise<void> {
+async function insertDedicationPage(
+  doc: PDFDocument,
+  name: string | null,
+  info: PdfStampInfo,
+  insertAt = 1
+): Promise<void> {
   const pages = doc.getPages();
   if (pages.length <= 2) return;
   const { width, height } = pages[0].getSize();
-  const page = doc.insertPage(1, [width, height]);
+  const page = doc.insertPage(Math.max(0, Math.min(insertAt, pages.length)), [width, height]);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const regular = await doc.embedFont(StandardFonts.Helvetica);
   const oblique = await doc.embedFont(StandardFonts.HelveticaOblique);
@@ -342,5 +347,51 @@ export async function stampPdfForBuyer(
     // A dedication must never break the stamp; the licensed copy
     // still ships without it.
   }
+  return doc.save();
+}
+
+export interface PrintStampInfo {
+  /** The child's first name for the dedication page; null prints the blank write-in line. */
+  childName?: string | null;
+  /** The book's public title, printed on the dedication page. */
+  bookTitle?: string | null;
+  /** The copy's minted serial label ("Vol. 1 #42"); the number prints inside the book. */
+  serialLabel?: string | null;
+  /** The serial's short public code; the page prints its /v/ path. */
+  serialCode?: string | null;
+  /** Preformatted production date ("November 7, 2026"); null omits the line. */
+  producedOn?: string | null;
+  /** Stacked brand logo PNG bytes for the dedication page, if loadable. */
+  logoPng?: Uint8Array | null;
+}
+
+/**
+ * Print personalization (Lulu lane): take a stock PRINT interior
+ * (no cover pages inside it) and insert the dedication page at the
+ * very front, index 0. Unlike the download stamp this adds NO
+ * licensed-to footer, NO microtext, and NO metadata markers: a
+ * printed copy carries only the dedication page, with the child's
+ * name (or the blank write-in line) and, when minted, the copy's
+ * serial label and verify path.
+ */
+export async function stampPdfForPrint(
+  bytes: Uint8Array,
+  info: PrintStampInfo
+): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const stampInfo: PdfStampInfo = {
+    email: "",
+    childName: info.childName ?? null,
+    bookTitle: info.bookTitle ?? null,
+    producedOn: info.producedOn ?? null,
+    logoPng: info.logoPng ?? null,
+    serialLabel: info.serialLabel ?? null,
+    serialCode: info.serialCode ?? null,
+    shortId: null,
+    marker: "",
+    markerIsOrder: false,
+  };
+  const name = dedicationName(stampInfo);
+  await insertDedicationPage(doc, name, stampInfo, 0);
   return doc.save();
 }

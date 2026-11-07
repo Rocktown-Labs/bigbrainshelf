@@ -926,7 +926,7 @@ export interface ClubSchedulerSummary {
 // thousands of members.
 export async function runClubCycleScheduler(
   db: DBLike,
-  args: { site: string; now?: Date; batch?: number; rng?: () => number }
+  args: { site: string; now?: Date; batch?: number; rng?: () => number; env?: any }
 ): Promise<ClubSchedulerSummary> {
   await ensureClubCycleTables(db);
   // The locked / attention probes below read email_outbox.dedupe_key;
@@ -1050,6 +1050,19 @@ export async function runClubCycleScheduler(
     const after = await resolveClubBoxAtLock(db, box, member, rng);
     if (after && before === "awaiting_selection" && after.status === "locked") summary.lockedBoxes += 1;
     if (after && before === "awaiting_selection" && after.status === "needs_attention") summary.attentionBoxes += 1;
+    // Lulu lane: a box that just locked gets its print job built
+    // (the two storybooks plus the primary book's coloring book).
+    // Idempotent and failure-isolated: a missing printable records
+    // a blocked job instead of throwing, and the box's home sticker
+    // shipment stays on the box label flow either way.
+    if (after && after.status === "locked" && args.env) {
+      try {
+        const { buildJobForBox, luluConfigured } = await import("./print-fulfillment");
+        if (luluConfigured(args.env)) await buildJobForBox(db, args.env, after);
+      } catch (err: any) {
+        console.error("club box print job build failed", String(box.id), err?.message || err);
+      }
+    }
   }
 
   // 4. Locked and needs_attention boxes get their one email each. The
