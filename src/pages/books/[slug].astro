@@ -395,18 +395,6 @@ const bookJsonLd: Record<string, unknown> = isLocalized
                     </span>
                   </label>
                 )}
-                {hasAudio && (
-                  <label class="block cursor-pointer select-none touch-manipulation">
-                    <input type="radio" name="bbs-format" value="audio" class="peer sr-only" checked={preselectAudio} />
-                    <span class="flex items-start justify-between gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 transition duration-100 peer-checked:border-orange-600 peer-checked:bg-orange-50 peer-focus-visible:outline-2 peer-focus-visible:outline-orange-600 active:scale-[0.99]">
-                      <span>
-                        <span class="block text-sm font-bold">Audiobook only</span>
-                        <span class="block text-[13px] text-stone-500 leading-snug mt-0.5">The full story, read aloud.</span>
-                      </span>
-                      <span class="text-sm font-bold whitespace-nowrap">{audioPrice}</span>
-                    </span>
-                  </label>
-                )}
                 {giftEligible && (
                   <label class="block cursor-pointer select-none touch-manipulation">
                     <input type="radio" name="bbs-format" value="giftset" class="peer sr-only" />
@@ -418,6 +406,25 @@ const bookJsonLd: Record<string, unknown> = isLocalized
                       <span class="text-sm font-bold whitespace-nowrap">{giftPrice}</span>
                     </span>
                   </label>
+                )}
+                {hasAudio && (
+                  <>
+                  <div class="flex items-center gap-3 px-1" aria-hidden="true">
+                    <span class="h-px flex-1 bg-stone-300"></span>
+                    <span class="text-sm text-stone-500">or</span>
+                    <span class="h-px flex-1 bg-stone-300"></span>
+                  </div>
+                  <label class="block cursor-pointer select-none touch-manipulation">
+                    <input type="radio" name="bbs-format" value="audio" class="peer sr-only" checked={preselectAudio} />
+                    <span class="flex items-start justify-between gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 transition duration-100 peer-checked:border-orange-600 peer-checked:bg-orange-50 peer-focus-visible:outline-2 peer-focus-visible:outline-orange-600 active:scale-[0.99]">
+                      <span>
+                        <span class="block text-sm font-bold">Audiobook only</span>
+                        <span class="block text-[13px] text-stone-500 leading-snug mt-0.5">The full story, read aloud.</span>
+                      </span>
+                      <span class="text-sm font-bold whitespace-nowrap">{audioPrice}</span>
+                    </span>
+                  </label>
+                  </>
                 )}
               </div>
               <button id="buy" class="mt-3 w-full sm:w-auto bg-stone-900 text-white rounded-full px-8 py-3 text-sm font-semibold hover:bg-black transition duration-100 active:scale-[0.97]">Add to cart</button>
