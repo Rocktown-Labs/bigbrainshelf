@@ -83,7 +83,7 @@ async function luluToken(e: any): Promise<string> {
   const base = LULU_BASES[name];
   const form = new URLSearchParams({
     grant_type: "client_credentials",
-    client_id: creds.client_id,
+    client_id: creds.clientId,
     client_secret: creds.clientSecret,
   });
   let res: Response;

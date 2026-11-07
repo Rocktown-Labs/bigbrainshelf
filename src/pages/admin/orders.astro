@@ -4,8 +4,11 @@ import AdminShell from "../../components/AdminShell.astro";
 export const prerender = false;
 // Orders admin (operator redesign, 2026-10-29): three stat cards, a
 // slim outbox strip, filter tabs, and the orders as a slim table
-// (Date | Order ID | Items | Price | Format circles | next step) in
-// the daisyUI table aesthetic, hand-rolled per the shadcn precedent.
+// (Date | Customer + Order ID | Items | Price | Format circles |
+// next step) in the daisyUI table aesthetic, hand-rolled per the
+// shadcn precedent. The customer cell leads with the buyer name
+// (ship_name, email as the fallback) so rows are told apart at a
+// glance; the short order id rides under it.
 // The full order (buyer, address, label flow, email history) lives
 // on /admin/orders/[id]. Data comes from /api/admin/orders (admin
 // session required).
@@ -173,7 +176,7 @@ export const prerender = false;
         <thead>
           <tr>
             <th class="c-date" scope="col">Date</th>
-            <th class="c-id" scope="col">Order ID</th>
+            <th class="c-id" scope="col">Customer</th>
             <th class="c-items" scope="col">Items</th>
             <th class="c-price" scope="col">Price</th>
             <th class="c-fmt" scope="col">Format</th>
@@ -490,9 +493,14 @@ export const prerender = false;
         // get a "Mark In print" button; CG caught it 2026-10-31.)
         var next = o.physical_status ? nextStatus(o) : null;
         var tr = document.createElement("tr");
-        // One quiet sub-line under the short ID carries the status:
-        // the payment state while unpaid, the fulfillment stage
-        // once a printed order is moving.
+        // The row leads with the customer name (orders carry it as
+        // ship_name; manual orders store the buyer name there too),
+        // falling back to the email when the name is blank. The
+        // short ID rides under the name, and one quiet sub-line
+        // under that carries the status: the payment state while
+        // unpaid, the fulfillment stage once a printed order is
+        // moving.
+        var custName = String(o.ship_name || "").trim() || String(o.email || "").trim();
         var sub = o.status !== "complete"
           ? o.status
           : (o.physical_status ? (LABELS[o.physical_status] || o.physical_status) : "");
@@ -502,7 +510,9 @@ export const prerender = false;
         var kebab = '<button type="button" class="kebab" data-kebab="' + esc(o.id) + '" aria-haspopup="menu" aria-label="More actions for order ' + esc(o.short_id || o.id) + '">' + DOTS + "</button>";
         tr.innerHTML =
           '<td class="c-date"><span class="text-[13px] text-stone-500 whitespace-nowrap">' + esc(fmtDay(o.created_at)) + "</span></td>" +
-          '<td class="c-id"><span class="block font-extrabold tracking-tight truncate leading-tight">' + esc(o.short_id || o.id) + "</span>" +
+          '<td class="c-id">' +
+            (custName ? '<span class="block font-extrabold tracking-tight truncate leading-tight">' + esc(custName) + "</span>" : "") +
+            '<span class="block truncate ' + (custName ? "text-[11px] text-stone-400 mt-0.5" : "font-extrabold tracking-tight leading-tight") + '">' + esc(o.short_id || o.id) + "</span>" +
             (sub ? '<span class="block text-[11px] text-stone-400 capitalize mt-0.5 truncate">' + esc(sub) + "</span>" : "") + "</td>" +
           '<td class="c-items"><span class="block truncate text-sm font-medium text-stone-700">' + fmtPick(o) + "</span></td>" +
           '<td class="c-price"><span class="font-bold tabular-nums text-sm whitespace-nowrap">' + money(o.amount) + "</span></td>" +
