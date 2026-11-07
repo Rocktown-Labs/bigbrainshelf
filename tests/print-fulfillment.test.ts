@@ -327,6 +327,65 @@ async function main() {
   check("partial shipment keeps the order in_print", order2After.physical_status === "in_print", order2After.physical_status);
   check("partial shipment flags the job", job2After?.hasPartial === true);
 
+  // -- shipping phone: Lulu requires phone_number on the address.
+  // Checkout collects no phone yet, so the store fallback carried in
+  // the worker env fills the gap and the job notes say so.
+  const FALLBACK_PHONE = "+1 501 555 0100";
+  const envWithFallback: any = { ...env, LULU_FALLBACK_PHONE: FALLBACK_PHONE };
+  function orderRowWithAddress(id: string, items: any[], address: any) {
+    raw.prepare(
+      `INSERT INTO orders (id, email, total_cents, status, items, book_slugs, ship_name, ship_address, physical_status, created_at, updated_at)
+       VALUES (?, 'buyer@example.com', 2499, 'complete', ?, ?, 'Test Buyer', ?, 'preorder_received', 1000, 1000)`
+    ).run(id, JSON.stringify(items), items.map((i) => i.slug).join(","), JSON.stringify(address));
+    return raw.query("SELECT * FROM orders WHERE id = ?").get(id) as any;
+  }
+
+  // (a) phone-less order + fallback env: the create body carries the
+  // fallback number and the job notes mention the fallback.
+  const order5 = orderRow("ord-5", [
+    { slug: "mira-the-heron-and-the-still-water", format: "printed", qty: 1 },
+  ]);
+  const job5 = await buildJobsForOrder(db, envWithFallback, order5);
+  check("phone-less order builds a queued job with the fallback env", !!job5 && job5.status === "queued");
+  check("job notes mention the store fallback",
+    String(job5?.notes || "").includes("Shipping phone: store fallback used"), job5?.notes ?? "(no notes)");
+  const bodiesBefore5 = createBodies.length;
+  const dispatch5 = await dispatchPrintJobs(db, envWithFallback, { site: SITE });
+  check("fallback job dispatches", dispatch5.submitted === 1, JSON.stringify(dispatch5));
+  check("create body carries the fallback phone number",
+    createBodies[bodiesBefore5]?.shipping_address?.phone_number === FALLBACK_PHONE,
+    JSON.stringify(createBodies[bodiesBefore5]?.shipping_address));
+
+  // (b) an order with its own phone keeps it; the fallback never
+  // overrides a number the order already carries.
+  const OWN_PHONE = "+1 501 555 0142";
+  const order6 = orderRowWithAddress("ord-6", [
+    { slug: "mira-the-heron-and-the-still-water", format: "printed", qty: 1 },
+  ], { line1: "100 W Race Ave", line2: "", city: "Searcy", state: "AR", postal_code: "72143", country: "US", phone: OWN_PHONE });
+  const job6 = await buildJobsForOrder(db, envWithFallback, order6);
+  check("order with its own phone gets no fallback note",
+    !String(job6?.notes || "").includes("store fallback"), job6?.notes ?? "(no notes)");
+  const bodiesBefore6 = createBodies.length;
+  const dispatch6 = await dispatchPrintJobs(db, envWithFallback, { site: SITE });
+  check("own-phone job dispatches", dispatch6.submitted === 1, JSON.stringify(dispatch6));
+  check("create body keeps the order's own phone number",
+    createBodies[bodiesBefore6]?.shipping_address?.phone_number === OWN_PHONE,
+    JSON.stringify(createBodies[bodiesBefore6]?.shipping_address));
+
+  // (c) no fallback configured: the create body carries no
+  // phone_number, exactly the behavior before the fallback existed.
+  const order7 = orderRow("ord-7", [
+    { slug: "mira-the-heron-and-the-still-water", format: "printed", qty: 1 },
+  ]);
+  const job7 = await buildJobsForOrder(db, env, order7);
+  check("phone-less order without fallback still builds queued", !!job7 && job7.status === "queued");
+  const bodiesBefore7 = createBodies.length;
+  const dispatch7 = await dispatchPrintJobs(db, env, { site: SITE });
+  check("no-fallback job dispatches", dispatch7.submitted === 1, JSON.stringify(dispatch7));
+  check("create body has no phone_number without a fallback",
+    !!createBodies[bodiesBefore7]?.shipping_address && !("phone_number" in createBodies[bodiesBefore7].shipping_address),
+    JSON.stringify(createBodies[bodiesBefore7]?.shipping_address));
+
   // -- club box: two storybooks + the primary book's coloring book.
   const box: any = {
     id: "box-1",
