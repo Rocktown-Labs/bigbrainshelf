@@ -57,7 +57,7 @@ const ADDRESS = { line1: "2310 W 18th St", city: "Little Rock", state: "AR", pos
   assert(catalog.length === 2 && !catalog.some((c) => c.slug === "unfinished-tales"),
     "catalog: only sellable books are offered");
   const mira = catalog.find((c) => c.slug === "mira-the-heron-and-the-still-water");
-  assert(mira?.prices.digital === 899 && mira?.prices.printed === 2000 && mira?.prices.giftset === 2500 && mira?.prices.audio === 199,
+  assert(mira?.prices.digital === 899 && mira?.prices.printed === 2000 && mira?.prices.giftset === 3500 && mira?.prices.audio === 599,
     "catalog: default prices are the store prices from offers/catalog rules");
   const fenix = catalog.find((c) => c.slug === "fenix-the-fox-and-the-clever-trails");
   assert(!!fenix && fenix.prices.audio === null,

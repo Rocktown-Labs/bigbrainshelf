@@ -35,13 +35,13 @@ function assert(cond: any, label: string) {
 const read = (p: string) => readFileSync(new URL(p, import.meta.url), "utf8");
 
 // --- Pricing guardrail -------------------------------------------------------
-const BOOK = { slug: "mastery", price: 899, price_print: 2000, picture_book_key: "p", coloring_book_key: "c", audiobook_key: "a" };
+const BOOK = { slug: "mastery", price: 1299, price_print: 2499, picture_book_key: "p", coloring_book_key: "c", audiobook_key: "a" };
 const guestPriced = checkoutItemPrice(BOOK, "digital", { digital: false, audio: false });
-assert(guestPriced?.cents === 899 && !guestPriced?.upgrade, "pricing: no ownership (guest) pays the full digital price, no upgrade credit");
+assert(guestPriced?.cents === 1299 && !guestPriced?.upgrade, "pricing: no ownership (guest) pays the full digital price, no upgrade credit");
 const ownerPriced = checkoutItemPrice(BOOK, "digital", { digital: false, audio: true });
 assert(ownerPriced?.cents === 700 && ownerPriced?.upgrade === "audio-upgrade", "pricing: the audio credit exists only with account ownership");
-assert(checkoutItemPrice(BOOK, "printed", { digital: false, audio: false })?.cents === 2000, "pricing: guest printed price is the list price");
-assert(checkoutItemPrice(BOOK, "audio", { digital: false, audio: false })?.cents === 199, "pricing: guest audio-only price is the list price");
+assert(checkoutItemPrice(BOOK, "printed", { digital: false, audio: false })?.cents === 2499, "pricing: guest printed price is the list price");
+assert(checkoutItemPrice(BOOK, "audio", { digital: false, audio: false })?.cents === 599, "pricing: guest audio-only price is the list price");
 
 // --- Guest order lifecycle ---------------------------------------------------
 const raw = new Database(":memory:");

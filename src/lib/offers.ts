@@ -12,7 +12,7 @@
 // story book (the picture book, printed in full color) and a coloring
 // book; the option appears automatically once a live book qualifies.
 
-export const GIFT_SET_PRICE_CENTS = 2500;
+export const GIFT_SET_PRICE_CENTS = 3500; // $35 (CG, 2026-11-07, raised from $25 with the Lulu print integration)
 
 export function giftSetEligible(book: {
   picture_book_key?: string | null;
@@ -22,27 +22,31 @@ export function giftSetEligible(book: {
 }
 
 // ---------------------------------------------------------------------------
-// Standard book prices (CG, 2026-10-27). Every book sells its digital
-// bundle at $8.99 and its full color printed book at $20. Prices live
+// Standard book prices (CG, 2026-10-27; raised 2026-11-07 with the
+// Lulu print integration). Every book sells its digital bundle at
+// $12.99 and its full color printed book at $24.99. Prices live
 // per book on the books row and checkout reads them directly (there is
 // no Stripe-side catalog to sync), so the publish action stamps these
 // onto any price field that is still 0/NULL when a book goes live.
 // A non-zero price is a deliberate custom price and publishing never
-// overwrites it.
+// overwrites it. The 2026-11-07 raise also updated the live rows that
+// carried the old standards (899/2000) to the new ones in D1.
 
-export const STANDARD_DIGITAL_PRICE_CENTS = 899;
-export const STANDARD_PRINT_PRICE_CENTS = 2000;
+export const STANDARD_DIGITAL_PRICE_CENTS = 1299;
+export const STANDARD_PRINT_PRICE_CENTS = 2499;
 
 // ---------------------------------------------------------------------------
 // Audiobook only (CG, 2026-10-28): alongside the digital bundle, which
 // keeps including the audiobook, a buyer who only wants to listen can
-// buy the audiobook on its own for a flat $1.99. The price is a store
+// buy the audiobook on its own for a flat $5.99 (raised from $1.99,
+// CG, 2026-11-07, with the Lulu print integration; the audio-to-digital
+// unlock stays exactly $7.00: 1299 - 599). The price is a store
 // constant like the Gift Set price, not a per-book field: checkout,
 // the book page, the carts, and the account pages all read it here.
 // The format exists only for books that actually have an audiobook
 // (the same data-driven gate as the bundle's audiobook inclusion).
 
-export const AUDIO_PRICE_CENTS = 199;
+export const AUDIO_PRICE_CENTS = 599;
 
 export function audioEligible(book: { audiobook_key?: string | null }): boolean {
   return Boolean(book?.audiobook_key);
