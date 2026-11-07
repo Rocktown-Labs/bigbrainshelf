@@ -6,7 +6,9 @@
 // from Plans 2026-10-30; Cast added 2026-10-31). On mobile the bar
 // is sticky (CG, 2026-10-30): it scrolls with the page until it
 // reaches the top of the viewport, then pins there, so the routes
-// stay tappable while the shelf scrolls underneath. Since
+// stay tappable while the shelf scrolls underneath. The Merch entry
+// renders only while MERCH_ENABLED is on (CG, 2026-11-07: the route
+// is dark until the art-print lane is ready). Since
 // 2026-10-31 it pins UNDER the sticky site header (logo + search),
 // not over it: the pin offset is the header's measured height,
 // published as --bbs-head-h by the script below, because the header
@@ -18,6 +20,7 @@ interface Props {
   // 2026-10-31: the footer pages get the full nav too).
   active?: "books" | "audio" | "merch" | "plans" | "cast";
 }
+import { merchEnabled } from "../lib/merch-flag";
 const { active } = Astro.props;
 const routes = [
   { id: "books", label: "Books", href: "/" },
@@ -26,10 +29,11 @@ const routes = [
   { id: "plans", label: "Clubs", href: "/clubs" },
   { id: "merch", label: "Merch", href: "/merch" },
 ] as const;
+const visibleRoutes = merchEnabled() ? routes : routes.filter((r) => r.id !== "merch");
 ---
 <nav class="bg-[#1a3454] sticky top-[var(--bbs-head-h,115px)] sm:top-[var(--bbs-head-h,65px)] z-40" aria-label="Sections">
   <div class="max-w-7xl mx-auto flex px-2 sm:justify-center sm:gap-2">
-    {routes.map((r) => (
+    {visibleRoutes.map((r) => (
       <a
         href={r.href}
         aria-current={active === r.id ? "page" : undefined}

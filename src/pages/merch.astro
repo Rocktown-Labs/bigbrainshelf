@@ -11,9 +11,15 @@ import TransitionHooks from "../components/TransitionHooks.astro";
 import SeoHead from "../components/SeoHead.astro";
 import { MERCH_PRODUCTS } from "../data/merch";
 import { coverDerivative, MEDIA_PUBLIC } from "../lib/derivatives";
+import { merchEnabled } from "../lib/merch-flag";
 import { env } from "cloudflare:workers";
 export const prerender = false;
 const e = env as any;
+
+// Hidden behind the MERCH_ENABLED flag (CG, 2026-11-07): the route
+// answers 404 until the art-print lane is ready to sell. The page
+// below is untouched and returns as-is when the flag flips on.
+if (!merchEnabled()) return new Response(null, { status: 404 });
 
 // Product cards are illustrated with the cover of the book each
 // product stars. The products are placeholders (src/data/merch.ts):
