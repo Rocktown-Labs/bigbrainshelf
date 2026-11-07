@@ -319,6 +319,55 @@ export async function costCalculation(
   return parseCostCalculation(raw);
 }
 
+// ---------------------------------------------------------------------------
+// Webhook signature verification. Lulu signs each submission with
+// HMAC-SHA256 (the webhook's API secret as key, the raw payload as
+// message) and sends the digest in the Lulu-HMAC-SHA256 header. The
+// digest encoding is not pinned in Lulu's docs, so verification
+// accepts the hex or the base64 form of the same HMAC: producing
+// either requires the secret, so accepting both weakens nothing.
+
+/** SHA-256 of a UTF-8 string, hex encoded. */
+export async function sha256Hex(text: string): Promise<string> {
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))
+  );
+  return [...digest].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function timingSafeEqualString(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/** Verify a Lulu webhook signature header against the raw body. */
+export async function verifyLuluWebhookSignature(
+  secret: string,
+  rawBody: string,
+  signatureHeader: string | null | undefined
+): Promise<boolean> {
+  const provided = String(signatureHeader || "").trim();
+  if (!secret || !provided) return false;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = new Uint8Array(
+    await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody))
+  );
+  const hex = [...sig].map((b) => b.toString(16).padStart(2, "0")).join("");
+  if (timingSafeEqualString(provided.toLowerCase(), hex)) return true;
+  let binary = "";
+  for (const b of sig) binary += String.fromCharCode(b);
+  const base64 = btoa(binary);
+  return timingSafeEqualString(provided, base64);
+}
+
 /** Job-level Lulu statuses after which nothing further will change. */
 export const LULU_TERMINAL_STATUSES: ReadonlySet<string> = new Set([
   "DELIVERED",

@@ -1,7 +1,13 @@
 // Print fulfillment (Lulu lane): the registry of print-ready files,
 // the print jobs built from paid orders and locked club boxes, and
-// the cron passes that submit those jobs to Lulu and mirror their
-// progress back onto our rows.
+// the passes that submit those jobs to Lulu and mirror their
+// progress back onto our rows. Placement is automatic: order
+// completion and the club box lock build and submit immediately
+// (autoPlacePrintJobForOrder, the lock hooks in club-cycles and the
+// club admin route), the cron pass retries and syncs, and the Lulu
+// webhook (handleLuluWebhookPost) is the fast path into the same
+// sync. Sync also enqueues the per-parcel customer emails
+// (print_shipped / print_delivered).
 //
 // Model:
 //   printables       one row per (book slug, kind): the POD package,
@@ -38,7 +44,7 @@
 // enqueues the physical_update_* emails about a home-packed parcel)
 // is never used for Lulu orders: their books are not packed at home.
 
-import type { DBLike } from "./orders";
+import { enqueueEmail, type DBLike } from "./orders";
 import { ensureOnce } from "./schema-cache";
 import { getOrMintSerial, mintOrderPrintSerials, serialLabel, type BookSerial } from "./serials";
 import { stampPdfForPrint } from "./pdf-stamp";
@@ -50,6 +56,8 @@ import {
   luluConfigured,
   luluStatusName,
   normalizeLuluAddress,
+  sha256Hex,
+  verifyLuluWebhookSignature,
   LULU_TERMINAL_STATUSES,
   type LuluAddress,
 } from "./lulu";
@@ -783,6 +791,44 @@ export async function buildJobForBox(
   });
 }
 
+/**
+ * Auto-place (CG, 2026-11-07: "set the lulu flow so it places the
+ * order"): a store order that has completed payment with physical
+ * lines builds its print job here and attempts an immediate submit.
+ * Called from the completion funnel (processCheckoutCompleted and
+ * the $0 in-place completion in /api/checkout). Deliberately total:
+ * every failure is logged and swallowed, because the cron dispatcher
+ * retries queued jobs on its own tick and a Lulu outage must never
+ * fail or stall a customer's completed order. Manual orders
+ * (source = 'manual') never auto-place: the admin create_print_job
+ * action stays their trigger, so a test order an admin typed in
+ * cannot silently spend a print run.
+ */
+export async function autoPlacePrintJobForOrder(
+  db: DBLike,
+  env: any,
+  order: any,
+  site?: string
+): Promise<PrintJobWithItems | null> {
+  try {
+    if (!luluConfigured(env)) return null;
+    if (!order || String(order.status || "") !== "complete") return null;
+    if (String(order.source || "") === "manual") return null;
+    const job = await buildJobsForOrder(db, env, order);
+    if (job && job.status === "queued") {
+      const outcome = await submitPrintJob(db, env, job, site);
+      if (!outcome.ok) {
+        console.error("print auto-place submit deferred to cron for job", job.id, outcome.error || "");
+      }
+      return outcome.job || job;
+    }
+    return job;
+  } catch (err: any) {
+    console.error("print auto-place failed for order", String(order?.id || ""), err?.message || err);
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // File tokens: the URLs Lulu fetches print files from.
 
@@ -957,6 +1003,184 @@ export async function dispatchPrintJobs(
 }
 
 // ---------------------------------------------------------------------------
+// Customer notifications: one email per shipped or delivered parcel.
+//
+// Print parcels ride the outbox on dedupe keys (print_shipped:{id} /
+// print_delivered:{id}, keyed by the shipments row), with order_id
+// left NULL on purpose: the outbox's unique (order_id, kind) index
+// would collapse a second parcel's email into the first (the same
+// reason club cycle mail keys on its dedupe key instead). The
+// shipments row is the parcel of record: it carries the order or
+// club box link plus the carrier and tracking the email reports.
+// Sync is where parcels change state, so sync is where these emails
+// enqueue, identically whether the cron poll or the Lulu webhook
+// drove the sync. setPhysicalStatus is never involved: its
+// physical_update_* emails describe a home-packed parcel, and a Lulu
+// parcel is packed by the printer. Sender follows the package-mail
+// convention (senderForKind has no print override, so these send
+// from the orders@ default, like physical_update_*).
+
+export type PrintParcelEmailKind = "print_shipped" | "print_delivered";
+
+export const PRINT_PARCEL_EMAIL_KINDS: readonly string[] = ["print_shipped", "print_delivered"];
+
+export interface PrintParcelEmailModel {
+  kind: PrintParcelEmailKind;
+  subject: string;
+  headline: string;
+  body: string;
+  titles: string[];
+  carrier?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
+  // The email's one call to action: the tracking page while the
+  // parcel travels, the library once it has arrived.
+  button: { label: string; href: string } | null;
+  clubBox: boolean;
+}
+
+function parcelTitle(item: { title?: string | null; slug: string; kind: string }): string {
+  const title = item.title ? String(item.title) : item.slug;
+  return item.kind === "coloring" ? `${title} (coloring book)` : title;
+}
+
+/** Structured content for a print parcel email; the plain-text
+ *  builder below and the React Email template render from this. */
+export function buildPrintParcelEmailModel(args: {
+  kind: PrintParcelEmailKind;
+  item: { title?: string | null; slug: string; kind: string };
+  carrier?: string | null;
+  trackingId?: string | null;
+  trackingUrl?: string | null;
+  clubBox: boolean;
+  site: string;
+}): PrintParcelEmailModel {
+  const site = String(args.site || "https://bigbrainshelf.com").replace(/\/+$/, "");
+  const title = parcelTitle(args.item);
+  if (args.kind === "print_shipped") {
+    return {
+      kind: args.kind,
+      subject: args.clubBox ? "A Book Club book has shipped" : "Your printed book has shipped",
+      headline: args.clubBox
+        ? "A book from your Book Club box is on its way."
+        : "Your book is on its way.",
+      body: args.clubBox
+        ? "The printed books in your Book Club box ship straight from the printer, so this one may arrive separately from the rest of your box. We will email you when it is delivered."
+        : "It has left the printer and is heading to you. We will email you when it is delivered.",
+      titles: [title],
+      carrier: args.carrier ? String(args.carrier) : undefined,
+      trackingNumber: args.trackingId ? String(args.trackingId) : undefined,
+      trackingUrl: args.trackingUrl ? String(args.trackingUrl) : undefined,
+      button: args.trackingUrl
+        ? { label: "Track your package", href: String(args.trackingUrl) }
+        : null,
+      clubBox: args.clubBox,
+    };
+  }
+  return {
+    kind: args.kind,
+    subject: args.clubBox ? "A Book Club book has been delivered" : "Your printed book has been delivered",
+    headline: args.clubBox
+      ? "A book from your Book Club box has arrived."
+      : "Your book has arrived.",
+    body: "It should be at your door now. We hope it gets read to pieces and loved. Thank you for being part of the Shelf.",
+    titles: [title],
+    button: { label: "Open your library", href: `${site}/account/library` },
+    clubBox: args.clubBox,
+  };
+}
+
+export function buildPrintParcelEmail(
+  model: PrintParcelEmailModel
+): { subject: string; text: string } {
+  const lines: string[] = [];
+  lines.push(model.headline);
+  lines.push("");
+  for (const t of model.titles) lines.push(`- ${t}`);
+  lines.push("");
+  lines.push(model.body);
+  if (model.trackingNumber) {
+    lines.push("");
+    if (model.carrier) lines.push(`Carrier: ${model.carrier}`);
+    lines.push(`Tracking number: ${model.trackingNumber}`);
+  }
+  if (model.button) {
+    lines.push("");
+    lines.push(`${model.button.label}: ${model.button.href}`);
+  }
+  lines.push("");
+  lines.push("Big Brain Shelf");
+  return { subject: model.subject, text: lines.join("\n") };
+}
+
+/**
+ * Rebuild a parcel email's render model from its outbox row (the
+ * HTML renderer's entry point). The dedupe key carries the shipment
+ * id; everything else reads off the shipment and its job item.
+ */
+export async function loadPrintParcelEmailModel(
+  db: DBLike,
+  site: string,
+  row: { kind: string; dedupe_key?: string | null }
+): Promise<PrintParcelEmailModel | null> {
+  const kind =
+    row.kind === "print_shipped" || row.kind === "print_delivered"
+      ? (row.kind as PrintParcelEmailKind)
+      : null;
+  if (!kind) return null;
+  const dedupeKey = String(row.dedupe_key || "");
+  if (!dedupeKey.startsWith(`${kind}:`)) return null;
+  const shipmentId = dedupeKey.slice(kind.length + 1);
+  if (!shipmentId) return null;
+  await ensurePrintSchema(db);
+  const shipRow = await db.prepare("SELECT * FROM shipments WHERE id = ?").bind(shipmentId).first() as any;
+  if (!shipRow) return null;
+  const shipment = rowToShipment(shipRow);
+  const itemRow = await db.prepare("SELECT * FROM print_job_items WHERE id = ?").bind(shipment.jobItemId).first() as any;
+  if (!itemRow) return null;
+  return buildPrintParcelEmailModel({
+    kind,
+    item: rowToItem(itemRow),
+    carrier: shipment.carrierName,
+    trackingId: shipment.trackingId,
+    trackingUrl: shipment.trackingUrl,
+    clubBox: !!shipment.clubBoxId,
+    site,
+  });
+}
+
+async function enqueuePrintParcelEmail(
+  db: DBLike,
+  job: PrintJob,
+  item: PrintJobItem,
+  shipment: Shipment,
+  kind: PrintParcelEmailKind,
+  site: string
+): Promise<void> {
+  const to = job.contactEmail ? String(job.contactEmail) : "";
+  if (!to) return;
+  const model = buildPrintParcelEmailModel({
+    kind,
+    item,
+    carrier: shipment.carrierName,
+    trackingId: shipment.trackingId,
+    trackingUrl: shipment.trackingUrl,
+    clubBox: !!job.clubBoxId,
+    site,
+  });
+  const { subject, text } = buildPrintParcelEmail(model);
+  await enqueueEmail(db, {
+    orderId: null,
+    kind,
+    to,
+    subject,
+    text,
+    dedupeKey: `${kind}:${shipment.id}`,
+    clubBoxId: job.clubBoxId,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Sync: mirror Lulu progress back onto jobs, items, shipments, orders.
 
 const ORDER_FLOW = ["preorder_received", "in_print", "packed", "shipped", "delivered"];
@@ -1002,12 +1226,21 @@ export interface SyncSummary {
 }
 
 /** Sync one submitted job from Lulu. Returns the fresh job. */
-export async function syncPrintJob(db: DBLike, env: any, job: PrintJob): Promise<PrintJobWithItems> {
+export async function syncPrintJob(
+  db: DBLike,
+  env: any,
+  job: PrintJob,
+  opts: { site?: string } = {}
+): Promise<PrintJobWithItems> {
   if (!job.luluJobId) return withItems(db, job);
   const statusRes = await getPrintJobStatus(env, job.luluJobId);
   const full = await getPrintJob(env, job.luluJobId).catch(() => null);
   const luluStatus = luluStatusName(statusRes) || job.luluStatus;
   const ts = nowSeconds();
+  // Parcel notification events gathered during the item walk and
+  // enqueued once the mirror writes land, so an email never reports
+  // a state the rows do not yet show.
+  const parcelEvents: { item: PrintJobItem; shipment: Shipment; kind: PrintParcelEmailKind }[] = [];
 
   const items = await listPrintJobItems(db, job.id);
   const fullItems: any[] = Array.isArray(full?.line_items) ? full.line_items : [];
@@ -1041,6 +1274,13 @@ export async function syncPrintJob(db: DBLike, env: any, job: PrintJob): Promise
          tracking_url = ?, carrier_name = ?, updated_at = ? WHERE id = ?`
     ).bind(nextStatus, lineItemId, trackingId, trackingUrl, carrierName, ts, item.id).run();
     if (trackingId) {
+      // Read the parcel of record BEFORE the upsert: whether this
+      // sync is the one that first gives the parcel a tracking
+      // number (shipped email) or first marks it delivered
+      // (delivered email) is decided against that prior state, so
+      // re-syncs of an unchanged parcel enqueue nothing.
+      const prevRow = await db.prepare("SELECT * FROM shipments WHERE job_item_id = ?").bind(item.id).first() as any;
+      const prevShipment = prevRow ? rowToShipment(prevRow) : null;
       await db.prepare(
         `INSERT INTO shipments (id, job_id, job_item_id, order_id, club_box_id, provider,
            carrier_name, tracking_id, tracking_url, status, shipped_at, created_at, updated_at)
@@ -1065,6 +1305,16 @@ export async function syncPrintJob(db: DBLike, env: any, job: PrintJob): Promise
         ts,
         ts
       ).run();
+      const shipRow = await db.prepare("SELECT * FROM shipments WHERE job_item_id = ?").bind(item.id).first() as any;
+      if (shipRow) {
+        const shipment = rowToShipment(shipRow);
+        if (!prevShipment || !prevShipment.trackingId) {
+          parcelEvents.push({ item, shipment, kind: "print_shipped" });
+        }
+        if (nextStatus === "DELIVERED" && prevShipment?.status !== "DELIVERED") {
+          parcelEvents.push({ item, shipment, kind: "print_delivered" });
+        }
+      }
     }
     item.status = nextStatus;
     item.trackingId = trackingId;
@@ -1105,13 +1355,27 @@ export async function syncPrintJob(db: DBLike, env: any, job: PrintJob): Promise
     await deriveOrderPhysicalStatus(db, fresh, await listPrintJobItems(db, job.id));
   }
   const done = await getPrintJobById(db, job.id);
-  return withItems(db, (done || job) as PrintJob);
+  const settled = (done || fresh || job) as PrintJob;
+  if (parcelEvents.length) {
+    const site = String(opts.site || env?.BETTER_AUTH_URL || "https://bigbrainshelf.com");
+    for (const ev of parcelEvents) {
+      try {
+        await enqueuePrintParcelEmail(db, settled, ev.item, ev.shipment, ev.kind, site);
+      } catch (err: any) {
+        // A failed enqueue must not fail the sync: the mirror state
+        // is already written, and the outbox dedupe key makes any
+        // later re-drive safe.
+        console.error("print parcel email enqueue failed", settled.id, ev.kind, err?.message || err);
+      }
+    }
+  }
+  return withItems(db, settled);
 }
 
 export async function syncPrintJobs(
   db: DBLike,
   env: any,
-  opts: { orderId?: string; clubBoxId?: string; batch?: number } = {}
+  opts: { orderId?: string; clubBoxId?: string; batch?: number; site?: string } = {}
 ): Promise<SyncSummary> {
   const summary: SyncSummary = { synced: 0, shipped: 0, delivered: 0, errors: 0 };
   if (!luluConfigured(env)) return summary;
@@ -1128,7 +1392,7 @@ export async function syncPrintJobs(
     if (job.luluStatus && LULU_TERMINAL_STATUSES.has(job.luluStatus)) continue;
     try {
       const before = job.luluStatus;
-      const after = await syncPrintJob(db, env, job);
+      const after = await syncPrintJob(db, env, job, { site: opts.site });
       summary.synced += 1;
       if (after.luluStatus === "SHIPPED" && before !== "SHIPPED") summary.shipped += 1;
       if (after.luluStatus === "DELIVERED" && before !== "DELIVERED") summary.delivered += 1;
@@ -1175,6 +1439,184 @@ export async function cancelPrintJobById(
 }
 
 // ---------------------------------------------------------------------------
+// Lulu webhook: the fast path into the same sync the cron poll runs.
+//
+// Lulu POSTs { topic, data } on PRINT_JOB_STATUS_CHANGED, data being
+// the full print job, signed with HMAC-SHA256 over the raw body in
+// the Lulu-HMAC-SHA256 header. Events are recorded BEFORE processing
+// (the Stripe webhook's shape): a redelivery of a fully processed
+// event is skipped, a redelivery of one that failed re-runs, and the
+// handler returns 500 on error so Lulu's own retries do the rest.
+// The endpoint stays dark (404) until LULU_WEBHOOK_SECRET is set on
+// the worker, which happens when the webhook is registered with
+// Lulu; until then the cron poll carries every update alone.
+
+export async function ensureLuluWebhookSchema(db: DBLike): Promise<void> {
+  await ensureOnce(db, "lulu_webhook_events", async () => {
+    await db.prepare(
+      `CREATE TABLE IF NOT EXISTS lulu_webhook_events (
+         event_key TEXT PRIMARY KEY,
+         topic TEXT,
+         lulu_job_id TEXT,
+         status_name TEXT,
+         payload_hash TEXT,
+         received_at INTEGER NOT NULL,
+         processed_at INTEGER,
+         result TEXT
+       )`
+    ).bind().run();
+  });
+}
+
+/**
+ * Record a Lulu webhook event before processing it. Returns "new"
+ * for a first sighting (or a replay of an event that never finished,
+ * which must re-run) and "duplicate" for a replay of a fully
+ * processed event. The key binds the Lulu job id, the job's new
+ * status, and a hash of the raw payload, so byte-identical
+ * redeliveries dedupe exactly.
+ */
+export async function recordLuluWebhookEvent(
+  db: DBLike,
+  event: {
+    key: string;
+    topic: string;
+    luluJobId: string | null;
+    statusName: string;
+    payloadHash: string;
+  }
+): Promise<"new" | "duplicate"> {
+  await ensureLuluWebhookSchema(db);
+  await db
+    .prepare(
+      "INSERT OR IGNORE INTO lulu_webhook_events (event_key, topic, lulu_job_id, status_name, payload_hash, received_at) VALUES (?, ?, ?, ?, ?, ?)"
+    )
+    .bind(event.key, event.topic, event.luluJobId, event.statusName, event.payloadHash, nowSeconds())
+    .run();
+  const row = await db
+    .prepare("SELECT processed_at FROM lulu_webhook_events WHERE event_key = ?")
+    .bind(event.key)
+    .first() as any;
+  if (!row) return "new";
+  return row.processed_at ? "duplicate" : "new";
+}
+
+export async function markLuluWebhookEventProcessed(
+  db: DBLike,
+  key: string,
+  result: string
+): Promise<void> {
+  await ensureLuluWebhookSchema(db);
+  await db
+    .prepare("UPDATE lulu_webhook_events SET processed_at = ?, result = ? WHERE event_key = ?")
+    .bind(nowSeconds(), result, key)
+    .run();
+}
+
+async function findJobForWebhook(
+  db: DBLike,
+  luluJobId: string | null,
+  externalId: string | null
+): Promise<PrintJob | null> {
+  if (luluJobId) {
+    const row = await db.prepare("SELECT * FROM print_jobs WHERE lulu_job_id = ?").bind(luluJobId).first() as any;
+    if (row) return rowToJob(row);
+  }
+  if (externalId) {
+    // Our create body sends the job's idempotency key as Lulu's
+    // external_id, so an event for a job whose create response never
+    // reached us still resolves to its local row.
+    const row = await db.prepare("SELECT * FROM print_jobs WHERE idempotency_key = ?").bind(externalId).first() as any;
+    if (row) return rowToJob(row);
+  }
+  return null;
+}
+
+/**
+ * The POST /api/lulu/webhook handler, kept in the lib so the route
+ * file is a thin env adapter (and the behavior is unit-testable
+ * without a worker). Response contract: 404 while no webhook secret
+ * is configured, 401 on a bad signature, 400 on an unparseable body,
+ * 500 on a processing error (Lulu retries), 200 otherwise.
+ */
+export async function handleLuluWebhookPost(
+  db: DBLike,
+  env: any,
+  request: Request,
+  site?: string
+): Promise<Response> {
+  const secret = String(env?.LULU_WEBHOOK_SECRET || "");
+  if (!secret) return new Response("not found", { status: 404 });
+  const rawBody = await request.text();
+  const signature = request.headers.get("Lulu-HMAC-SHA256");
+  if (!(await verifyLuluWebhookSignature(secret, rawBody, signature))) {
+    return new Response("bad signature", { status: 401 });
+  }
+  let payload: any = null;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return new Response("bad payload", { status: 400 });
+  }
+  const topic = String(payload?.topic || "");
+  const data = payload?.data && typeof payload.data === "object" ? payload.data : {};
+  const luluJobId = data?.id !== undefined && data?.id !== null ? String(data.id) : null;
+  const statusName = luluStatusName(data?.status);
+  const payloadHash = await sha256Hex(rawBody);
+  const eventKey = `${luluJobId || "none"}:${statusName || "none"}:${payloadHash}`;
+  const seen = await recordLuluWebhookEvent(db, {
+    key: eventKey,
+    topic,
+    luluJobId,
+    statusName,
+    payloadHash,
+  });
+  if (seen === "duplicate") return new Response("ok (duplicate)");
+  try {
+    if (topic !== "PRINT_JOB_STATUS_CHANGED") {
+      await markLuluWebhookEventProcessed(db, eventKey, `ignored topic: ${topic || "(none)"}`);
+      return new Response("ok");
+    }
+    if (!luluConfigured(env)) {
+      // A signed event we cannot act on: the cron poll owns status
+      // while the lane is off, and a 500 here would only spend
+      // Lulu's retries against a worker that cannot sync.
+      await markLuluWebhookEventProcessed(db, eventKey, "ignored: lulu lane not configured");
+      return new Response("ok");
+    }
+    const externalId = data?.external_id ? String(data.external_id) : null;
+    const job = await findJobForWebhook(db, luluJobId, externalId);
+    if (!job) {
+      await markLuluWebhookEventProcessed(db, eventKey, "ignored: unknown print job");
+      return new Response("ok");
+    }
+    if (!job.luluJobId && luluJobId) {
+      // Lulu knows this job but our row never recorded its id (a
+      // create response lost in transit): adopt the id so the sync
+      // below can run against it.
+      await db
+        .prepare(
+          `UPDATE print_jobs SET lulu_job_id = ?,
+             status = CASE WHEN status = 'queued' THEN 'submitted' ELSE status END,
+             updated_at = ? WHERE id = ?`
+        )
+        .bind(luluJobId, nowSeconds(), job.id)
+        .run();
+      job.luluJobId = luluJobId;
+      if (job.status === "queued") job.status = "submitted";
+    }
+    await syncPrintJob(db, env, job, { site });
+    await markLuluWebhookEventProcessed(db, eventKey, "synced");
+    return new Response("ok");
+  } catch (err: any) {
+    // Leave processed_at null so a Lulu retry re-runs the
+    // (idempotent) processing instead of being skipped as a duplicate.
+    console.error("lulu webhook processing failed", eventKey, err?.message || err);
+    return new Response("processing error", { status: 500 });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // The cron pass: dispatch, then sync. Quiet no-op when the lane is off.
 
 export interface PrintFulfillmentSummary {
@@ -1193,6 +1635,6 @@ export async function runPrintFulfillmentPass(
   };
   if (!luluConfigured(env)) return empty;
   const dispatched = await dispatchPrintJobs(db, env, { site: opts.site, batch: opts.batch });
-  const synced = await syncPrintJobs(db, env, { batch: opts.batch });
+  const synced = await syncPrintJobs(db, env, { batch: opts.batch, site: opts.site });
   return { dispatched, synced };
 }

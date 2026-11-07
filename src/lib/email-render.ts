@@ -27,8 +27,10 @@ import {
 import { isClubCycleEmailKind, loadClubCycleEmailModel } from "./club-emails";
 import { isDelayEmailKind, loadDelayEmailModel } from "./delay-emails";
 import { isReleaseKind, loadReleaseEmailModel } from "./releases";
+import { loadPrintParcelEmailModel } from "./print-fulfillment";
 import OrderConfirmationEmail from "../../emails/OrderConfirmationEmail";
 import OwnerOrderEmail, { type OwnerOrderEmailModel } from "../../emails/OwnerOrderEmail";
+import PrintParcelEmail from "../../emails/PrintParcelEmail";
 import SimpleEmail, { type SimpleEmailModel } from "../../emails/SimpleEmail";
 import PhysicalUpdateEmail from "../../emails/PhysicalUpdateEmail";
 import ClubFollowupEmail from "../../emails/ClubFollowupEmail";
@@ -158,6 +160,16 @@ export async function renderOutboxEmailHtml(
     const model = await loadDelayEmailModel(db, site, row);
     if (!model) return await renderFallbackHtml(row);
     return await render(createElement(DelayEmail, { model }));
+  }
+  if (row.kind === "print_shipped" || row.kind === "print_delivered") {
+    // Lulu parcel mail: modeled from the shipment (the outbox
+    // dedupe key carries the shipment id), not from an order. Rows
+    // carry no order_id by design (per-parcel kinds would collapse
+    // on the (order_id, kind) index), so this branch must also sit
+    // before the order gate below.
+    const model = await loadPrintParcelEmailModel(db, site, row);
+    if (!model) return await renderFallbackHtml(row);
+    return await render(createElement(PrintParcelEmail, { model }));
   }
   if (row.kind === CLUB_FOLLOWUP_KIND) {
     // Marketing follow-up: no order model needed; the unsubscribe token

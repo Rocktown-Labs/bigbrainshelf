@@ -123,6 +123,8 @@ const gate = async (context: any, next: any) => {
     if (pathname.startsWith("/api/auth/")) return next();
     // Stripe webhook must be reachable by Stripe's servers (verified by signature).
     if (pathname === "/api/stripe/webhook") return next();
+    // Lulu webhook must be reachable by Lulu's servers (verified by HMAC signature).
+    if (pathname === "/api/lulu/webhook") return next();
     // Newsletter subscribe is a public form (email capture for new releases).
     if (pathname === "/api/subscribe") return next();
     // Funnel mirror beacon: public by design (browser analytics

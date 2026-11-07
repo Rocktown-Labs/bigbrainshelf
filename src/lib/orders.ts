@@ -1477,11 +1477,26 @@ export async function enqueueOwnerOrderNotice(db: DBLike, site: string, order: a
 
 // Full handling for a paid checkout.session.completed event: converge the
 // order, then enqueue its one confirmation email.
-export async function processCheckoutCompleted(db: DBLike, site: string, session: any): Promise<any> {
+export async function processCheckoutCompleted(db: DBLike, site: string, session: any, env?: any): Promise<any> {
   const order = await completeOrder(db, session);
   if (order) {
     await enqueueConfirmation(db, site, order);
     await enqueueOwnerOrderNotice(db, site, order).catch(() => {});
+    // Lulu lane (CG, 2026-11-07: "set the lulu flow so it places
+    // the order"): a paid order with physical lines places its
+    // print job automatically. Best effort by design: the helper
+    // itself never throws, the cron dispatcher retries anything it
+    // leaves queued, and a Lulu outage can never fail a completed
+    // order. env is optional so non-webhook callers (and the test
+    // suites) keep the pre-lane behavior by passing nothing.
+    if (env) {
+      try {
+        const { autoPlacePrintJobForOrder } = await import("./print-fulfillment");
+        await autoPlacePrintJobForOrder(db, env, order, site);
+      } catch (err: any) {
+        console.error("lulu auto-place hook failed for order", order.id, err?.message || err);
+      }
+    }
     // Guest buyers get their way back in with the order: a
     // one-click sign-in link email (the account is created on
     // first click if they never made one). Signed-in buyers

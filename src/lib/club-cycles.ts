@@ -1051,14 +1051,24 @@ export async function runClubCycleScheduler(
     if (after && before === "awaiting_selection" && after.status === "locked") summary.lockedBoxes += 1;
     if (after && before === "awaiting_selection" && after.status === "needs_attention") summary.attentionBoxes += 1;
     // Lulu lane: a box that just locked gets its print job built
-    // (the two storybooks plus the primary book's coloring book).
-    // Idempotent and failure-isolated: a missing printable records
-    // a blocked job instead of throwing, and the box's home sticker
-    // shipment stays on the box label flow either way.
+    // (the two storybooks plus the primary book's coloring book)
+    // and submitted right away, with the cron dispatcher as the
+    // retry path. Idempotent and failure-isolated: a missing
+    // printable records a blocked job instead of throwing, and the
+    // box's home sticker shipment stays on the box label flow
+    // either way.
     if (after && after.status === "locked" && args.env) {
       try {
-        const { buildJobForBox, luluConfigured } = await import("./print-fulfillment");
-        if (luluConfigured(args.env)) await buildJobForBox(db, args.env, after);
+        const { buildJobForBox, luluConfigured, submitPrintJob } = await import("./print-fulfillment");
+        if (luluConfigured(args.env)) {
+          const built = await buildJobForBox(db, args.env, after);
+          if (built && built.status === "queued") {
+            const outcome = await submitPrintJob(db, args.env, built, args.site);
+            if (!outcome.ok) {
+              console.error("club box print job submit deferred to cron", String(box.id), outcome.error || "");
+            }
+          }
+        }
       } catch (err: any) {
         console.error("club box print job build failed", String(box.id), err?.message || err);
       }

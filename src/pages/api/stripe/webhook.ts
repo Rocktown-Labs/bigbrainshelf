@@ -63,7 +63,7 @@ export const POST: APIRoute = async ({ request }) => {
           await markWebhookEventProcessed(e.DB, event.id, `club ignored: payment_status=${s.payment_status}`);
         }
       } else if (s.payment_status === "paid") {
-        const order = await processCheckoutCompleted(e.DB, SITE, s);
+        const order = await processCheckoutCompleted(e.DB, SITE, s, e);
         // Book Club funnel (Workstream 3): schedule the day-3 follow-up
         // from news@ for buyers who are not paid members and have not
         // unsubscribed. Marketing must never break an order, so any

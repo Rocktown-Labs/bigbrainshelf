@@ -27,7 +27,7 @@ import { buyDestinationLabel, buyUspsLabelForDestination, destinationFromStored,
 import { coverDerivative } from "../../../lib/derivatives";
 import { adminMediaUrl } from "../../../lib/media";
 import { getOrMintSerial, listSerialsForBox, serialLabel } from "../../../lib/serials";
-import { buildJobForBox, getPrintJobForBox, luluConfigured } from "../../../lib/print-fulfillment";
+import { buildJobForBox, getPrintJobForBox, luluConfigured, submitPrintJob } from "../../../lib/print-fulfillment";
 
 // Admin Book Club queue. Gated by the middleware's admin session cookie,
 // with the locals.user check as defense in depth (same pattern as
@@ -512,12 +512,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
     labelUrl: body.label_url ? String(body.label_url) : null,
   });
   if (!result.ok) return Response.json({ error: result.error || "Could not update the box." }, { status: 400 });
-  // Lulu lane: a box that just locked gets its print job built, the
-  // same transition the cycle scheduler hooks. Idempotent; a build
-  // failure never fails the box update itself.
+  // Lulu lane: a box that just locked gets its print job built and
+  // submitted, the same transition the cycle scheduler hooks.
+  // Idempotent; a build or submit failure never fails the box
+  // update itself (the cron dispatcher retries queued jobs).
   if (result.box?.status === "locked" && luluConfigured(e)) {
     try {
-      await buildJobForBox(e.DB, e, result.box);
+      const built = await buildJobForBox(e.DB, e, result.box);
+      if (built && built.status === "queued") {
+        const outcome = await submitPrintJob(e.DB, e, built, SITE);
+        if (!outcome.ok) {
+          console.error("club box print job submit deferred to cron", boxId, outcome.error || "");
+        }
+      }
     } catch (err: any) {
       console.error("club box print job build failed", boxId, err?.message || err);
     }
