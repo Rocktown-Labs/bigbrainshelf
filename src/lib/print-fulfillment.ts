@@ -512,6 +512,19 @@ async function createJobFromUnits(
     ...(args.shipAddressRaw && typeof args.shipAddressRaw === "object" ? args.shipAddressRaw : {}),
   });
 
+  // Lulu requires a phone number on the shipping address. Checkout
+  // does not collect one yet, so a phone-less order borrows the store
+  // fallback carried in the worker env (LULU_FALLBACK_PHONE) and the
+  // job notes say so. With no fallback configured the job builds as
+  // before and Lulu's own rejection surfaces at dispatch.
+  if (!address.phone_number) {
+    const fallbackPhone = String(env?.LULU_FALLBACK_PHONE || "").trim().slice(0, 20);
+    if (fallbackPhone) {
+      address.phone_number = fallbackPhone;
+      warnings.push("Shipping phone: store fallback used (order carried no phone).");
+    }
+  }
+
   // Resolve printables up front; a single missing file blocks the
   // whole job (a partial parcel set would split the shipment story).
   const printables = new Map<string, Printable | null>();
