@@ -19,6 +19,10 @@ export const PUBLIC_API_PREFIXES: readonly string[] = [
   "/api/auth/",
   "/api/sample/",
   "/api/audio-sample/",
+  // Print-file delivery for the Lulu lane: the route itself
+  // authenticates by unguessable per-file token, like a service
+  // token, and serves nothing without one.
+  "/api/print-file/",
 ];
 
 export const CUSTOMER_SELF_AUTH_API_ROUTES: ReadonlySet<string> = new Set([

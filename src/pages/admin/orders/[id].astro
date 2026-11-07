@@ -140,6 +140,66 @@ const orderId = String(Astro.params.id || "");
       try { a = JSON.parse(o.ship_address || "{}"); } catch (e) {}
       return a;
     }
+    // Print jobs (Lulu): books on a Lulu order are printed and
+    // shipped by Lulu, not packed at home. The section lists each
+    // job with its per-book state and tracking, and carries the
+    // operator actions: submit (build + send), refresh, cancel.
+    var PRINT_JOB_LABELS = {
+      queued: "Queued", submitted: "Submitted", blocked_no_printable: "Missing print file",
+      failed: "Failed", canceled: "Canceled",
+      CREATED: "Created", UNPAID: "Unpaid", PAYMENT_IN_PROGRESS: "Payment in progress",
+      PRODUCTION_DELAYED: "In production delay", PRODUCTION_READY: "Production ready",
+      IN_PRODUCTION: "In production", SHIPPED: "Shipped", DELIVERED: "Delivered",
+      REJECTED: "Rejected", ERROR: "Error", CANCELED: "Canceled",
+      ACCEPTED: "Accepted",
+    };
+    function printJobLabel(s) { return PRINT_JOB_LABELS[s] || String(s || "").replace(/_/g, " "); }
+    function printJobsHtml(data) {
+      var o = data.order;
+      if (!o || o.status !== "complete" || !o.physical_status) return "";
+      var jobs = data.print_jobs || [];
+      var lulu = data.lulu || { configured: false };
+      var inner = "";
+      if (!jobs.length) {
+        inner = lulu.configured
+          ? '<p class="text-sm text-stone-500 mt-1">No print job yet. Submitting builds the job (serials mint, dedication pages print inside the books) and sends it to Lulu (' + esc(lulu.env || "sandbox") + ').</p>' +
+            '<div class="mt-3"><button id="print-create" class="tap rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 min-h-[44px]">Submit print job</button>' +
+            '<p id="print-error" class="text-sm text-red-600 mt-1.5" role="alert"></p></div>'
+          : '<p class="text-sm text-stone-400 mt-1">Print fulfillment is not turned on for this store yet. This order packs and ships from home.</p>';
+      } else {
+        inner = jobs.map(function (j) {
+          var status = j.luluStatus || j.status;
+          var items = (j.items || []).map(function (it) {
+            return '<li class="py-2 border-b border-stone-100 last:border-0 flex flex-wrap items-center gap-x-2 gap-y-1">' +
+              '<span class="text-sm font-medium">' + esc(it.title || it.slug) + '</span>' +
+              '<span class="text-[13px] text-stone-500">' + (it.kind === "coloring" ? "Coloring book" : "Storybook") + '</span>' +
+              (it.dedicationName ? '<span class="text-[13px] text-stone-500">For ' + esc(it.dedicationName) + '</span>' : "") +
+              (it.serialLabel ? '<span class="text-[13px] text-stone-500">' + esc(it.serialLabel) + '</span>' : "") +
+              '<span class="chip">' + esc(printJobLabel(it.status)) + '</span>' +
+              (it.trackingUrl
+                ? '<a class="text-[13px] font-semibold text-orange-700" href="' + esc(it.trackingUrl) + '" target="_blank" rel="noopener">Track' + (it.carrierName ? " (" + esc(it.carrierName) + ")" : "") + '</a>'
+                : it.trackingId ? '<span class="text-[13px] text-stone-500 font-mono">' + esc(it.trackingId) + '</span>' : "") +
+            "</li>";
+          }).join("");
+          var cancellable = j.status === "queued" || ["CREATED", "UNPAID", "PRODUCTION_DELAYED"].indexOf(j.luluStatus || "") >= 0;
+          var buttons = "";
+          if (j.status === "submitted" && ["DELIVERED", "REJECTED", "ERROR", "CANCELED"].indexOf(j.luluStatus || "") < 0) buttons += '<button data-print-refresh="' + esc(j.id) + '" class="tap rounded-lg border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">Refresh status</button>';
+          if (cancellable && j.status !== "canceled") buttons += '<button data-print-cancel="' + esc(j.id) + '" class="tap rounded-lg border border-red-200 text-red-700 text-sm font-semibold px-4 min-h-[44px]">Cancel print job</button>';
+          return '<div class="mt-3 border-t border-stone-100 pt-3 first:border-0 first:pt-1">' +
+            '<p class="flex flex-wrap items-center gap-2"><span class="chip chip-print">' + esc(printJobLabel(status)) + '</span>' +
+            (j.luluJobId ? '<span class="text-[13px] text-stone-500">Lulu job <span class="font-mono">' + esc(j.luluJobId) + '</span></span>' : '<span class="text-[13px] text-stone-400">Not submitted yet</span>') +
+            (j.hasPartial ? '<span class="text-[13px] font-medium text-amber-600">Part shipped</span>' : "") +
+            (j.totalCostInclTax ? '<span class="text-[13px] text-stone-500">Lulu cost ' + esc(j.totalCostInclTax) + (j.currency ? " " + esc(j.currency) : "") + '</span>' : "") +
+            '</p>' +
+            (items ? '<ul class="mt-1">' + items + '</ul>' : "") +
+            (j.lastError ? '<p class="text-sm text-red-600 mt-1.5">' + esc(j.lastError) + '</p>' : "") +
+            (j.notes ? '<p class="text-[13px] text-stone-500 mt-1">' + esc(j.notes) + '</p>' : "") +
+            (buttons ? '<div class="mt-2.5 flex flex-wrap gap-2">' + buttons + '</div>' : "") +
+          "</div>";
+        }).join("");
+      }
+      return '<section class="card mt-4"><h2 class="font-bold">Print jobs (Lulu)</h2>' + inner + "</section>";
+    }
     // The label block: an existing label (PDF link, carrier, tracking,
     // cost vs what the buyer was charged) or, when Shippo is ready,
     // the one-click USPS buy (2026-11-05: the buyer already paid
@@ -410,6 +470,8 @@ const orderId = String(Astro.params.id || "");
             '<p class="text-sm text-stone-500 mt-1">Digital order. It was delivered automatically when payment completed, so there is nothing to pack or ship.</p>' +
           "</section>") +
 
+        printJobsHtml(data) +
+
         downloadsHtml(data) +
 
         '<section class="card mt-4"><h2 class="font-bold">Emails for this order</h2>' +
@@ -520,6 +582,49 @@ const orderId = String(Astro.params.id || "");
           alert(aerr.error || "That step is not ready yet. See the Fulfillment card for what is missing.");
         }
         load();
+      });
+      // Print job actions (Lulu): create submits immediately;
+      // refresh re-syncs from Lulu; cancel goes through the API,
+      // which refuses once Lulu's window has closed.
+      async function printPost(payload, btn, busyLabel) {
+        btn.disabled = true;
+        var old = btn.textContent;
+        btn.textContent = busyLabel;
+        var resp = await fetch("/api/admin/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        var out = await resp.json().catch(function () { return {}; });
+        if (!resp.ok || !out.ok) {
+          btn.disabled = false;
+          btn.textContent = old;
+          alert(out.error || "That print job step did not go through.");
+          return false;
+        }
+        return true;
+      }
+      var printCreate = document.getElementById("print-create");
+      if (printCreate) printCreate.addEventListener("click", async function () {
+        var ok = await printPost({ action: "create_print_job", order_id: o.id }, printCreate, "Submitting...");
+        if (ok) load();
+        else {
+          var errEl = document.getElementById("print-error");
+          if (errEl) errEl.textContent = "The print job could not be submitted. Try again from this button.";
+        }
+      });
+      root.querySelectorAll("[data-print-refresh]").forEach(function (b) {
+        b.addEventListener("click", async function () {
+          var ok = await printPost({ action: "refresh_print_job", order_id: o.id }, b, "Refreshing...");
+          if (ok) load();
+        });
+      });
+      root.querySelectorAll("[data-print-cancel]").forEach(function (b) {
+        b.addEventListener("click", async function () {
+          if (!window.confirm("Cancel this print job at Lulu? This cannot be undone.")) return;
+          var ok = await printPost({ action: "cancel_print_job", order_id: o.id, job_id: b.getAttribute("data-print-cancel") }, b, "Canceling...");
+          if (ok) load();
+        });
       });
       // One-click USPS label: no rate ids are sent, so the API
       // takes its fresh-shipment path and buys the USPS rate.

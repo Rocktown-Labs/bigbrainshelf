@@ -27,6 +27,7 @@ import { buyDestinationLabel, buyUspsLabelForDestination, destinationFromStored,
 import { coverDerivative } from "../../../lib/derivatives";
 import { adminMediaUrl } from "../../../lib/media";
 import { getOrMintSerial, listSerialsForBox, serialLabel } from "../../../lib/serials";
+import { buildJobForBox, getPrintJobForBox, luluConfigured } from "../../../lib/print-fulfillment";
 
 // Admin Book Club queue. Gated by the middleware's admin session cookie,
 // with the locals.user check as defense in depth (same pattern as
@@ -204,6 +205,9 @@ export const GET: APIRoute = async ({ locals, url }) => {
     } catch { /* serials are a display extra, never a blocker */ }
     const packState = parsePackState(box.pack_json);
     const packLines = packLinesForBox(box, books as Map<string, any>);
+    // Lulu print job for this box, when one has been built (read-only
+    // on the box page: submission and tracking run on the cron pass).
+    const printJob = await getPrintJobForBox(e.DB, boxId).catch(() => null);
     const eligible = await listEligibleClubBooks(e.DB).catch(() => []);
     const eligibleBooks = (eligible as any[]).map((b) => ({
       ...b,
@@ -223,6 +227,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
       pack_progress: packProgress(packLines, packState),
       pickup: pickupStateFor(box),
       serials,
+      print_job: printJob,
       eligibleBooks,
       shippo: shippoStatus(e),
     });
@@ -507,6 +512,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
     labelUrl: body.label_url ? String(body.label_url) : null,
   });
   if (!result.ok) return Response.json({ error: result.error || "Could not update the box." }, { status: 400 });
+  // Lulu lane: a box that just locked gets its print job built, the
+  // same transition the cycle scheduler hooks. Idempotent; a build
+  // failure never fails the box update itself.
+  if (result.box?.status === "locked" && luluConfigured(e)) {
+    try {
+      await buildJobForBox(e.DB, e, result.box);
+    } catch (err: any) {
+      console.error("club box print job build failed", boxId, err?.message || err);
+    }
+  }
   // Marking a box shipped notifies the member with the tracking details
   // (idempotent per box through the outbox dedupe key).
   if (result.box?.status === "shipped") {

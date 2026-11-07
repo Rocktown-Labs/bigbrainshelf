@@ -7,6 +7,14 @@ import { packLinesForGroups, packProgress, getPackingQueue, getCompletedParcels 
 import { downloadCountsForOrder, resetDownloadsForOrder, DOWNLOAD_LIMIT } from "../../../lib/download-guard";
 import { markSeen } from "../../../lib/seen";
 import { listSerialsForOrder, mintOrderPrintSerials, serialLabel } from "../../../lib/serials";
+import {
+  buildJobsForOrder,
+  cancelPrintJobById,
+  getPrintJobsForOrder,
+  submitPrintJob,
+  syncPrintJobs,
+} from "../../../lib/print-fulfillment";
+import { luluConfigured, luluEnvName } from "../../../lib/lulu";
 
 // Admin order operations. Gated by the middleware's admin session cookie,
 // with the locals.user check as defense in depth (same pattern as
@@ -50,6 +58,16 @@ import { listSerialsForOrder, mintOrderPrintSerials, serialLabel } from "../../.
 //      creates a real order by hand (lib/orders createManualOrder):
 //      no Stripe objects, no emails at creation; fulfillment runs
 //      through the same actions as a checkout order afterwards.
+// POST { action: "create_print_job", order_id }
+//      builds the order's Lulu print job (lib/print-fulfillment) and
+//      submits it immediately. The detail GET carries the jobs as
+//      print_jobs and the lane state as lulu { configured, env }.
+// POST { action: "refresh_print_job", order_id }
+//      re-syncs the order's submitted jobs from Lulu (statuses,
+//      per-item tracking, derived physical_status).
+// POST { action: "cancel_print_job", order_id, job_id }
+//      cancels one of the order's print jobs at Lulu (possible while
+//      UNPAID or inside the production delay) and marks it locally.
 //
 // The detail GET also carries the order's pack checklist (pack_lines
 // + pack_state + pack_progress) and pickup state (pickup), and the
@@ -137,6 +155,13 @@ export const GET: APIRoute = async ({ locals, url }) => {
       ).bind(detailId).all();
       emails = (mail.results || []) as any[];
     } catch { /* outbox columns still migrating; history is best-effort */ }
+    // Lulu print jobs for this order (jobs + items + shipments),
+    // plus the lane state the detail page uses to show or hide the
+    // submit action. Best-effort: the section renders empty without.
+    let print_jobs: any[] = [];
+    try {
+      print_jobs = await getPrintJobsForOrder(e.DB, detailId);
+    } catch { /* print tables still landing; the section is additive */ }
     // Download budget state for this order (lib/download-guard): how
     // many times each purchased file has been downloaded, with the
     // book named by title, never by internal slug.
@@ -158,7 +183,15 @@ export const GET: APIRoute = async ({ locals, url }) => {
         }));
       }
     } catch { /* counts table still migrating; the section is best-effort */ }
-    return Response.json({ order, emails, shippo: shippoStatus(e), download_counts, download_limit: DOWNLOAD_LIMIT });
+    return Response.json({
+      order,
+      emails,
+      shippo: shippoStatus(e),
+      download_counts,
+      download_limit: DOWNLOAD_LIMIT,
+      print_jobs,
+      lulu: { configured: luluConfigured(e), env: luluEnvName(e) },
+    });
   }
 
   const outbox = await e.DB.prepare(
@@ -285,6 +318,55 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return Response.json({ ok: true, order_id: result.order.id });
   }
 
+  if (action === "create_print_job") {
+    const orderId = String(body?.order_id || "");
+    if (!orderId) return Response.json({ error: "order_id required" }, { status: 400 });
+    if (!luluConfigured(e)) {
+      return Response.json({ error: "Print fulfillment (Lulu) is not turned on for this worker." }, { status: 400 });
+    }
+    const order = await e.DB.prepare("SELECT * FROM orders WHERE id = ?").bind(orderId).first();
+    if (!order) return Response.json({ error: "order not found" }, { status: 404 });
+    if ((order as any).status !== "complete" || !(order as any).physical_status) {
+      return Response.json({ error: "Print jobs are built for completed physical orders only." }, { status: 400 });
+    }
+    try {
+      const job = await buildJobsForOrder(e.DB, e, order);
+      if (!job) return Response.json({ error: "This order has no printed items to send to Lulu." }, { status: 400 });
+      if (job.status === "queued") {
+        const outcome = await submitPrintJob(e.DB, e, job, SITE);
+        if (!outcome.ok) {
+          return Response.json({ error: `The print job was built but Lulu submission failed: ${outcome.error}` }, { status: 400 });
+        }
+        return Response.json({ ok: true, job: outcome.job });
+      }
+      return Response.json({ ok: true, job });
+    } catch (err: any) {
+      return Response.json({ error: String(err?.message || "Could not build the print job.") }, { status: 400 });
+    }
+  }
+  if (action === "refresh_print_job") {
+    const orderId = String(body?.order_id || "");
+    if (!orderId) return Response.json({ error: "order_id required" }, { status: 400 });
+    try {
+      const summary = await syncPrintJobs(e.DB, e, { orderId });
+      const print_jobs = await getPrintJobsForOrder(e.DB, orderId).catch(() => []);
+      return Response.json({ ok: true, summary, print_jobs });
+    } catch (err: any) {
+      return Response.json({ error: String(err?.message || "Could not refresh the print job.") }, { status: 400 });
+    }
+  }
+  if (action === "cancel_print_job") {
+    const orderId = String(body?.order_id || "");
+    const jobId = String(body?.job_id || "");
+    if (!jobId) return Response.json({ error: "job_id required" }, { status: 400 });
+    const jobs = await getPrintJobsForOrder(e.DB, orderId).catch(() => []);
+    if (!jobs.some((j) => j.id === jobId)) {
+      return Response.json({ error: "That print job does not belong to this order." }, { status: 404 });
+    }
+    const result = await cancelPrintJobById(e.DB, e, jobId);
+    if (!result.ok) return Response.json({ error: result.error || "Could not cancel the print job." }, { status: 400 });
+    return Response.json({ ok: true, job: result.job });
+  }
   if (action === "set_physical_status") {
     const orderId = String(body?.order_id || "");
     const status = String(body?.status || "");

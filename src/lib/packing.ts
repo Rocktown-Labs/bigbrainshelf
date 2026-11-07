@@ -11,6 +11,7 @@
 // reserved key PACK_LABEL_KEY for the printed-label confirmation.
 import { loadBooksByAnySlug, orderPickList, PACK_LABEL_KEY, type OrderItemGroup } from "./orders";
 import { ensureClubCycleTables } from "./club-cycles";
+import { ensurePrintSchema } from "./print-fulfillment";
 import { coverDerivative, MEDIA_PUBLIC } from "./derivatives";
 import { bookCodeForTitle } from "./catalog";
 import { chicagoDateString } from "./offers";
@@ -258,12 +259,18 @@ const ORDER_STAGE_LABEL: Record<string, string> = {
 
 export async function getPackingQueue(db: any): Promise<PackingItem[]> {
   const items: PackingItem[] = [];
-  // Store orders: complete orders with a live physical stage.
+  // Store orders: complete orders with a live physical stage. An
+  // order with a Lulu print job is NOT packed at home (its books are
+  // printed and shipped by Lulu), so it leaves the shelf the moment
+  // its job exists; club boxes stay, because their sticker packet
+  // still packs and ships from home.
   try {
+    await ensurePrintSchema(db);
     const { results } = await db
       .prepare(
         `SELECT id, created_at, physical_status, items, book_slugs FROM orders
          WHERE status = 'complete' AND physical_status IN ('preorder_received', 'in_print', 'packed')
+           AND NOT EXISTS (SELECT 1 FROM print_jobs pj WHERE pj.order_id = orders.id)
          ORDER BY created_at ASC LIMIT 50`
       )
       .bind()

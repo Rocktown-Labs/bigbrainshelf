@@ -250,6 +250,34 @@ const boxId = String(Astro.params.id || "");
       return '<p class="text-sm text-stone-500 mt-3">Pack it and drop it off: Shippo pickups cover USPS Priority-class and DHL Express labels only, and this label is neither. Tracking takes over once the carrier scans it.</p>';
     }
 
+    // Print job (Lulu), read-only: when the Lulu lane is on, the
+    // box's books are printed and shipped by Lulu from a job built
+    // at lock; only the sticker packet still ships from home on the
+    // label flow above. Status rides the API payload (print_job).
+    function printJobHtml(data) {
+      var j = data.print_job;
+      if (!j) return "";
+      var status = j.luluStatus || j.status;
+      var items = (j.items || []).map(function (it) {
+        return '<li class="py-2 border-b border-stone-100 last:border-0 flex flex-wrap items-center gap-x-2 gap-y-1">' +
+          '<span class="text-sm font-medium">' + esc(it.title || it.slug) + '</span>' +
+          '<span class="text-[13px] text-stone-500">' + (it.kind === "coloring" ? "Coloring book" : "Storybook") + '</span>' +
+          '<span class="chip">' + esc(String(it.status || "").replace(/_/g, " ")) + '</span>' +
+          (it.trackingUrl
+            ? '<a class="text-[13px] font-semibold text-orange-700" href="' + esc(it.trackingUrl) + '" target="_blank" rel="noopener">Track</a>'
+            : "") +
+        "</li>";
+      }).join("");
+      return '<section class="card mt-4"><h2 class="font-bold">Print job (Lulu)</h2>' +
+        '<p class="flex flex-wrap items-center gap-2 mt-1"><span class="chip chip-print">' + esc(String(status || "").replace(/_/g, " ")) + '</span>' +
+        (j.luluJobId ? '<span class="text-[13px] text-stone-500">Lulu job <span class="font-mono">' + esc(j.luluJobId) + '</span></span>' : '<span class="text-[13px] text-stone-400">Not submitted yet</span>') +
+        (j.hasPartial ? '<span class="text-[13px] font-medium text-amber-600">Part shipped</span>' : "") + '</p>' +
+        (items ? '<ul class="mt-1">' + items + '</ul>' : "") +
+        (j.lastError ? '<p class="text-sm text-red-600 mt-1.5">' + esc(j.lastError) + '</p>' : "") +
+        '<p class="text-[13px] text-stone-500 mt-2">The sticker packet still packs and ships from home on the label step above.</p>' +
+      "</section>";
+    }
+
     async function load() {
       var root = document.getElementById("box-root");
       var r = await fetch("/api/admin/club?box_id=" + encodeURIComponent(boxId));
@@ -318,7 +346,9 @@ const boxId = String(Astro.params.id || "");
           packHtml(data) +
           '<div class="mt-4 border-t border-stone-100 pt-3"><h3 class="font-bold text-sm">Print the label</h3>' + labelHtml(data) + "</div>" +
           pickupHtml(data) +
-        "</section>";
+        "</section>" +
+
+        printJobHtml(data);
 
       // Change reveals the slot's grid; Clear empties the slot
       // through the same update_box action.
