@@ -50,6 +50,7 @@ import { getOrMintSerial, mintOrderPrintSerials, serialLabel, type BookSerial } 
 import { stampPdfForPrint } from "./pdf-stamp";
 import {
   cancelPrintJob as luluCancelPrintJob,
+  costCalculation,
   createPrintJob,
   getPrintJob,
   getPrintJobStatus,
@@ -60,7 +61,9 @@ import {
   verifyLuluWebhookSignature,
   LULU_TERMINAL_STATUSES,
   type LuluAddress,
+  type LuluCostLineItem,
 } from "./lulu";
+import type { LabelQuote } from "./shippo";
 
 export { luluConfigured };
 
@@ -258,6 +261,141 @@ export async function getPrintable(db: DBLike, slug: string, kind: string): Prom
     coverKey: String(row.cover_key),
     validationStatus: row.validation_status ? String(row.validation_status) : null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Checkout quoting (slice 2). When the Lulu lane is on, a physical
+// cart prices its shipping from Lulu's own cost calculation for the
+// exact destination: the printables registry supplies the POD
+// package and page count of every physical unit (a gift set is its
+// story + coloring pair in the one calculation, mirroring the one
+// job it ships as). The buyer's shipping charge is Lulu's shipping
+// total including tax plus our $2/order fulfilment fee, and the
+// checkout route applies its usual whole-dollar round-up on top.
+// The quote rides the checkout flow in the Shippo LabelQuote shape
+// (carrier "Lulu", service the shipping level, no rate ids: there is
+// no label to buy later, Lulu prints and ships the job itself).
+
+export const LULU_FULFILMENT_FEE_CENTS = 200;
+export const LULU_CHECKOUT_SHIPPING_LEVEL = "MAIL";
+
+export interface LuluShippingQuoteDetail {
+  provider: "lulu";
+  level: string;
+  currency: string | null;
+  shippingExclTaxCents: number | null;
+  shippingTaxCents: number | null;
+  shippingInclTaxCents: number;
+  fulfillmentFeeCents: number;
+  /** Shipping incl. tax + our fee: the pre-round-up charge. */
+  chargeCents: number;
+}
+
+const dollarsToCents = (v: string | null | undefined): number | null => {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n * 100) : null;
+};
+
+/**
+ * Expand cart lines into Lulu cost line items (grouped by POD
+ * package + page count, quantities summed). Returns null when ANY
+ * physical unit has no registered printable: the caller fails
+ * closed back to the Shippo quote rather than erroring checkout.
+ */
+export async function resolveLuluQuoteLineItems(
+  db: DBLike,
+  items: { slug: string; format: string; qty?: number }[]
+): Promise<LuluCostLineItem[] | null> {
+  await seedPrintables(db);
+  const grouped = new Map<string, LuluCostLineItem>();
+  const add = async (slug: string, kind: string, qty: number): Promise<boolean> => {
+    const p = await getPrintable(db, slug, kind);
+    if (!p) return false;
+    const key = `${p.podPackageId}|${p.interiorPages}`;
+    const cur = grouped.get(key);
+    if (cur) cur.quantity = (cur.quantity ?? 1) + qty;
+    else grouped.set(key, { pageCount: p.interiorPages, podPackageId: p.podPackageId, quantity: qty });
+    return true;
+  };
+  for (const it of items || []) {
+    const qty = itemQty(it);
+    if (it.format === "printed") {
+      if (!(await add(it.slug, "story", qty))) return null;
+    } else if (it.format === "giftset") {
+      if (!(await add(it.slug, "story", qty))) return null;
+      if (!(await add(it.slug, "coloring", qty))) return null;
+    }
+  }
+  return [...grouped.values()];
+}
+
+/**
+ * Quote a physical cart's shipping from Lulu. Null when a needed
+ * printable is missing (fail closed to Shippo); a Lulu API failure
+ * throws, and the caller decides the fallback.
+ */
+export async function quoteLuluShipping(
+  db: DBLike,
+  env: any,
+  args: {
+    items: { slug: string; format: string; qty?: number }[];
+    name?: string | null;
+    address: {
+      line1?: string | null;
+      line2?: string | null;
+      city?: string | null;
+      state?: string | null;
+      postal_code?: string | null;
+      country?: string | null;
+    };
+    phone?: string | null;
+  }
+): Promise<{ quote: LabelQuote; detail: LuluShippingQuoteDetail } | null> {
+  const lineItems = await resolveLuluQuoteLineItems(db, args.items);
+  if (!lineItems || !lineItems.length) return null;
+  const { address } = normalizeLuluAddress({
+    name: args.name,
+    line1: args.address?.line1,
+    line2: args.address?.line2,
+    city: args.address?.city,
+    state: args.address?.state,
+    postal_code: args.address?.postal_code,
+    country: args.address?.country,
+    phone: args.phone,
+  });
+  const cost = await costCalculation(env, {
+    lineItems,
+    shippingAddress: address,
+    shippingOption: LULU_CHECKOUT_SHIPPING_LEVEL,
+  });
+  const shippingInclTaxCents = dollarsToCents(cost.shippingCost);
+  if (shippingInclTaxCents === null) {
+    throw new Error("Lulu cost calculation returned no shipping cost.");
+  }
+  const detail: LuluShippingQuoteDetail = {
+    provider: "lulu",
+    level: LULU_CHECKOUT_SHIPPING_LEVEL,
+    currency: cost.currency,
+    shippingExclTaxCents: dollarsToCents(cost.shippingCostExclTax),
+    shippingTaxCents: dollarsToCents(cost.shippingTax),
+    shippingInclTaxCents,
+    fulfillmentFeeCents: LULU_FULFILMENT_FEE_CENTS,
+    chargeCents: shippingInclTaxCents + LULU_FULFILMENT_FEE_CENTS,
+  };
+  const quote: LabelQuote = {
+    carrier: "Lulu",
+    service: LULU_CHECKOUT_SHIPPING_LEVEL,
+    amount: (detail.chargeCents / 100).toFixed(2),
+    amountCents: detail.chargeCents,
+    currency: "usd",
+    estimatedDays: null,
+    shipmentId: "",
+    rateId: "",
+    twoDay: false,
+    validatedAddress: null,
+  };
+  return { quote, detail };
 }
 
 // ---------------------------------------------------------------------------

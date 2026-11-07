@@ -10,6 +10,7 @@
 // rate id) when it is fresh and was issued for the same buyer, cart
 // and destination ZIP/state. The charge always matches the preview.
 import type { LabelQuote } from "./shippo";
+import { ensureOnce } from "./schema-cache";
 
 export const SHIPPING_QUOTE_TTL_SECONDS = 30 * 60;
 
@@ -31,6 +32,21 @@ export async function ensureShippingQuotesTable(db: any): Promise<void> {
     )
     .run()
     .catch(() => {});
+  // The provider breakdown (slice 2): a Lulu quote's components
+  // (shipping, tax, our fulfilment fee) ride the stored quote so
+  // the pay call can stamp the exact breakdown on the order even
+  // when it reuses the preview instead of re-quoting.
+  await ensureOnce(db, "checkout_shipping_quotes.detail", async () => {
+    const { results } = await db
+      .prepare("SELECT name FROM pragma_table_info('checkout_shipping_quotes')")
+      .bind()
+      .all()
+      .catch(() => ({ results: [] }));
+    const have = new Set((results || []).map((r: any) => String(r.name)));
+    if (!have.has("detail")) {
+      await db.prepare("ALTER TABLE checkout_shipping_quotes ADD COLUMN detail TEXT").bind().run().catch(() => {});
+    }
+  });
 }
 
 // Stable identity for "the quote the buyer saw": buyer, destination
@@ -38,24 +54,37 @@ export async function ensureShippingQuotesTable(db: any): Promise<void> {
 // carrier standardization between preview and pay, which rewrites
 // line1/zip formatting, cannot break the match), and the cart with
 // quantities.
+//
+// Provider namespacing (slice 2): with no provider named, the raw
+// string is byte-for-byte the original Shippo form, so quotes stored
+// before the Lulu lane keep matching. A Lulu quote names its
+// provider AND keys on the full normalized address (street lines +
+// phone): Lulu prices by exact address, so a quote taken for one
+// street address must never be reused for another, and a Lulu quote
+// can never collide with a Shippo quote for the same cart.
 export function shippingQuoteFingerprint(input: {
   buyerKey: string;
   state: string;
   zip: string;
   country: string;
   items: { slug: string; format: string; qty?: number }[];
+  provider?: string;
+  addressKey?: string;
 }): string {
   const items = input.items
     .map((i) => `${i.slug}|${i.format}|${Math.max(1, Math.floor(Number(i.qty) || 1))}`)
     .sort()
     .join(",");
-  const raw = [
+  const parts = [
     String(input.buyerKey || ""),
     String(input.state || "").trim().toUpperCase(),
     String(input.zip || "").trim().slice(0, 5),
     String(input.country || "").trim().toUpperCase(),
     items,
-  ].join("~");
+  ];
+  if (input.provider) parts.push(`provider=${String(input.provider).trim().toLowerCase()}`);
+  if (input.addressKey) parts.push(`addr=${String(input.addressKey).trim()}`);
+  const raw = parts.join("~");
   // FNV-1a: the fingerprint only ever compares for equality.
   let h = 0x811c9dc5;
   for (let i = 0; i < raw.length; i++) {
@@ -72,7 +101,8 @@ export function shippingQuoteFresh(createdAtSec: number, nowSec: number): boolea
 export async function storeShippingQuote(
   db: any,
   quote: LabelQuote,
-  fingerprint: string
+  fingerprint: string,
+  detail?: any
 ): Promise<string> {
   await ensureShippingQuotesTable(db);
   const id = crypto.randomUUID();
@@ -80,8 +110,8 @@ export async function storeShippingQuote(
   await db
     .prepare(
       `INSERT INTO checkout_shipping_quotes
-         (id, fingerprint, carrier, service, amount_cents, estimated_days, shipment_id, rate_id, validated_address, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         (id, fingerprint, carrier, service, amount_cents, estimated_days, shipment_id, rate_id, validated_address, detail, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       id,
@@ -93,6 +123,7 @@ export async function storeShippingQuote(
       quote.shipmentId,
       quote.rateId,
       quote.validatedAddress ? JSON.stringify(quote.validatedAddress) : null,
+      detail != null ? JSON.stringify(detail) : null,
       now
     )
     .run();
@@ -125,6 +156,10 @@ export async function loadShippingQuote(
   try {
     validatedAddress = row.validated_address ? JSON.parse(String(row.validated_address)) : null;
   } catch { /* a bad stored address never blocks the reuse */ }
+  let quoteDetail: any = null;
+  try {
+    quoteDetail = row.detail ? JSON.parse(String(row.detail)) : null;
+  } catch { /* a bad stored detail never blocks the reuse */ }
   return {
     carrier: String(row.carrier || ""),
     service: String(row.service || ""),
@@ -136,5 +171,37 @@ export async function loadShippingQuote(
     rateId: String(row.rate_id || ""),
     validatedAddress,
     stored: true,
-  } as LabelQuote;
+    ...(quoteDetail ? { quoteDetail } : {}),
+  } as LabelQuote & { quoteDetail?: any };
+}
+
+// ---------------------------------------------------------------------------
+// The quote breakdown on the order (slice 2): provider, level,
+// shipping, tax, our fulfilment fee, the charged total, and the
+// fingerprint the quote was taken under, as one JSON column on the
+// order row. Runtime-ensured like the other order quote columns.
+
+export async function ensureOrderShippingDetailColumn(db: any): Promise<void> {
+  await ensureOnce(db, "orders.shipping_quote_detail", async () => {
+    const { results } = await db
+      .prepare("SELECT name FROM pragma_table_info('orders')")
+      .bind()
+      .all();
+    const have = new Set((results || []).map((r: any) => String(r.name)));
+    if (!have.has("shipping_quote_detail")) {
+      await db.prepare("ALTER TABLE orders ADD COLUMN shipping_quote_detail TEXT").bind().run();
+    }
+  });
+}
+
+export async function storeOrderShippingQuoteDetail(
+  db: any,
+  orderId: string,
+  detail: Record<string, any>
+): Promise<void> {
+  await ensureOrderShippingDetailColumn(db);
+  await db
+    .prepare("UPDATE orders SET shipping_quote_detail = ? WHERE id = ? AND status = 'pending'")
+    .bind(JSON.stringify(detail), orderId)
+    .run();
 }

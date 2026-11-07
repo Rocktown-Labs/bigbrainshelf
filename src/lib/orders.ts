@@ -67,6 +67,11 @@ export interface CartItem {
   // manual order's lines price at what the admin entered instead of
   // today's store price.
   priceCents?: number;
+  // The dedication name for a physical line (checkout, slice 2):
+  // printed inside the copy's dedication page by the print lane
+  // (buildJobsForOrder reads it from the items JSON). Absent or
+  // blank prints the write-in dedication page instead.
+  dedicationName?: string;
 }
 
 // The one quantity rule: an integer from 1 to 99, anything else
@@ -159,8 +164,12 @@ const now = () => Math.floor(Date.now() / 1000);
 const PENDING_WINDOW_SECONDS = 30 * 60;
 
 export async function cartFingerprint(userId: string, items: CartItem[]): Promise<string> {
+  // A line's dedication name joins the canonical form only when one
+  // is set, so existing carts fingerprint exactly as before while a
+  // dedication edit still mints a fresh pending order (the stored
+  // items JSON is what the print lane personalizes from).
   const canonical =
-    userId + "|" + items.map((i) => `${i.slug}:${i.format}:${itemQty(i)}`).sort().join(",");
+    userId + "|" + items.map((i) => `${i.slug}:${i.format}:${itemQty(i)}${i.dedicationName ? `:d=${i.dedicationName}` : ""}`).sort().join(",");
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }

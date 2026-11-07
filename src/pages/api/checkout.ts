@@ -16,7 +16,9 @@ import {
   shippingQuoteFingerprint,
   storeShippingQuote,
   loadShippingQuote,
+  storeOrderShippingQuoteDetail,
 } from "../../lib/shipping-quotes";
+import { luluConfigured, normalizeLuluAddress, LULU_LIMITS } from "../../lib/lulu";
 import { resolveInternalSlug } from "../../lib/public-slugs";
 import { normalizePromoCode, validatePromo, reservePromo, repriceLineItemsWithDiscount } from "../../lib/promo";
 
@@ -68,6 +70,24 @@ import { normalizePromoCode, validatePromo, reservePromo, repriceLineItemsWithDi
 // with a plain try-again error rather than guessing a fee; digital
 // carts never touch the quote path and keep working.
 //
+// Lulu lane (slice 2): while the provider flag names Lulu and its
+// credentials are present (luluConfigured), a physical cart quotes
+// from Lulu's cost calculation instead: the registry's POD package
+// and page count per physical unit, the buyer's exact address AND
+// phone (Lulu refuses the call without a phone), level MAIL. The
+// charge is Lulu's shipping total including tax plus a $2/order
+// fulfilment fee, rounded up to the whole dollar like every other
+// shipping charge here. Lulu quotes are fingerprinted under their
+// provider and the full normalized address, so they can never be
+// confused with a Shippo quote. Any gap in the lane (a physical
+// line with no registered printable, or a failed Lulu call) fails
+// closed back to the Shippo quote above; with the lane off, the
+// Shippo path runs exactly as it always has. Physical carts collect
+// a delivery phone on both paths: the print lane's job build needs
+// one on the order, and the field is part of the address step now.
+// A physical line may also carry a dedicationName, stored on the
+// order's items JSON for the print lane to personalize from.
+//
 // Stripe Tax: automatic_tax is enabled ONLY when the TAX_ENABLED worker
 // env value is "1"/"true". Stripe rejects sessions outright when Tax is
 // not activated on the account, so the flag stays off until CG has
@@ -88,7 +108,7 @@ export const POST: APIRoute = async ({ request }) => {
   const buyerId = user ? String(user.id) : `guest:${guestId}`;
   const buyerEmail = user ? String(user.email || "") : "";
   const action = String(body?.action || "");
-  let wanted: { slug: string; format: string; qty: number }[] = [];
+  let wanted: { slug: string; format: string; qty: number; dedicationName?: string }[] = [];
   if (Array.isArray(body.items)) {
     wanted = body.items
       .map((x: any) => {
@@ -96,7 +116,17 @@ export const POST: APIRoute = async ({ request }) => {
         // Single-copy formats (digital, audio) clamp to qty 1 here,
         // whatever the client sent: no gifting flow exists, so a
         // second copy could only ever be a double-charge.
-        return { slug: String(x?.slug || ""), format, qty: lineQty({ format, qty: x?.qty }) };
+        // A dedication name rides physical lines only, trimmed to a
+        // sane length; blank means the write-in dedication page.
+        const dedication = isPhysicalFormat(format)
+          ? String(x?.dedicationName || "").trim().slice(0, 60)
+          : "";
+        return {
+          slug: String(x?.slug || ""),
+          format,
+          qty: lineQty({ format, qty: x?.qty }),
+          ...(dedication ? { dedicationName: dedication } : {}),
+        };
       })
       .filter((x: any) => x.slug);
   } else if (Array.isArray(body.slugs)) {
@@ -280,6 +310,8 @@ export const POST: APIRoute = async ({ request }) => {
   let quote: LabelQuote | null = null;
   let dest: ReturnType<typeof normalizeShipDestination> | null = null;
   let quoteFingerprint = "";
+  let quoteDetail: Record<string, any> | null = null;
+  let shipPhone = "";
   if (physical) {
     dest = normalizeShipDestination(body?.address);
     if (!dest.name && user) dest.name = String(user.name || "");
@@ -293,19 +325,108 @@ export const POST: APIRoute = async ({ request }) => {
     // A guest's email is not known yet (Stripe collects it at
     // payment); the quote itself does not need one.
     dest.email = buyerEmail;
-    quoteFingerprint = shippingQuoteFingerprint({
+    // The delivery phone: required for physical carts. The print
+    // lane cannot quote or print without one (Lulu 400s both calls
+    // on an account with no default phone), and the number is
+    // stored on the order for whichever lane fulfils it.
+    shipPhone = String(body?.address?.phone ?? body?.phone ?? "").trim();
+    if (!shipPhone) {
+      return Response.json(
+        { error: "Please add a phone number for delivery, so the carrier can reach you about your books." },
+        { status: 400 }
+      );
+    }
+    const laneOn = luluConfigured(e);
+    // Lulu's field limits, enforced on the Lulu path only: over-long
+    // values are the buyer's to fix here rather than silently
+    // truncated (the job build's normalization stays as the backstop
+    // for orders written any other way).
+    if (laneOn) {
+      const tooLong = (
+        [
+          ["Full name", dest.name, LULU_LIMITS.name],
+          ["Street address", dest.address.line1, LULU_LIMITS.street],
+          ["Street address line 2", dest.address.line2, LULU_LIMITS.street],
+          ["City", dest.address.city, LULU_LIMITS.city],
+          ["Phone", shipPhone, LULU_LIMITS.phone],
+        ] as [string, string, number][]
+      ).find(([, v, lim]) => String(v || "").length > lim);
+      if (tooLong) {
+        return Response.json(
+          { error: `${tooLong[0]} is too long for print delivery (over ${tooLong[2]} characters). Please shorten it.` },
+          { status: 400 }
+        );
+      }
+    }
+    const fpBase = {
       buyerKey: buyerId,
       state: String(dest.address?.state || ""),
       zip: String(dest.address?.postal_code || ""),
       country: String(dest.address?.country || ""),
       items: bought,
-    });
+    };
+    const shippoFingerprint = shippingQuoteFingerprint(fpBase);
+    // Lulu prices by exact address, so its fingerprint names the
+    // provider and keys on the full normalized address + phone.
+    const luluFingerprint = laneOn
+      ? shippingQuoteFingerprint({
+          ...fpBase,
+          provider: "lulu",
+          addressKey: (() => {
+            const a = normalizeLuluAddress({
+              name: dest.name,
+              line1: dest.address.line1,
+              line2: dest.address.line2,
+              city: dest.address.city,
+              state: dest.address.state,
+              postal_code: dest.address.postal_code,
+              country: dest.address.country,
+              phone: shipPhone,
+            }).address;
+            return [a.name, a.street1, a.street2 || "", a.city, a.state_code, a.postcode, a.country_code, a.phone_number || ""].join("|");
+          })(),
+        })
+      : "";
+    quoteFingerprint = shippoFingerprint;
     // Pay call with a preview quote id: reuse the buyer's confirmed
     // quote instead of re-quoting into a possibly different rate.
+    // A stored quote is looked up under each candidate fingerprint
+    // (Lulu first with the lane on): the preview may have failed
+    // closed to Shippo, and its quote must still be honored.
     if (action !== "quote" && body?.quote_id) {
-      quote = await loadShippingQuote(e.DB, String(body.quote_id), quoteFingerprint).catch(() => null);
+      const candidates = laneOn ? [luluFingerprint, shippoFingerprint] : [shippoFingerprint];
+      for (const fp of candidates) {
+        quote = await loadShippingQuote(e.DB, String(body.quote_id), fp).catch(() => null);
+        if (quote) {
+          quoteFingerprint = fp;
+          if ((quote as any).quoteDetail) quoteDetail = (quote as any).quoteDetail;
+          break;
+        }
+      }
+    }
+    if (!quote && laneOn) {
+      try {
+        const { quoteLuluShipping } = await import("../../lib/print-fulfillment");
+        const lq = await quoteLuluShipping(e.DB, e, {
+          items: bought,
+          name: dest.name,
+          address: dest.address,
+          phone: shipPhone,
+        });
+        if (lq) {
+          quote = lq.quote;
+          quoteDetail = { ...lq.detail };
+          quoteFingerprint = luluFingerprint;
+        }
+      } catch (err) {
+        // Fail closed to Shippo, never error the checkout for a
+        // lane problem (a missing printable returns null above and
+        // lands in the same fallback).
+        console.error("lulu shipping quote failed, falling back to Shippo:", err);
+      }
     }
     if (!quote) try {
+      quoteFingerprint = shippoFingerprint;
       quote = await quoteShippingWithRetry(e, dest, bought);
     } catch (err) {
       // An address Shippo validated as undeliverable is the buyer's
@@ -339,7 +460,7 @@ export const POST: APIRoute = async ({ request }) => {
     // back to a fresh quote, so an old preview can never set a
     // charge the buyer did not just confirm.
     const quoteId = quote
-      ? await storeShippingQuote(e.DB, quote, quoteFingerprint).catch(() => null)
+      ? await storeShippingQuote(e.DB, quote, quoteFingerprint, quoteDetail || undefined).catch(() => null)
       : null;
     return Response.json({
       ok: true,
@@ -400,7 +521,33 @@ export const POST: APIRoute = async ({ request }) => {
     // pending order NOW (before Stripe exists in the flow), so the
     // order always carries what the buyer was quoted; the webhook
     // completion keeps these values and only confirms them.
-    await storeCheckoutQuote(e.DB, order.id, { dest, quote, amount: total, shippingCents });
+    await storeCheckoutQuote(e.DB, order.id, { dest, quote, amount: total, phone: shipPhone || undefined, shippingCents });
+    // The quote's breakdown, whichever provider produced it: the
+    // order forever shows what its shipping charge was made of.
+    const detailRecord = quoteDetail
+      ? {
+          provider: "lulu",
+          level: quoteDetail.level,
+          currency: quoteDetail.currency,
+          shipping_excl_tax_cents: quoteDetail.shippingExclTaxCents,
+          shipping_tax_cents: quoteDetail.shippingTaxCents,
+          shipping_incl_tax_cents: quoteDetail.shippingInclTaxCents,
+          fulfillment_fee_cents: quoteDetail.fulfillmentFeeCents,
+          total_cents: shippingCents,
+          fingerprint: quoteFingerprint,
+        }
+      : {
+          provider: "shippo",
+          carrier: quote.carrier,
+          service: quote.service,
+          shipping_incl_tax_cents: quote.amountCents,
+          fulfillment_fee_cents: 0,
+          total_cents: shippingCents,
+          fingerprint: quoteFingerprint,
+        };
+    await storeOrderShippingQuoteDetail(e.DB, order.id, detailRecord).catch((err: any) =>
+      console.error("shipping quote detail store failed", err?.message || err)
+    );
   }
 
   if (promoApplied) {
@@ -490,7 +637,9 @@ export const POST: APIRoute = async ({ request }) => {
     // recover it even if no pending row exists. Stripe is NOT asked to
     // collect a second, possibly different, address.
     sessionParams.metadata.ship_name = dest.name || "";
-    sessionParams.metadata.ship_address = JSON.stringify(dest.address);
+    sessionParams.metadata.ship_address = JSON.stringify(
+      shipPhone ? { ...dest.address, phone: shipPhone } : dest.address
+    );
   }
   if (taxEnabled) {
     sessionParams.automatic_tax = { enabled: true };

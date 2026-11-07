@@ -187,6 +187,36 @@ insertBox(pastDueId, "delta", "locked");
 const entPastDue = await getDigitalEntitlements(db, { id: "user-6", email: "pastdue@example.com" });
 assert(!entPastDue.has("delta"), "locked (not shipped) club box does not grant on its own");
 
+// ---- Two-slot boxes: BOTH books are owned, audio included -------------
+// The Book Club promise is two OWNED audiobooks per box (the club
+// book's and the second book's, kept forever). A two-slot box grants
+// slot 1 (resolved_book_slug) and slot 2 (second_resolved_book_slug)
+// identically once it has shipped. The member below has CANCELED, so
+// the live membership layer is gone and only owned sources can speak:
+// if the second book shows owned + audio here, it is the box grant
+// doing it, with the same download rights as the first book.
+function insertTwoSlotBox(signupId: string, first: string | null, second: string | null, status: string) {
+  seq += 1;
+  raw.query(
+    `INSERT INTO club_cycle_boxes (id, signup_id, ship_date, selected_book_slug, resolved_book_slug, second_selected_book_slug, second_resolved_book_slug, selection_source, allow_repeat, status, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'pick', 0, ?, ?, ?)`
+  ).run(`box2-${seq}`, signupId, `2027-0${(seq % 9) + 1}-15`, first, first, second, second, status, 1700000000 + seq, 1700000000 + seq);
+}
+const twoSlotId = insertMember("twoslot@example.com", "user-7", "canceled");
+insertTwoSlotBox(twoSlotId, "beta", "gamma", "shipped");
+insertTwoSlotBox(twoSlotId, "delta", "epsilon", "locked");
+const userTwoSlot = { id: "user-7", email: "twoslot@example.com" };
+const entTwo = await getDigitalEntitlements(db, userTwoSlot);
+assert(entTwo.get("beta")?.owned === true && entTwo.get("beta")?.digital === true, "two-slot box: the first (club) book is owned digital");
+assert(entTwo.get("gamma")?.owned === true, "two-slot box: the SECOND book is owned, not just reachable");
+assert(entTwo.get("gamma")?.audio === true, "two-slot box: the second book carries its audiobook");
+assert(entTwo.get("gamma")?.sources.includes("club"), "two-slot box: the second book's grant source is the club box");
+assert(entitlementDownloads(entTwo.get("gamma"), "audiobook") === true, "two-slot box: the second book's audiobook downloads");
+assert(entitlementDownloads(entTwo.get("gamma"), "book") === true, "two-slot box: the second book's files download like the first book's");
+assert(await ownsAudioBook(db, userTwoSlot, "gamma"), "two-slot box: ownsAudioBook opens listening for the second book");
+assert(await ownsDigitalBook(db, userTwoSlot, "gamma"), "two-slot box: ownsDigitalBook opens reading for the second book");
+assert(!entTwo.has("delta") && !entTwo.has("epsilon"), "two-slot box: a LOCKED (not shipped) box grants neither slot");
+
 // A member who cancels keeps books already shipped to them.
 const canceledId = insertMember("d@example.com", "user-4", "canceled");
 insertBox(canceledId, "epsilon", "shipped");
