@@ -173,6 +173,10 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
                   <input id="ship-zip" type="text" autocomplete="postal-code" inputmode="numeric" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" />
                 </label>
               </div>
+              <label class="block sm:col-span-2">
+                <span class="text-xs font-semibold text-stone-500">Phone (for delivery)</span>
+                <input id="ship-phone" type="tel" autocomplete="tel" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" />
+              </label>
             </div>
             <p id="step1-err" class="text-sm text-red-600 hidden mt-3"></p>
             <button id="step1-continue" class="mt-4 w-full rounded-lg bg-orange-600 text-white text-sm font-semibold py-3 hover:bg-orange-700">Continue</button>
@@ -258,8 +262,21 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
           city: document.getElementById("ship-city").value.trim(),
           state: document.getElementById("ship-state").value.trim(),
           postal_code: document.getElementById("ship-zip").value.trim(),
+          phone: document.getElementById("ship-phone").value.trim(),
           country: "US",
         };
+      }
+
+      // The pay and quote payloads: the view's items, with any
+      // dedication name the buyer typed riding its physical line.
+      // Blank (or no input on the line) sends the item untouched,
+      // and the printed book gets its write-in dedication page.
+      function payloadItems() {
+        return view.items.map(function (it, idx) {
+          var el = document.querySelector('[data-dedication="' + idx + '"]');
+          var d = el ? el.value.trim() : "";
+          return d ? Object.assign({}, it, { dedicationName: d }) : it;
+        });
       }
 
       function oneLineAddress(a) {
@@ -396,9 +413,14 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
             var q = Math.max(1, Math.min(99, Math.floor(Number(it.qty)) || 1));
             total += p * q;
             var fmt = it.format === "printed" ? "Full color printed book · digital included" : it.format === "giftset" ? "Gift Set · printed storybook + printed coloring book, digital included" : it.format === "audio" ? "Audiobook only" : "Digital download";
+            var dedication = (it.format === "printed" || it.format === "giftset")
+              ? '<label class="block mt-2"><span class="text-xs font-semibold text-stone-500">Dedication name (optional)</span>' +
+                '<input data-dedication="' + idx + '" type="text" maxlength="60" placeholder="A first name, printed in the front of the book" class="mt-1 w-full max-w-xs rounded-lg border border-stone-300 px-3 py-1.5 text-sm" /></label>' +
+                '<p class="text-xs text-stone-400 mt-1">Leave blank and the book starts with a write-in line instead.</p>'
+              : '';
             return '<div class="flex gap-4 py-4 border-b border-stone-100">' +
               (b.cover_key ? '<img src="' + (b.cover_card || (store.R2 + b.cover_key)) + '" class="w-16 aspect-[3/4] object-cover rounded bg-stone-100" />' : '<div class="w-16 aspect-[3/4] rounded bg-stone-100"></div>') +
-              '<div class="flex-1"><p class="text-sm font-semibold">' + b.title + '</p><p class="text-xs text-stone-500 capitalize">' + (b.topic || "tech") + ' · ' + fmt + (q > 1 ? ' · Qty ' + q : '') + '</p>' +
+              '<div class="flex-1"><p class="text-sm font-semibold">' + b.title + '</p><p class="text-xs text-stone-500 capitalize">' + (b.topic || "tech") + ' · ' + fmt + (q > 1 ? ' · Qty ' + q : '') + '</p>' + dedication +
               '<button class="remove text-xs text-stone-400 hover:text-red-600 mt-1" data-idx="' + idx + '">Remove</button></div>' +
               '<p class="text-sm font-semibold">' + store.money(p * q) + (q > 1 ? '<span class="block text-xs font-normal text-stone-400">' + store.money(p) + ' each</span>' : '') + '</p></div>';
           }).join("");
@@ -465,7 +487,7 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
           var qr = await fetch("/api/checkout", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "quote", items: view.items, address: readAddress(), guest_id: store.bbsGuestId(), promo_code: view.promo ? view.promo.code : undefined }),
+            body: JSON.stringify({ action: "quote", items: payloadItems(), address: readAddress(), guest_id: store.bbsGuestId(), promo_code: view.promo ? view.promo.code : undefined }),
           });
           var qd = await qr.json().catch(function () { return {}; });
           if (!qr.ok || !qd.shipping) throw new Error(qd.error || "Could not get a shipping quote.");
@@ -568,7 +590,7 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
           var r = await fetch("/api/checkout", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(view.physical ? { items: view.items, address: readAddress(), guest_id: store.bbsGuestId(), quote_id: view.quoteId || undefined, promo_code: view.promo ? view.promo.code : undefined } : { items: view.items, guest_id: store.bbsGuestId(), promo_code: view.promo ? view.promo.code : undefined }),
+            body: JSON.stringify(view.physical ? { items: payloadItems(), address: readAddress(), guest_id: store.bbsGuestId(), quote_id: view.quoteId || undefined, promo_code: view.promo ? view.promo.code : undefined } : { items: view.items, guest_id: store.bbsGuestId(), promo_code: view.promo ? view.promo.code : undefined }),
           });
           var data = await r.json().catch(function () { return {}; });
           if (!r.ok || !data.url) throw new Error(data.error || "Checkout failed.");

@@ -158,7 +158,7 @@ export interface LuluAddress {
   phone_number?: string;
 }
 
-const LULU_LIMITS = { name: 35, street: 30, city: 30, phone: 20 } as const;
+export const LULU_LIMITS = { name: 35, street: 30, city: 30, phone: 20 } as const;
 
 export function normalizeLuluAddress(input: {
   name?: string | null;
@@ -276,6 +276,8 @@ export interface LuluCostBreakdown {
   currency: string | null;
   fulfillmentCost: string | null;
   shippingCost: string | null;
+  shippingCostExclTax: string | null;
+  shippingTax: string | null;
   totalCostExclTax: string | null;
   totalTax: string | null;
   totalCostInclTax: string | null;
@@ -291,6 +293,8 @@ export function parseCostCalculation(raw: any): LuluCostBreakdown {
     currency: str(costs.currency),
     fulfillmentCost: str(costs.fulfillment_cost?.total_cost_incl_tax ?? costs.fulfillment_cost),
     shippingCost: str(costs.shipping_cost?.total_cost_incl_tax ?? costs.shipping_cost),
+    shippingCostExclTax: str(costs.shipping_cost?.total_cost_excl_tax),
+    shippingTax: str(costs.shipping_cost?.total_tax),
     totalCostExclTax: str(costs.total_cost_excl_tax),
     totalTax: str(costs.total_tax),
     totalCostInclTax: str(costs.total_cost_incl_tax),

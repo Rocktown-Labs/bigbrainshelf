@@ -645,9 +645,17 @@ export async function storeCheckoutQuote(
     // amount (the pre-rounding behavior) when a caller does not pass
     // it; the checkout route always passes it.
     shippingCents?: number;
+    // The buyer's delivery phone (checkout, slice 2), stored inside
+    // the ship_address JSON so the print lane's job build reads it
+    // from the order (Lulu requires a phone on the shipping address).
+    // Absent leaves the stored address exactly as before.
+    phone?: string;
   }
 ): Promise<void> {
   await ensureOrderQuoteColumns(db);
+  const storedAddress = args.phone
+    ? { ...args.dest.address, phone: args.phone }
+    : args.dest.address;
   await db
     .prepare(
       `UPDATE orders SET
@@ -659,7 +667,7 @@ export async function storeCheckoutQuote(
     )
     .bind(
       args.dest.name || null,
-      JSON.stringify(args.dest.address),
+      JSON.stringify(storedAddress),
       args.shippingCents ?? args.quote.amountCents,
       args.quote.carrier || null,
       args.quote.service || null,
