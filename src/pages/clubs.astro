@@ -234,9 +234,8 @@ const clubTraksEvent = joined
           <div class="plan-card-physical flex flex-col h-full rounded-2xl bg-[#1a3454] text-white p-6 sm:p-8">
             <h2 class="text-xl font-extrabold tracking-tight mb-1">The Book Club</h2>
             <p class="text-lg font-bold leading-snug">A new big idea in your mailbox every 3 months.</p>
-            <p class="text-white/70 text-sm leading-relaxed mt-2">Decide once. Each box brings a printed gift set and a second printed book, and the whole shelf opens in your library. The club book is yours to keep digitally, even if you cancel. First box ships within 5 to 7 days of joining, then every 3 months.</p>
-            <p class="text-white/70 text-sm leading-relaxed mt-2">{boxValueLabel} in value in every box, shipping included, plus a cast sticker sheet and a little extra.</p>
             <ul class="text-sm text-white/85 leading-relaxed mt-4 space-y-2 list-disc pl-5">
+              <li>{boxValueLabel} in value in every box, shipping included, plus a cast sticker sheet and a little extra.</li>
               <li>The gift set: a printed storybook and a printed coloring book.</li>
               <li>A second printed book: your pick, or a surprise you do not own.</li>
               <li>First box guarantee: if it misses in 30 days, your first payment comes back.</li>
@@ -267,7 +266,7 @@ const clubTraksEvent = joined
                 </div>
               </fieldset>
               {reserved && (
-                <p class="text-xs text-white/60 leading-relaxed mt-4">You are already on the list with the {shelfLabel(reserved.shelf)} shelf. Joining turns that into your membership, and you pick your books in your account.</p>
+                <p class="text-xs text-white/60 leading-relaxed mt-4">This account already has a Book Club signup saved. Joining completes the membership, and you can pick your books in your account.</p>
               )}
               <button type="submit" id="club-submit" class="mt-6 w-full rounded-full bg-orange-600 text-white text-sm font-semibold px-8 py-3 hover:bg-orange-700 transition">
                 {signedIn ? "Join The Book Club" : "Create an account to join"}
