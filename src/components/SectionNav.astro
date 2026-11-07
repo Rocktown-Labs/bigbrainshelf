@@ -2,8 +2,10 @@
 // The routes bar (A2 redesign): the navy section bar directly under
 // the hero on the four section pages. The current page's route is
 // shown active with the orange underline; the routes are Books (/),
-// Audio (/audiobooks), Merch (/merch), and Clubs (/clubs, renamed
-// from Plans 2026-10-30; Cast added 2026-10-31). On mobile the bar
+// Audio (/audiobooks), Clubs (/clubs, renamed from Plans
+// 2026-10-30), and Cast (/meet-the-cast) last (order set by CG
+// 2026-11-07); the Merch entry renders after Cast only while
+// MERCH_ENABLED is on. On mobile the bar
 // is sticky (CG, 2026-10-30): it scrolls with the page until it
 // reaches the top of the viewport, then pins there, so the routes
 // stay tappable while the shelf scrolls underneath. The Merch entry
@@ -25,8 +27,8 @@ const { active } = Astro.props;
 const routes = [
   { id: "books", label: "Books", href: "/" },
   { id: "audio", label: "Audio", href: "/audiobooks" },
-  { id: "cast", label: "Cast", href: "/meet-the-cast" },
   { id: "plans", label: "Clubs", href: "/clubs" },
+  { id: "cast", label: "Cast", href: "/meet-the-cast" },
   { id: "merch", label: "Merch", href: "/merch" },
 ] as const;
 const visibleRoutes = merchEnabled() ? routes : routes.filter((r) => r.id !== "merch");
