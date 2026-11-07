@@ -144,6 +144,11 @@ async function main() {
     createCall?.body?.line_items?.[0]?.printable_normalization?.pod_package_id === "0850X1100.FC.STD.PB.060UW444.GXX",
     JSON.stringify(createCall?.body));
   check("token fetched once", tokenCalls === 1, String(tokenCalls));
+  const tokenCall = captured.find((c) => c.url.endsWith("/auth/realms/glasstree/protocol/openid-connect/token"));
+  const tokenForm = new URLSearchParams(typeof tokenCall?.body === "string" ? tokenCall.body : "");
+  check("token form carries the configured client_id", tokenForm.get("client_id") === "cid-sandbox", String(tokenCall?.body));
+  check("token form carries the configured client_secret", tokenForm.get("client_secret") === "secret-sandbox", String(tokenCall?.body));
+  check("token form carries the client_credentials grant", tokenForm.get("grant_type") === "client_credentials", String(tokenCall?.body));
 
   const canceled: any = await cancelPrintJob(env, 555001);
   const cancelCall = captured.find((c) => c.method === "PUT");

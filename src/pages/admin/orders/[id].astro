@@ -299,6 +299,14 @@ const orderId = String(Astro.params.id || "");
       }
       var data = await r.json();
       var o = data.order;
+      // An order with Lulu print jobs is fulfilled by Lulu, so the
+      // home-fulfillment card (stage buttons, pack checklist, Shippo
+      // label flow, pickup) does not render for it below and the
+      // Print jobs section is its fulfillment view. Render-time
+      // only: the home sections stay in this page and come back for
+      // any order without print jobs, which is how home-fulfilled
+      // orders are worked.
+      var hasPrintJobs = !!(data.print_jobs && data.print_jobs.length);
       var shippo = data.shippo || { configured: false, originConfigured: false, ready: false, missing: ["SHIPPO_API_KEY"] };
       var a = parseAddr(o);
       var addrLines = [o.ship_name, a.line1, a.line2, [a.city, a.state].filter(Boolean).join(", "), a.postal_code, a.country].filter(Boolean);
@@ -457,7 +465,7 @@ const orderId = String(Astro.params.id || "");
 
         productsTable +
 
-        (o.status !== "complete" ? "" :
+        (o.status !== "complete" || hasPrintJobs ? "" :
           o.physical_status ?
           '<section class="card mt-4" id="label"><h2 class="font-bold">Fulfillment</h2>' + steps + stageBtns + shipHint +
             (o.tracking_status ? '<p class="text-sm text-stone-600 mt-2">Carrier status: ' + esc(o.tracking_status) + "</p>" : "") +
