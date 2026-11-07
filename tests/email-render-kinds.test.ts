@@ -83,5 +83,61 @@ const fallbackHtml = await renderOutboxEmailHtml(db, SITE, {
 assert(typeof fallbackHtml === "string" && fallbackHtml.length > 200, "unknown kind falls back to the branded shell, not null");
 assert(fallbackHtml!.includes("First paragraph of a future email."), "fallback HTML carries the stored text");
 
+// The Lulu parcel kinds (print_shipped / print_delivered, 2026-11-07)
+// model from the shipment the outbox dedupe key names, never from an
+// order: their rows carry no order_id by design, so this pins the
+// branch sitting before the order gate (the completion_upsell bug
+// class). The canned DB answers exactly the three lookups the model
+// makes.
+const parcelDb: any = {
+  prepare: (sql: string) => ({
+    bind: () => ({
+      first: async () => {
+        if (sql.includes("FROM shipments")) {
+          return {
+            id: "shp-1", job_id: "job-1", job_item_id: "item-1",
+            order_id: "ord-1", club_box_id: null,
+            tracking_id: "trk-9", tracking_url: "https://track.example/9",
+            carrier_name: "USPS", status: "SHIPPED",
+          };
+        }
+        if (sql.includes("FROM print_job_items")) {
+          return { id: "item-1", title: "Mira the Heron and the Still Water", kind: "story" };
+        }
+        if (sql.includes("FROM print_jobs")) {
+          return { id: "job-1", order_id: "ord-1", club_box_id: null };
+        }
+        return null;
+      },
+      all: async () => ({ results: [] }),
+      run: async () => ({}),
+    }),
+  }),
+};
+const parcelShippedHtml = await renderOutboxEmailHtml(parcelDb, SITE, {
+  order_id: null,
+  kind: "print_shipped",
+  dedupe_key: "print_shipped:shp-1",
+  to_email: "buyer@example.com",
+  subject: "Your printed book has shipped",
+  body_text: "stored text",
+});
+assert(typeof parcelShippedHtml === "string" && parcelShippedHtml.length > 200, "print_shipped renders styled HTML, not null");
+assert(parcelShippedHtml!.includes("Track your package"), "print_shipped carries the tracking button");
+assert(parcelShippedHtml!.includes("https://track.example/9"), "print_shipped button links to the tracking page");
+assert(parcelShippedHtml!.includes("Mira the Heron and the Still Water"), "print_shipped names the parcel's book");
+
+const parcelDeliveredHtml = await renderOutboxEmailHtml(parcelDb, SITE, {
+  order_id: null,
+  kind: "print_delivered",
+  dedupe_key: "print_delivered:shp-1",
+  to_email: "buyer@example.com",
+  subject: "Your printed book has been delivered",
+  body_text: "stored text",
+});
+assert(typeof parcelDeliveredHtml === "string" && parcelDeliveredHtml.length > 200, "print_delivered renders styled HTML, not null");
+assert(parcelDeliveredHtml!.includes("Open your library"), "print_delivered carries the library button");
+assert(parcelDeliveredHtml!.includes(`${SITE}/account/library`), "print_delivered button links to the library");
+
 console.log(fails ? `\n${fails} FAILURES` : "\nALL PASS");
 process.exit(fails ? 1 : 0);

@@ -6,6 +6,7 @@ export type ApiAccessTier = "public" | "customer_self_auth" | "service_token" | 
 
 export const PUBLIC_API_EXACT: ReadonlySet<string> = new Set([
   "/api/stripe/webhook",
+  "/api/lulu/webhook",
   "/api/subscribe",
   "/api/contact",
   "/api/unsubscribe",

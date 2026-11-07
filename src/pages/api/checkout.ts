@@ -433,6 +433,17 @@ export const POST: APIRoute = async ({ request }) => {
       const done = await e.DB.prepare("SELECT * FROM orders WHERE id = ?").bind(order.id).first();
       if (done) await enqueueConfirmation(e.DB, SITE, done);
     } catch { /* the unlock stands even if the email enqueue fails */ }
+    // Lulu lane: the same auto-place a paid completion gets. A $0
+    // cart is digital in practice, so this is a guarded no-op unless
+    // a physical line ever totals $0; the helper never throws and
+    // the cron dispatcher remains the retry path.
+    try {
+      const done = await e.DB.prepare("SELECT * FROM orders WHERE id = ?").bind(order.id).first();
+      if (done) {
+        const { autoPlacePrintJobForOrder } = await import("../../lib/print-fulfillment");
+        await autoPlacePrintJobForOrder(e.DB, e, done, SITE);
+      }
+    } catch { /* the unlock stands even if auto-place fails */ }
     return Response.json({ url: successUrl, free: true });
   }
   if (!e.STRIPE_SECRET_KEY) {
