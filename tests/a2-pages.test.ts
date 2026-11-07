@@ -49,7 +49,8 @@ assert(club.includes('<SectionNav active="plans" />'), "clubs renders the routes
 assert(club.includes('subline="Two simple clubs: printed books by mail, or every audiobook on the shelf."'), "clubs hero carries the plans subline");
 assert(!club.includes("January"), "no January ship copy remains on the plans page");
 assert(!club.includes("First boxes ship"), "the first-boxes-ship line is gone");
-assert(club.includes("First box ships within 5 to 7 days of joining, then every 3 months."), "the plans page states the first box ship window (processing time, CG 2026-10-31)");
+assert(bookClubPage.includes("First box ships within 5 to 7 days of joining."), "the Book Club learn-more page states the first box ship window (processing time, CG 2026-10-31)");
+assert(!club.includes("First box ships within 5 to 7 days of joining, then every 3 months."), "the plans card no longer carries the long first-box explanation (card cleanup, CG 2026-11-07)");
 assert(club.includes('id="plan-switch"'), "the mobile plan switch exists");
 assert(club.includes('data-plan-switch="physical"') && club.includes('data-plan-switch="audio"'), "the switch offers The Book Club and The Audio Club");
 assert(club.includes(">The Book Club</button>") && club.includes(">The Audio Club</button>"), "the mobile switch names the products with the The");
@@ -99,10 +100,13 @@ assert(club.includes("Save {clubSaveLabel}") && club.includes("Save {audioSaveLa
 assert(club.includes("{boxValueLabel} in value in every box, shipping included") && club.includes("const boxValueLabel = \"$60\""), "clubs: the card's value claim is CG's flat $60 in value, shipping included (2026-11-01), matching the promo");
 assert(bookClubPage.includes("{boxTotalLabel}") && bookClubPage.includes("{giftSetLabel}") && bookClubPage.includes("{secondBookLabel}") && bookClubPage.includes("{secondDigitalLabel}"), "clubs/book-club: the learn-more page itemizes the box from the same constants");
 assert(club.includes("{boxValueLabel} in value in every box, shipping included"), "clubs: shipping line (the $60 value claim carries shipping included, CG 2026-11-01)");
-assert(club.includes("The gift set: a printed storybook and a printed coloring book."), "clubs: short bullet 1 (the gift set)");
-assert(club.includes("A second printed book: your pick, or a surprise you do not own."), "clubs: short bullet 2 (second book)");
-assert(club.includes("First box guarantee: if it misses in 30 days, your first payment comes back."), "clubs: short bullet 3 (first box guarantee)");
-assert(club.includes("The club book is yours to keep digitally, even if you cancel."), "clubs: card body keeps the owned-digital point (lock model)");
+assert(club.includes("The gift set: a printed storybook and a printed coloring book."), "clubs: short bullet 2 (the gift set)");
+assert(club.includes("A second printed book: your pick, or a surprise you do not own."), "clubs: short bullet 3 (second book)");
+assert(club.includes("First box guarantee: if it misses in 30 days, your first payment comes back."), "clubs: short bullet 4 (first box guarantee)");
+assert(!club.includes("The club book is yours to keep digitally, even if you cancel."), "clubs: the card drops the owned-digital explanation with the long paragraph (CG 2026-11-07)");
+assert(bookClubPage.includes("yours to keep even if you cancel"), "clubs/book-club: the learn-more page keeps the owned-digital detail");
+assert(club.includes("This account already has a Book Club signup saved."), "clubs: the saved-signup note uses plain language (CG 2026-11-07)");
+assert(!club.includes("You are already on the list with the"), "clubs: the opaque shelf/list wording is gone");
 assert(club.includes("Save {clubSaveLabel} · {clubSavePct}%") && club.includes("Save {audioSaveLabel} · {audioSavePct}%"), "clubs: yearly badges carry the dollar saving and the computed percentage");
 assert(club.includes("Cancel anytime. What you own stays yours."), "clubs: card footer kept");
 assert(club.includes("Want the books themselves? That is The Book Club."), "clubs: audio card carries the clarifying line with the official name");
