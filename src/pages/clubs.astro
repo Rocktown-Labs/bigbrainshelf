@@ -233,7 +233,8 @@ const clubTraksEvent = joined
       <div class="grid sm:grid-cols-2 gap-4 mt-4 sm:mt-8">
           <div class="plan-card-physical flex flex-col h-full rounded-2xl bg-[#1a3454] text-white p-6 sm:p-8">
             <h2 class="text-xl font-extrabold tracking-tight mb-1">The Book Club</h2>
-            <p class="text-lg font-bold leading-snug">A new big idea in your mailbox every 3 months.</p>
+            {/* Headline is the price, mirroring the Audio Club card (CG, 2026-11-07). */}
+            <p class="text-lg font-bold leading-snug">{clubWholeLabel} every 3 months, or {clubAnnualWholeLabel} a year.</p>
             <ul class="text-sm text-white/85 leading-relaxed mt-4 space-y-2 list-disc pl-5">
               <li>{boxValueLabel} in value in every box, shipping included, plus a cast sticker sheet and a little extra.</li>
               <li>The gift set: a printed storybook and a printed coloring book.</li>
