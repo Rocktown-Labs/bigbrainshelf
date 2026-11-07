@@ -21,10 +21,10 @@ import { classifyApiRoute } from "../src/lib/route-policy";
 
 async function runTests() {
   // 1. Verify RevOps pricing matrix matches offers.ts and birthday code BDAY10
-  assert.equal(REVOPS_PRICING_MATRIX.audioOnlyCents, 199, "Audiobook only must be $1.99");
-  assert.equal(REVOPS_PRICING_MATRIX.digitalBundleCents, 899, "Digital bundle must be $8.99");
-  assert.equal(REVOPS_PRICING_MATRIX.printedBookCents, 2000, "Printed book must be $20.00");
-  assert.equal(REVOPS_PRICING_MATRIX.giftSetCents, 2500, "Gift Set must be $25.00");
+  assert.equal(REVOPS_PRICING_MATRIX.audioOnlyCents, 599, "Audiobook only must be $5.99");
+  assert.equal(REVOPS_PRICING_MATRIX.digitalBundleCents, 1299, "Digital bundle must be $12.99");
+  assert.equal(REVOPS_PRICING_MATRIX.printedBookCents, 2499, "Printed book must be $24.99");
+  assert.equal(REVOPS_PRICING_MATRIX.giftSetCents, 3500, "Gift Set must be $35.00");
   assert.equal(REVOPS_PRICING_MATRIX.bookClubQuarterlyCents, 6000, "Book Club must be $60/quarter");
   assert.equal(REVOPS_PRICING_MATRIX.bookClubAnnualCents, 19900, "Book Club Annual must be $199/year");
   assert.equal(REVOPS_PRICING_MATRIX.audioClubMonthlyCents, 599, "Audio Club must be $5.99/month");

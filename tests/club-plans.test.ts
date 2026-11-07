@@ -20,7 +20,7 @@
 //    price constants (no hardcoded audio prices);
 //  - the lock model (2026-10-29): membership-layer grants are never
 //    owned, so they never download; orders and shipped boxes are
-//    owned; a member can still buy an audio edition at the full 199
+//    owned; a member can still buy an audio edition at the full 599
 //    to own it, and that purchase (not the membership) is what earns
 //    the digital unlock credit.
 //
@@ -244,17 +244,17 @@ assert(entBuyer.get("beta")?.owned === true, "lock: a plain audio purchase is ow
 // An active Audio Club member buying a book's audio edition to OWN it:
 // the purchase is never blocked, never discounted by the membership,
 // and the completed order converts the grant to owned.
-const alphaRow = { slug: "alpha", price: 899, price_print: 2000, picture_book_key: "a/pic.pdf", coloring_book_key: "a/col.pdf", audiobook_key: "a/audio.m4b" };
+const alphaRow = { slug: "alpha", price: 1299, price_print: 2499, picture_book_key: "a/pic.pdf", coloring_book_key: "a/col.pdf", audiobook_key: "a/audio.m4b" };
 const entAndyLive = await getDigitalEntitlements(db, andy);
 assert(entAndyLive.get("alpha")?.owned === false, "member buys to own: before the purchase, alpha is membership access only");
 assert(entitlementDownloads(entAndyLive.get("alpha"), "audiobook") === false, "member buys to own: before the purchase, the audiobook file does not download");
 const memberAudioPrice = checkoutItemPrice(alphaRow, "audio", { digital: false, audio: true });
-assert(memberAudioPrice?.cents === 199 && memberAudioPrice?.upgrade === undefined, "member buys to own: the audio edition prices at the full 199 for a member, no discount, no credit marker");
+assert(memberAudioPrice?.cents === 599 && memberAudioPrice?.upgrade === undefined, "member buys to own: the audio edition prices at the full 599 for a member, no discount, no credit marker");
 // The digital unlock credit keys off OWNED audio only: with the
 // owned-derived flags checkout passes (a member's are both false),
 // Andy's digital price is the full list price, no member credit.
 const memberDigitalPrice = checkoutItemPrice(alphaRow, "digital", { digital: false, audio: false });
-assert(memberDigitalPrice?.cents === 899 && memberDigitalPrice?.upgrade === undefined, "member buys to own: membership alone earns no digital upgrade credit");
+assert(memberDigitalPrice?.cents === 1299 && memberDigitalPrice?.upgrade === undefined, "member buys to own: membership alone earns no digital upgrade credit");
 raw.query(
   "INSERT INTO orders (id, user_id, email, book_slugs, items, stripe_session_id, amount, status, created_at) VALUES ('order-andy-alpha-audio', 'user-andy', 'andy@example.com', '[\"alpha\"]', '[{\"slug\":\"alpha\",\"format\":\"audio\"}]', 'cs_andy_buy', 199, 'complete', 1700000003)"
 ).run();

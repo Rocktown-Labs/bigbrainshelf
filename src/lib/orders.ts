@@ -100,7 +100,7 @@ export function lineQty(x: { format?: unknown; qty?: unknown } | null | undefine
 //
 // The credit (CG, 2026-10-28): a buyer who owns the audiobook only for
 // a book unlocks its digital edition for the digital price minus the
-// $1.99 audio price they already paid (899 - 199 = 700 today), floored
+// $5.99 audio price they already paid (1299 - 599 = 700 today), floored
 // at 0. Print and gift set are NEVER discounted by audio ownership.
 
 export interface CheckoutBookLike {

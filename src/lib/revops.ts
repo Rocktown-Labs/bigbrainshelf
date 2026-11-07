@@ -1,13 +1,13 @@
 /**
  * Pillar 5B: RevOps & Lifecycle Flywheel Engine
  * Grounded strictly in real `src/lib/offers.ts` & `src/lib/family.ts`:
- * - Audiobook only: $1.99 (`AUDIO_PRICE_CENTS = 199`)
- * - Digital bundle (eBook + Audiobook): $8.99 (`STANDARD_DIGITAL_PRICE_CENTS = 899`)
- * - Printed Book + Digital Bundle: $20.00 (`STANDARD_PRINT_PRICE_CENTS = 2000`)
- * - Complete Gift Set: $25.00 (`GIFT_SET_PRICE_CENTS = 2500`)
+ * - Audiobook only: $5.99 (`AUDIO_PRICE_CENTS = 599`)
+ * - Digital bundle (eBook + Audiobook): $12.99 (`STANDARD_DIGITAL_PRICE_CENTS = 1299`)
+ * - Printed Book + Digital Bundle: $24.99 (`STANDARD_PRINT_PRICE_CENTS = 2499`)
+ * - Complete Gift Set: $35.00 (`GIFT_SET_PRICE_CENTS = 3500`)
  * - The Book Club (Physical): $60/quarter (`CLUB_PRICE_CENTS = 6000`) or $199/year (`CLUB_ANNUAL_PRICE_CENTS = 19900`)
  * - The Audio Club: $5.99/month (`AUDIO_CLUB_PRICE_CENTS = 599`) or $49/year (`AUDIO_CLUB_ANNUAL_PRICE_CENTS = 4900`)
- * - Birthday Gift Code: `BDAY10` ($10 birthday credit on next $25 Gift Set, matching `family.ts` + `BirthdayGiftEmail.tsx`)
+ * - Birthday Gift Code: `BDAY10` ($10 birthday credit on next $35 Gift Set, matching `family.ts` + `BirthdayGiftEmail.tsx`)
  *
  * Automated Lifecycle Plays:
  * 1. Automated Kid Birthday Gift Play (`birthday_bday10`):
@@ -41,10 +41,10 @@ import { enqueueBirthdayGiftEmail, calculateAgeFromDob, parseNotificationPrefs }
 export const BIRTHDAY_GIFT_CODE = "BDAY10";
 
 export const REVOPS_PRICING_MATRIX = {
-  audioOnlyCents: AUDIO_PRICE_CENTS, // 199 ($1.99)
-  digitalBundleCents: STANDARD_DIGITAL_PRICE_CENTS, // 899 ($8.99)
-  printedBookCents: STANDARD_PRINT_PRICE_CENTS, // 2000 ($20.00)
-  giftSetCents: GIFT_SET_PRICE_CENTS, // 2500 ($25.00)
+  audioOnlyCents: AUDIO_PRICE_CENTS, // 599 ($5.99)
+  digitalBundleCents: STANDARD_DIGITAL_PRICE_CENTS, // 1299 ($12.99)
+  printedBookCents: STANDARD_PRINT_PRICE_CENTS, // 2499 ($24.99)
+  giftSetCents: GIFT_SET_PRICE_CENTS, // 3500 ($35.00)
   bookClubQuarterlyCents: CLUB_PRICE_CENTS, // 6000 ($60/quarter)
   bookClubAnnualCents: CLUB_ANNUAL_PRICE_CENTS, // 19900 ($199/year)
   audioClubMonthlyCents: AUDIO_CLUB_PRICE_CENTS, // 599 ($5.99/month)
@@ -122,7 +122,7 @@ export function isBirthdayWithinWindow(
 }
 
 /**
- * Play 1: Daily Kid Birthday Gift Scheduler (`BDAY10` - $10 gift credit on next $25 Gift Set).
+ * Play 1: Daily Kid Birthday Gift Scheduler (`BDAY10` - $10 gift credit on next $35 Gift Set).
  * Runs inside the scheduled cron (`club-scheduler.ts`) and enqueues `birthday_gift` into `email_outbox`.
  */
 export async function runBirthdayGiftScheduler(
@@ -343,7 +343,7 @@ export async function checkAndEnqueueCompletionUpsell(params: {
   }
   if (!isMember) {
     paragraphs.push(
-      `Ready for the next story? The clubs keep the shelf full, and single books start at $8.99.`
+      `Ready for the next story? The clubs keep the shelf full, and single books start at $12.99.`
     );
   } else if (!(finished && !hasReviewed)) {
     paragraphs.push(`More books are waiting on your shelf.`);

@@ -82,7 +82,7 @@ const publicNoAudio: any = {
 }
 
 // --- Layer 2: canonical resolver over both shapes ------------------
-const EXPECTED: Record<string, number> = { digital: 899, printed: 2000, giftset: 2500, audio: 199 };
+const EXPECTED: Record<string, number> = { digital: 899, printed: 2000, giftset: 3500, audio: 599 };
 for (const [shapeName, row] of [["public", publicRow], ["admin", adminRow]] as const) {
   for (const format of ["digital", "printed", "giftset", "audio"]) {
     const cents = cartItemPriceCents(row, { slug: row.slug, format });
@@ -90,7 +90,7 @@ for (const [shapeName, row] of [["public", publicRow], ["admin", adminRow]] as c
   }
 }
 // The reported symptom, stated as a test: an audio entry against
-// the admin shape is purchasable at $1.99, not dropped.
+// the admin shape is purchasable at $5.99, not dropped.
 {
   const items = purchasableCartItems([{ slug: "mastery", format: "audio" }], { mastery: adminRow });
   assert(items.length === 1, "admin shape: audio entry survives purchasable filtering");
@@ -98,12 +98,12 @@ for (const [shapeName, row] of [["public", publicRow], ["admin", adminRow]] as c
 // Format availability gates hold in both shapes.
 for (const [shapeName, row] of [["public", publicNoColor], ["admin", adminNoColor]] as const) {
   assert(cartItemPriceCents(row, { slug: "nocolor", format: "giftset" }) === 0, `${shapeName} shape: gift set is 0 without a coloring book`);
-  assert(cartItemPriceCents(row, { slug: "nocolor", format: "audio" }) === 199, `${shapeName} shape: audio still resolves without a coloring book`);
+  assert(cartItemPriceCents(row, { slug: "nocolor", format: "audio" }) === 599, `${shapeName} shape: audio still resolves without a coloring book`);
 }
 assert(cartItemPriceCents(publicNoAudio, { slug: "silent", format: "audio" }) === 0, "audio is 0 for a book with no audiobook");
 assert(cartItemPriceCents(undefined, { slug: "ghost", format: "digital" }) === 0, "unknown slug resolves to 0");
 assert(cartItemPriceCents(publicRow, { slug: "mastery", format: "digital" }, { mastery: 700 }) === 700, "audio owner's digital unlock price applies");
-assert(cartItemPriceCents(publicRow, { slug: "mastery", format: "audio" }, { mastery: 700 }) === 199, "unlock price never touches the audio format");
+assert(cartItemPriceCents(publicRow, { slug: "mastery", format: "audio" }, { mastery: 700 }) === 599, "unlock price never touches the audio format");
 assert(cartItemPriceCents(publicRow, { slug: "mastery", format: "digital" }, { other: 700 }) === 899, "unlock price for another book does not leak");
 
 // --- Normalization: one cart, counted identically everywhere -------

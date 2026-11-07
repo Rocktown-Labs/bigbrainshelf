@@ -128,12 +128,12 @@
         var b = bySlug[it.slug];
         if (!b) return 0;
         if (it.format === "printed") return Math.round(Number(b.price_print || 0));
-        // Gift Set: flat $25 (GIFT_SET_PRICE_CENTS in src/lib/offers.ts),
+        // Gift Set: flat $35 (GIFT_SET_PRICE_CENTS in src/lib/offers.ts),
         // only for books with both a story book and a coloring book.
-        if (it.format === "giftset") return (flagOf(b, "has_picture_book", "picture_book_key") && flagOf(b, "has_coloring_book", "coloring_book_key")) ? 2500 : 0;
-        // Audiobook only: flat $1.99 (AUDIO_PRICE_CENTS in offers.ts),
+        if (it.format === "giftset") return (flagOf(b, "has_picture_book", "picture_book_key") && flagOf(b, "has_coloring_book", "coloring_book_key")) ? 3500 : 0;
+        // Audiobook only: flat $5.99 (AUDIO_PRICE_CENTS in offers.ts),
         // only for books with an audiobook.
-        if (it.format === "audio") return flagOf(b, "has_audiobook", "audiobook_key") ? 199 : 0;
+        if (it.format === "audio") return flagOf(b, "has_audiobook", "audiobook_key") ? 599 : 0;
         // Digital at the audiobook owner's unlock price when the
         // page computed one for this visitor: the checkout page's map
         // (window.__bbsUpgrades), or the book page's own book

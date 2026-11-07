@@ -109,7 +109,7 @@ assert(formatGrantsAudio("audio") === true, "audio format grants audio");
 assert(formatGrantsAudio("digital") === true, "digital grants audio (bundle includes the audiobook)");
 assert(formatGrantsAudio("printed") === true, "printed grants audio (through digital included)");
 assert(formatGrantsAudio("giftset") === true, "gift set grants audio (through digital included)");
-assert(AUDIO_PRICE_CENTS === 199, "audio price constant is 199");
+assert(AUDIO_PRICE_CENTS === 599, "audio price constant is 599");
 assert(audioEligible({ audiobook_key: "a/audio.m4b" }) === true, "audio eligible with an audiobook");
 assert(audioEligible({ audiobook_key: null }) === false, "audio not eligible without an audiobook");
 assert(normalizeFormat("audio") === "audio", "checkout normalization keeps the audio format");
@@ -239,7 +239,7 @@ assert((await getLibraryBooks(db, userAudio)).find((b) => b.slug === "alpha")?.a
 
 // ---- Checkout pricing (server-side; the client never names a price) -----
 const pricedBook = {
-  slug: "alpha", price: 899, price_print: 2000,
+  slug: "alpha", price: 1299, price_print: 2499,
   picture_book_key: "a/pic.pdf", coloring_book_key: "a/col.pdf", audiobook_key: "a/audio.m4b",
 };
 const noAudioBook = { ...pricedBook, audiobook_key: null };
@@ -247,23 +247,23 @@ const nobody = { digital: false, audio: false };
 const audioOwner = { digital: false, audio: true };
 const digitalOwner = { digital: true, audio: true };
 
-assert(checkoutItemPrice(pricedBook, "audio", nobody)?.cents === 199, "audio checkout charges 199");
+assert(checkoutItemPrice(pricedBook, "audio", nobody)?.cents === 599, "audio checkout charges 599");
 assert(checkoutItemPrice(noAudioBook, "audio", nobody) === null, "audio checkout refused without an audiobook");
 // An audio-published row (cover + audio, book unpublished, prices
 // still 0 like the real ready_for_qa rows) prices its audio at the
-// flat 199. Its other formats are refused one layer up, by the
+// flat 599. Its other formats are refused one layer up, by the
 // checkout route's audio_only gate (pinned in guest-checkout.test.ts).
 const audioPubRow = { slug: "theta", price: 0, price_print: 0, picture_book_key: "t/pic.pdf", coloring_book_key: "t/col.pdf", audiobook_key: "t/audio.m4b" };
-assert(checkoutItemPrice(audioPubRow, "audio", nobody)?.cents === 199, "audio-published book: audio checkout charges the flat 199");
-assert(checkoutItemPrice(pricedBook, "digital", nobody)?.cents === 899, "non-owner digital checkout charges 899");
+assert(checkoutItemPrice(audioPubRow, "audio", nobody)?.cents === 599, "audio-published book: audio checkout charges the flat 599");
+assert(checkoutItemPrice(pricedBook, "digital", nobody)?.cents === 1299, "non-owner digital checkout charges 1299");
 assert(checkoutItemPrice(pricedBook, "digital", nobody)?.upgrade === undefined, "non-owner digital has no credit marker");
 const upgradePrice = checkoutItemPrice(pricedBook, "digital", audioOwner);
-assert(upgradePrice?.cents === 700, "audio owner digital checkout charges 700 (899 minus the 199 credit)");
+assert(upgradePrice?.cents === 700, "audio owner digital checkout charges 700 (1299 minus the 599 credit)");
 assert(upgradePrice?.upgrade === "audio-upgrade", "upgrade charge carries the audio-upgrade marker");
-assert(checkoutItemPrice(pricedBook, "printed", audioOwner)?.cents === 2000, "audio owner print checkout charges the full 2000");
+assert(checkoutItemPrice(pricedBook, "printed", audioOwner)?.cents === 2499, "audio owner print checkout charges the full 2499");
 assert(checkoutItemPrice(pricedBook, "printed", audioOwner)?.upgrade === undefined, "print never carries the audio credit");
-assert(checkoutItemPrice(pricedBook, "giftset", audioOwner)?.cents === 2500, "audio owner gift set charges the full 2500");
-assert(checkoutItemPrice(pricedBook, "digital", digitalOwner)?.cents === 899, "digital owner rebuying digital pays full 899 (no double credit)");
+assert(checkoutItemPrice(pricedBook, "giftset", audioOwner)?.cents === 3500, "audio owner gift set charges the full 3500");
+assert(checkoutItemPrice(pricedBook, "digital", digitalOwner)?.cents === 1299, "digital owner rebuying digital pays full 1299 (no double credit)");
 const floored = checkoutItemPrice({ ...pricedBook, price: 150 }, "digital", audioOwner);
 assert(floored?.cents === 0 && floored?.upgrade === "audio-upgrade", "credit larger than the digital price floors at 0 with the marker");
 

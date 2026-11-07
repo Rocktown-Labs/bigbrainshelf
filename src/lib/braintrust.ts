@@ -60,7 +60,7 @@ export interface SemanticShelfMatch {
   score: number;
   url: string;
   recommendedOffer: {
-    bundlePrice: "$8.99";
+    bundlePrice: "$12.99";
     audioClubPrice: "$5.99/mo";
     bookClubPrice: "$60/quarter";
   };
@@ -467,7 +467,7 @@ export async function semanticAskTheShelf(
       score: Number(score.toFixed(4)),
       url: `/books/${doc.publicSlug}`,
       recommendedOffer: {
-        bundlePrice: "$8.99",
+        bundlePrice: "$12.99",
         audioClubPrice: "$5.99/mo",
         bookClubPrice: "$60/quarter",
       },

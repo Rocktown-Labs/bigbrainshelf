@@ -119,7 +119,7 @@ export const GET: APIRoute = async ({ url }) => {
     // matching what /api/books serves publicly. ready_for_qa books
     // render pages but sell nothing until they publish, so they stay
     // out of Books (and out of Audio, a purchase-intent section for
-    // the $1.99 audio format, complete-only for the same reason).
+    // the $5.99 audio format, complete-only for the same reason).
     // Their cast remains findable through the Cast section above:
     // the Meet the Cast roster is deliberately public, workshop
     // books included. searchCatalog() also enforces complete-only
