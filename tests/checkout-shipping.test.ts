@@ -277,7 +277,7 @@ const db = {
   assert(route.includes("shippingCents }"), "route: the rounded charge is what gets stored on the order");
   const page = readFileSync(new URL("../src/pages/checkout.astro", import.meta.url), "utf8");
   assert(!page.includes("charged as-is"), "checkout page: the charged as-is promise is gone");
-  assert(page.includes("rounded up to the nearest whole dollar"), "checkout page: the quote line states the rounding plainly");
+  assert(!page.includes("rounded up to the nearest whole dollar"), "checkout page: the rounding lecture is gone from the shipping step (CG, 2026-11-07; the whole-dollar rounding itself still happens server-side)");
   const terms = readFileSync(new URL("../src/pages/terms.astro", import.meta.url), "utf8");
   assert(terms.includes("rounded up to the nearest whole dollar"), "terms: shipping wording states the rounding");
 }

@@ -102,6 +102,7 @@ assert(adminOrdersPage.includes('width="14" height="14"'), "list format SVGs car
 const globalCss = read("../src/styles/global.css");
 assert(globalCss.includes(".fcircle svg") && globalCss.includes("width: 14px") && globalCss.includes(".fchip svg") && globalCss.includes("width: 11px"), "the global stylesheet pins chip and circle SVG sizes for injected DOM");
 assert(globalCss.includes(".fmt-giftset") && globalCss.includes(".orderband") && globalCss.includes(".ptable"), "the shared format system and order-template styles live in the global stylesheet");
+assert(globalCss.includes("#user-account-menu-wrap:not(.hidden)") && globalCss.includes("#account-link"), "mobile header: the My library pill steps aside when the account chip is showing (CG, 2026-11-07)");
 assert(!adminOrdersPage.includes("fmtDate(o.created_at)"), "the orders list no longer leads with a full timestamp");
 assert(!adminOrdersPage.includes("pre-orders"), "the orders header no longer calls live orders pre-orders");
 const adminOrderDetail = read("../src/pages/admin/orders/[id].astro");

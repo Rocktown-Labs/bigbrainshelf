@@ -281,3 +281,14 @@ button,
   border-bottom: 0;
   border-top: 1px solid #e7e5e4;
 }
+
+/* Mobile header room (CG, 2026-11-07): signed in on a phone, the My
+   library pill and the account chip together crowd the nav row. When
+   the chip is showing, the pill is redundant (the chip's menu leads
+   to the same library), so below sm the pill steps aside. Signed
+   out, the chip is hidden and the pill stays: it reads Sign in. */
+@media (max-width: 639px) {
+  header nav:has(> #user-account-menu-wrap:not(.hidden)) #account-link {
+    display: none;
+  }
+}

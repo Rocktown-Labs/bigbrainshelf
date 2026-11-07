@@ -153,6 +153,7 @@ async function main() {
   const page = readFileSync(new URL("../src/pages/checkout.astro", import.meta.url), "utf8");
   check("checkout page collects a phone in the address step", page.includes('id="ship-phone"') && page.includes("phone: document.getElementById(\"ship-phone\")"));
   check("checkout page offers a dedication name per physical line", page.includes("data-dedication=") && page.includes("dedicationName: d"));
+  check("dedication field is compact, sized for a first name (CG, 2026-11-07)", page.includes('class="w-44 max-w-full') && page.includes('placeholder="First name"'));
 
   globalThis.fetch = originalFetch;
   console.log(`\nlulu-checkout-quote.test.ts: ${passed} passed, ${failed} failed`);
