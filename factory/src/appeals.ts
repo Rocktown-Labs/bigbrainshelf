@@ -34,6 +34,18 @@
 // until a repeated-measures bench on human-labeled pages (3 runs per
 // judge) settles the question properly. Shadow mode throughout:
 // verdicts are logged, never acted on.
+//
+// Graduation (2026-11-07, CG's call after a night of gate-noise
+// losses: Wren colorize parked 5 pages on dupe/anatomy scores the
+// human eye cleared, Fenix repair landed 1 of 13): the generation
+// loops now call attemptInlineAppeal at the hold point, the one
+// place a verdict acts. When every roll has failed and the page
+// would park, the most recent appealable reject is judged
+// synchronously; a rescue_candidate verdict ships that archived
+// roll (logged as outcome accepted_appeal) instead of holding.
+// The queue path above stays shadow measurement; the inline path
+// reuses the same judge, the same idempotency key, and the same
+// qc_second_opinions record, so both lanes read as one history.
 
 import { emitEvent } from "./events";
 import { emitAppealMetric } from "./metrics";
@@ -65,6 +77,9 @@ async function ensureTables(env: any): Promise<void> {
   if (tablesReady) return;
   await env.DB.prepare(
     "CREATE TABLE IF NOT EXISTS appeals_enqueued (attempt_id INTEGER PRIMARY KEY, slug TEXT, queued_at INTEGER)"
+  ).run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS qc_second_opinions (attempt_id INTEGER, slug TEXT, kind TEXT, chapter TEXT, page INTEGER, attempt INTEGER, production_outcome TEXT, production_reason TEXT, production_scores TEXT, judge_provider TEXT, judge_model TEXT, verdict TEXT, claim_upheld INTEGER, confidence REAL, defects TEXT, rationale TEXT, judge_tokens_in INTEGER, judge_tokens_out INTEGER, human_verdict TEXT, created_at INTEGER)"
   ).run();
   tablesReady = true;
 }
@@ -192,7 +207,123 @@ async function judgeAttempt(env: any, attemptId: number): Promise<any> {
         ? "rescue_candidate"
         : "mixed_unclear";
   const confidence = Math.round((claimUpheld ? claimP : 1 - claimP) * 1000) / 1000;
-  return { row, verdict, claimUpheld, confidence, claimP, seriousP, pubP, tokIn, tokOut };
+  return { row, verdict, claimUpheld, confidence, claimP, seriousP, pubP, tokIn, tokOut, bytes };
+}
+
+// Persist one judged opinion, shared by the queue consumer and the
+// inline path so both lanes write the identical record.
+async function recordOpinion(env: any, j: any, attemptId: number, slug: string): Promise<void> {
+  const rationale =
+    `Opus appeal: claim_defect=${j.claimP.toFixed(2)}, serious_defect=${j.seriousP.toFixed(2)}, ` +
+    `publishable=${j.pubP.toFixed(2)} against production claim "${String(j.row.reason ?? "").slice(0, 160)}"`;
+  await env.DB.prepare(
+    "INSERT INTO qc_second_opinions (attempt_id, slug, kind, chapter, page, attempt, production_outcome, production_reason, production_scores, judge_provider, judge_model, verdict, claim_upheld, confidence, defects, rationale, judge_tokens_in, judge_tokens_out, human_verdict, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+  )
+    .bind(
+      attemptId,
+      j.row.slug,
+      j.row.kind,
+      j.row.chapter,
+      j.row.page,
+      j.row.attempt,
+      j.row.outcome,
+      j.row.reason,
+      j.row.scores,
+      JUDGE_PROVIDER,
+      JUDGE_MODEL,
+      j.verdict,
+      j.claimUpheld ? 1 : 0,
+      j.confidence,
+      JSON.stringify(j.verdict === "rescue_candidate" ? [] : ["see rationale probabilities"]),
+      rationale,
+      j.tokIn,
+      j.tokOut,
+      null,
+      Math.floor(Date.now() / 1000)
+    )
+    .run();
+  emitAppealMetric(env, slug ?? j.row.slug, JUDGE_MODEL, j.verdict, j.claimUpheld ? 1 : 0);
+  await emitEvent(env, {
+    slug: slug ?? j.row.slug,
+    kind: "appeal",
+    event: "appeal_judged",
+    detail: { attemptId, verdict: j.verdict, claimUpheld: j.claimUpheld, confidence: j.confidence },
+  });
+}
+
+// The appealable candidate among one page's attempts from a single
+// generation run: the most recent archived reject on a noisy gate.
+// Later attempts are steered by the earlier QC findings, so the last
+// reject is normally the closest miss; reliable-gate rejects
+// (isAppealable false) are never candidates.
+export function pickAppealCandidate(rows: any[]): any | null {
+  const candidates = (rows ?? []).filter(
+    (r) =>
+      r &&
+      r.image_key &&
+      (r.outcome === "qc_reject" || r.outcome === "edit_reject" || r.outcome === "cast_reject") &&
+      isAppealable(r.reason)
+  );
+  return candidates.length ? candidates[candidates.length - 1] : null;
+}
+
+export interface InlineAppealResult {
+  rescued: boolean;
+  bytes?: Uint8Array;
+  verdict?: string;
+  attemptId?: number;
+}
+
+// Synchronous second opinion at a generation hold point. Finds the
+// page's appealable candidate among attempts logged since `sinceTs`
+// (the caller's run start), judges it unless an opinion already
+// exists for the (attempt, judge) idempotency key, and reports
+// rescued only on a rescue_candidate verdict, returning the archived
+// bytes so the caller can ship them. Never throws: any failure is a
+// plain hold, exactly the pre-inline behavior.
+export async function attemptInlineAppeal(
+  env: any,
+  slug: string,
+  kind: string,
+  chapter: string | null,
+  page: number | null,
+  sinceTs: number
+): Promise<InlineAppealResult> {
+  try {
+    await ensureTables(env);
+    const res: any = await env.DB.prepare(
+      "SELECT id, reason, outcome, image_key FROM gen_attempts WHERE slug=? AND kind=? AND chapter IS ? AND page IS ? AND created_at>=? ORDER BY id ASC"
+    )
+      .bind(slug, kind, chapter, page, sinceTs)
+      .all();
+    const cand = pickAppealCandidate(res?.results ?? []);
+    if (!cand) return { rescued: false };
+    const seen: any = await env.DB.prepare(
+      "SELECT verdict FROM qc_second_opinions WHERE attempt_id=? AND judge_model=?"
+    )
+      .bind(cand.id, JUDGE_MODEL)
+      .first();
+    let verdict: string | undefined = seen?.verdict ?? undefined;
+    let bytes: Uint8Array | undefined;
+    if (!verdict) {
+      const j = await judgeAttempt(env, cand.id);
+      verdict = j.verdict;
+      bytes = j.bytes;
+      await recordOpinion(env, j, cand.id, slug);
+    }
+    if (verdict !== "rescue_candidate") {
+      return { rescued: false, verdict, attemptId: cand.id };
+    }
+    if (!bytes) {
+      const obj = await env.BOOKS.get(cand.image_key);
+      if (!obj) return { rescued: false, verdict, attemptId: cand.id };
+      bytes = new Uint8Array(await obj.arrayBuffer());
+    }
+    return { rescued: true, bytes, verdict, attemptId: cand.id };
+  } catch (e: any) {
+    console.log(`inline appeal failed for ${slug} ${chapter ?? "?"}p${page ?? "?"}: ${e?.message ?? e}; page holds as before`);
+    return { rescued: false };
+  }
 }
 
 export async function handleAppealsBatch(batch: any, env: any): Promise<void> {
@@ -209,42 +340,7 @@ export async function handleAppealsBatch(batch: any, env: any): Promise<void> {
         continue;
       }
       const j = await judgeAttempt(env, attemptId);
-      const rationale =
-        `Opus appeal: claim_defect=${j.claimP.toFixed(2)}, serious_defect=${j.seriousP.toFixed(2)}, ` +
-        `publishable=${j.pubP.toFixed(2)} against production claim "${String(j.row.reason ?? "").slice(0, 160)}"`;
-      await env.DB.prepare(
-        "INSERT INTO qc_second_opinions (attempt_id, slug, kind, chapter, page, attempt, production_outcome, production_reason, production_scores, judge_provider, judge_model, verdict, claim_upheld, confidence, defects, rationale, judge_tokens_in, judge_tokens_out, human_verdict, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-      )
-        .bind(
-          attemptId,
-          j.row.slug,
-          j.row.kind,
-          j.row.chapter,
-          j.row.page,
-          j.row.attempt,
-          j.row.outcome,
-          j.row.reason,
-          j.row.scores,
-          JUDGE_PROVIDER,
-          JUDGE_MODEL,
-          j.verdict,
-          j.claimUpheld ? 1 : 0,
-          j.confidence,
-          JSON.stringify(j.verdict === "rescue_candidate" ? [] : ["see rationale probabilities"]),
-          rationale,
-          j.tokIn,
-          j.tokOut,
-          null,
-          Math.floor(Date.now() / 1000)
-        )
-        .run();
-      emitAppealMetric(env, slug ?? j.row.slug, JUDGE_MODEL, j.verdict, j.claimUpheld ? 1 : 0);
-      await emitEvent(env, {
-        slug: slug ?? j.row.slug,
-        kind: "appeal",
-        event: "appeal_judged",
-        detail: { attemptId, verdict: j.verdict, claimUpheld: j.claimUpheld, confidence: j.confidence },
-      });
+      await recordOpinion(env, j, attemptId, slug);
       msg.ack();
     } catch (e) {
       console.log(`appeal judge failed for attempt ${attemptId} (delivery ${msg.attempts}): ${String((e as any)?.message ?? e)}`);

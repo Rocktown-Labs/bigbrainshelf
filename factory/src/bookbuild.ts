@@ -15,6 +15,7 @@ import { linePurity, analyzePage, pageVerdict, purifyPage } from "./purity";
 import { gatewayConfigured, generateGatewayImage, generateGatewayImageMetered, colorPagePrompt, linePromptFromScene } from "./gateway";
 import { validateBible, normalizeBible } from "./biblegate";
 import { snapshotIfChanged } from "./versioning";
+import { attemptInlineAppeal } from "./appeals";
 import { clairicExtract, clairicHeadings, splitOnHeadings } from "./clairic";
 import { composeMatter, ensureBackCoverImages } from "./matter";
 import { callModel } from "./models";
@@ -740,6 +741,7 @@ export async function genImageWithQC(
   // pixel gate first (aspect, chroma, gray fill — with auto-strip for
   // signature-marking specks), then Clef QC. NO fallback ship: if every
   // attempt fails, the page is held for review and null comes back.
+  const runStart = Math.floor(Date.now() / 1000);
   const events: GenEvent[] = [];
   if (pageRefs.cropUsed.length) events.push({ attempt: 0, outcome: "crop_used", cost: null });
   if (pageRefs.cropMissed.length) events.push({ attempt: 0, outcome: "crop_miss", cost: null });
@@ -907,6 +909,21 @@ export async function genImageWithQC(
       }
     }
   }
+  // Inline appeal (2026-11-07): before the page parks, its most
+  // recent appealable reject gets the Opus second opinion. A
+  // rescue_candidate verdict ships the archived roll; anything else
+  // holds exactly as before. Caps still bind: no appeal once a cap
+  // or the book budget has tripped.
+  if ((await spendCapHit(env, slug)) === null && (await budgetGate(env, slug)) === null) {
+    const appeal = await attemptInlineAppeal(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, runStart);
+    if (appeal.rescued && appeal.bytes) {
+      events.push({ attempt: MAX_ROLLS, outcome: "accepted_appeal", cost: null });
+      await logGenAttempt(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, MAX_ROLLS + 2, { outcome: "accepted_appeal", reason: `inline appeal rescued attempt ${appeal.attemptId} (Opus verdict: rescue_candidate)`, cost: null }, appeal.bytes);
+      await logGenEvents(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, events);
+      console.log("inline appeal rescued the page; shipping the appealed roll instead of holding");
+      return appeal.bytes;
+    }
+  }
   events.push({ attempt: MAX_ROLLS, outcome: "held_for_review", cost: null });
   await logGenEvents(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, events);
   console.log("all attempts failed a gate; page held for review, NOT shipped");
@@ -972,6 +989,7 @@ export async function genPictureColorWithQC(
   meta?: { chapter?: string; page?: number }
 ): Promise<Uint8Array | null> {
   const kind = aspect === "1:1" ? "cover" : "color";
+  const runStart = Math.floor(Date.now() / 1000);
   if (!gatewayConfigured(env)) {
     await logGenAttempt(env, slug, kind, meta?.chapter ?? null, meta?.page ?? null, 0, { outcome: "gateway_unavailable", reason: "gateway not configured; color twin skipped with no record before 2026-11-01" });
     return null;
@@ -1050,6 +1068,19 @@ export async function genPictureColorWithQC(
     events.push({ attempt, outcome: "qc_reject", cost });
     await logGenAttempt(env, slug, kind, meta?.chapter ?? null, meta?.page ?? null, attempt, { outcome: "qc_reject", reason: qd.reason, scores: qd.scores, cost }, bytes);
     console.log(`color QC rejected image (attempt ${attempt} of ${MAX_ROLLS})`);
+  }
+  // Inline appeal (2026-11-07): same hold-point second opinion as
+  // the line path. A rescue_candidate verdict ships the archived
+  // roll; anything else holds exactly as before.
+  if ((await spendCapHit(env, slug)) === null && (await budgetGate(env, slug)) === null) {
+    const appeal = await attemptInlineAppeal(env, slug, kind, meta?.chapter ?? null, meta?.page ?? null, runStart);
+    if (appeal.rescued && appeal.bytes) {
+      events.push({ attempt: MAX_ROLLS, outcome: "accepted_appeal", cost: null });
+      await logGenAttempt(env, slug, kind, meta?.chapter ?? null, meta?.page ?? null, MAX_ROLLS + 1, { outcome: "accepted_appeal", reason: `inline appeal rescued attempt ${appeal.attemptId} (Opus verdict: rescue_candidate)`, cost: null }, appeal.bytes);
+      await logGenEvents(env, slug, kind, meta?.chapter ?? null, meta?.page ?? null, events);
+      console.log("inline appeal rescued the color page; shipping the appealed roll instead of holding");
+      return appeal.bytes;
+    }
   }
   events.push({ attempt: MAX_ROLLS, outcome: "held_for_review", cost: null });
   await logGenEvents(env, slug, kind, meta?.chapter ?? null, meta?.page ?? null, events);

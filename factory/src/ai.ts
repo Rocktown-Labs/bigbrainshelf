@@ -349,8 +349,16 @@ async function qcWithClef(
   }
   if (castText) {
     const anatomyP = a.anatomy?.noul ?? 1;
-    if (anatomyP < 0.5) {
-      const reason = `anatomy QC (line): score=${anatomyP.toFixed(2)} below 0.5`;
+    // Line-path anatomy bar is 0.3, matching the color path
+    // (2026-11-07; the color bar moved on CG's 2026-11-01 ruling).
+    // The 0.5 bar rejected the noise band wholesale: the
+    // gen_attempts archive holds 48 line anatomy rejects with a
+    // median score of 0.39, and a shipped, human-verified Fenix
+    // page replays at 0.386, while genuinely broken anatomy
+    // (hand-shaped feet) measured 0.144. Scores in the band that
+    // still fail now reach the inline appeal instead of parking.
+    if (anatomyP < 0.3) {
+      const reason = `anatomy QC (line): score=${anatomyP.toFixed(2)} below 0.3`;
       console.log(`${reason}, rejecting`);
       return { pass: false, scores, reason };
     }
