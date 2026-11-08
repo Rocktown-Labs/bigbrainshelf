@@ -32,7 +32,7 @@
         <span class="text-sm text-stone-500">Total</span>
         <span id="cart-total" class="text-xl font-bold"></span>
       </div>
-      <p class="text-xs text-stone-400 mt-1">Digital downloads. Yours forever after checkout.</p>
+      <p id="cart-note" class="text-xs text-stone-400 mt-1">Digital downloads. Yours forever after checkout.</p>
       <p id="cart-err" class="text-sm text-red-600 hidden mt-3"></p>
       <button id="cart-clear" class="cart-clear mt-3 w-full rounded-lg border border-stone-300 text-stone-600 text-sm font-semibold py-2.5 hover:bg-stone-50 hover:text-stone-900">Clear cart</button>
       <button id="cart-checkout" class="mt-4 w-full rounded-lg bg-orange-600 text-white text-sm font-semibold py-3 hover:bg-orange-700">Checkout</button>
@@ -97,6 +97,19 @@
           }
           var total = 0;
           itemsEl.innerHTML = items.map(function (it, idx) {
+            var ci = store.clubInfo(it);
+            if (ci) {
+              // A club line: a branded tile instead of a book cover,
+              // the club's name and billing period, no quantity
+              // controls (one membership per buyer), Remove only.
+              total += ci.price;
+              return '<div class="flex gap-4 py-4 border-b border-stone-100">' +
+                '<div class="w-16 aspect-[3/4] rounded bg-[#1a3454] text-white flex items-center justify-center shrink-0"><span class="text-[9px] font-extrabold leading-tight tracking-wide text-center">BIG<br />BRAIN<br />SHELF</span></div>' +
+                '<div class="flex-1"><p class="text-sm font-semibold">' + ci.title + '</p><p class="text-xs text-stone-500">Membership · ' + ci.periodLabel + '</p>' +
+                '<div class="mt-1.5 flex items-center gap-2">' +
+                '<button class="cart-remove text-xs text-stone-400 hover:text-red-600" data-idx="' + idx + '">Remove</button></div></div>' +
+                '<p class="text-sm font-semibold">' + store.money(ci.price) + '<span class="block text-xs font-normal text-stone-400">per billing period</span></p></div>';
+            }
             var b = bySlug[it.slug];
             var p = store.priceOf(bySlug, it);
             var q = Math.max(1, Math.min(99, Math.floor(Number(it.qty)) || 1));
@@ -111,13 +124,24 @@
                 '<span class="px-1.5 text-sm font-semibold min-w-6 text-center">' + q + '</span>' +
                 '<button class="cart-qty-inc px-2 py-0.5 text-sm font-bold text-stone-600 hover:bg-stone-50" data-idx="' + idx + '" aria-label="One more">+</button></span>'
               : '';
-            return '<div class="flex gap-4 py-4 border-b border-stone-100">' +
+            // The gift flag (CG, 2026-11-07): a per-line toggle, and
+            // a flagged line wears a Gift tag with an accent edge so
+            // it reads as a gift at a glance.
+            var giftToggle = '<label class="mt-1.5 flex items-center gap-1.5 text-xs text-stone-500 cursor-pointer w-fit"><input type="checkbox" class="cart-gift accent-orange-600" data-idx="' + idx + '"' + (it.gift ? " checked" : "") + ' /> This is a gift</label>';
+            var giftTag = it.gift ? ' <span class="align-middle rounded-full bg-orange-100 text-orange-800 text-[10px] font-bold px-1.5 py-0.5">Gift</span>' : '';
+            return '<div class="flex gap-4 py-4 border-b border-stone-100"' + (it.gift ? ' style="box-shadow: inset 3px 0 0 #ea580c"' : '') + '>' +
               (b.cover_key ? '<img src="' + (b.cover_card || (store.R2 + b.cover_key)) + '" class="w-16 aspect-[3/4] object-cover rounded bg-stone-100" alt="" />' : '<div class="w-16 aspect-[3/4] rounded bg-stone-100"></div>') +
-              '<div class="flex-1"><p class="text-sm font-semibold">' + b.title + '</p><p class="text-xs text-stone-500 capitalize">' + (b.topic || "tech") + ' · ' + fmt + '</p>' +
+              '<div class="flex-1"><p class="text-sm font-semibold">' + b.title + giftTag + '</p><p class="text-xs text-stone-500 capitalize">' + (b.topic || "tech") + ' · ' + fmt + '</p>' +
               '<div class="mt-1.5 flex items-center gap-2">' + stepper +
-              '<button class="cart-remove text-xs text-stone-400 hover:text-red-600" data-idx="' + idx + '">Remove</button></div></div>' +
+              '<button class="cart-remove text-xs text-stone-400 hover:text-red-600" data-idx="' + idx + '">Remove</button></div>' + giftToggle + '</div>' +
               '<p class="text-sm font-semibold">' + store.money(p * q) + (q > 1 ? '<span class="block text-xs font-normal text-stone-400">' + store.money(p) + ' each</span>' : '') + '</p></div>';
           }).join("");
+          var noteEl = document.getElementById("cart-note");
+          if (noteEl) {
+            noteEl.textContent = items.some(function (it) { return store.isClubSlug(it.slug); })
+              ? "Memberships start at checkout and live on your email. What you buy to own stays yours forever."
+              : "Digital downloads. Yours forever after checkout.";
+          }
           var physical = store.hasPhysical(items);
           var shipRow = document.getElementById("cart-ship-row");
           if (shipRow) {
@@ -147,6 +171,12 @@
               var entry = items[parseInt(btn.getAttribute("data-idx"), 10)];
               var q = Math.max(1, Math.min(99, Math.floor(Number(entry.qty)) || 1));
               if (q < 99) store.setQty(entry.slug, entry.format, q + 1);
+            });
+          });
+          itemsEl.querySelectorAll(".cart-gift").forEach(function (box) {
+            box.addEventListener("change", function () {
+              var entry = items[parseInt(box.getAttribute("data-idx"), 10)];
+              if (entry) store.setGift(entry.slug, entry.format, box.checked);
             });
           });
         });

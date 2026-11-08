@@ -147,6 +147,99 @@ export function clubPriceLabel(cents: number = CLUB_PRICE_CENTS): string {
 }
 
 // ---------------------------------------------------------------------------
+// Clubs in the cart (CG, 2026-11-07): the clubs are cart products like
+// everything else. A club line carries a reserved slug (never a book
+// slug) and its FORMAT is the billing period:
+//
+//   book-club   The Book Club (physical plan): quarterly | annual
+//   audio-club  The Audio Club (audio plan):     monthly | annual
+//
+// The cart holds at most one club line (adding a club replaces any
+// club line already there), quantity is locked to 1, and checkout
+// prices the line from the constants above, never from a client
+// figure. Memberships live on the buyer's email (club_signups is
+// email-keyed), so guests subscribe without an account and the
+// membership attaches when they later sign in with that email.
+
+export const BOOK_CLUB_CART_SLUG = "book-club";
+export const AUDIO_CLUB_CART_SLUG = "audio-club";
+
+export function isClubCartSlug(slug: unknown): boolean {
+  return slug === BOOK_CLUB_CART_SLUG || slug === AUDIO_CLUB_CART_SLUG;
+}
+
+export type ClubCartPlan = "physical" | "audio";
+
+export function clubPlanForCartSlug(slug: unknown): ClubCartPlan | null {
+  return slug === BOOK_CLUB_CART_SLUG
+    ? "physical"
+    : slug === AUDIO_CLUB_CART_SLUG
+      ? "audio"
+      : null;
+}
+
+export function clubCartSlugForPlan(plan: ClubCartPlan): string {
+  return plan === "audio" ? AUDIO_CLUB_CART_SLUG : BOOK_CLUB_CART_SLUG;
+}
+
+export interface ClubCartLineSpec {
+  slug: string;
+  clubPlan: ClubCartPlan;
+  period: string; // quarterly | annual | monthly
+  priceCents: number;
+  title: string; // "The Book Club" | "The Audio Club"
+  periodLabel: string; // "Every 3 months" | "Yearly" | "Monthly"
+  billedLabel: string; // "billed every 3 months" | "billed once a year" | "billed monthly"
+  productName: string; // Stripe product name (matches /api/club/checkout)
+  productDescription: string; // Stripe product description (same)
+  recurring: { interval: "month" | "year"; interval_count?: number };
+}
+
+// Resolve a (club slug, period) pair to its full line spec, or null
+// when the pair is not a club line the store sells (wrong period for
+// the plan, unknown slug). The Stripe product names, descriptions,
+// prices, and recurring intervals are the ones /api/club/checkout has
+// always used, so a membership started from the cart is identical to
+// one started from the account-bound club checkout.
+export function resolveClubCartLine(slug: unknown, format: unknown): ClubCartLineSpec | null {
+  const clubPlan = clubPlanForCartSlug(slug);
+  if (!clubPlan) return null;
+  const period = String(format || "");
+  if (clubPlan === "audio") {
+    if (period !== "monthly" && period !== "annual") return null;
+    const annual = period === "annual";
+    return {
+      slug: AUDIO_CLUB_CART_SLUG,
+      clubPlan,
+      period,
+      priceCents: annual ? AUDIO_CLUB_ANNUAL_PRICE_CENTS : AUDIO_CLUB_PRICE_CENTS,
+      title: "The Audio Club",
+      periodLabel: annual ? "Yearly" : "Monthly",
+      billedLabel: annual ? "billed once a year" : "billed monthly",
+      productName: annual ? "Big Brain Shelf Audio Club (Annual)" : "Big Brain Shelf Audio Club",
+      productDescription:
+        "Every Big Brain Shelf audiobook in your library while your membership is active: listen in the reader, as much as you like. Listening only; no printed sets ship on this plan.",
+      recurring: annual ? { interval: "year" } : { interval: "month" },
+    };
+  }
+  if (period !== "quarterly" && period !== "annual") return null;
+  const annual = period === "annual";
+  return {
+    slug: BOOK_CLUB_CART_SLUG,
+    clubPlan,
+    period,
+    priceCents: annual ? CLUB_ANNUAL_PRICE_CENTS : CLUB_PRICE_CENTS,
+    title: "The Book Club",
+    periodLabel: annual ? "Yearly" : "Every 3 months",
+    billedLabel: annual ? "billed once a year" : "billed every 3 months",
+    productName: annual ? "Big Brain Shelf Book Club (Annual)" : "Big Brain Shelf Book Club",
+    productDescription:
+      "A printed set each quarter: the full color storybook plus its printed coloring book, with a bonus back catalog coloring book and the digital editions in your library. Shipping included.",
+    recurring: annual ? { interval: "year" } : { interval: "month", interval_count: 3 },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Date flags. Dates are YYYY-MM-DD strings in America/Chicago.
 
 export const STORE_TIMEZONE = "America/Chicago";

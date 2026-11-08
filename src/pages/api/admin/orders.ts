@@ -250,6 +250,9 @@ export const GET: APIRoute = async ({ locals, url }) => {
   for (const o of orderRows) {
     o.items_display = labels.get(o.id) || [];
     o.items_pick = picks.get(o.id) || [];
+    // Gift marker (CG, 2026-11-07): the list badges any order that
+    // contains a line the buyer flagged as a gift.
+    (o as any).has_gift = (o.items_pick || []).some((g: any) => g.gift === true);
     o.short_id = shortOrderId(String(o.id));
   }
   // The packing shelf ("What do we pack and ship?"): store orders and

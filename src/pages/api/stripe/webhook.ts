@@ -48,7 +48,14 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     if (event.type === "checkout.session.completed") {
       const s = event.data.object as Stripe.Checkout.Session;
-      if ((s.metadata as any)?.club === "1" || s.mode === "subscription") {
+      // Only the account-bound club checkout (metadata club=1) takes
+      // the membership-only path. A STORE checkout that happens to
+      // run in subscription mode because its cart carried a club
+      // line (CG, 2026-11-07) is an order first: it completes below
+      // through processCheckoutCompleted, which activates the club
+      // line from the order. Routing on mode alone would strand
+      // those orders (no completion, no confirmation) entirely.
+      if ((s.metadata as any)?.club === "1") {
         // Book Club membership: activate (or upgrade the founding
         // reservation) instead of completing a store order.
         if (s.payment_status === "paid") {

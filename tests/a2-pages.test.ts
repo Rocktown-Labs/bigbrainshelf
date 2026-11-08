@@ -63,12 +63,16 @@ assert(club.includes(">The Book Club</button>") && club.includes(">The Audio Clu
 assert(club.includes("plan-card-audio max-sm:hidden"), "the Audio Club panel starts hidden on mobile (Book Club is the default)");
 assert(club.includes("plan-card-physical"), "the Book Club panel is tagged for the switch");
 assert(club.includes("setMobilePlan"), "the switch toggles the panels");
-// Checkout wiring untouched: the three forms and their endpoints.
+// Join wiring (CG, 2026-11-07): the two forms add the club to the
+// cart; the account-bound member upgrade keeps posting to club
+// checkout with the plan dimension.
 assert(club.includes('id="club-form"') && club.includes('id="audio-form"'), "the two club forms keep their ids");
 assert(!club.includes('id="waitlist-form"') && !club.includes("CLUB_FOUNDING_CAP"), "no waitlist form and no member cap anywhere on the clubs page (cap removed 2026-10-31)");
-assert(club.includes('postJson("/api/club/checkout"'), "the join flow still posts to club checkout");
-assert(club.includes('postJson("/api/club-signup"'), "the waitlist flow still posts to club signup");
-assert(club.includes("club_plan"), "the join flow still sends the plan dimension");
+assert(club.includes('addClubToCart("book-club"') && club.includes('addClubToCart("audio-club"'), "the join forms add the clubs to the cart");
+assert(club.includes("Add to cart"), "the join buttons read Add to cart");
+assert(!club.includes('postJson("/api/club-signup"'), "the page no longer carries the waitlist signup post (joining is the cart)");
+assert(club.includes('postJson("/api/club/checkout"'), "the member upgrade still posts to club checkout");
+assert(club.includes("club_plan"), "the upgrade flow still sends the plan dimension");
 
 // ---- The four section pages all carry hero + routes bar -----------------
 const home = read("../src/pages/index.astro");
@@ -111,7 +115,7 @@ assert(club.includes("A second printed book: your pick, or a surprise you do not
 assert(club.includes("First box guarantee: if it misses in 30 days, your first payment comes back."), "clubs: short bullet 4 (first box guarantee)");
 assert(!club.includes("The club book is yours to keep digitally, even if you cancel."), "clubs: the card drops the owned-digital explanation with the long paragraph (CG 2026-11-07)");
 assert(bookClubPage.includes("yours to keep even if you cancel"), "clubs/book-club: the learn-more page keeps the owned-digital detail");
-assert(club.includes("This account already has a Book Club signup saved."), "clubs: the saved-signup note uses plain language (CG 2026-11-07)");
+assert(!club.includes("This account already has a Book Club signup saved."), "clubs: the reserved-signup guard note is deleted (CG 2026-11-07: instead of guarding attempts, just checkout)");
 assert(!club.includes("You are already on the list with the"), "clubs: the opaque shelf/list wording is gone");
 assert(club.includes("Save {clubSaveLabel} · {clubSavePct}%") && club.includes("Save {audioSaveLabel} · {audioSavePct}%"), "clubs: yearly badges carry the dollar saving and the computed percentage");
 assert(club.includes("Cancel anytime. What you own stays yours."), "clubs: card footer kept");

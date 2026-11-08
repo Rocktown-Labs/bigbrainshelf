@@ -31,6 +31,8 @@ import {
   CLUB_PRICE_CENTS,
   chicagoDateString,
   clubPriceLabel,
+  clubSignupStatus,
+  resolveClubCartLine,
 } from "./offers";
 
 export const SHELVES = [
@@ -270,8 +272,14 @@ export async function countPaidClubMembers(db: DBLike, plan?: ClubPlanId): Promi
 // so the grant is a $0 completed order for that one digital book. The
 // synthetic stripe_session_id makes the grant idempotent: webhook
 // replays, repeat activations, and rejoins all converge on one grant.
+//
+// Memberships live on the email (CG, 2026-11-07: guests subscribe from
+// the cart with no account), so a member with no account yet keys the
+// grant to the membership itself ("club:<signup id>") instead of
+// skipping it: the entitlement layer matches completed orders by email
+// too, so the book is waiting the moment they sign in with that email.
 export async function grantClubFirstBoxDigital(db: DBLike, member: any): Promise<void> {
-  const userId = member?.user_id ? String(member.user_id) : "";
+  const userId = member?.user_id ? String(member.user_id) : member?.id ? `club:${String(member.id)}` : "";
   if (!userId) return;
   const slug = CLUB_FIRST_BOX_BOOK[String(member?.shelf || "")];
   if (!slug) return;
@@ -300,54 +308,50 @@ export async function grantClubFirstBoxDigital(db: DBLike, member: any): Promise
     .run();
 }
 
-// Webhook: a paid club checkout session. Matches the reservation by the
-// signup id carried in session metadata, falling back to the email, and
-// upgrades it in place: the account email and user id win, and the
-// checkout's shelf pick replaces the reserved one when it differs.
-export async function activateClubFromSession(
+// The explicit facts one membership activation is made of. Two
+// callers build them: activateClubFromSession (the account-bound club
+// checkout's webhook) and activateClubFromOrder (a store order whose
+// cart carried a club line, CG 2026-11-07). Everything downstream of
+// the facts (the paid UPDATE, the replaced-subscription cancel, the
+// first-box grant, the welcome + owner emails) is shared, so a member
+// who joins from the cart is indistinguishable from one who joined
+// from the club checkout.
+export interface ClubActivationFields {
+  shelf: string;
+  clubPlan: ClubPlanId;
+  // Billing period: quarterly | annual (physical), monthly | annual
+  // (audio). Normalized inside applyClubActivation.
+  period: string;
+  userId?: string | null;
+  stripeCustomerId?: string | null;
+  stripeSubscriptionId?: string | null;
+  // Ships-to for the member's boxes, in the orders' storage shape
+  // (ship_address is the JSON string). Absent keeps the row's values.
+  shipName?: string | null;
+  shipAddress?: string | null;
+}
+
+// Apply an activation to an already-resolved membership row.
+async function applyClubActivation(
   db: DBLike,
-  session: any,
+  row: any,
+  fields: ClubActivationFields,
   stripe?: any
-): Promise<any | null> {
-  await ensureClubTable(db);
-  const meta = session?.metadata || {};
-  const signupId = String(meta.club_signup_id || "");
-  const email = String(meta.email || session?.customer_email || session?.customer_details?.email || "")
-    .trim()
-    .toLowerCase();
-  let row: any = null;
-  if (signupId) {
-    row = await db.prepare("SELECT * FROM club_signups WHERE id = ?").bind(signupId).first();
-  }
-  if (!row && email) row = await getClubSignup(db, email);
-  if (!row) {
-    if (!email) return null;
-    row = await upsertClubReservation(db, {
-      name: String(meta.name || ""),
-      email,
-      shelf: isShelf(String(meta.shelf || "")) ? String(meta.shelf) : "tech",
-      status: "queued",
-      userId: meta.user_id ? String(meta.user_id) : null,
-      clubPlan: meta.club_plan === "audio" ? "audio" : "physical",
-    });
-  }
-  const shelf = isShelf(String(meta.shelf || "")) ? String(meta.shelf) : row.shelf;
-  // meta.plan is the billing period (physical: quarterly | annual;
-  // audio: monthly | annual); meta.club_plan is the plan dimension.
-  // Sessions created before the Audio Club existed carry no club_plan
-  // and are physical.
-  const clubPlan: ClubPlanId = meta.club_plan === "audio" ? "audio" : "physical";
+): Promise<any> {
+  const shelf = fields.shelf;
+  const clubPlan: ClubPlanId = fields.clubPlan;
   const plan =
-    meta.plan === "annual" ? "annual" : meta.plan === "monthly" ? "monthly" : "quarterly";
+    fields.period === "annual" ? "annual" : fields.period === "monthly" ? "monthly" : "quarterly";
   // The box cycle anchors to the day this subscription was purchased.
   // A webhook replay for the SAME subscription keeps the original
   // anchor (and its already-minted boxes); a new subscription (a
   // rejoin, or a first physical join after Audio Club) starts a fresh
   // cycle at the new join date.
+  const newSubscriptionId = fields.stripeSubscriptionId ? String(fields.stripeSubscriptionId) : null;
   const sameSubscription =
     !!row.stripe_subscription_id &&
-    !!session?.subscription &&
-    String(row.stripe_subscription_id) === String(session.subscription);
+    !!newSubscriptionId &&
+    String(row.stripe_subscription_id) === newSubscriptionId;
   const firstShipDate =
     clubPlan === "physical"
       ? sameSubscription && row.first_ship_date
@@ -360,25 +364,6 @@ export async function activateClubFromSession(
   const prevSubscriptionId = row.stripe_subscription_id
     ? String(row.stripe_subscription_id)
     : null;
-  // Ships-to from the checkout session (the physical plan collects a
-  // shipping address in Stripe Checkout): stored in the same JSON
-  // shape as orders.ship_address. Absent (audio plan, older
-  // sessions) keeps whatever is already on the row.
-  const shipDetails =
-    session?.shipping_details || session?.collected_information?.shipping_details || null;
-  const shipName = shipDetails?.name ? String(shipDetails.name) : null;
-  let shipAddress: string | null = null;
-  if (shipDetails?.address) {
-    const a = shipDetails.address;
-    shipAddress = JSON.stringify({
-      line1: a.line1 || "",
-      line2: a.line2 || "",
-      city: a.city || "",
-      state: a.state || "",
-      postal_code: a.postal_code || "",
-      country: a.country || "",
-    });
-  }
   await db
     .prepare(
       `UPDATE club_signups SET
@@ -402,13 +387,13 @@ export async function activateClubFromSession(
       shelf,
       plan,
       clubPlan,
-      meta.user_id ? String(meta.user_id) : null,
-      session?.customer ? String(session.customer) : null,
-      session?.subscription ? String(session.subscription) : null,
+      fields.userId ? String(fields.userId) : null,
+      fields.stripeCustomerId ? String(fields.stripeCustomerId) : null,
+      newSubscriptionId,
       firstShipDate,
       now(),
-      shipName,
-      shipAddress,
+      fields.shipName ? String(fields.shipName) : null,
+      fields.shipAddress ? String(fields.shipAddress) : null,
       row.id
     )
     .run();
@@ -419,7 +404,6 @@ export async function activateClubFromSession(
   // Best effort: a failure is logged, never fatal to the activation
   // (the member's new club is live either way, and a stuck old sub
   // is visible in Stripe for a human to kill).
-  const newSubscriptionId = session?.subscription ? String(session.subscription) : null;
   if (stripe && prevSubscriptionId && newSubscriptionId && prevSubscriptionId !== newSubscriptionId) {
     try {
       await stripe.subscriptions.cancel(prevSubscriptionId);
@@ -456,7 +440,7 @@ export async function activateClubFromSession(
         : plan === "annual" ? CLUB_ANNUAL_PRICE_CENTS : CLUB_PRICE_CENTS;
       const cadence = plan === "annual" ? "a year" : audio ? "a month" : "a quarter";
       const price = `${clubPriceLabel(cents)} ${cadence}`;
-      const dedupe = `${row.id}:${String(session?.subscription || "")}`;
+      const dedupe = `${row.id}:${String(newSubscriptionId || "")}`;
       await enqueueEmail(db, {
         kind: "club_welcome",
         to: String(member.email),
@@ -481,6 +465,135 @@ export async function activateClubFromSession(
     console.error("club welcome/owner emails failed", (err as any)?.message || err);
   }
   return member;
+}
+
+// Webhook: a paid club checkout session. Matches the reservation by the
+// signup id carried in session metadata, falling back to the email, and
+// upgrades it in place: the account email and user id win, and the
+// checkout's shelf pick replaces the reserved one when it differs.
+export async function activateClubFromSession(
+  db: DBLike,
+  session: any,
+  stripe?: any
+): Promise<any | null> {
+  await ensureClubTable(db);
+  const meta = session?.metadata || {};
+  const signupId = String(meta.club_signup_id || "");
+  const email = String(meta.email || session?.customer_email || session?.customer_details?.email || "")
+    .trim()
+    .toLowerCase();
+  let row: any = null;
+  if (signupId) {
+    row = await db.prepare("SELECT * FROM club_signups WHERE id = ?").bind(signupId).first();
+  }
+  if (!row && email) row = await getClubSignup(db, email);
+  if (!row) {
+    if (!email) return null;
+    row = await upsertClubReservation(db, {
+      name: String(meta.name || ""),
+      email,
+      shelf: isShelf(String(meta.shelf || "")) ? String(meta.shelf) : "tech",
+      status: "queued",
+      userId: meta.user_id ? String(meta.user_id) : null,
+      clubPlan: meta.club_plan === "audio" ? "audio" : "physical",
+    });
+  }
+  // Ships-to from the checkout session (the physical plan collects a
+  // shipping address in Stripe Checkout): stored in the same JSON
+  // shape as orders.ship_address. Absent (audio plan, older
+  // sessions) keeps whatever is already on the row.
+  const shipDetails =
+    session?.shipping_details || session?.collected_information?.shipping_details || null;
+  let shipAddress: string | null = null;
+  if (shipDetails?.address) {
+    const a = shipDetails.address;
+    shipAddress = JSON.stringify({
+      line1: a.line1 || "",
+      line2: a.line2 || "",
+      city: a.city || "",
+      state: a.state || "",
+      postal_code: a.postal_code || "",
+      country: a.country || "",
+    });
+  }
+  return applyClubActivation(
+    db,
+    row,
+    {
+      // meta.plan is the billing period (physical: quarterly | annual;
+      // audio: monthly | annual); meta.club_plan is the plan dimension.
+      // Sessions created before the Audio Club existed carry no
+      // club_plan and are physical.
+      shelf: isShelf(String(meta.shelf || "")) ? String(meta.shelf) : row.shelf,
+      clubPlan: meta.club_plan === "audio" ? "audio" : "physical",
+      period: String(meta.plan || ""),
+      userId: meta.user_id ? String(meta.user_id) : null,
+      stripeCustomerId: session?.customer ? String(session.customer) : null,
+      stripeSubscriptionId: session?.subscription ? String(session.subscription) : null,
+      shipName: shipDetails?.name ? String(shipDetails.name) : null,
+      shipAddress,
+    },
+    stripe
+  );
+}
+
+// Order completion: a paid store order whose cart carried a club line
+// (CG, 2026-11-07: clubs are cart products; guests subscribe with no
+// account). The membership is keyed to the ORDER's email: the
+// reservation is upserted first (shelf from any existing row, else the
+// default), then the shared activation runs with the order's own
+// ships-to and the session's Stripe customer/subscription, so the
+// subscription lifecycle webhooks keep syncing this row exactly like
+// a club-checkout membership. The account user id attaches only when
+// the order itself belongs to an account (a "guest:<id>" key is not
+// one); the email match claims the membership at sign-in either way.
+export async function activateClubFromOrder(
+  db: DBLike,
+  order: any,
+  session: any,
+  stripe?: any
+): Promise<any | null> {
+  await ensureClubTable(db);
+  let items: any[] = [];
+  try {
+    const raw = JSON.parse(order?.items || "[]");
+    if (Array.isArray(raw)) items = raw;
+  } catch { /* an order without a parseable items list has no club line */ }
+  const line = items
+    .map((x: any) => resolveClubCartLine(x?.slug, x?.format))
+    .find((s: any) => s);
+  if (!line) return null;
+  const meta = session?.metadata || {};
+  const email = String(order?.email || meta.club_email || session?.customer_email || session?.customer_details?.email || "")
+    .trim()
+    .toLowerCase();
+  if (!email) return null;
+  const existing = await getClubSignup(db, email);
+  const orderUserId = String(order?.user_id || "");
+  const row = await upsertClubReservation(db, {
+    name: String(order?.ship_name || existing?.name || email.split("@")[0]),
+    email,
+    shelf: existing?.shelf && isShelf(String(existing.shelf)) ? String(existing.shelf) : "tech",
+    status: existing?.status || clubSignupStatus(),
+    userId: orderUserId && !orderUserId.startsWith("guest:") ? orderUserId : null,
+    clubPlan: line.clubPlan,
+  });
+  if (!row) return null;
+  return applyClubActivation(
+    db,
+    row,
+    {
+      shelf: row.shelf,
+      clubPlan: line.clubPlan,
+      period: line.period,
+      userId: orderUserId && !orderUserId.startsWith("guest:") ? orderUserId : null,
+      stripeCustomerId: session?.customer ? String(session.customer) : null,
+      stripeSubscriptionId: session?.subscription ? String(session.subscription) : null,
+      shipName: order?.ship_name ? String(order.ship_name) : null,
+      shipAddress: order?.ship_address ? String(order.ship_address) : null,
+    },
+    stripe
+  );
 }
 
 // Webhook: a subscription ended (deleted by Stripe, or lapsed to a

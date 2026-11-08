@@ -70,6 +70,15 @@ try {
 // dashboard); empty until CG configures one, and the field then
 // quietly stays a plain input.
 const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").trim();
+
+// Whether the visitor is signed in. Guests checking out with a club
+// line name the membership email on this page (the Review step); a
+// signed-in buyer's session email rules and no field ever shows.
+let signedIn = false;
+try {
+  const s = await getAuth().api.getSession({ headers: Astro.request.headers });
+  signedIn = !!s?.user;
+} catch { signedIn = false; }
 ---
 <!doctype html>
 <html lang="en">
@@ -197,6 +206,13 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
         <div id="step-review" class="border-t border-b border-stone-200 py-6">
           <h2 class="text-lg font-medium text-stone-900"><span id="review-num" class="text-orange-700 font-bold mr-1">3.</span> Review and pay</h2>
           <div id="step3-body" class="hidden">
+            <div id="guest-email-box" class="hidden mt-4">
+              <label class="block">
+                <span class="text-xs font-semibold text-stone-500">Email for your membership and receipt</span>
+                <input id="guest-email" type="email" autocomplete="email" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm" />
+              </label>
+              <p class="text-xs text-stone-400 mt-1">Your membership lives on this email. No account needed.</p>
+            </div>
             <p id="err" class="text-sm text-red-600 hidden mt-3"></p>
             <button id="checkout" class="mt-4 w-full rounded-lg bg-orange-600 text-white text-sm font-semibold py-3 hover:bg-orange-700">Checkout</button>
             <p class="text-sm text-stone-500 mt-3">No account needed. Your download links arrive by email after checkout.</p>
@@ -207,13 +223,16 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
     </div>
   </main>
 
-  <script is:inline define:vars={{ upgradeCentsBySlug, radarPublishableKey }}>
+  <script is:inline define:vars={{ upgradeCentsBySlug, radarPublishableKey, signedIn }}>
     // Per-book digital prices for the signed-in audiobook owner
     // (see the frontmatter). Read by entryPrice below.
     window.__bbsUpgrades = upgradeCentsBySlug || {};
     // Radar publishable key for the street field's autocomplete;
     // empty until configured, and the field then stays plain.
     window.__bbsRadarPk = radarPublishableKey || "";
+    // Guests with a club line in the cart name their membership
+    // email in the Review step; signed-in buyers never see the field.
+    window.__bbsSignedIn = !!signedIn;
   </script>
 
   <script is:inline>
@@ -323,18 +342,22 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
         view.quoted = null;
         view.quoteId = null;
         view.shippingConfirmed = false;
-        document.getElementById("ship-amount").textContent = "Calculated from your address";
+        document.getElementById("ship-amount").textContent = view.shippingStep ? "Calculated from your address" : "Included";
         document.getElementById("total").textContent = store.money(displayTotal());
       }
 
       // Which step is open follows the state, nothing else: digital
-      // carts live in Review; physical carts sit in Address until a
-      // quote exists, then Shipping until it is confirmed, then
-      // Review. Completed steps collapse to their summary line.
+      // carts live in Review; address carts sit in Address until the
+      // address checks out, then (only when a shipping CHARGE exists
+      // to confirm) Shipping, then Review. A club-only Book Club
+      // cart collects the address for its first box and skips the
+      // Shipping step entirely: club shipping is included, so there
+      // is no rate to confirm. Completed steps collapse to their
+      // summary line.
       function currentStep() {
         if (!view.physical) return "review";
         if (!view.quoted) return "address";
-        if (!view.shippingConfirmed) return "shipping";
+        if (view.shippingStep && !view.shippingConfirmed) return "shipping";
         return "review";
       }
 
@@ -343,8 +366,14 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
         var addrSection = document.getElementById("step-address");
         var shipSection = document.getElementById("step-shipping");
         addrSection.classList.toggle("hidden", !view.physical);
-        shipSection.classList.toggle("hidden", !view.physical);
-        document.getElementById("review-num").classList.toggle("hidden", !view.physical);
+        shipSection.classList.toggle("hidden", !view.shippingStep);
+        var reviewNum = document.getElementById("review-num");
+        reviewNum.classList.toggle("hidden", !view.physical);
+        reviewNum.textContent = view.shippingStep ? "3." : "2.";
+        // The guest membership email belongs to the Review step and
+        // shows only for a guest whose cart carries a club line.
+        var emailBox = document.getElementById("guest-email-box");
+        if (emailBox) emailBox.classList.toggle("hidden", !(view.hasClub && !window.__bbsSignedIn));
         // Step 1: form open only on the address step; once quoted it
         // collapses to the address on one line, with Edit.
         shipFormEl.classList.toggle("hidden", !(view.physical && step === "address"));
@@ -408,6 +437,17 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
           }
           var total = 0;
           box.innerHTML = items.map(function (it, idx) {
+            var ci = store.clubInfo(it);
+            if (ci) {
+              // A club line: branded tile, club name and period, no
+              // dedication, no quantity, no gift toggle.
+              total += ci.price;
+              return '<div class="flex gap-4 py-4 border-b border-stone-100">' +
+                '<div class="w-16 aspect-[3/4] rounded bg-[#1a3454] text-white flex items-center justify-center shrink-0"><span class="text-[9px] font-extrabold leading-tight tracking-wide text-center">BIG<br />BRAIN<br />SHELF</span></div>' +
+                '<div class="flex-1"><p class="text-sm font-semibold">' + ci.title + '</p><p class="text-xs text-stone-500">Membership · ' + ci.periodLabel + '</p>' +
+                '<button class="remove text-xs text-stone-400 hover:text-red-600 mt-1" data-idx="' + idx + '">Remove</button></div>' +
+                '<p class="text-sm font-semibold">' + store.money(ci.price) + '<span class="block text-xs font-normal text-stone-400">per billing period</span></p></div>';
+            }
             var b = bySlug[it.slug];
             var p = store.priceOf(bySlug, it);
             var q = Math.max(1, Math.min(99, Math.floor(Number(it.qty)) || 1));
@@ -418,20 +458,37 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
                 '<input data-dedication="' + idx + '" type="text" maxlength="60" placeholder="First name" class="w-44 max-w-full rounded-lg border border-stone-300 px-3 py-1.5 text-sm" /></label>' +
                 '<p class="text-xs text-stone-400 mt-1">Leave blank and the book starts with a write-in line instead.</p>'
               : '';
+            // The gift flag (CG, 2026-11-07): same per-line toggle
+            // as the cart sheet; a flagged line wears the Gift tag.
+            var giftToggle = '<label class="mt-1.5 flex items-center gap-1.5 text-xs text-stone-500 cursor-pointer w-fit"><input type="checkbox" class="gift-toggle accent-orange-600" data-idx="' + idx + '"' + (it.gift ? " checked" : "") + ' /> This is a gift</label>';
+            var giftTag = it.gift ? ' <span class="align-middle rounded-full bg-orange-100 text-orange-800 text-[10px] font-bold px-1.5 py-0.5">Gift</span>' : '';
             return '<div class="flex gap-4 py-4 border-b border-stone-100">' +
               (b.cover_key ? '<img src="' + (b.cover_card || (store.R2 + b.cover_key)) + '" class="w-16 aspect-[3/4] object-cover rounded bg-stone-100" />' : '<div class="w-16 aspect-[3/4] rounded bg-stone-100"></div>') +
-              '<div class="flex-1"><p class="text-sm font-semibold">' + b.title + '</p><p class="text-xs text-stone-500 capitalize">' + (b.topic || "tech") + ' · ' + fmt + (q > 1 ? ' · Qty ' + q : '') + '</p>' + dedication +
-              '<button class="remove text-xs text-stone-400 hover:text-red-600 mt-1" data-idx="' + idx + '">Remove</button></div>' +
+              '<div class="flex-1"><p class="text-sm font-semibold">' + b.title + giftTag + '</p><p class="text-xs text-stone-500 capitalize">' + (b.topic || "tech") + ' · ' + fmt + (q > 1 ? ' · Qty ' + q : '') + '</p>' + dedication + giftToggle +
+              '<button class="remove text-xs text-stone-400 hover:text-red-600 mt-1 block" data-idx="' + idx + '">Remove</button></div>' +
               '<p class="text-sm font-semibold">' + store.money(p * q) + (q > 1 ? '<span class="block text-xs font-normal text-stone-400">' + store.money(p) + ' each</span>' : '') + '</p></div>';
           }).join("");
           view.total = total;
-          view.physical = store.hasPhysical(items);
+          // Address is owed by physical book lines OR a Book Club
+          // line (first box); the Shipping step exists only when a
+          // shipping charge rides on physical book lines.
+          view.physical = store.needsAddress(items);
+          view.shippingStep = store.hasPhysical(items);
+          view.hasClub = items.some(function (it) { return store.isClubSlug(it.slug); });
           var shipRow = document.getElementById("ship-row");
-          if (view.physical) {
+          if (view.shippingStep) {
             shipRow.classList.remove("hidden");
             shipRow.classList.add("flex");
             document.getElementById("ship-amount").textContent = "Calculated from your address";
             document.getElementById("summary-note").textContent = "Your printed books ship to you; the digital files are yours right away, forever.";
+            checkoutBtn.textContent = "Checkout";
+          } else if (view.physical) {
+            // Club-only physical: the box ships as part of the
+            // membership, so the row reads Included, never a charge.
+            shipRow.classList.remove("hidden");
+            shipRow.classList.add("flex");
+            document.getElementById("ship-amount").textContent = "Included";
+            document.getElementById("summary-note").textContent = "Your first club box ships as part of your membership.";
             checkoutBtn.textContent = "Checkout";
           } else {
             shipRow.classList.add("hidden");
@@ -453,6 +510,13 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
         // The store writes, repaints the badge, and announces the
         // change; the subscription below re-renders in place.
         if (entry) store.remove(entry.slug, entry.format);
+      });
+
+      box.addEventListener("change", function (e) {
+        var t = e.target;
+        if (!t || !t.classList || !t.classList.contains("gift-toggle")) return;
+        var entry = view.items[parseInt(t.getAttribute("data-idx"), 10)];
+        if (entry) store.setGift(entry.slug, entry.format, t.checked);
       });
 
       clearBtn.addEventListener("click", function () { store.clear(); });
@@ -490,10 +554,26 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
             body: JSON.stringify({ action: "quote", items: payloadItems(), address: readAddress(), guest_id: store.bbsGuestId(), promo_code: view.promo ? view.promo.code : undefined }),
           });
           var qd = await qr.json().catch(function () { return {}; });
-          if (!qr.ok || !qd.shipping) throw new Error(qd.error || "Could not get a shipping quote.");
+          if (!qr.ok || (!qd.shipping && !qd.address_only)) throw new Error(qd.error || "Could not get a shipping quote.");
+          if (qd.promo) { view.promo = qd.promo; paintPromo(); }
+          if (qd.address_only) {
+            // Club-only Book Club cart: the server validated the
+            // address and there is no shipping to quote. The marker
+            // stands in for a quote so the steps advance to Review
+            // with no shipping line; the address rides the pay call
+            // onto the order (and into the membership's ships-to).
+            view.quoted = { amount_cents: 0, address_only: true };
+            view.quoteId = null;
+            document.getElementById("total").textContent = store.money(qd.total);
+            checkoutBtn.textContent = "Pay " + store.money(qd.total);
+            paintSteps();
+            document.getElementById("step-review").scrollIntoView({ behavior: "smooth", block: "start" });
+            btn.disabled = false;
+            btn.textContent = "Continue";
+            return;
+          }
           view.quoted = qd.shipping;
           view.quoteId = qd.shipping.quote_id || null;
-          if (qd.promo) { view.promo = qd.promo; paintPromo(); }
           var va = qd.shipping.validated_address;
           if (va) {
             // A standardized address is adopted silently (CG,
@@ -582,6 +662,20 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
       checkoutBtn.addEventListener("click", async function () {
         var btn = this, err = document.getElementById("err");
         if (view.physical && !view.quoted) return;
+        // A guest whose cart carries a club line names the
+        // membership email here: it keys the membership, receives
+        // the receipt, and the server's guards check it before any
+        // session exists. Signed-in buyers never see the field.
+        var guestEmail = "";
+        if (view.hasClub && !window.__bbsSignedIn) {
+          guestEmail = (document.getElementById("guest-email").value || "").trim();
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail)) {
+            err.textContent = "Please add the email for your membership and receipt.";
+            err.classList.remove("hidden");
+            document.getElementById("guest-email").focus();
+            return;
+          }
+        }
         btn.disabled = true; err.classList.add("hidden");
         try {
           // Guests check out too (one-time purchases). The server
@@ -590,10 +684,12 @@ const radarPublishableKey = String((env as any).RADAR_PUBLISHABLE_KEY || "").tri
           // carry the preview's quote_id, and the server charges
           // that exact stored quote, so the amount never drifts
           // between the shipping step and Stripe.
+          var payload = view.physical ? { items: payloadItems(), address: readAddress(), guest_id: store.bbsGuestId(), quote_id: view.quoteId || undefined, promo_code: view.promo ? view.promo.code : undefined } : { items: view.items, guest_id: store.bbsGuestId(), promo_code: view.promo ? view.promo.code : undefined };
+          if (guestEmail) payload.email = guestEmail;
           var r = await fetch("/api/checkout", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(view.physical ? { items: payloadItems(), address: readAddress(), guest_id: store.bbsGuestId(), quote_id: view.quoteId || undefined, promo_code: view.promo ? view.promo.code : undefined } : { items: view.items, guest_id: store.bbsGuestId(), promo_code: view.promo ? view.promo.code : undefined }),
+            body: JSON.stringify(payload),
           });
           var data = await r.json().catch(function () { return {}; });
           if (!r.ok || !data.url) throw new Error(data.error || "Checkout failed.");
