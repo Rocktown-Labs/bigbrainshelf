@@ -192,3 +192,129 @@ HARD RULES FOR THE FIX:
 THE BIBLE TO FIX:
 ${JSON.stringify(bible, null, 1)}`;
 }
+
+// ---------------------------------------------------------------------
+// STAGED BIBLE PROMPTS (the modular build: reader pack in, small parts
+// out, each gated in code). The monolith TEMPLATE above remains only
+// for the repair path's bible regen. House rules live here once per
+// stage instead of once per giant call.
+// ---------------------------------------------------------------------
+
+function packChapterLines(pack: any): string {
+  return (pack?.chapters ?? [])
+    .map(
+      (c: any) =>
+        `- ${c.chapter} "${c.sourceTitle}": idea: ${c.idea} | how it works: ${c.mechanism} | the author's example: ${c.example} | how the chapter lands: ${c.payoff}`
+    )
+    .join("\n");
+}
+
+export function buildCastPrompt(info: any, pack: any, takenNames: string[], hero: any): string {
+  return `You are casting an original children's picture book (ages ${info?.ageBand ?? "4 to 8"}) adapted from the ideas of a grown-up book. A frontier reader has already read the source and produced the notes below. Invent the book's cast and frame from those notes. Reply with ONLY a JSON object, no other text.
+
+THE READER'S NOTES:
+Book the source teaches: ${pack?.throughLine ?? info?.subject ?? info?.title ?? ""}
+Chapters:
+${packChapterLines(pack)}
+World material from the source: ${(pack?.worldNotes ?? []).join("; ") || "(none)"}
+The author's own labels (NEVER use these in the book's title, idea, setting, or any story-facing text): ${(pack?.labels ?? []).join(", ") || "(none)"}
+
+${
+  hero?.name
+    ? `THE HERO IS GIVEN: the protagonist MUST be ${hero.name} the ${hero.species}. Build the book around exactly this hero; invent any supporting cast fresh.`
+    : `CHOOSE THE HERO from the source's world, in this order: (1) if the cover description below names or clearly centers an animal, that animal is the hero; (2) a recurring animal mascot in the reader's notes is NOT eligible if it reads as the publisher's or author's brand mascot rather than a story character; (3) otherwise invent a fitting animal from the source's own world and situations. The hero is an animal, never a human.
+Cover description: ${info?.cover_description ?? ""}`
+}
+
+HARD RULES:
+- 1 to 3 characters total. Every character a different species and a different body silhouette.
+- NEVER use any of these taken names (they belong to other books): ${takenNames.length ? takenNames.join(", ") : "(none)"}. Invent fresh names a child can say.
+- Each character's "visual" is ONE sentence of at most 40 words: body shape and features only.
+- realMapsTo: for the protagonist, the reader's through-line idea they embody, in plain words.
+- sourceKind: "technical" when the source teaches a real tool or system whose own names are the curriculum (a manual, a software book, a how-to); otherwise "ideas". Set it honestly: it decides whether real terms may be taught.
+- The bookTitle is original. Never the source's title, never the author's name, no em dashes anywhere.
+
+Return exactly this JSON shape:
+{
+  "bookTitle": "an original title",
+  "bigIdea": "the one idea of the whole book, one sentence a child could almost say back",
+  "ageBand": "${info?.ageBand ?? "4 to 8"}",
+  "sourceKind": "technical" or "ideas",
+  "protagonist": {"name": "...", "species": "...", "visual": "...", "trait": "their virtue and their struggle, one line", "realMapsTo": "..."},
+  "supportingCast": [{"name": "...", "species": "...", "visual": "...", "trait": "...", "realMapsTo": "..."}],
+  "setting": "the world in a line or two, named for the story's own places",
+  "locations": ["4 to 6 concrete places"],
+  "openingJob": "the concrete job the hero is trying to finish, at most 30 words",
+  "starNote": "how the hero's look stays consistent: the 3 to 4 marks that must never change",
+  "series": {"name": null, "promise": null, "throughLine": null, "rule": null, "companion": null, "starter": null}
+}`;
+}
+
+export function buildLadderPrompt(info: any, pack: any, cast: any): string {
+  const castLine = [cast?.protagonist, ...(cast?.supportingCast ?? [])]
+    .filter(Boolean)
+    .map((c: any) => `${c.name} (${c.species})`)
+    .join(", ");
+  return `You are building the chapter ladder for an original children's picture book, "${cast?.bookTitle}", from a frontier reader's notes on the grown-up source. Reply with ONLY a JSON object, no other text.
+
+THE BOOK:
+Big idea: ${cast?.bigIdea}
+Cast: ${castLine}
+Setting: ${cast?.setting}
+Opening job: ${cast?.openingJob}
+Age band: ${cast?.ageBand ?? "4 to 8"} (write to it: short simple sentences, everyday words, definitions a child could say back)
+
+THE READER'S CHAPTER NOTES (one ladder rung per chapter, same order):
+${packChapterLines(pack)}
+The author's labels (NEVER in chapter titles, ideas, or metaphors; teach the idea in the story's own words): ${(pack?.labels ?? []).join(", ") || "(none)"}
+
+HARD RULES:
+- One rung per source chapter: storyChapter S1..S${(pack?.chapters ?? []).length}, sequence 1..N, each with a story title in the book's own words.
+- Each rung: ONE idea, the one its chapter note teaches; a mechanism (what the character DOES with the idea, in the world); ONE concrete metaphor object from the setting; a failureCase of at least 20 characters showing what goes wrong without the idea, different text from the mechanism. If one rung has a failureCase, EVERY rung has one.
+- The final rung's story must cash in the opening job: the job finished the new way, the whole cast present.
+- sourceTermsUsed: every real term or label from the notes your rungs draw on (these become the forbidden list; be complete).
+- No em dashes.
+
+Return exactly this JSON shape:
+{
+  "conceptLadder": [{"storyChapter": "S1", "sequence": 1, "title": "...", "idea": "...", "mechanism": "...", "metaphor": "...", "failureCase": "..."}],
+  "arc": "how the rungs build across the book, 2 to 3 sentences",
+  "runningGags": ["small repeating bits"],
+  "bannedOpeners": ["overused opening lines to avoid"],
+  "sourceTermsUsed": ["real terms and labels the rungs draw on"]
+}`;
+}
+
+export function buildInventoryPrompt(cast: any, ladder: any, forbidden: string[], sourceKind: string): string {
+  const metaphors = (ladder?.conceptLadder ?? []).map((e: any) => e.metaphor).filter(Boolean);
+  return `You are finishing the production back-matter for a children's picture book, "${cast?.bookTitle}". Reply with ONLY a JSON object, no other text.
+
+Setting: ${cast?.setting}
+Locations: ${(cast?.locations ?? []).join(", ")}
+Chapter metaphors (every object named here MUST appear in "exists"): ${metaphors.join("; ")}
+
+FORBIDDEN SOURCE TERMS (already decided; do not add or remove):
+${forbidden.join(", ")}
+
+Produce:
+1. "termMap": one entry for EVERY forbidden term above: {"term": the forbidden term, "storyName": a plain story-world phrase a child understands that says the same thing, "definition": one plain sentence}. This table is production-only and never prints; it exists so writers have a legal way to say each idea.
+2. "vocab": the book's printed glossary. ${
+    sourceKind === "technical"
+      ? "This is a TECHNICAL book: list the real curriculum terms the chapters teach, each with a storyName and a plain definition."
+      : "This is an IDEAS book: plain-phrase entries ONLY, phrases a family would use at home (like \"sticking with a hard goal\"). NEVER an author's coined label or framework name; those live only in termMap."
+  } Every vocab entry needs a storyName and a definition.
+3. "exists": at least 22 plain physical nouns that exist in this story's world, including every metaphor object.
+4. "doesNotExist": at least 12 things that do NOT exist in this world (modern or off-world items a page must never show).
+
+Return exactly: {"termMap": [...], "vocab": [...], "exists": [...], "doesNotExist": [...]}`;
+}
+
+export function buildStageRepairPrompt(partName: string, problems: string[], partJson: any): string {
+  return `You produced the ${partName} JSON below for a children's picture book. It FAILED production checks. Fix EVERY problem listed and reply with ONLY the complete corrected JSON object, same schema. Change nothing a fix does not require. No em dashes.
+
+PROBLEMS TO FIX:
+${problems.map((p) => `- ${p}`).join("\n")}
+
+THE ${partName.toUpperCase()} TO FIX:
+${JSON.stringify(partJson, null, 1)}`;
+}
