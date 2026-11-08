@@ -9,7 +9,7 @@ import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 import { WorkflowEntrypoint, WorkflowStep } from "cloudflare:workers";
 import type { WorkflowEvent } from "cloudflare:workers";
 import { extractText as unpdfExtractText } from "unpdf";
-import { generateImage, generateImageMetered, generateColorImage, generateColorImageMetered, qcImage, qcImageDetailed, qcColorImage, qcColorImageDetailed, sheetKeyFor, anchoredPrompt, judgeCastListing, castListingOk } from "./ai";
+import { generateImage, generateImageMetered, editImageMetered, generateColorImage, generateColorImageMetered, qcImage, qcImageDetailed, qcColorImage, qcColorImageDetailed, sheetKeyFor, anchoredPrompt, judgeCastListing, castListingOk } from "./ai";
 import { loadCrops, loadCropBytes, resolveSceneCrops, cropsCoverage } from "./crops";
 import { linePurity, analyzePage, pageVerdict, purifyPage } from "./purity";
 import { gatewayConfigured, generateGatewayImage, generateGatewayImageMetered, colorPagePrompt, linePromptFromScene } from "./gateway";
@@ -749,9 +749,9 @@ export async function genImageWithQC(
   // Best reject so far, for the edit pass below: a Clef reject beats
   // a purity reject (the composition at least rendered), and among
   // Clef rejects the one with the fewest failing clauses wins.
-  let bestReject: { bytes: Uint8Array; reasons: string[]; failCount: number } | null = null;
-  const noteReject = (bytes: Uint8Array, reasons: string[], failCount: number) => {
-    if (!bestReject || failCount < bestReject.failCount) bestReject = { bytes, reasons, failCount };
+  let bestReject: { bytes: Uint8Array; reasons: string[]; failCount: number; interactionId: string | null } | null = null;
+  const noteReject = (bytes: Uint8Array, reasons: string[], failCount: number, interactionId: string | null = null) => {
+    if (!bestReject || failCount < bestReject.failCount) bestReject = { bytes, reasons, failCount, interactionId };
   };
   for (let attempt = 1; attempt <= MAX_ROLLS; attempt++) {
     const cap = await spendCapHit(env, slug);
@@ -779,7 +779,7 @@ export async function genImageWithQC(
     if (a.decoded && Math.abs(a.width / a.height - 0.75) > 0.06) {
       events.push({ attempt, outcome: "purity_reject", cost: cur.cost });
       await logGenAttempt(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, attempt, { outcome: "purity_reject", reason: `aspect ${a.width}x${a.height} is not 3:4`, cost: cur.cost }, bytes);
-      noteReject(bytes, [`the image is ${a.width}x${a.height}, not the required 3:4 portrait`], 90);
+      noteReject(bytes, [`the image is ${a.width}x${a.height}, not the required 3:4 portrait`], 90, cur.interactionId);
       strikes++;
       console.log(`aspect rejected image (attempt ${attempt} of ${MAX_ROLLS}): ${a.width}x${a.height}`);
       if (strikes >= 2) break;
@@ -790,7 +790,7 @@ export async function genImageWithQC(
     if (v.verdict === "reject") {
       events.push({ attempt, outcome: "purity_reject", cost: cur.cost });
       await logGenAttempt(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, attempt, { outcome: "purity_reject", reason: v.reasons.join("; "), cost: cur.cost }, bytes);
-      noteReject(bytes, v.reasons, 90);
+      noteReject(bytes, v.reasons, 90, cur.interactionId);
       strikes++;
       console.log(`purity rejected image (attempt ${attempt} of ${MAX_ROLLS}): ${v.reasons.join("; ")}`);
       // Two purity failures on one page means the STYLE is wrong, not
@@ -808,7 +808,7 @@ export async function genImageWithQC(
       } else {
         events.push({ attempt, outcome: "purity_reject", cost: cur.cost });
         await logGenAttempt(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, attempt, { outcome: "purity_reject", reason: `autofix failed: ${v.reasons.join("; ")}`, cost: cur.cost }, bytes);
-        noteReject(bytes, v.reasons, 90);
+        noteReject(bytes, v.reasons, 90, cur.interactionId);
         strikes++;
         console.log(`purity autofix failed (attempt ${attempt} of ${MAX_ROLLS}): ${v.reasons.join("; ")}`);
         if (strikes >= 2) break;
@@ -824,7 +824,7 @@ export async function genImageWithQC(
       if (gate.reason && gate.mode === "hard") {
         events.push({ attempt, outcome: "cast_reject", cost: cur.cost });
         await logGenAttempt(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, attempt, { outcome: "cast_reject", reason: gate.reason, scores: qd.scores, cost: cur.cost }, bytes);
-        noteReject(bytes, [gate.reason], 1);
+        noteReject(bytes, [gate.reason], 1, cur.interactionId);
         console.log(`cast gate rejected image (attempt ${attempt} of ${MAX_ROLLS}): ${gate.reason}`);
         continue;
       }
@@ -839,7 +839,7 @@ export async function genImageWithQC(
     }
     events.push({ attempt, outcome: "qc_reject", cost: cur.cost });
     await logGenAttempt(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, attempt, { outcome: "qc_reject", reason: qd.reason, scores: qd.scores, cost: cur.cost }, bytes);
-    noteReject(bytes, [qd.reason ?? "quality control rejected the page"], (qd.reason ?? "").split(/[;|]/).filter((s) => s.trim()).length || 5);
+    noteReject(bytes, [qd.reason ?? "quality control rejected the page"], (qd.reason ?? "").split(/[;|]/).filter((s) => s.trim()).length || 5, cur.interactionId);
     console.log(`QC rejected image (attempt ${attempt} of ${MAX_ROLLS})`);
   }
   // ---- QC edit pass: one correction attempt on the best reject ----
@@ -862,7 +862,18 @@ export async function genImageWithQC(
           `The scene to preserve, in full: ${prompt}\n` +
           "The other reference images are the characters' model sheets: match them. " +
           "Black and white line art, clean bold outlines, one single scene, no text, no color.";
-        const cur = await generateImageMetered(env, editPrompt, [bestReject.bytes, ...sheets.slice(0, 3)]);
+        // Multi-turn shape when the reject came from an interactions
+        // roll: the directive goes in alone against the conversation
+        // and the model edits its own drawing. Cold resend otherwise.
+        const directive =
+          `What failed quality control: ${editFindings(bestReject.reasons)}. ` +
+          (fixes.length ? `Fix exactly these problems: ${fixes.join(" ")} ` : "") +
+          "Do not change any other elements of the image. " +
+          "Black and white line art, clean bold outlines, one single scene, no text, no color.";
+        const cur = bestReject.interactionId
+          ? await editImageMetered(env, directive, bestReject.interactionId)
+          : await generateImageMetered(env, editPrompt, [bestReject.bytes, ...sheets.slice(0, 3)]);
+        if (bestReject.interactionId) console.log("edit pass: chained interactions turn");
         let bytes = cur.bytes;
         const a = analyzePage(bytes);
         let failReason: string | null = null;

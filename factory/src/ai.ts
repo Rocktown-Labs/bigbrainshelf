@@ -36,7 +36,7 @@ const PLANNER = "@cf/qwen/qwen2.5-coder-32b-instruct";
 // art now comes from the gateway's Nano Banana (see gateway.ts):
 // generateImage draws the line-art twin, generateColorImage the color
 // version, both conditioned on the approved character sheets.
-import { generateGatewayImage, generateGatewayImageMetered, gatewayConfigured, lineArtPrompt, colorPagePrompt } from "./gateway";
+import { generateGatewayImage, generateGatewayImageMetered, gatewayConfigured, interactionsTransportOn, lineArtPrompt, colorPagePrompt } from "./gateway";
 import { GEMINI_MODEL, logTextEvent } from "./models";
 
 export async function planChapter(
@@ -178,10 +178,25 @@ export async function generateImage(env: any, scene: string, refBytes?: Uint8Arr
   return bytes;
 }
 
-export async function generateImageMetered(env: any, scene: string, refBytes?: Uint8Array | Uint8Array[] | null): Promise<{ bytes: Uint8Array; cost: number | null }> {
-  if (!gatewayConfigured(env)) throw new Error("line art needs the gateway: AI_GATEWAY_KEY secret not set");
+export async function generateImageMetered(env: any, scene: string, refBytes?: Uint8Array | Uint8Array[] | null): Promise<{ bytes: Uint8Array; cost: number | null; interactionId: string | null }> {
+  if (!gatewayConfigured(env) && !interactionsTransportOn(env)) throw new Error("line art needs the gateway: AI_GATEWAY_KEY secret not set");
   const refs = !refBytes ? [] : Array.isArray(refBytes) ? refBytes : [refBytes];
   return generateGatewayImageMetered(env, lineArtPrompt(scene, refs.length > 0), refs);
+}
+
+// QC edit pass, two shapes (see gateway.ts). When the reject came from
+// an interactions roll, the edit is a chained turn: the directive goes
+// in alone with previousInteractionId and the model edits its own
+// output with the prompt, the sheets, and the drawing in context. When
+// it did not (gateway transport), the caller falls back to the cold
+// resend through generateImageMetered with the reject in the refs.
+export async function editImageMetered(
+  env: any,
+  directive: string,
+  previousInteractionId: string
+): Promise<{ bytes: Uint8Array; cost: number | null; interactionId: string | null }> {
+  if (!interactionsTransportOn(env)) throw new Error("chained edits need the interactions transport");
+  return generateGatewayImageMetered(env, directive, [], "3:4", { previousInteractionId });
 }
 
 // Full-color variant (covers, back covers): same gateway artist, the
@@ -192,7 +207,7 @@ export async function generateColorImage(env: any, scene: string, refBytes?: Uin
 }
 
 export async function generateColorImageMetered(env: any, scene: string, refBytes?: Uint8Array | null): Promise<{ bytes: Uint8Array; cost: number | null }> {
-  if (!gatewayConfigured(env)) throw new Error("color art needs the gateway: AI_GATEWAY_KEY secret not set");
+  if (!gatewayConfigured(env) && !interactionsTransportOn(env)) throw new Error("color art needs the gateway: AI_GATEWAY_KEY secret not set");
   return generateGatewayImageMetered(env, colorPagePrompt(scene, !!refBytes), refBytes ? [refBytes] : []);
 }
 
