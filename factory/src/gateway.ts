@@ -16,6 +16,15 @@ const GATEWAY_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
 export interface GatewayEnv {
   AI_GATEWAY_KEY?: string;
   AI_GATEWAY_IMAGE_MODEL?: string;
+  // Google-direct Interactions transport (opt-in): set IMAGE_TRANSPORT
+  // to "interactions" and provide a Google AI Studio key. The gateway
+  // path above stays the default and the fallback.
+  GEMINI_API_KEY?: string;
+  GEMINI_IMAGE_MODEL?: string;
+  IMAGE_TRANSPORT?: string;
+  // Optional flat per-image USD estimate for interactions metering
+  // until the live usage shape is verified (see the transport below).
+  INTERACTIONS_COST_PER_IMAGE_USD?: string;
 }
 
 export function gatewayConfigured(env: GatewayEnv): boolean {
@@ -85,15 +94,132 @@ export function extractGatewayImage(resp: any): Uint8Array | null {
   return null;
 }
 
-// Generate one image through the gateway. refBytes are character sheets
-// (PNG or JPEG); the model conditions on them the same way Flux did,
-// only much better at holding the character.
+// ------------------------------------------------------------------
+// Google-direct Interactions transport (CG, 2026-11-07).
+//
+// The gateway chat-completions shape above is a compatibility shim for
+// this model family: it silently ignores imageConfig (we request 2K,
+// every archived roll is the 1K size, 896x1200). The native surface is
+// the Interactions API (POST generativelanguage.googleapis.com/v1beta/
+// interactions), where aspect ratio and image size are first-class
+// response_format fields and, the real prize, edits are multi-turn:
+// a follow-up call passes previous_interaction_id plus a plain
+// directive ("fix exactly this, change nothing else") and the model
+// edits its own previous output with the whole conversation (prompt,
+// reference sheets, its drawing) in context. Our QC edit pass is
+// exactly that pattern, currently faked with a cold resend.
+//
+// Opt-in by env: IMAGE_TRANSPORT=interactions + GEMINI_API_KEY secret.
+// Everything degrades to the gateway path when either is absent.
+// Metering: the gateway returns usage.cost; the interactions response
+// shape for cost is not yet verified live, so cost falls back to the
+// INTERACTIONS_COST_PER_IMAGE_USD flat estimate when configured, else
+// null (the proof run's first live response settles the real shape
+// before this transport may become the default).
+const INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
+export const INTERACTIONS_MODEL = "gemini-nano-banana-2.1";
+
+export function interactionsTransportOn(env: GatewayEnv): boolean {
+  return env?.IMAGE_TRANSPORT === "interactions" && !!env?.GEMINI_API_KEY;
+}
+
+export interface ImageGenOpts {
+  // Continue a previous interactions conversation (multi-turn edit).
+  // When set, refBytes are ignored: the conversation already holds
+  // the prompt, the sheets, and the image being edited.
+  previousInteractionId?: string;
+  // "1K" | "2K" | "4K" (interactions transport only; the gateway
+  // path's pinned size lives in its own request body).
+  imageSize?: string;
+}
+
+export async function generateInteractionsImageMetered(
+  env: GatewayEnv,
+  prompt: string,
+  refBytes: (Uint8Array | null | undefined)[] = [],
+  aspect: string = "3:4",
+  opts: ImageGenOpts = {}
+): Promise<{ bytes: Uint8Array; cost: number | null; interactionId: string | null }> {
+  const key = env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY secret not set");
+  const chained = !!opts.previousInteractionId;
+  const input: any[] = [{ type: "text", text: prompt }];
+  if (!chained) {
+    const refs = refBytes.filter((b): b is Uint8Array => !!b && b.length > 0).slice(0, 4);
+    for (const r of refs) {
+      const isPng = r[0] === 0x89 && r[1] === 0x50;
+      input.push({
+        type: "image",
+        data: bytesToB64(r),
+        mime_type: isPng ? "image/png" : "image/jpeg",
+      });
+    }
+  }
+  const body: any = {
+    model: env.GEMINI_IMAGE_MODEL || INTERACTIONS_MODEL,
+    input,
+    response_format: {
+      type: "image",
+      mime_type: "image/png",
+      aspect_ratio: aspect,
+      image_size: opts.imageSize || "1K",
+    },
+  };
+  if (chained) body.previous_interaction_id = opts.previousInteractionId;
+  const res = await fetch(INTERACTIONS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": key,
+      "Api-Revision": "2026-05-20",
+    },
+    signal: AbortSignal.timeout(300000),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`interactions HTTP ${res.status}: ${t.slice(0, 200)}`);
+  }
+  const resp: any = await res.json();
+  let b64: string | null = resp?.output_image?.data ?? null;
+  if (!b64 && Array.isArray(resp?.steps)) {
+    // Interleaved outputs nest image blocks inside steps.
+    for (const step of resp.steps) {
+      const parts = Array.isArray(step?.content) ? step.content : [];
+      for (const p of parts) {
+        if (p?.type === "image" && typeof p?.data === "string") { b64 = p.data; break; }
+      }
+      if (b64) break;
+    }
+  }
+  if (!b64) throw new Error("interactions response carried no image");
+  const bytes = b64ToBytes(b64);
+  let cost: number | null = typeof resp?.usage?.cost === "number" ? resp.usage.cost : null;
+  if (cost === null) {
+    const flat = Number(env.INTERACTIONS_COST_PER_IMAGE_USD);
+    if (Number.isFinite(flat) && flat > 0) cost = flat;
+  }
+  if (resp?.usage) console.log(`interactions usage: ${JSON.stringify(resp.usage).slice(0, 300)}`);
+  return { bytes, cost, interactionId: typeof resp?.id === "string" ? resp.id : null };
+}
+
+// Generate one image. Dispatches to the Google-direct Interactions
+// transport when it is switched on, otherwise the gateway. refBytes
+// are character sheets (PNG or JPEG); the model conditions on them
+// the same way Flux did, only much better at holding the character.
 export async function generateGatewayImageMetered(
   env: GatewayEnv,
   prompt: string,
   refBytes: (Uint8Array | null | undefined)[] = [],
-  aspect: string = "3:4"
-): Promise<{ bytes: Uint8Array; cost: number | null }> {
+  aspect: string = "3:4",
+  opts: ImageGenOpts = {}
+): Promise<{ bytes: Uint8Array; cost: number | null; interactionId: string | null }> {
+  if (interactionsTransportOn(env)) {
+    return generateInteractionsImageMetered(env, prompt, refBytes, aspect, opts);
+  }
+  if (opts.previousInteractionId) {
+    throw new Error("multi-turn edits need the interactions transport (IMAGE_TRANSPORT=interactions + GEMINI_API_KEY)");
+  }
   const key = env.AI_GATEWAY_KEY;
   if (!key) throw new Error("AI_GATEWAY_KEY secret not set");
   const refs = refBytes.filter((b): b is Uint8Array => !!b && b.length > 0).slice(0, 4);
@@ -130,7 +256,7 @@ export async function generateGatewayImageMetered(
   if (!bytes) throw new Error("gateway response carried no image");
   const cost = typeof resp?.usage?.cost === "number" ? resp.usage.cost : null;
   if (cost) console.log(`gateway image cost: $${cost}`);
-  return { bytes, cost };
+  return { bytes, cost, interactionId: null };
 }
 
 export async function generateGatewayImage(
