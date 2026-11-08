@@ -76,6 +76,53 @@ function metaphorFor(bible: any, slug: string): any {
   );
 }
 
+// The chapter's assigned metaphor, wherever the bible carries it
+// (metaphorBank first, the ladder entry as fallback). One resolver so
+// the prompt, the anchor check, and the critic all judge the same
+// object.
+export function assignedMetaphor(bible: any, slug: string): { metaphor: string; why: string } | null {
+  const fromBank = metaphorFor(bible, slug);
+  if (fromBank?.metaphor) return { metaphor: String(fromBank.metaphor), why: String(fromBank.why ?? "") };
+  const ladder = (bible.conceptLadder ?? []).find(
+    (c: any) => (c.storyChapter ?? c.chapter ?? "") === slug
+  );
+  if (ladder?.metaphor)
+    return { metaphor: String(ladder.metaphor), why: String(ladder.simplificationHides ?? "") };
+  return null;
+}
+
+const ANCHOR_STOPWORDS = new Set([
+  "the", "a", "an", "of", "with", "and", "her", "his", "their", "its",
+  "on", "in", "at", "to", "for", "that", "this", "from", "into", "over",
+]);
+
+// Candidate anchor words for a metaphor string ("blueprint" ->
+// ["blueprint", "blueprints"]; "the acorn orchard" -> acorn/orchard
+// forms). The check is deliberately generous: ANY candidate present
+// counts as anchored, plurals included.
+export function metaphorAnchorWords(metaphor: string): string[] {
+  const out = new Set<string>();
+  for (const w of String(metaphor ?? "").toLowerCase().split(/[^a-z]+/)) {
+    if (w.length < 4 || ANCHOR_STOPWORDS.has(w)) continue;
+    out.add(w);
+    if (w.endsWith("s")) out.add(w.slice(0, -1));
+    else out.add(`${w}s`);
+  }
+  return [...out];
+}
+
+// True when the plan's text names the metaphor object somewhere. The
+// failure this catches is total absence: Joy's S1 burned all 5 attempts
+// on 2026-11-06 writing a generic workshop story that never put its
+// assigned blueprint on the page, and every attempt paid for a full
+// critic read to learn it.
+export function metaphorAnchored(plan: any, metaphor: string): boolean {
+  const words = metaphorAnchorWords(metaphor);
+  if (!words.length) return true;
+  const text = JSON.stringify(plan ?? {}).toLowerCase();
+  return words.some((w) => new RegExp(`\\b${w}\\b`).test(text));
+}
+
 function chapterNum(slug: string): number {
   const m = slug.match(/S(\d+)/);
   return m ? parseInt(m[1], 10) : 99;
@@ -96,11 +143,7 @@ export function buildPrompt(
   // writer must always see it. Penny's bible carries no metaphorBank,
   // and before this fix its writers were failed for a metaphor they
   // never received (exposed by the 2026-10-24 model test).
-  const meta =
-    metaphorFor(bible, slug) ??
-    (ladder.metaphor
-      ? { metaphor: ladder.metaphor, why: ladder.simplificationHides ?? "" }
-      : null);
+  const meta = assignedMetaphor(bible, slug);
   const chNum = chapterNum(slug);
 
   let banBlock = "";
@@ -139,7 +182,12 @@ export function buildPrompt(
 
   let metaphorBlock = "";
   if (meta) {
-    metaphorBlock = `Use ONLY this metaphor: ${meta.metaphor}\nWhy it fits: ${meta.why}\n`;
+    metaphorBlock =
+      `Use ONLY this metaphor: ${meta.metaphor}\nWhy it fits: ${meta.why}\n` +
+      `HARD RULE: the metaphor is a PHYSICAL OBJECT in the story world, not a theme. ` +
+      `The ${meta.metaphor} itself must appear on the page as a real thing the characters ` +
+      `touch, carry, or use: in the first scene and again at the payoff. A draft where the ` +
+      `object never physically appears is rejected unread.\n`;
   }
 
   let criticBlock = "";
@@ -572,6 +620,23 @@ export async function planChapterAttempt(
   const prompt = buildPrompt(bible, slug, storySoFar, prevHook, criticNotes);
   const res = await callModel(env, prompt, 4096, "writer", { slug: bookSlug, purpose: "plan" });
   const plan = res.data;
+  // Free anchor check before any judging spend: if the assigned
+  // metaphor object never appears in the plan, the critic's verdict is
+  // already known (it rejected Joy's S1 five times for exactly this).
+  // Fail the attempt here with the precise fix as the note, and let
+  // the retry loop carry it into the next draft's prompt.
+  const meta = assignedMetaphor(bible, slug);
+  if (plan && meta && !metaphorAnchored(plan, meta.metaphor)) {
+    return {
+      plan,
+      passed: false,
+      notes:
+        `- The assigned metaphor object (${meta.metaphor}) never appears in the story. ` +
+        `Put the physical object itself in the characters' hands: present in the first scene ` +
+        `and again at the payoff, used to do the chapter's work, not just mentioned as an idea.`,
+      model: res.model,
+    };
+  }
   const { ok, notes } = await criticCheck(env, plan, bible, slug, bookSlug);
   let allNotes = notes;
   let passed = ok;
