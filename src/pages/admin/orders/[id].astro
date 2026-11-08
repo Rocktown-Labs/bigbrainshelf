@@ -349,6 +349,7 @@ const orderId = String(Astro.params.id || "");
                   : '<span class="w-16 h-16 rounded-lg bg-stone-100 border border-stone-200 flex-none"></span>') +
                 '<div class="min-w-0"><p class="font-semibold text-sm leading-snug">' + esc(g.title) + "</p>" +
                   '<p class="mt-1.5 flex items-center gap-2">' + fchip(g.format) +
+                    (g.gift ? '<span class="chip" style="background:#ffedd5;color:#9a3412">Gift</span>' : "") +
                     '<span class="text-[13px] text-stone-500 tabular-nums sm:hidden">' + priceCell + "</span></p>" +
                 "</div></div></td>" +
               '<td class="hidden sm:table-cell whitespace-nowrap font-semibold text-sm tabular-nums">' + priceCell + "</td>" +

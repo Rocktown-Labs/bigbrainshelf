@@ -21,7 +21,13 @@
 //   bbsGuestId()         the guest checkout id (bbs-guest-id)
 //   loadBooks()          cached GET /api/books?scope=cart
 //   priceOf(bySlug, item) / flagOf(book, flag, key)
-//   hasPhysical(items) / money(cents) / paintBadge()
+//   hasPhysical(items) / needsAddress(items) / money(cents) / paintBadge()
+//   setGift(slug, format, gift) / isClubSlug(slug) / clubInfo(item)
+//
+// Club lines (CG, 2026-11-07) are cart items too: reserved slugs
+// book-club / audio-club with the billing period as the format, at
+// most one per cart, priced from the club constants in
+// src/lib/offers.ts. Book lines may carry gift: true.
 //
 // Every mutation writes localStorage, repaints the header badge,
 // and dispatches a document CustomEvent "bbs:cart-changed" with the
@@ -47,10 +53,31 @@
         return Math.min(99, n);
       }
       // Single-copy formats (digital, audio): owned once, no gifting
-      // flow, so quantity is always 1. Mirrors lineQty in
-      // src/lib/orders.ts; checkout enforces the same rule server-side.
+      // flow, so quantity is always 1. Club billing periods are
+      // single-copy for the same reason (one membership per buyer).
+      // Mirrors lineQty in src/lib/orders.ts; checkout enforces the
+      // same rule server-side.
       function clampFor(format, q) {
-        return format === "digital" || format === "audio" ? 1 : clampQty(q);
+        return format === "digital" || format === "audio" || format === "quarterly" || format === "annual" || format === "monthly" ? 1 : clampQty(q);
+      }
+      // Club lines (CG, 2026-11-07): the clubs are cart products with
+      // reserved slugs; a club line's format is its billing period.
+      // Prices are the club constants from src/lib/offers.ts
+      // (CLUB_PRICE_CENTS 6000, CLUB_ANNUAL_PRICE_CENTS 19900,
+      // AUDIO_CLUB_PRICE_CENTS 599, AUDIO_CLUB_ANNUAL_PRICE_CENTS
+      // 4900), baked in like the gift set and audiobook flat prices
+      // in priceOf below: club slugs are not books, so the catalog
+      // lookup can never price them.
+      var CLUB_LINES = {
+        "book-club": { title: "The Book Club", periods: { quarterly: { price: 6000, label: "Every 3 months" }, annual: { price: 19900, label: "Yearly" } } },
+        "audio-club": { title: "The Audio Club", periods: { monthly: { price: 599, label: "Monthly" }, annual: { price: 4900, label: "Yearly" } } }
+      };
+      function isClubSlug(slug) { return !!CLUB_LINES[slug]; }
+      function clubInfo(it) {
+        var c = CLUB_LINES[it.slug];
+        if (!c) return null;
+        var p = c.periods[it.format];
+        return p ? { title: c.title, periodLabel: p.label, price: p.price } : null;
       }
       function normalize(c) {
         // One entry per slug + format, quantities merged: the
@@ -61,11 +88,25 @@
         (c || []).forEach(function (x) {
           var it = typeof x === "string" ? { slug: x, format: "digital" } : x;
           if (!it || !it.slug) return;
+          if (isClubSlug(it.slug)) {
+            // At most ONE club line in the cart: a later club entry
+            // replaces any earlier one (switching plans or billing
+            // periods), quantity locked to 1, never a gift.
+            var prior = -1;
+            for (var i = 0; i < order.length; i++) if (isClubSlug(order[i].slug)) { prior = i; break; }
+            if (prior >= 0) order.splice(prior, 1);
+            order.push({ slug: it.slug, format: it.format || "", qty: 1 });
+            return;
+          }
           var k = it.slug + ":" + (it.format || "digital");
           if (byKey[k]) {
             byKey[k].qty = clampFor(byKey[k].format, byKey[k].qty + clampQty(it.qty));
+            if (it.gift) byKey[k].gift = true;
           } else {
             var entry = { slug: it.slug, format: it.format || "digital", qty: clampFor(it.format || "digital", it.qty) };
+            // The per-line gift flag (CG, 2026-11-07) rides book
+            // lines through every surface to the order.
+            if (it.gift) entry.gift = true;
             byKey[k] = entry;
             order.push(entry);
           }
@@ -125,6 +166,15 @@
       // resolution is identical for every session.
       function flagOf(b, flag, key) { return b[flag] !== undefined ? !!b[flag] : !!b[key]; }
       function priceOf(bySlug, it) {
+        // Club lines price from the club constants WITHOUT the books
+        // catalog (special-cased first: the catalog has no such slug
+        // and the generic path would price the line at 0, making it
+        // vanish from every surface). An invalid period prices at 0
+        // the same way an unavailable book does.
+        if (isClubSlug(it.slug)) {
+          var ci = clubInfo(it);
+          return ci ? ci.price : 0;
+        }
         var b = bySlug[it.slug];
         if (!b) return 0;
         if (it.format === "printed") return Math.round(Number(b.price_print || 0));
@@ -146,9 +196,19 @@
       // Shipping is quoted from the buyer's address on the cart page
       // and charged rounded up to the next whole dollar. The surfaces
       // never name an amount; they only know whether the cart needs
-      // that step.
+      // that step. Physical means physical BOOK lines: a club line
+      // never enters a shipping quote and never adds a shipping
+      // charge (club shipping is included in the membership).
       function hasPhysical(items) {
         return items.some(function (it) { return it.format === "printed" || it.format === "giftset"; });
+      }
+      // The address step's trigger is wider: physical book lines, or
+      // a Book Club line (its first box ships to the buyer, so the
+      // address is collected and stored on the order even though no
+      // shipping is charged for it). An Audio Club line needs no
+      // address: nothing ships.
+      function needsAddress(items) {
+        return hasPhysical(items) || items.some(function (it) { return it.slug === "book-club" && !!clubInfo(it); });
       }
 
       window.bbsCart = {
@@ -158,6 +218,15 @@
         set: setCart,
         add: function (slug, format) {
           format = format || "digital";
+          if (isClubSlug(slug)) {
+            // Adding a club replaces any club line already in the
+            // cart (one membership per buyer): plan switches and
+            // period switches both land here.
+            var clubCart = getCart().filter(function (x) { return !isClubSlug(x.slug); });
+            clubCart.push({ slug: slug, format: format, qty: 1 });
+            setCart(clubCart);
+            return true;
+          }
           var cart = getCart();
           var existing = cart.find(function (x) { return x.slug === slug && x.format === format; });
           if (existing) {
@@ -180,6 +249,16 @@
           entry.qty = clampFor(format, qty);
           setCart(cart);
         },
+        // Flip a book line's gift flag (club lines never carry one).
+        setGift: function (slug, format, gift) {
+          format = format || "digital";
+          if (isClubSlug(slug)) return;
+          var cart = getCart();
+          var entry = cart.find(function (x) { return x.slug === slug && x.format === format; });
+          if (!entry) return;
+          if (gift) entry.gift = true; else delete entry.gift;
+          setCart(cart);
+        },
         remove: function (slug, format) {
           format = format || "digital";
           setCart(getCart().filter(function (x) {
@@ -196,6 +275,9 @@
         flagOf: flagOf,
         priceOf: priceOf,
         hasPhysical: hasPhysical,
+        needsAddress: needsAddress,
+        isClubSlug: isClubSlug,
+        clubInfo: clubInfo,
         money: money,
         paintBadge: paintBadge,
         onChange: function (fn) {

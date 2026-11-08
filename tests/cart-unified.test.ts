@@ -96,5 +96,31 @@ assert(checkoutPage.includes('id="cancelled"') && checkoutPage.includes('get("ch
   assert(offenders.length === 0, `no "Check out with Stripe" remains in src (offenders: ${offenders.join(", ") || "none"})`);
 }
 
+// ---- Club lines and the gift flag (CG, 2026-11-07) -----------------------
+// Clubs are cart items: reserved slugs, period formats, one per
+// cart, priced from the offers constants without the books catalog.
+const store = read("../src/components/CartStore.astro");
+const offers = read("../src/lib/offers.ts");
+assert(offers.includes("CLUB_PRICE_CENTS = 6000") && offers.includes("CLUB_ANNUAL_PRICE_CENTS = 19900") && offers.includes("AUDIO_CLUB_PRICE_CENTS = 599") && offers.includes("AUDIO_CLUB_ANNUAL_PRICE_CENTS = 4900"), "offers: the four club prices are the constants");
+assert(offers.includes("resolveClubCartLine"), "offers: the server resolves club cart lines from one place");
+assert(store.includes("price: 6000") && store.includes("price: 19900") && store.includes("price: 599") && store.includes("price: 4900"), "cart store: club prices are baked from the offers constants");
+assert(store.includes("if (isClubSlug(it.slug))"), "cart store: priceOf special-cases club slugs before the catalog");
+assert(store.includes('it.slug === "book-club" && !!clubInfo(it)'), "cart store: a book-club line counts toward the address step");
+assert(store.includes("needsAddress"), "cart store: address need is separate from the shipping charge");
+assert(store.includes("getCart().filter(function (x) { return !isClubSlug(x.slug); })"), "cart store: adding a club replaces any club line already in the cart");
+assert(store.includes("setGift: function"), "cart store: the gift flag has a dedicated setter");
+assert(sheet.includes("clubInfo(it)") && sheet.includes("ci.title"), "cart sheet: renders club lines with the club title");
+assert(sheet.includes("cart-gift") && sheet.includes("This is a gift"), "cart sheet: book lines carry the gift toggle");
+assert(sheet.includes("Gift</span>"), "cart sheet: flagged lines wear the Gift tag");
+assert(checkoutPage.includes("clubInfo(it)") && checkoutPage.includes('id="guest-email"'), "checkout page: club lines render and the guest membership email field exists");
+assert(checkoutPage.includes("This is a gift") && checkoutPage.includes("gift-toggle"), "checkout page: book lines carry the gift toggle");
+assert(checkoutPage.includes("view.shippingStep") && checkoutPage.includes("qd.address_only"), "checkout page: the club-only address flow skips the shipping step");
+assert(checkoutPage.includes("Email for your membership and receipt"), "checkout page: the guest club email is labeled for membership and receipt");
+const apiCheckout = read("../src/pages/api/checkout.ts");
+assert(apiCheckout.includes("resolveClubCartLine") && apiCheckout.includes('mode: clubSpec ? "subscription" : "payment"'), "checkout api: club lines price server-side and open a subscription session");
+assert(apiCheckout.includes("club_plan: clubSpec.clubPlan") && apiCheckout.includes("club_email"), "checkout api: the session metadata carries the club facts");
+assert(apiCheckout.includes("That email already has an account."), "checkout api: guard (a) refuses an email that already has an account");
+assert(apiCheckout.includes("already a member"), "checkout api: guard (b) refuses an existing paid membership for the same plan");
+
 if (failures) { console.error(`\n${failures} FAILURES`); process.exit(1); }
 console.log("\nAll cart unification tests passed.");

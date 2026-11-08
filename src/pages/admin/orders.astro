@@ -514,7 +514,7 @@ export const prerender = false;
             (custName ? '<span class="block font-extrabold tracking-tight truncate leading-tight">' + esc(custName) + "</span>" : "") +
             '<span class="block truncate ' + (custName ? "text-[11px] text-stone-400 mt-0.5" : "font-extrabold tracking-tight leading-tight") + '">' + esc(o.short_id || o.id) + "</span>" +
             (sub ? '<span class="block text-[11px] text-stone-400 capitalize mt-0.5 truncate">' + esc(sub) + "</span>" : "") + "</td>" +
-          '<td class="c-items"><span class="block truncate text-sm font-medium text-stone-700">' + fmtPick(o) + "</span></td>" +
+          '<td class="c-items"><span class="block truncate text-sm font-medium text-stone-700">' + fmtPick(o) + (o.has_gift ? ' <span class="inline-block rounded-full bg-orange-100 text-orange-800 text-[10px] font-bold px-1.5 py-0.5 align-middle">Gift</span>' : "") + "</span></td>" +
           '<td class="c-price"><span class="font-bold tabular-nums text-sm whitespace-nowrap">' + money(o.amount) + "</span></td>" +
           '<td class="c-fmt"><span class="flex flex-wrap gap-1">' + fmtCircles(o) + "</span></td>" +
           '<td class="c-act"><span class="flex items-center justify-end gap-1">' + btn + kebab + "</span></td>";

@@ -36,6 +36,8 @@ import {
   STANDARD_PRINT_PRICE_CENTS,
   giftSetEligible,
   audioEligible,
+  isClubCartSlug,
+  resolveClubCartLine,
 } from "./offers";
 
 export interface DBStatement {
@@ -51,7 +53,11 @@ export interface DBLike {
 
 export interface CartItem {
   slug: string;
-  format: string; // "digital" | "printed" | "giftset" | "audio"
+  // "digital" | "printed" | "giftset" | "audio" for book lines. A
+  // CLUB line (CG, 2026-11-07) carries a reserved club slug
+  // ("book-club" | "audio-club", lib/offers) and its format is the
+  // billing period instead: "quarterly" | "annual" | "monthly".
+  format: string;
   // Set at checkout when a server-side credit shaped this line's price.
   // Today the only credit is "audio-upgrade": an audiobook-only owner
   // unlocking the digital edition. Recorded on the order so the
@@ -62,16 +68,33 @@ export interface CartItem {
   // reader normalizes through itemQty.
   qty?: number;
   // The per-copy price actually charged for this line, in cents.
-  // Only manual orders set it (an admin types the price); checkout
-  // never does, and every price reader prefers it when present so a
-  // manual order's lines price at what the admin entered instead of
-  // today's store price.
+  // Manual orders set it (an admin types the price); club lines set
+  // it too (a membership has no book row to price from). Every price
+  // reader prefers it when present so the line prices at what was
+  // charged instead of today's store price.
   priceCents?: number;
   // The dedication name for a physical line (checkout, slice 2):
   // printed inside the copy's dedication page by the print lane
   // (buildJobsForOrder reads it from the items JSON). Absent or
   // blank prints the write-in dedication page instead.
   dedicationName?: string;
+  // The buyer marked this book line as a gift (CG, 2026-11-07):
+  // toggled per line in the cart and at checkout, highlighted on
+  // those screens and in the admin order views. Book lines only;
+  // club lines never carry it.
+  gift?: boolean;
+}
+
+// The stored format for one parsed item: book formats normalize as
+// they always have, but a club line's format IS its billing period
+// and must survive parsing intact, or the membership the order
+// bought (and its price) becomes unrecoverable after checkout.
+export function storedItemFormat(slug: string, format: unknown): string {
+  if (isClubCartSlug(slug)) {
+    const spec = resolveClubCartLine(slug, format);
+    if (spec) return spec.period;
+  }
+  return normalizeFormat(format);
 }
 
 // The one quantity rule: an integer from 1 to 99, anything else
@@ -167,9 +190,10 @@ export async function cartFingerprint(userId: string, items: CartItem[]): Promis
   // A line's dedication name joins the canonical form only when one
   // is set, so existing carts fingerprint exactly as before while a
   // dedication edit still mints a fresh pending order (the stored
-  // items JSON is what the print lane personalizes from).
+  // items JSON is what the print lane personalizes from). A gift
+  // flag joins the same way: toggling it is a different order.
   const canonical =
-    userId + "|" + items.map((i) => `${i.slug}:${i.format}:${itemQty(i)}${i.dedicationName ? `:d=${i.dedicationName}` : ""}`).sort().join(",");
+    userId + "|" + items.map((i) => `${i.slug}:${i.format}:${itemQty(i)}${i.dedicationName ? `:d=${i.dedicationName}` : ""}${i.gift ? ":gift" : ""}`).sort().join(",");
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -181,12 +205,13 @@ export function parseItems(order: any): CartItem[] {
       return raw
         .map((x: any) => ({
           slug: String(x?.slug || ""),
-          format: normalizeFormat(x?.format),
+          format: storedItemFormat(String(x?.slug || ""), x?.format),
           ...(x?.upgrade ? { upgrade: String(x.upgrade) } : {}),
           qty: itemQty(x),
           ...(Number.isFinite(Number(x?.priceCents)) && Number(x?.priceCents) >= 0
             ? { priceCents: Math.round(Number(x.priceCents)) }
             : {}),
+          ...(x?.gift === true ? { gift: true } : {}),
         }))
         .filter((x: CartItem) => x.slug);
     }
@@ -304,7 +329,7 @@ export async function completeOrder(
         return raw
           .map((x: any) => ({
             slug: String(x?.slug || ""),
-            format: normalizeFormat(x?.format),
+            format: storedItemFormat(String(x?.slug || ""), x?.format),
             ...(x?.upgrade ? { upgrade: String(x.upgrade) } : {}),
             // Qty must survive completion: this map used to keep only
             // slug/format/upgrade, so every multi-quantity order was
@@ -313,6 +338,13 @@ export async function completeOrder(
             // 54F3CFF5: charged right, recorded wrong, pick lists and
             // receipts then under-reported the order).
             qty: itemQty(x),
+            // A club line's charged price rides its priceCents (there
+            // is no book row to reprice it from), and a gift flag is
+            // part of what the buyer asked for: both survive too.
+            ...(Number.isFinite(Number(x?.priceCents)) && Number(x?.priceCents) >= 0
+              ? { priceCents: Math.round(Number(x.priceCents)) }
+              : {}),
+            ...(x?.gift === true ? { gift: true } : {}),
           }))
           .filter((x: CartItem) => x.slug);
     }
@@ -489,6 +521,21 @@ export function orderFormatLabel(format: string): string {
         : "digital";
 }
 
+// Display identity for a CLUB line on an order (CG, 2026-11-07): the
+// club's public name and its billing rhythm, so receipts, the
+// confirmation email, and the admin views name the membership
+// instead of falling back to a book label (or, worse, the reserved
+// cart slug, which is a storage identifier like any other slug).
+// Null for book lines.
+export function clubLineDisplay(
+  slug: string,
+  format: string
+): { title: string; formatLabel: string } | null {
+  const spec = resolveClubCartLine(slug, format);
+  if (!spec) return null;
+  return { title: spec.title, formatLabel: `membership, ${spec.billedLabel}` };
+}
+
 // Batch book lookup keyed by the slug the CALLER recorded, which is
 // not always the slug the book wears today: orders written before a
 // rename or the Mira slug migration carry retired slug forms
@@ -600,9 +647,11 @@ export async function orderItemLabels(
     out.set(
       o.id,
       items.map((i) => {
-        const title = titles.get(i.slug) || "Big Brain Shelf book";
+        const club = clubLineDisplay(i.slug, i.format);
+        const title = club?.title || titles.get(i.slug) || "Big Brain Shelf book";
         const qty = itemQty(i as any) > 1 ? ` ×${itemQty(i as any)}` : "";
-        return i.format ? `${title} (${orderFormatLabel(i.format)})${qty}` : `${title}${qty}`;
+        const label = club ? club.formatLabel : orderFormatLabel(i.format);
+        return i.format ? `${title} (${label})${qty}` : `${title}${qty}`;
       })
     );
   }
@@ -630,8 +679,11 @@ export function shortBookName(title: string): string {
 export interface OrderItemGroup {
   title: string; // full public title
   name: string; // short pick-list name
-  format: string; // digital | printed | giftset | audio
+  format: string; // digital | printed | giftset | audio (club lines: the billing period)
   count: number;
+  // The buyer marked this line as a gift (CG, 2026-11-07): the
+  // admin views badge it so packing treats the copy as one.
+  gift?: boolean;
   // Packing code derived from the title (lib/catalog bookCodeForTitle),
   // e.g. "MTH-still-water"; null when the book no longer resolves.
   // Pack lines key off this (never the internal slug, which stays out
@@ -668,7 +720,7 @@ function groupOrderItems(
   order: { items?: string | null; book_slugs?: string | null },
   books: Map<string, OrderBookRow>
 ): OrderItemGroup[] {
-  let raw: { slug: string; format: string; qty?: number; priceCents?: number }[] = [];
+  let raw: { slug: string; format: string; qty?: number; priceCents?: number; gift?: boolean }[] = [];
   try {
     const parsed = JSON.parse(order.items || "[]");
     if (Array.isArray(parsed)) {
@@ -676,11 +728,12 @@ function groupOrderItems(
         .filter((x: any) => x && x.slug)
         .map((x: any) => ({
           slug: String(x.slug),
-          format: String(x.format || "digital"),
+          format: storedItemFormat(String(x.slug), x.format || "digital"),
           qty: itemQty(x),
           ...(Number.isFinite(Number(x?.priceCents)) && Number(x?.priceCents) >= 0
             ? { priceCents: Math.round(Number(x.priceCents)) }
             : {}),
+          ...(x?.gift === true ? { gift: true as const } : {}),
         }));
     }
   } catch { /* fall through to book_slugs */ }
@@ -695,21 +748,24 @@ function groupOrderItems(
   for (const i of raw) {
     // A stored per-line price (manual orders) is part of the group
     // identity: two lines for the same book at different prices stay
-    // separate rows, priced as entered. Checkout lines never carry
-    // one, so their keys are unchanged.
-    const key = i.slug + "|" + i.format + "|" + (i.priceCents != null ? String(i.priceCents) : "");
+    // separate rows, priced as entered. Checkout book lines never
+    // carry one, so their keys are unchanged. A gift flag is part of
+    // the identity too: a gift copy and a keeper copy of the same
+    // book stay separate rows, because packing treats them so.
+    const key = i.slug + "|" + i.format + "|" + (i.priceCents != null ? String(i.priceCents) : "") + "|" + (i.gift ? "gift" : "");
     const existing = byKey.get(key);
     if (existing) {
       existing.count += itemQty(i);
     } else {
       const book = books.get(i.slug);
-      const title = book?.title || "Big Brain Shelf book";
+      const title = clubLineDisplay(i.slug, i.format)?.title || book?.title || "Big Brain Shelf book";
       const pub = book ? publicSlugFor(book) : "";
       const g: OrderItemGroup = {
         title,
         name: shortBookName(title),
         format: i.format,
         count: itemQty(i),
+        ...(i.gift ? { gift: true } : {}),
         code: book ? bookCodeForTitle(title) : null,
         cover: book
           ? coverDerivative(String(book.slug), "card", book.cover_key) ||
@@ -803,11 +859,13 @@ export function pricedOrderLines(order: any, books: BookFiles[]): PricedOrderLin
     }
     const unitCents = unitFor(i);
     const qty = itemQty(i);
+    const club = clubLineDisplay(i.slug, i.format);
     grouped.set(key, {
-      title: bookBySlug.get(i.slug)?.title || i.slug,
+      // A club line names the club, never its reserved cart slug.
+      title: club?.title || bookBySlug.get(i.slug)?.title || i.slug,
       format: i.format,
       formatLabel:
-        orderFormatLabel(i.format) +
+        (club ? club.formatLabel : orderFormatLabel(i.format)) +
         (i.upgrade === "audio-upgrade" ? " · audiobook credit applied" : ""),
       qty,
       unitCents,
@@ -1449,8 +1507,11 @@ export async function enqueueOwnerOrderNotice(db: DBLike, site: string, order: a
   // silently disappeared from the notice.
   const money = (c: number) => `$${(Number(c || 0) / 100).toFixed(2)}`;
   const lines = pricedOrderLines(order, books).map((l) => {
+    // Club lines store their billing period as the format; no book
+    // format uses those words, so the period names a membership.
     const label =
-      l.format === "printed" ? "Printed book"
+      l.format === "quarterly" || l.format === "monthly" || l.format === "annual" ? "Membership"
+      : l.format === "printed" ? "Printed book"
       : l.format === "giftset" ? "Gift set"
       : l.format === "audio" ? "Audiobook"
       : "Digital bundle";
@@ -1489,6 +1550,31 @@ export async function enqueueOwnerOrderNotice(db: DBLike, site: string, order: a
 export async function processCheckoutCompleted(db: DBLike, site: string, session: any, env?: any): Promise<any> {
   const order = await completeOrder(db, session);
   if (order) {
+    // Club line in the cart (CG, 2026-11-07): the membership the
+    // buyer just subscribed to activates from the ORDER, keyed to
+    // the order's email, before the confirmation email resolves its
+    // club pitch block (a brand-new member must not be pitched the
+    // club they just joined). Best effort like every hook here: the
+    // order stands even if activation hiccups, and a Stripe webhook
+    // replay re-runs the (idempotent) activation. The Stripe client
+    // exists only to cancel a replaced subscription on an upgrade;
+    // without env (test callers) activation still lands and the old
+    // sub is left for the lifecycle webhooks to settle.
+    if (parseItems(order).some((i) => isClubCartSlug(i.slug))) {
+      try {
+        const { activateClubFromOrder } = await import("./club");
+        let stripe: any = undefined;
+        if (env?.STRIPE_SECRET_KEY) {
+          try {
+            const { default: Stripe } = await import("stripe");
+            stripe = new Stripe(env.STRIPE_SECRET_KEY);
+          } catch { /* activation proceeds without the cancel step */ }
+        }
+        await activateClubFromOrder(db, order, session, stripe);
+      } catch (err: any) {
+        console.error("club activation from order failed", order.id, err?.message || err);
+      }
+    }
     await enqueueConfirmation(db, site, order);
     await enqueueOwnerOrderNotice(db, site, order).catch(() => {});
     // Lulu lane (CG, 2026-11-07: "set the lulu flow so it places

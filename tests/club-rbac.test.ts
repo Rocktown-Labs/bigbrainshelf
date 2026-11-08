@@ -20,8 +20,9 @@
 //    one else.
 //  - reader / page / download routes reach access only through the
 //    server-side entitlement layer in lib/library.ts.
-//  - the /clubs page carries no founding-offer copy and leads
-//    signed-out visitors with a create-account action.
+//  - the /clubs page carries no founding-offer copy and (CG,
+//    2026-11-07) joins through the cart: the join forms add the club
+//    line and open the sheet, no account gate anywhere.
 //
 // Lib-level checks run the real src/lib code against an in-memory
 // bun:sqlite database; route checks are source pins in the style of
@@ -81,9 +82,15 @@ assert(downloadRoute.includes("getDigitalEntitlements"), "download route: access
 // ---- Page copy pins -----------------------------------------------------
 const page = read("../src/pages/clubs.astro");
 assert(!/founding (member|membership|cohort|price|plan|spot|queue|lock)/i.test(page), "clubs page: no founding-offer copy anywhere");
-assert(page.includes("Create an account to join"), "clubs page: signed-out visitors get a create-account action");
-assert(page.includes("/signup?next="), "clubs page: the account detour returns to /clubs");
-assert(page.includes("create a free account, check out, and your books are in your library"), "clubs page: states the account, checkout, access flow in one line");
+// The account gate is retired (CG, 2026-11-07): joining is adding
+// the club to the cart and checking out, guests included. The pins
+// below stood for the old account-first flow until this change.
+assert(!page.includes("Create an account to join"), "clubs page: no account gate on the join buttons");
+assert(!page.includes("/signup?next="), "clubs page: no signup detour");
+assert(page.includes("Add to cart"), "clubs page: the join buttons add to the cart");
+assert(page.includes('addClubToCart("book-club"'), "clubs page: the Book Club form adds the book-club cart line");
+assert(page.includes('addClubToCart("audio-club"'), "clubs page: the Audio Club form adds the audio-club cart line");
+assert(page.includes("your membership lives on your email"), "clubs page: states the email-keyed membership in one line");
 assert(!page.includes('id="club-email"') && !page.includes('id="audio-email"'), "clubs page: no email fields (the account supplies the email)");
 
 // ---- Lib-level scoping --------------------------------------------------

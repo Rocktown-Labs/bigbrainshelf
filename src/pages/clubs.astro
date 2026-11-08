@@ -31,11 +31,12 @@ const e = env as any;
 
 // Page state (src/lib/offers.ts + src/lib/club.ts). This page is a
 // plain pricing page: what the club is, the two offers, and how
-// signup works (account, then checkout, then the library). Two
-// states:
+// joining works (pick a plan, add it to the cart, check out — the
+// clubs are cart products like everything else, CG 2026-11-07, and
+// guests join with no account: the membership lives on the buyer's
+// email). Two states:
 //   member    the signed-in visitor already pays (webhook-activated)
-//   join      everyone else: pick a plan, then account and Stripe
-//             subscription checkout
+//   join      everyone else: pick a plan and add it to the cart
 // There is no member cap (CG, 2026-10-31): The Book Club is open to
 // whoever joins. The old founding cap and its waitlist card were
 // removed from the page, the checkout route, and the copy.
@@ -75,7 +76,6 @@ try {
 } catch { /* the page still renders its join state without club data */ }
 const signedIn = !!sessionEmail;
 const isMember = member?.status === "paid";
-const reserved = member && !isMember ? member : null;
 const joined = Astro.url.searchParams.get("joined") === "1";
 const joinCancelled = Astro.url.searchParams.get("join") === "cancelled";
 const quarterlyLabel = clubPriceLabel(CLUB_PRICE_CENTS);
@@ -173,7 +173,7 @@ const clubTraksEvent = joined
   <main class="max-w-4xl mx-auto px-5 pt-6 sm:pt-8 pb-20">
     <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3" style="font-family: Fredoka, ui-rounded, system-ui">The Book Club &amp; The Audio Club</h2>
     <p class="text-stone-600 leading-relaxed max-w-2xl">A subscription for Big Brain Shelf books, in two versions. The Book Club mails you a gift set plus a second printed book every 3 months and unlocks every book digitally. The Audio Club is every audiobook, listening only. Cancel anytime.</p>
-    <p class="text-stone-500 text-sm leading-relaxed mt-3">How it works: create a free account, check out, and your books are in your library.</p>
+    <p class="text-stone-500 text-sm leading-relaxed mt-3">How it works: pick a plan, add it to your cart, and check out. No account needed: your membership lives on your email.</p>
 
     {joined && !isMember && (
       <div class="rounded-xl bg-green-50 border border-green-200 px-5 py-4 mt-6">
@@ -266,13 +266,10 @@ const clubTraksEvent = joined
                   </label>
                 </div>
               </fieldset>
-              {reserved && (
-                <p class="text-xs text-white/60 leading-relaxed mt-4">This account already has a Book Club signup saved. Joining completes the membership, and you can pick your books in your account.</p>
-              )}
               <button type="submit" id="club-submit" class="mt-6 w-full rounded-full bg-orange-600 text-white text-sm font-semibold px-8 py-3 hover:bg-orange-700 transition">
-                {signedIn ? "Join The Book Club" : "Create an account to join"}
+                Add to cart
               </button>
-              <p class="text-xs text-white/60 leading-relaxed mt-3">Charges today, and your first box is on its way. Cancel anytime. What you own stays yours.</p>
+              <p class="text-xs text-white/60 leading-relaxed mt-3">Charges at checkout, and your first box is on its way. Cancel anytime. What you own stays yours.</p>
               <p class="text-xs text-white/60 leading-relaxed mt-3">Not sure yet? <a href="/" class="font-semibold text-orange-300 hover:text-orange-200">Read a free sample</a>, or <a href="/clubs/book-club" class="font-semibold text-orange-300 hover:text-orange-200">learn more about The Book Club</a>.</p>
               <p id="club-msg" class="text-sm mt-3 hidden" role="status"></p>
             </form>
@@ -313,9 +310,9 @@ const clubTraksEvent = joined
               </div>
             </fieldset>
             <button type="submit" id="audio-submit" class="mt-2 w-full rounded-full bg-orange-600 text-white text-sm font-semibold px-8 py-3 hover:bg-orange-700 transition">
-              {signedIn ? "Join The Audio Club" : "Create an account to join"}
+              Add to cart
             </button>
-            <p class="text-xs text-stone-500 leading-relaxed mt-3">Charges today. Pause or cancel anytime from your account.</p>
+            <p class="text-xs text-stone-500 leading-relaxed mt-3">Charges today at checkout. Cancel anytime.</p>
             <p id="audio-msg" class="text-sm mt-3 hidden" role="status"></p>
             <p class="text-sm mt-4">Not sure yet? <a href="/audiobooks" class="font-semibold text-orange-700 hover:text-orange-800">Hear a free sample</a> <span class="text-stone-500">of any book first: the introduction and chapter 1, no account needed.</span></p>
             <p class="text-sm mt-2"><a href="/clubs/audio-club" class="font-semibold text-orange-700 hover:text-orange-800">Learn more about The Audio Club</a></p>
@@ -342,53 +339,6 @@ const clubTraksEvent = joined
     }
     bbsAccountLink();
     document.addEventListener("astro:page-load", bbsAccountLink);
-
-    // Signup is account first, then checkout, then access: a visitor
-    // who starts joining signed out is sent to /signup with
-    // next=/clubs, and their picks ride along in sessionStorage
-    // and are restored here when they land back signed in.
-    var STASH_KEY = "bbs-club-join";
-    function stashPicks(picks) {
-      try { sessionStorage.setItem(STASH_KEY, JSON.stringify(picks)); } catch (e) {}
-    }
-    function clearStash() {
-      try { sessionStorage.removeItem(STASH_KEY); } catch (e) {}
-    }
-    function formFor(stash) {
-      if (stash.waitlist) return document.getElementById("waitlist-form");
-      // Stashes from before the Audio Club existed carry no club_plan
-      // and are physical.
-      return document.getElementById(stash.club_plan === "audio" ? "audio-form" : "club-form");
-    }
-    function msgFor(form) {
-      if (!form) return null;
-      return document.getElementById(form.id === "audio-form" ? "audio-msg" : "club-msg");
-    }
-    function restoreStash() {
-      var raw = null;
-      try { raw = sessionStorage.getItem(STASH_KEY); } catch (e) {}
-      if (!raw) return;
-      var stash = {};
-      try { stash = JSON.parse(raw) || {}; } catch (e) { return; }
-      var form = formFor(stash);
-      if (!form) return;
-      // A returning audio joiner lands on the Audio Club panel, even
-      // on mobile where the switch defaults to the Book Club.
-      if (stash.club_plan === "audio" && typeof setMobilePlan === "function") setMobilePlan("audio");
-      ["plan"].forEach(function (field) {
-        if (!stash[field]) return;
-        var radio = form.querySelector("input[name=" + field + "][value=" + stash[field] + "]");
-        if (radio) radio.checked = true;
-      });
-      var msg = msgFor(form);
-      if (msg) {
-        msg.textContent = "You are signed in. Check your picks and join to finish.";
-        msg.classList.remove("hidden", "text-red-300", "text-red-600");
-        msg.classList.add(form.id === "audio-form" ? "text-green-700" : "text-green-300");
-      }
-    }
-    restoreStash();
-    document.addEventListener("astro:page-load", restoreStash);
 
     // Mobile plan switch (A2): on narrow screens the two plan cards
     // collapse to the two side-by-side buttons above them, with only
@@ -453,17 +403,6 @@ const clubTraksEvent = joined
     bindUpgrade();
     document.addEventListener("astro:page-load", bindUpgrade);
 
-    function showMsg(form, text, ok) {
-      var msg = msgFor(form);
-      if (!msg) return;
-      var light = form && form.id === "audio-form";
-      msg.textContent = text;
-      msg.classList.remove("hidden", "text-red-300", "text-green-300", "text-red-600", "text-green-700");
-      msg.classList.add(ok ? (light ? "text-green-700" : "text-green-300") : (light ? "text-red-600" : "text-red-300"));
-    }
-    function getSession() {
-      return fetch("/api/auth/get-session").then(function (r) { return r.json(); }).catch(function () { return {}; });
-    }
     function postJson(url, body) {
       return fetch(url, {
         method: "POST",
@@ -473,50 +412,25 @@ const clubTraksEvent = joined
         return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, status: r.status, d: d }; });
       });
     }
-    // Shared join flow for all three forms: signed out, stash the
-    // picks and detour through signup; signed in, post to the
-    // endpoint (which keys everything to the session server-side).
-    // A 401 from the endpoint takes the same signup detour, in case
-    // the session expired between page load and submit.
-    function joinFlow(form, picks, btn, submit) {
-      btn.disabled = true;
-      getSession().then(function (s) {
-        if (!s || !s.user) {
-          stashPicks(picks);
-          window.location.href = "/signup?next=" + encodeURIComponent("/clubs");
-          return null;
-        }
-        return submit();
-      }).then(function (res) {
-        if (!res) return; // redirecting to signup
-        if (res.status === 401) {
-          stashPicks(picks);
-          window.location.href = "/signup?next=" + encodeURIComponent("/clubs");
-          return;
-        }
-        if (res.ok && res.d && res.d.url) {
-          clearStash();
-          window.location.href = res.d.url;
-          return;
-        }
-        if (res.d && (res.d.alreadyMember || res.d.waitlist)) { window.location.reload(); return; }
-        if (res.ok && res.d && res.d.ok) {
-          clearStash();
-          showMsg(form, "You are on the waitlist. We will email you when a spot opens.", true);
-          return;
-        }
-        showMsg(form, (res.d && res.d.error) || "Something went wrong. Please try again.", false);
-        btn.disabled = false;
-      }).catch(function () {
-        showMsg(form, "Something went wrong. Please try again.", false);
-        btn.disabled = false;
-      });
-    }
     function picked(form, name) {
       var el = form.querySelector("input[name=" + name + "]:checked");
       return el ? el.value : "";
     }
 
+    // Joining is adding to the cart (CG, 2026-11-07): the clubs are
+    // cart products like everything else. The form's plan radio is
+    // the billing period; the store adds the club line (replacing
+    // any club line already in the cart) and the sheet opens so the
+    // shopper sees it land, exactly like a book page's buy button.
+    // Checkout itself (guests included, no account) runs on
+    // /checkout, and the membership activates on the buyer's email
+    // when the order completes. No signup detour, no reserved-signup
+    // guard: just checkout.
+    function addClubToCart(slug, period, plan) {
+      if (window.bbsTraks) window.bbsTraks("club_join_click", { plan: plan });
+      if (window.bbsCart) window.bbsCart.add(slug, period);
+      if (window.openCartSheet) window.openCartSheet();
+    }
     function initClubForm() {
       var form = document.getElementById("club-form");
       if (!form || form.__clubBound) return;
@@ -526,12 +440,7 @@ const clubTraksEvent = joined
         // The card sells the plan only: no shelf pick before
         // subscribing (owner, 2026-10-29). Members configure their
         // offering after joining, in their account.
-        var picks = { club_plan: "physical", plan: picked(form, "plan") || "quarterly" };
-        if (window.bbsTraks) window.bbsTraks("club_join_click", { plan: "physical" });
-        joinFlow(form, picks, document.getElementById("club-submit"), function () {
-          if (window.bbsTraks) window.bbsTraks("club_checkout_start", { plan: "physical" });
-          return postJson("/api/club/checkout", { plan: picks.plan, club_plan: "physical" });
-        });
+        addClubToCart("book-club", picked(form, "plan") || "quarterly", "physical");
       });
     }
     initClubForm();
@@ -543,31 +452,11 @@ const clubTraksEvent = joined
       form.__clubBound = true;
       form.addEventListener("submit", function (e) {
         e.preventDefault();
-        var picks = { club_plan: "audio", plan: picked(form, "plan") || "monthly" };
-        if (window.bbsTraks) window.bbsTraks("club_join_click", { plan: "audio" });
-        joinFlow(form, picks, document.getElementById("audio-submit"), function () {
-          if (window.bbsTraks) window.bbsTraks("club_checkout_start", { plan: "audio" });
-          return postJson("/api/club/checkout", { plan: picks.plan, club_plan: "audio" });
-        });
+        addClubToCart("audio-club", picked(form, "plan") || "monthly", "audio");
       });
     }
     initAudioForm();
     document.addEventListener("astro:page-load", initAudioForm);
-
-    function initWaitlistForm() {
-      var form = document.getElementById("waitlist-form");
-      if (!form || form.__clubBound) return;
-      form.__clubBound = true;
-      form.addEventListener("submit", function (e) {
-        e.preventDefault();
-        var picks = { club_plan: "physical", waitlist: true };
-        joinFlow(form, picks, document.getElementById("waitlist-submit"), function () {
-          return postJson("/api/club-signup", {});
-        });
-      });
-    }
-    initWaitlistForm();
-    document.addEventListener("astro:page-load", initWaitlistForm);
   </script>
 
   <!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->

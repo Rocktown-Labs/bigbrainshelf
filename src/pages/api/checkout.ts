@@ -21,6 +21,8 @@ import {
 import { luluConfigured, normalizeLuluAddress, LULU_LIMITS } from "../../lib/lulu";
 import { resolveInternalSlug } from "../../lib/public-slugs";
 import { normalizePromoCode, validatePromo, reservePromo, repriceLineItemsWithDiscount } from "../../lib/promo";
+import { isClubCartSlug, resolveClubCartLine, type ClubCartLineSpec } from "../../lib/offers";
+import { ensureClubTable, getClubSignup, clubPlanOf } from "../../lib/club";
 
 
 // POST /api/checkout { items: [{slug, format}], guest_id? } -> { url }
@@ -28,8 +30,20 @@ import { normalizePromoCode, validatePromo, reservePromo, repriceLineItemsWithDi
 // Prices are read from D1, never from the client.
 //
 // Who may check out (CG, 2026-10-28): one-time purchases are open to
-// GUESTS as well as signed-in customers. Subscriptions stay
-// account-only (that gate lives in /api/club/checkout, not here).
+// GUESTS as well as signed-in customers. Since 2026-11-07 (CG) the
+// clubs are cart products too, so a cart may carry ONE club line
+// (reserved slug book-club | audio-club, format = billing period):
+// the session then runs in subscription mode, books riding as
+// one-time lines beside the recurring club line, and guests subscribe
+// with no account — the membership keys to their email (club_signups
+// is email-keyed; signing in with that email later claims it). The
+// account-bound club checkout (/api/club/checkout) keeps its own
+// session gate for in-account joins and upgrades. A guest club
+// checkout names its email up front (the pay payload's `email`), and
+// two guards apply to it, in order: an email that already belongs to
+// an account must sign in instead, and an email that already pays
+// for the same club is already a member (a paid Audio Club email
+// buying The Book Club is the upgrade and proceeds).
 // The difference a session makes:
 // - Entitlements: the audio-upgrade credit is read from the account's
 //   entitlement layer, so it applies ONLY with a session. A guest
@@ -108,10 +122,19 @@ export const POST: APIRoute = async ({ request }) => {
   const buyerId = user ? String(user.id) : `guest:${guestId}`;
   const buyerEmail = user ? String(user.email || "") : "";
   const action = String(body?.action || "");
-  let wanted: { slug: string; format: string; qty: number; dedicationName?: string }[] = [];
+  let wanted: { slug: string; format: string; qty: number; dedicationName?: string; gift?: boolean }[] = [];
   if (Array.isArray(body.items)) {
     wanted = body.items
       .map((x: any) => {
+        const slug = String(x?.slug || "");
+        // A club line's format is its billing period, NOT a book
+        // format: normalizeFormat would fold it to "digital" and the
+        // membership would be unrecoverable. It is validated against
+        // the plan's periods below (resolveClubCartLine); quantity
+        // is locked to 1 (one membership per buyer).
+        if (isClubCartSlug(slug)) {
+          return { slug, format: String(x?.format || ""), qty: 1 };
+        }
         const format = normalizeFormat(x?.format);
         // Single-copy formats (digital, audio) clamp to qty 1 here,
         // whatever the client sent: no gifting flow exists, so a
@@ -122,10 +145,13 @@ export const POST: APIRoute = async ({ request }) => {
           ? String(x?.dedicationName || "").trim().slice(0, 60)
           : "";
         return {
-          slug: String(x?.slug || ""),
+          slug,
           format,
           qty: lineQty({ format, qty: x?.qty }),
           ...(dedication ? { dedicationName: dedication } : {}),
+          // The per-line gift flag (CG, 2026-11-07): book lines only,
+          // carried onto the order exactly as the buyer set it.
+          ...(x?.gift === true ? { gift: true } : {}),
         };
       })
       .filter((x: any) => x.slug);
@@ -141,6 +167,71 @@ export const POST: APIRoute = async ({ request }) => {
   }).slice(0, 20);
   if (!wanted.length) {
     return Response.json({ error: "Your cart is empty." }, { status: 400 });
+  }
+  // The cart holds at most one club line (the store enforces it; a
+  // hand-built payload carrying two keeps the LAST, the same rule
+  // the store's add applies when a shopper switches plans). An
+  // unresolvable pair (a period the plan does not bill on) drops the
+  // line, like any unavailable item.
+  let clubSpec: ClubCartLineSpec | null = null;
+  {
+    const clubLines = wanted.filter((x) => isClubCartSlug(x.slug));
+    if (clubLines.length) {
+      const last = clubLines[clubLines.length - 1];
+      clubSpec = resolveClubCartLine(last.slug, last.format);
+      wanted = wanted.filter((x) => !isClubCartSlug(x.slug));
+      if (clubSpec) {
+        wanted.push({ slug: clubSpec.slug, format: clubSpec.period, qty: 1 });
+      }
+    }
+  }
+
+  // Guest club checkout: the membership keys to an email the buyer
+  // names BEFORE Stripe (Stripe's own collection comes too late to
+  // guard). Signed-in buyers skip this entirely: the session email
+  // rules, and the account-bound club checkout guards their joins.
+  const guestEmail = String(body?.email || "").trim().toLowerCase();
+  if (clubSpec && !user && action !== "quote" && action !== "promo") {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail)) {
+      return Response.json(
+        { error: "Please add the email for your membership and receipt." },
+        { status: 400 }
+      );
+    }
+    // (a) The email already belongs to an account: an unauthenticated
+    // checkout must not mint a second, orphan membership beside it.
+    try {
+      const account = await e.DB
+        .prepare('SELECT id FROM "user" WHERE lower(email) = ? LIMIT 1')
+        .bind(guestEmail)
+        .first();
+      if (account) {
+        return Response.json(
+          { error: "That email already has an account. Sign in to join, so your membership lands in your library." },
+          { status: 400 }
+        );
+      }
+    } catch { /* no auth table to collide with: the email stands alone */ }
+    // (b) The email already pays for a club: same plan, or The Book
+    // Club (which already includes every audiobook) while adding The
+    // Audio Club. A paid Audio Club email adding The Book Club is
+    // the upgrade and proceeds; activation cancels the old sub.
+    try {
+      await ensureClubTable(e.DB);
+      const existing = await getClubSignup(e.DB, guestEmail);
+      const existingPlan = existing?.status === "paid" ? clubPlanOf(existing) : null;
+      if (existingPlan && (existingPlan === clubSpec.clubPlan || (existingPlan === "physical" && clubSpec.clubPlan === "audio"))) {
+        return Response.json(
+          {
+            error:
+              existingPlan === "physical" && clubSpec.clubPlan === "audio"
+                ? "That email is already a member of The Book Club, which includes every audiobook."
+                : `That email is already a member of ${clubSpec.title}.`,
+          },
+          { status: 400 }
+        );
+      }
+    } catch { /* the membership ledger is additive; a read failure never blocks a sale */ }
   }
   // Slug boundary: cart items key on the INTERNAL slug, and everything
   // below (book lookup, entitlements, the order record) resolves
@@ -169,11 +260,18 @@ export const POST: APIRoute = async ({ request }) => {
         });
     }
   } catch { /* translation is defensive; raw slugs still resolve as before */ }
-  const slugs = [...new Set(wanted.map((x) => x.slug))];
+  // Book lines resolve against the catalog; the club line (if any)
+  // is already fully resolved by clubSpec and never queries books.
+  const bookWanted = wanted.filter((x) => !isClubCartSlug(x.slug));
+  const slugs = [...new Set(bookWanted.map((x) => x.slug))];
   const placeholders = slugs.map(() => "?").join(",");
-  const rows = await e.DB.prepare(
-    `SELECT slug, title, price, price_print, picture_book_key, coloring_book_key, audiobook_key FROM books WHERE slug IN (${placeholders}) AND status = 'complete'`
-  ).bind(...slugs).all();
+  // A club-only cart has no book slugs at all: skip the catalog query
+  // (an empty IN list is not valid SQL).
+  const rows = slugs.length
+    ? await e.DB.prepare(
+        `SELECT slug, title, price, price_print, picture_book_key, coloring_book_key, audiobook_key FROM books WHERE slug IN (${placeholders}) AND status = 'complete'`
+      ).bind(...slugs).all()
+    : { results: [] };
   const bySlug: Record<string, any> = {};
   for (const b of (rows.results || []) as any[]) bySlug[b.slug] = b;
   // Audio-published books (CG, 2026-10-29): a book with a cover and
@@ -213,7 +311,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const lineItems: any[] = [];
   const bought: CartItem[] = [];
-  for (const w of wanted) {
+  for (const w of bookWanted) {
     const b = bySlug[w.slug];
     if (!b) continue;
     // An audio-published (not book-published) row sells audio only:
@@ -251,12 +349,51 @@ export const POST: APIRoute = async ({ request }) => {
     }
     bought.push(priced.upgrade ? { ...w, upgrade: priced.upgrade } : w);
   }
+  // The club line: priced from the offers constants, carried on the
+  // order with its priceCents (no book row exists to reprice it
+  // from), and built as a RECURRING Stripe line, kept apart from the
+  // book line items so shipping quotes and promo repricing never see
+  // it. Its product name, description, and interval are the club
+  // checkout's own (lib/offers resolveClubCartLine).
+  let clubLineItem: any = null;
+  if (clubSpec) {
+    clubLineItem = {
+      price_data: {
+        currency: "usd",
+        unit_amount: clubSpec.priceCents,
+        recurring: clubSpec.recurring,
+        product_data: {
+          name: clubSpec.productName,
+          description: clubSpec.productDescription,
+          metadata: { slug: clubSpec.slug, format: clubSpec.period },
+        },
+      },
+      quantity: 1,
+    };
+    bought.push({ slug: clubSpec.slug, format: clubSpec.period, qty: 1, priceCents: clubSpec.priceCents });
+  }
   if (!bought.length) {
     return Response.json({ error: "Nothing in your cart is available for purchase yet." }, { status: 400 });
   }
 
+  // "Physical" splits in two now: physical BOOK lines (printed /
+  // giftset) are what shipping is quoted and charged on, while a
+  // Book Club line needs the buyer's address (its first box ships)
+  // but never a shipping charge (club shipping is included) and
+  // never a place in a quote's line items.
   const physical = bought.some((i) => isPhysicalFormat(i.format));
-  const itemsTotal = lineItems.reduce((sum, li) => sum + (li.price_data.unit_amount || 0) * (li.quantity || 1), 0);
+  const bookLines = bought.filter((i) => !isClubCartSlug(i.slug));
+  const needsAddress = physical || clubSpec?.clubPlan === "physical";
+  const itemsTotal =
+    lineItems.reduce((sum, li) => sum + (li.price_data.unit_amount || 0) * (li.quantity || 1), 0) +
+    (clubSpec ? clubSpec.priceCents : 0);
+  // Promo validation prices the discount off the BOOK subtotal when
+  // a club line rides along: a store promo discounts merchandise,
+  // never a membership's recurring price, and the repricing below
+  // only ever touches the one-time book lines.
+  const promoSubtotalCents = clubSpec
+    ? lineItems.reduce((sum, li) => sum + (li.price_data.unit_amount || 0) * (li.quantity || 1), 0)
+    : itemsTotal;
 
   // Promo code (lib/promo.ts): validated against the server-priced
   // merchandise subtotal, never a client figure. A code that was
@@ -272,7 +409,7 @@ export const POST: APIRoute = async ({ request }) => {
       code: promoCode,
       email: buyerEmail,
       userId: buyerId,
-      subtotalCents: itemsTotal,
+      subtotalCents: promoSubtotalCents,
     }).catch(() => ({ ok: false as const, error: "That code could not be checked. Please try again." }));
     if (!v.ok) {
       return Response.json({ error: v.error || "That code is not a current offer." }, { status: 400 });
@@ -312,7 +449,7 @@ export const POST: APIRoute = async ({ request }) => {
   let quoteFingerprint = "";
   let quoteDetail: Record<string, any> | null = null;
   let shipPhone = "";
-  if (physical) {
+  if (needsAddress) {
     dest = normalizeShipDestination(body?.address);
     if (!dest.name && user) dest.name = String(user.name || "");
     const missing = missingAddressFields(dest.address);
@@ -358,12 +495,18 @@ export const POST: APIRoute = async ({ request }) => {
         );
       }
     }
+    // The quote machinery below prices BOOK parcels only. A
+    // club-only cart (needsAddress through The Book Club alone) has
+    // validated its address and phone above and skips it entirely:
+    // no quote, no shipping charge, the address rides the order into
+    // the membership's ships-to at completion.
+    if (physical) {
     const fpBase = {
       buyerKey: buyerId,
       state: String(dest.address?.state || ""),
       zip: String(dest.address?.postal_code || ""),
       country: String(dest.address?.country || ""),
-      items: bought,
+      items: bookLines,
     };
     const shippoFingerprint = shippingQuoteFingerprint(fpBase);
     // Lulu prices by exact address, so its fingerprint names the
@@ -408,7 +551,7 @@ export const POST: APIRoute = async ({ request }) => {
       try {
         const { quoteLuluShipping } = await import("../../lib/print-fulfillment");
         const lq = await quoteLuluShipping(e.DB, e, {
-          items: bought,
+          items: bookLines,
           name: dest.name,
           address: dest.address,
           phone: shipPhone,
@@ -427,7 +570,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
     if (!quote) try {
       quoteFingerprint = shippoFingerprint;
-      quote = await quoteShippingWithRetry(e, dest, bought);
+      quote = await quoteShippingWithRetry(e, dest, bookLines);
     } catch (err) {
       // An address Shippo validated as undeliverable is the buyer's
       // to fix, not an outage: surface Shippo's explanation as a 400
@@ -445,6 +588,7 @@ export const POST: APIRoute = async ({ request }) => {
         { status: 503 }
       );
     }
+    } // physical book lines only: the quote machinery ends here.
   }
   // The shipping charge: the quote rounded up to the next whole
   // dollar (an exact-dollar quote stays as it is). One variable feeds
@@ -465,6 +609,10 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({
       ok: true,
       physical,
+      // A club-only Book Club cart validates its address here with
+      // nothing to quote: the page confirms the address step and
+      // moves to Review with no shipping line.
+      address_only: needsAddress && !physical,
       items_total: itemsTotal,
       ...(promoApplied
         ? { promo: { code: promoApplied.code, percent_off: promoApplied.percentOff, discount_cents: promoApplied.discountCents } }
@@ -498,13 +646,20 @@ export const POST: APIRoute = async ({ request }) => {
     lineItems.push(...repriced);
   }
 
+  // The order's email: the account email when signed in; for a guest
+  // club checkout, the email the buyer named and the guards checked
+  // (it is also the session's customer_email below, and completion
+  // converges on it either way). Plain guest orders keep the empty
+  // email Stripe fills at payment, as always.
+  const orderEmail = user ? buyerEmail : clubSpec ? guestEmail : buyerEmail;
+
   // Idempotency: one pending order per (buyer, cart), where the buyer
   // is the account id or the guest key. A double click or a retried
   // request reuses the same pending order, and its id is the Stripe
   // idempotency key, so Stripe hands back the same session too.
   const order = await getOrCreatePendingOrder(e.DB, {
     userId: buyerId,
-    email: buyerEmail,
+    email: orderEmail,
     items: bought,
     amount: total,
   });
@@ -559,7 +714,7 @@ export const POST: APIRoute = async ({ request }) => {
     await reservePromo(e.DB, {
       code: promoApplied.code,
       orderId: order.id,
-      email: buyerEmail,
+      email: orderEmail,
       userId: buyerId,
       discountCents: promoDiscountCents,
     }).catch((err: any) => console.error("promo reserve failed", err?.message || err));
@@ -599,8 +754,12 @@ export const POST: APIRoute = async ({ request }) => {
 
   const taxEnabled = String(e.TAX_ENABLED || "").toLowerCase() === "1" || String(e.TAX_ENABLED || "").toLowerCase() === "true";
   const sessionParams: any = {
-    mode: "payment",
-    line_items: lineItems,
+    // A cart with a club line subscribes: subscription mode, the
+    // book lines riding as one-time prices beside the recurring
+    // club line (Stripe charges those once, up front). Every other
+    // cart keeps the payment session it has always had.
+    mode: clubSpec ? "subscription" : "payment",
+    line_items: clubLineItem ? [...lineItems, clubLineItem] : lineItems,
     metadata: {
       user_id: buyerId,
       order_id: order.id,
@@ -611,11 +770,34 @@ export const POST: APIRoute = async ({ request }) => {
     success_url: successUrl,
     cancel_url: `${SITE}/checkout?checkout=cancelled`,
   };
+  if (clubSpec) {
+    // Completion activates the membership from the order; these
+    // name the club facts on the session itself so the activation
+    // never has to re-derive them (and the subscription carries
+    // them for support). Deliberately NOT club=1: that marker is
+    // the account-bound club checkout's, whose sessions complete
+    // no store order; the webhook routes on it.
+    sessionParams.metadata.club_plan = clubSpec.clubPlan;
+    sessionParams.metadata.club_period = clubSpec.period;
+    sessionParams.metadata.club_email = orderEmail;
+    sessionParams.subscription_data = {
+      metadata: {
+        order_id: order.id,
+        club_plan: clubSpec.clubPlan,
+        club_period: clubSpec.period,
+        club_email: orderEmail,
+      },
+    };
+  }
   if (promoApplied) sessionParams.metadata.promo_code = promoApplied.code;
   // Signed-in buyers: Stripe pre-fills the account email. Guests:
   // no customer_email is set, so Stripe collects one on its page;
-  // the webhook copies it onto the order at completion.
+  // the webhook copies it onto the order at completion. A guest
+  // CLUB checkout is the one exception: the buyer already named the
+  // membership email (the guards checked it), so Stripe confirms
+  // that address instead of asking again.
   if (user) sessionParams.customer_email = String(user.email || "");
+  else if (clubSpec) sessionParams.customer_email = guestEmail;
   if (physical && quote && dest) {
     // The shipping charge rides as a fixed-amount shipping option (not
     // a line item): Stripe then reports it as the session's
@@ -632,10 +814,15 @@ export const POST: APIRoute = async ({ request }) => {
         },
       },
     ];
+  }
+  if (dest && needsAddress) {
     // The address itself is already collected (checkout page) and stored on
     // the order; it also rides in the metadata so order completion can
     // recover it even if no pending row exists. Stripe is NOT asked to
-    // collect a second, possibly different, address.
+    // collect a second, possibly different, address. A club-only Book
+    // Club cart has no quote to store, so this metadata is its
+    // address's only ride into completion (and into the membership's
+    // ships-to there).
     sessionParams.metadata.ship_name = dest.name || "";
     sessionParams.metadata.ship_address = JSON.stringify(
       shipPhone ? { ...dest.address, phone: shipPhone } : dest.address
