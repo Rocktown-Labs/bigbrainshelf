@@ -25,6 +25,11 @@ export interface GatewayEnv {
   // Optional flat per-image USD estimate for interactions metering
   // until the live usage shape is verified (see the transport below).
   INTERACTIONS_COST_PER_IMAGE_USD?: string;
+  // "flex" | "standard" | "priority" for the interactions transport.
+  // Flex is 50% off standard in exchange for 1-15 minute latency and
+  // best-effort capacity (Google docs, flex inference). The factory is
+  // a batch pipeline, so latency is the cheap currency here.
+  IMAGE_SERVICE_TIER?: string;
 }
 
 export function gatewayConfigured(env: GatewayEnv): boolean {
@@ -131,6 +136,8 @@ export interface ImageGenOpts {
   // "1K" | "2K" | "4K" (interactions transport only; the gateway
   // path's pinned size lives in its own request body).
   imageSize?: string;
+  // Per-call service tier override; defaults to IMAGE_SERVICE_TIER.
+  serviceTier?: string;
 }
 
 export async function generateInteractionsImageMetered(
@@ -166,6 +173,13 @@ export async function generateInteractionsImageMetered(
     },
   };
   if (chained) body.previous_interaction_id = opts.previousInteractionId;
+  const tier = opts.serviceTier || env.IMAGE_SERVICE_TIER;
+  if (tier) body.service_tier = tier;
+  // Flex queues: Google recommends 10+ minute client timeouts. The
+  // roll loop treats a timeout/503 as an ordinary failed roll (the
+  // doc's own client-side retry shape); a flex request is never
+  // silently upgraded to standard, so a shed roll costs nothing.
+  const timeoutMs = tier === "flex" ? 600000 : 300000;
   const res = await fetch(INTERACTIONS_URL, {
     method: "POST",
     headers: {
@@ -173,7 +187,7 @@ export async function generateInteractionsImageMetered(
       "x-goog-api-key": key,
       "Api-Revision": "2026-05-20",
     },
-    signal: AbortSignal.timeout(300000),
+    signal: AbortSignal.timeout(timeoutMs),
     body: JSON.stringify(body),
   });
   if (!res.ok) {
