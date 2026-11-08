@@ -167,7 +167,11 @@ export async function generateInteractionsImageMetered(
     input,
     response_format: {
       type: "image",
-      mime_type: "image/png",
+      // Live-verified 2026-11-08: the interactions endpoint rejects
+      // image/png here ("Supported values: 'image/jpeg'"). Returned
+      // bytes are sniffed by magic bytes everywhere downstream, so
+      // JPEG output needs no other change.
+      mime_type: "image/jpeg",
       aspect_ratio: aspect,
       image_size: opts.imageSize || "1K",
     },
