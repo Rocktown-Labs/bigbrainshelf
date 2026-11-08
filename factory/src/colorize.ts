@@ -13,6 +13,7 @@ import { recordWorkflowRun } from "../../packages/core/src/run-provenance";
 import { WorkflowEntrypoint, WorkflowStep } from "cloudflare:workers";
 import type { WorkflowEvent } from "cloudflare:workers";
 import { composeMatter, ensureBackCoverImages } from "./matter";
+import { attemptInlineAppeal } from "./appeals";
 import {
   BookBuildEnv,
   GenEvent,
@@ -93,6 +94,7 @@ export async function genColorizeWithQC(
     await logGenAttempt(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, 0, { outcome: "gateway_unavailable", reason: "gateway not configured" });
     return { status: "gateway" };
   }
+  const runStart = Math.floor(Date.now() / 1000);
   // Cast first (castForPage: scene cast, field/prompt names, or the
   // bible visuals embedded verbatim in legacy prompts), so the
   // reference set carries every drawn character's sheet. The first
@@ -171,6 +173,19 @@ export async function genColorizeWithQC(
     events.push({ attempt, outcome: "qc_reject", cost });
     await logGenAttempt(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, attempt, { outcome: "qc_reject", reason: qd.reason, scores: qd.scores, cost }, bytes);
     console.log(`colorize QC rejected image (attempt ${attempt} of ${MAX_ROLLS})`);
+  }
+  // Inline appeal (2026-11-07): same hold-point second opinion as
+  // the line and picture-color paths. A rescue_candidate verdict
+  // ships the archived roll; anything else holds exactly as before.
+  if ((await spendCapHit(env, slug)) === null && (await budgetGate(env, slug)) === null) {
+    const appeal = await attemptInlineAppeal(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, runStart);
+    if (appeal.rescued && appeal.bytes) {
+      events.push({ attempt: MAX_ROLLS, outcome: "accepted_appeal", cost: null });
+      await logGenAttempt(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, MAX_ROLLS + 1, { outcome: "accepted_appeal", reason: `inline appeal rescued attempt ${appeal.attemptId} (Opus verdict: rescue_candidate)`, cost: null }, appeal.bytes);
+      await logGenEvents(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, events);
+      console.log("inline appeal rescued the colorize page; shipping the appealed roll instead of holding");
+      return { status: "ok", bytes: appeal.bytes };
+    }
   }
   events.push({ attempt: MAX_ROLLS, outcome: "held_for_review", cost: null });
   await logGenEvents(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, events);
