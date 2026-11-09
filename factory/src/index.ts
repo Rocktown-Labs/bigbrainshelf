@@ -523,11 +523,13 @@ export default {
         const bible = await r2GetJson(env.BOOKS, `books/${slug}/bible.json`);
         if (!bible?.conceptLadder?.length)
           return Response.json({ error: "no bible for slug" }, { status: 404 });
-        const imgs = await ensureBackCoverImages(
-          { AI: env.AI, BOOKS: env.BOOKS, DB: env.DB } as any,
-          slug,
-          bible
-        );
+        // Full env, not a stripped subset: ensureBackCoverImages
+        // GENERATES art, and the gateway reads AI_GATEWAY_KEY (plus
+        // budget bindings) off env. The old {AI, BOOKS, DB} subset made
+        // every generation return empty instantly, so this route could
+        // never produce a back cover (found 2026-11-08 on Tilda, the
+        // first build to reach assembly without pre-existing covers).
+        const imgs = await ensureBackCoverImages(env as any, slug, bible);
         const base = "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev";
         return Response.json({
           slug,
