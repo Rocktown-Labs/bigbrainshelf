@@ -1016,7 +1016,7 @@ if (fromAll) {
         signoffStates = data.signoffs || null;
         // Title/status ride in the chapters payload (viewer speed fix,
         // 2026-11-09); the catalog fetch is no longer part of startup.
-        book = { title: data.title || slug, status: data.bookStatus || "" };
+        book = { title: data.title || slug, status: data.bookStatus || "", cover_key: data.coverKey || null };
         document.getElementById("title").textContent = book.title;
         if (data.bookStatus) {
           document.getElementById("bookstatus").innerHTML =
