@@ -12,6 +12,9 @@ import {
   runDelayEmailScheduler,
   ORDER_DELAYED_KIND,
   CLUB_BOX_DELAYED_KIND,
+  orderShipByDateString,
+  clubBoxShipByDateString,
+  POD_PRODUCTION_DAYS,
 } from "../src/lib/delay-emails";
 import { renderOutboxEmailHtml } from "../src/lib/email-render";
 import { senderForKind } from "../src/lib/orders";
@@ -225,5 +228,63 @@ describe("SORRY10 promo terms", () => {
       subtotalCents: 2000,
     });
     expect(again.ok).toBe(false);
+  });
+});
+
+// POD promise window (2026-11-09): an order or box with a queued or
+// submitted print job promises the production window (10 days), not
+// the home print-and-pack turnaround (7). Eight days in, the covered
+// order is not late yet; the identical uncovered order is.
+describe("delay emails under print on demand", () => {
+  const pdb = makeDb();
+  const psql = pdb._sqlite;
+  psql.run(`CREATE TABLE books (slug TEXT PRIMARY KEY, title TEXT, price INTEGER, price_print INTEGER,
+    picture_book_key TEXT, coloring_book_key TEXT, epub_key TEXT, color_book_key TEXT, audiobook_key TEXT)`);
+  psql.run(`CREATE TABLE orders (id TEXT PRIMARY KEY, email TEXT, user_id TEXT, status TEXT,
+    physical_status TEXT, items TEXT, amount INTEGER, created_at INTEGER,
+    promo_code TEXT, promo_discount_cents INTEGER)`);
+  psql.run(`CREATE TABLE club_signups (id TEXT PRIMARY KEY, email TEXT, user_id TEXT)`);
+  psql.run(`CREATE TABLE club_cycle_boxes (id TEXT PRIMARY KEY, signup_id TEXT, ship_date TEXT,
+    status TEXT, resolved_book_slug TEXT, created_at INTEGER, carrier TEXT, tracking_number TEXT)`);
+  psql.run(`CREATE TABLE email_outbox (id TEXT PRIMARY KEY, order_id TEXT, kind TEXT, to_email TEXT,
+    subject TEXT, body_text TEXT, status TEXT, attempts INTEGER, created_at INTEGER,
+    send_after INTEGER, from_email TEXT, dedupe_key TEXT, club_box_id TEXT, reply_to TEXT,
+    sent_at INTEGER, last_error TEXT)`);
+  psql.run(`CREATE UNIQUE INDEX email_outbox_order_kind_idx ON email_outbox(order_id, kind) WHERE order_id IS NOT NULL`);
+  psql.run(`CREATE UNIQUE INDEX email_outbox_dedupe_idx ON email_outbox(dedupe_key) WHERE dedupe_key IS NOT NULL`);
+  psql.run(`CREATE TABLE print_jobs (id TEXT PRIMARY KEY, order_id TEXT, club_box_id TEXT, status TEXT)`);
+  psql.run("INSERT INTO books (slug, title) VALUES ('mira-the-heron-and-the-still-water', 'Mira the Heron and the Still Water')");
+  psql.run("INSERT INTO club_signups (id, email, user_id) VALUES ('member-1', 'member@example.com', 'user-2')");
+  const pItems = JSON.stringify([{ slug: "mira-the-heron-and-the-still-water", format: "printed", qty: 1 }]);
+  const eightDaysAgo = addDaysToDateString(today, -8);
+  const addPOrder = (id: string) =>
+    psql.run(
+      "INSERT INTO orders (id, email, user_id, status, physical_status, items, amount, created_at) VALUES (?, 'buyer@example.com', 'user-1', 'complete', 'in_print', ?, 2836, ?)",
+      [id, pItems, tsOn(eightDaysAgo)]
+    );
+  addPOrder("order-pod-covered");
+  addPOrder("order-pod-bare");
+  psql.run("INSERT INTO print_jobs (id, order_id, club_box_id, status) VALUES ('job-1', 'order-pod-covered', NULL, 'submitted')");
+  psql.run(
+    "INSERT INTO club_cycle_boxes (id, signup_id, ship_date, status, resolved_book_slug, created_at) VALUES ('box-pod-covered', 'member-1', ?, 'locked', 'mira-the-heron-and-the-still-water', ?)",
+    [eightDaysAgo, tsOn(eightDaysAgo)]
+  );
+  psql.run("INSERT INTO print_jobs (id, order_id, club_box_id, status) VALUES ('job-2', NULL, 'box-pod-covered', 'submitted')");
+
+  test("ship-by promises the production window only when a print job covers the work", () => {
+    const created = tsOn("2026-11-01");
+    expect(orderShipByDateString({ created_at: created })).toBe("2026-11-08");
+    expect(orderShipByDateString({ created_at: created }, true)).toBe(
+      addDaysToDateString("2026-11-01", POD_PRODUCTION_DAYS)
+    );
+    expect(clubBoxShipByDateString({ ship_date: "2026-11-01" })).toBe("2026-11-08");
+    expect(clubBoxShipByDateString({ ship_date: "2026-11-01" }, true)).toBe("2026-11-11");
+  });
+
+  test("eight days in, only the uncovered order gets the apology", async () => {
+    const summary = await runDelayEmailScheduler(pdb, SITE, new Date());
+    expect(summary).toEqual({ ordersQueued: 1, boxesQueued: 0 });
+    const rows = psql.query("SELECT order_id FROM email_outbox WHERE kind = ?").all(ORDER_DELAYED_KIND) as any[];
+    expect(rows.map((r) => r.order_id)).toEqual(["order-pod-bare"]);
   });
 });

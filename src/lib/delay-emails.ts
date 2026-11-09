@@ -21,6 +21,9 @@
 //     CLUB_PROCESSING_DAYS (7) after the order date. That is why the
 //     admin urgency panel's AGED_ORDER_DAYS (3) is NOT used here: it
 //     is an internal tripwire, not a date a customer was given.
+//   - POD-covered orders and boxes (a queued or submitted Lulu
+//     print job exists) promise POD_PRODUCTION_DAYS instead: the
+//     printer's production window replaces our pack turnaround.
 // A fulfillment is late the first day after its ship-by date, and
 // the cron pass (lib/club-scheduler.ts) enqueues the email then.
 //
@@ -75,16 +78,47 @@ const DELAYABLE_BOX_STATUSES = ["locked", "preparing"] as const;
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
 /** The ship-by date (YYYY-MM-DD) a store order was promised. */
-export function orderShipByDateString(order: { created_at?: number | null }): string {
+export function orderShipByDateString(order: { created_at?: number | null }, pod = false): string {
   return addDaysToDateString(
     dateStringFromUnixSeconds(Number(order.created_at || nowSeconds())),
-    CLUB_PROCESSING_DAYS
+    pod ? POD_PRODUCTION_DAYS : CLUB_PROCESSING_DAYS
   );
 }
 
 /** The ship-by date (YYYY-MM-DD) a club box was promised. */
-export function clubBoxShipByDateString(box: { ship_date?: string | null }): string {
-  return addDaysToDateString(String(box.ship_date || ""), CLUB_PROCESSING_DAYS);
+export function clubBoxShipByDateString(box: { ship_date?: string | null }, pod = false): string {
+  return addDaysToDateString(String(box.ship_date || ""), pod ? POD_PRODUCTION_DAYS : CLUB_PROCESSING_DAYS);
+}
+
+// Print-on-demand promise (POD rework, CG 2026-11-09): when a Lulu
+// print job is doing the making, the honest ship-by promise has to
+// cover the printer's production window, not the old print-and-pack
+// turnaround. Ten calendar days from the order (or the box's ship
+// date) covers a five-business-day production run plus weekend and
+// delay slop. An order or box counts as POD-covered while it has a
+// queued or submitted print job; terminal jobs (failed, canceled)
+// fall back to the home clock, and their failure is surfaced to the
+// admin by the urgency digest instead. The scheduler's scan bound
+// stays the shorter home window: coverage only ever extends a
+// promise, it never hides work from the scan.
+export const POD_PRODUCTION_DAYS = 10;
+
+export async function orderHasPrintCoverage(db: DBLike, orderId: string): Promise<boolean> {
+  const row = await db
+    .prepare("SELECT id FROM print_jobs WHERE order_id = ? AND status IN ('queued', 'submitted') LIMIT 1")
+    .bind(orderId)
+    .first()
+    .catch(() => null);
+  return !!row;
+}
+
+export async function boxHasPrintCoverage(db: DBLike, boxId: string): Promise<boolean> {
+  const row = await db
+    .prepare("SELECT id FROM print_jobs WHERE club_box_id = ? AND status IN ('queued', 'submitted') LIMIT 1")
+    .bind(boxId)
+    .first()
+    .catch(() => null);
+  return !!row;
 }
 
 export interface DelayEmailModel {
@@ -188,7 +222,7 @@ export async function loadDelayEmailModel(
       site,
       order,
       books,
-      shipByDate: orderShipByDateString(order),
+      shipByDate: orderShipByDateString(order, await orderHasPrintCoverage(db, String(order.id))),
       expectedDate,
     });
   }
@@ -206,7 +240,7 @@ export async function loadDelayEmailModel(
   return buildClubBoxDelayModel({
     site,
     bookTitle: box.book_title || null,
-    shipByDate: clubBoxShipByDateString(box),
+    shipByDate: clubBoxShipByDateString(box, await boxHasPrintCoverage(db, String(box.id))),
     expectedDate,
   });
 }
@@ -223,7 +257,7 @@ export async function enqueueOrderDelayEmail(
     site,
     order,
     books,
-    shipByDate: orderShipByDateString(order),
+    shipByDate: orderShipByDateString(order, await orderHasPrintCoverage(db, String(order.id))),
     expectedDate: addDaysToDateString(dateStringFromUnixSeconds(nowSec), DELAY_NEW_EXPECTED_DAYS),
   });
   await enqueueEmail(db, {
@@ -258,7 +292,7 @@ export async function enqueueClubBoxDelayEmail(
   const model = buildClubBoxDelayModel({
     site,
     bookTitle,
-    shipByDate: clubBoxShipByDateString(box),
+    shipByDate: clubBoxShipByDateString(box, await boxHasPrintCoverage(db, String(box.id))),
     expectedDate: addDaysToDateString(dateStringFromUnixSeconds(nowSec), DELAY_NEW_EXPECTED_DAYS),
   });
   await enqueueEmail(db, {
@@ -305,7 +339,7 @@ export async function runDelayEmailScheduler(
     .all()
     .catch(() => ({ results: [] as any[] }));
   for (const order of (orderRows.results || []) as any[]) {
-    if (!(orderShipByDateString(order) < today)) continue;
+    if (!(orderShipByDateString(order, await orderHasPrintCoverage(db, String(order.id))) < today)) continue;
     const existing = await db
       .prepare("SELECT id FROM email_outbox WHERE order_id = ? AND kind = ?")
       .bind(String(order.id), ORDER_DELAYED_KIND)
@@ -329,7 +363,7 @@ export async function runDelayEmailScheduler(
     .all()
     .catch(() => ({ results: [] as any[] }));
   for (const box of (boxRows.results || []) as any[]) {
-    if (!(clubBoxShipByDateString(box) < today)) continue;
+    if (!(clubBoxShipByDateString(box, await boxHasPrintCoverage(db, String(box.id))) < today)) continue;
     const dedupeKey = `club_box:${String(box.id)}:${CLUB_BOX_DELAYED_KIND}`;
     const existing = await db
       .prepare("SELECT id FROM email_outbox WHERE dedupe_key = ?")

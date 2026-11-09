@@ -152,7 +152,10 @@ export async function runScheduledWork(
   let adminDigest = { queued: 0, urgentTotal: 0 };
   try {
     const { runAdminDigest } = await import("./admin-digest");
-    adminDigest = await runAdminDigest(db as any, opts.now || new Date());
+    const { luluConfigured } = await import("./lulu");
+    adminDigest = await runAdminDigest(db as any, opts.now || new Date(), {
+      podActive: luluConfigured(env),
+    });
   } catch (err: any) {
     console.error("scheduled admin digest failed", err?.message || err);
   }

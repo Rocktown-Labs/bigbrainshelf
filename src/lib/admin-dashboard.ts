@@ -77,7 +77,7 @@ async function count(db: any, sql: string, ...args: any[]): Promise<number> {
   return Number((row as any)?.n || 0);
 }
 
-export async function getAdminDashboard(db: any, nowSec: number): Promise<AdminDashboardData> {
+export async function getAdminDashboard(db: any, nowSec: number, podActive = false): Promise<AdminDashboardData> {
   const dayStart = chicagoDayStartSec(nowSec);
   // The needs-attention query reads public_slug (admin links wear
   // it); make sure the column exists on any database this runs on.
@@ -211,9 +211,13 @@ export async function getAdminDashboard(db: any, nowSec: number): Promise<AdminD
   }));
 
   // ---- Urgency (time-based; CG, 2026-11-02) ------------------------
-  const urgent = await getUrgency(db, nowSec, isoDay(dayStart)).catch(() => ({
+  const urgent = await getUrgency(db, nowSec, isoDay(dayStart), { podActive }).catch(() => ({
     overdueBoxes: [], overdueBoxCount: 0, boxesDueSoon: 0,
-    agedOrders: [], agedOrderCount: 0, failedChanges: 0, total: 0,
+    agedOrders: [], agedOrderCount: 0, failedChanges: 0,
+    failedPrintJobs: [], failedPrintJobCount: 0, stuckPrintJobCount: 0,
+    unsubmittedOrderCount: 0, longProductionCount: 0,
+    overdueBoxesInProduction: 0, manualOrdersWaiting: 0, infoTotal: 0,
+    podActive, total: 0,
   }));
 
   return {
