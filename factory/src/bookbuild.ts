@@ -1708,7 +1708,10 @@ export class BookBuildWorkflow extends WorkflowEntrypoint<BookBuildEnv, BookBuil
         `naturally. Rich warm color, inviting light, the hero large and clear. ` +
         `Compose the scene in the lower two thirds of the frame and keep the top ` +
         `quarter as clear open sky with no characters, trees, or objects, so ` +
-        `nothing important ever sits where the title goes.`;
+        `nothing important ever sits where the title goes. ` +
+        `No text of any kind anywhere in the image: no signs, no lettering, ` +
+        `no words, no numbers, including on stalls, banners, books, or ` +
+        `buildings. Any sign or banner is left completely blank.`;
       // Cover art generates at 1:1 (the composed cover's art region is
       // landscape-ish); the old 3:4 portrait pin made every fit wrong.
       const bytes = await genPictureColorWithQC(env, slug, prompt, cast || undefined, undefined, "1:1");
