@@ -1,0 +1,418 @@
+[
+ {
+  "page": "tilda-S1p0",
+  "outline_only": 0.8865,
+  "style_match": 0.5609,
+  "no_humans": 0.713,
+  "no_extra_characters": 0.2661,
+  "wardrobe_bix": 0.043
+ },
+ {
+  "page": "tilda-S1p1",
+  "outline_only": 0.9451,
+  "style_match": 0.6678,
+  "no_humans": 0.9371,
+  "no_extra_characters": 0.7503,
+  "wardrobe_bix": 0.6256
+ },
+ {
+  "page": "tilda-S1p2",
+  "outline_only": 0.1364,
+  "style_match": 0.7426,
+  "no_humans": 0.4443,
+  "no_extra_characters": 0.6339,
+  "wardrobe_bix": 0.3837
+ },
+ {
+  "page": "tilda-S1p3",
+  "outline_only": 0.9342,
+  "style_match": 0.7471,
+  "no_humans": 0.901,
+  "no_extra_characters": 0.5382,
+  "wardrobe_bix": 0.0378
+ },
+ {
+  "page": "tilda-S1fin",
+  "outline_only": 0.0294,
+  "style_match": 0.6935,
+  "no_humans": 0.949,
+  "no_extra_characters": 0.7426,
+  "wardrobe_bix": 0.7734
+ },
+ {
+  "page": "tilda-S2p0",
+  "outline_only": 0.914,
+  "style_match": 0.7217,
+  "no_humans": 0.0217,
+  "no_extra_characters": 0.3052,
+  "wardrobe_bix": 0.0317
+ },
+ {
+  "page": "tilda-S2p1",
+  "outline_only": 0.0384,
+  "style_match": 0.6807,
+  "no_humans": 0.2786,
+  "no_extra_characters": 0.7331,
+  "wardrobe_bix": 0.5866
+ },
+ {
+  "page": "tilda-S2p2",
+  "outline_only": 0.9115,
+  "style_match": 0.7239,
+  "no_humans": 0.7931,
+  "no_extra_characters": 0.5058,
+  "wardrobe_bix": 0.0548
+ },
+ {
+  "page": "tilda-S2p3",
+  "outline_only": 0.9194,
+  "style_match": 0.8028,
+  "no_humans": 0.7898,
+  "no_extra_characters": 0.3451,
+  "wardrobe_bix": 0.0376
+ },
+ {
+  "page": "tilda-S2fin",
+  "outline_only": 0.9221,
+  "style_match": 0.1449,
+  "no_humans": 0.9595,
+  "no_extra_characters": 0.8645,
+  "wardrobe_bix": 0.0286
+ },
+ {
+  "page": "tilda-S3p0",
+  "outline_only": 0.8966,
+  "style_match": 0.7674,
+  "no_humans": 0.2988,
+  "no_extra_characters": 0.3975,
+  "wardrobe_bix": 0.0395
+ },
+ {
+  "page": "tilda-S3p1",
+  "outline_only": 0.9402,
+  "style_match": 0.695,
+  "no_humans": 0.9145,
+  "no_extra_characters": 0.8591,
+  "wardrobe_bix": 0.0332
+ },
+ {
+  "page": "tilda-S3p2",
+  "outline_only": 0.9499,
+  "style_match": 0.7328,
+  "no_humans": 0.9492,
+  "no_extra_characters": 0.6351,
+  "wardrobe_bix": 0.7807
+ },
+ {
+  "page": "tilda-S3p3",
+  "outline_only": 0.9411,
+  "style_match": 0.6668,
+  "no_humans": 0.9403,
+  "no_extra_characters": 0.7764,
+  "wardrobe_bix": 0.0361
+ },
+ {
+  "page": "tilda-S3fin",
+  "outline_only": 0.939,
+  "style_match": 0.6856,
+  "no_humans": 0.9026,
+  "no_extra_characters": 0.3994,
+  "wardrobe_bix": 0.032
+ },
+ {
+  "page": "tilda-S4p0",
+  "outline_only": 0.8781,
+  "style_match": 0.6919,
+  "no_humans": 0.3484,
+  "no_extra_characters": 0.6723,
+  "wardrobe_bix": 0.0516
+ },
+ {
+  "page": "tilda-S4p1",
+  "outline_only": 0.9266,
+  "style_match": 0.7331,
+  "no_humans": 0.9527,
+  "no_extra_characters": 0.7847,
+  "wardrobe_bix": 0.0463
+ },
+ {
+  "page": "tilda-S4p2",
+  "outline_only": 0.9369,
+  "style_match": 0.754,
+  "no_humans": 0.9341,
+  "no_extra_characters": 0.4977,
+  "wardrobe_bix": 0.031
+ },
+ {
+  "page": "tilda-S4p3",
+  "outline_only": 0.0539,
+  "style_match": 0.5508,
+  "no_humans": 0.8584,
+  "no_extra_characters": 0.7958,
+  "wardrobe_bix": 0.6395
+ },
+ {
+  "page": "tilda-S4fin",
+  "outline_only": 0.9448,
+  "style_match": 0.106,
+  "no_humans": 0.9584,
+  "no_extra_characters": 0.8022,
+  "wardrobe_bix": 0.0287
+ },
+ {
+  "page": "tilda-S5p0",
+  "outline_only": 0.9407,
+  "style_match": 0.6924,
+  "no_humans": 0.91,
+  "no_extra_characters": 0.6917,
+  "wardrobe_bix": 0.7625
+ },
+ {
+  "page": "tilda-S5p1",
+  "outline_only": 0.9305,
+  "style_match": 0.7369,
+  "no_humans": 0.8351,
+  "no_extra_characters": 0.7554,
+  "wardrobe_bix": 0.0465
+ },
+ {
+  "page": "tilda-S5p2",
+  "outline_only": 0.9402,
+  "style_match": 0.8531,
+  "no_humans": 0.8816,
+  "no_extra_characters": 0.7637,
+  "wardrobe_bix": 0.0492
+ },
+ {
+  "page": "tilda-S5p3",
+  "outline_only": 0.9211,
+  "style_match": 0.7787,
+  "no_humans": 0.9153,
+  "no_extra_characters": 0.5026,
+  "wardrobe_bix": 0.0495
+ },
+ {
+  "page": "tilda-S5fin",
+  "outline_only": 0.2271,
+  "style_match": 0.4338,
+  "no_humans": 0.921,
+  "no_extra_characters": 0.7491,
+  "wardrobe_bix": 0.5952
+ },
+ {
+  "page": "tilda-S6p0",
+  "outline_only": 0.105,
+  "style_match": 0.7298,
+  "no_humans": 0.9385,
+  "no_extra_characters": 0.7856,
+  "wardrobe_bix": 0.7266
+ },
+ {
+  "page": "tilda-S6p1",
+  "outline_only": 0.9313,
+  "style_match": 0.7156,
+  "no_humans": 0.9364,
+  "no_extra_characters": 0.3365,
+  "wardrobe_bix": 0.024
+ },
+ {
+  "page": "tilda-S6p2",
+  "outline_only": 0.928,
+  "style_match": 0.6244,
+  "no_humans": 0.8958,
+  "no_extra_characters": 0.6336,
+  "wardrobe_bix": 0.0254
+ },
+ {
+  "page": "tilda-S6p3",
+  "outline_only": 0.9305,
+  "style_match": 0.7386,
+  "no_humans": 0.8723,
+  "no_extra_characters": 0.3885,
+  "wardrobe_bix": 0.0417
+ },
+ {
+  "page": "tilda-S6fin",
+  "outline_only": 0.0989,
+  "style_match": 0.5212,
+  "no_humans": 0.9184,
+  "no_extra_characters": 0.8329,
+  "wardrobe_bix": 0.0249
+ },
+ {
+  "page": "tilda-S7p0",
+  "outline_only": 0.9408,
+  "style_match": 0.7891,
+  "no_humans": 0.9428,
+  "no_extra_characters": 0.7331,
+  "wardrobe_bix": 0.0351
+ },
+ {
+  "page": "tilda-S7p1",
+  "outline_only": 0.9345,
+  "style_match": 0.7435,
+  "no_humans": 0.9446,
+  "no_extra_characters": 0.7504,
+  "wardrobe_bix": 0.032
+ },
+ {
+  "page": "tilda-S7p2",
+  "outline_only": 0.9413,
+  "style_match": 0.5593,
+  "no_humans": 0.9462,
+  "no_extra_characters": 0.7424,
+  "wardrobe_bix": 0.7951
+ },
+ {
+  "page": "tilda-S7p3",
+  "outline_only": 0.9639,
+  "style_match": 0.7905,
+  "no_humans": 0.9656,
+  "no_extra_characters": 0.8497,
+  "wardrobe_bix": 0.0402
+ },
+ {
+  "page": "tilda-S7fin",
+  "outline_only": 0.9476,
+  "style_match": 0.6863,
+  "no_humans": 0.9584,
+  "no_extra_characters": 0.8233,
+  "wardrobe_bix": 0.0479
+ },
+ {
+  "page": "tilda-S8p0",
+  "outline_only": 0.9151,
+  "style_match": 0.7482,
+  "no_humans": 0.9152,
+  "no_extra_characters": 0.6334,
+  "wardrobe_bix": 0.0451
+ },
+ {
+  "page": "tilda-S8p1",
+  "outline_only": 0.9529,
+  "style_match": 0.7236,
+  "no_humans": 0.9547,
+  "no_extra_characters": 0.7917,
+  "wardrobe_bix": 0.7935
+ },
+ {
+  "page": "tilda-S8p2",
+  "outline_only": 0.922,
+  "style_match": 0.6983,
+  "no_humans": 0.3537,
+  "no_extra_characters": 0.6926,
+  "wardrobe_bix": 0.0361
+ },
+ {
+  "page": "tilda-S8p3",
+  "outline_only": 0.9461,
+  "style_match": 0.7639,
+  "no_humans": 0.9325,
+  "no_extra_characters": 0.7985,
+  "wardrobe_bix": 0.0414
+ },
+ {
+  "page": "tilda-S8fin",
+  "outline_only": 0.9247,
+  "style_match": 0.45,
+  "no_humans": 0.9463,
+  "no_extra_characters": 0.3158,
+  "wardrobe_bix": 0.0279
+ },
+ {
+  "page": "mira-S1-finale.jpg",
+  "outline_only": 0.9436,
+  "style_match": 0.6891,
+  "no_humans": 0.957,
+  "no_extra_characters": 0.173,
+  "wardrobe_bix": 0.0275
+ },
+ {
+  "page": "mira-S1-page-0.jpg",
+  "outline_only": 0.9364,
+  "style_match": 0.5651,
+  "no_humans": 0.9511,
+  "no_extra_characters": 0.3168,
+  "wardrobe_bix": 0.0355
+ },
+ {
+  "page": "mira-S1-page-1.jpg",
+  "outline_only": 0.9423,
+  "style_match": 0.4937,
+  "no_humans": 0.9579,
+  "no_extra_characters": 0.5425,
+  "wardrobe_bix": 0.0249
+ },
+ {
+  "page": "mira-S1-page-2.jpg",
+  "outline_only": 0.929,
+  "style_match": 0.8699,
+  "no_humans": 0.9475,
+  "no_extra_characters": 0.2416,
+  "wardrobe_bix": 0.0253
+ },
+ {
+  "page": "mira-S2-page-0.jpg",
+  "outline_only": 0.9455,
+  "style_match": 0.914,
+  "no_humans": 0.9599,
+  "no_extra_characters": 0.7299,
+  "wardrobe_bix": 0.0391
+ },
+ {
+  "page": "mira-S2-page-2.jpg",
+  "outline_only": 0.9539,
+  "style_match": 0.9327,
+  "no_humans": 0.9634,
+  "no_extra_characters": 0.1538,
+  "wardrobe_bix": 0.0274
+ },
+ {
+  "page": "mira-S3-finale.jpg",
+  "outline_only": 0.9467,
+  "style_match": 0.8516,
+  "no_humans": 0.9558,
+  "no_extra_characters": 0.5418,
+  "wardrobe_bix": 0.032
+ },
+ {
+  "page": "mira-S3-page-1.jpg",
+  "outline_only": 0.9207,
+  "style_match": 0.3922,
+  "no_humans": 0.9338,
+  "no_extra_characters": 0.1975,
+  "wardrobe_bix": 0.0384
+ },
+ {
+  "page": "mira-S4-page-0.jpg",
+  "outline_only": 0.9377,
+  "style_match": 0.6306,
+  "no_humans": 0.9526,
+  "no_extra_characters": 0.3967,
+  "wardrobe_bix": 0.0374
+ },
+ {
+  "page": "mira-S5-page-2.jpg",
+  "outline_only": 0.9537,
+  "style_match": 0.5929,
+  "no_humans": 0.963,
+  "no_extra_characters": 0.1757,
+  "wardrobe_bix": 0.0246
+ },
+ {
+  "page": "mira-S6-page-1.jpg",
+  "outline_only": 0.9375,
+  "style_match": 0.5188,
+  "no_humans": 0.9491,
+  "no_extra_characters": 0.7832,
+  "wardrobe_bix": 0.0282
+ },
+ {
+  "page": "mira-S7-page-0.jpg",
+  "outline_only": 0.9582,
+  "style_match": 0.9302,
+  "no_humans": 0.966,
+  "no_extra_characters": 0.1239,
+  "wardrobe_bix": 0.0341
+ }
+]

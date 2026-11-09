@@ -441,7 +441,13 @@ async function qcWithClef(
     return { pass: false, scores, reason };
   }
   const styleP = a.style_match?.noul ?? 1;
-  if (styleP < 0.5) {
+  // Style bar is 0.35, not 0.5 (bench, 2026-11-09): the proposition is
+  // noisy in the 0.39-0.56 band on verified-clean pages (a shipped Mira
+  // page replays at 0.392), while the true chibi finales score 0.106
+  // and 0.145. At 0.5 the gate would burn paid re-rolls on clean pages;
+  // at 0.35 it catches the egregious breaks and stays appealable for
+  // the borderline band. Bench: factory-ops/audits/2026-11-09-factory-tuning-bench/.
+  if (styleP < 0.35) {
     const reason = `line style QC: style_match scored ${styleP.toFixed(2)} (chibi or off-style rendering, not detailed storybook line art)`;
     console.log(`${reason}, rejecting`);
     return { pass: false, scores, reason };
