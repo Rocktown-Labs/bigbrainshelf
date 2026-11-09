@@ -54,7 +54,7 @@ const JUDGE_MODEL = "anthropic/claude-opus-5.5";
 const JUDGE_PROVIDER = "vercel-gateway";
 const GATEWAY_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
 
-const APPEALABLE_MARKERS = ["anatomy", "dupe", "cast integrity", "drift", "single_scene", "single scene"];
+const APPEALABLE_MARKERS = ["anatomy", "dupe", "cast integrity", "drift", "single_scene", "single scene", "outline_only", "wardrobe_complete", "no_extra_characters", "style_match"];
 const RELIABLE_MARKERS = ["has_text", "has_color", "purity", "is_lineart", "text="];
 
 export function isAppealable(reason: string | null | undefined): boolean {

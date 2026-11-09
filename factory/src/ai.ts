@@ -3,7 +3,10 @@
 export const STYLE_SUFFIX =
   "Children's coloring page, black-and-white line art with bold clean outlines, " +
   "no shading and no gray fills. Simple kid-friendly shapes for ages 4 to 8, " +
-  "portrait orientation, wide white margins.";
+  "portrait orientation, wide white margins. " +
+  // OUTLINE-ONLY (CG, 2026-11-09): see LINE_PAGE_STYLE in gateway.ts.
+  "Outline only: no solid black fills anywhere; black markings on a " +
+  "character are drawn as outline boundaries with the inside left white.";
 
 export const COLOR_STYLE =
   "Children's picture book illustration in full color, bright cheerful colors, " +
@@ -12,7 +15,7 @@ export const COLOR_STYLE =
 
 export interface StoryBible {
   bookTitle: string;
-  characters: { name: string; visual: string }[];
+  characters: { name: string; visual: string; wardrobe?: string }[];
   setting: string;
   metaphorFamily: string;
 }
@@ -215,6 +218,11 @@ export interface CastChar {
   name: string;
   species: string;
   visual?: string;
+  // Optional signature outfit/accessory list from the bible. When a
+  // character carries one, line QC asks whether the complete outfit is
+  // drawn (Bix shipped bare-legged on pages where his bible text once
+  // omitted his clothes entirely; CG, 2026-11-09: "Bix needs pants").
+  wardrobe?: string;
 }
 
 // Cast-integrity propositions (2026-10-26, from the full-catalog visual
@@ -242,9 +250,33 @@ function addCastIntegrityQuestions(questions: Record<string, any>, castList: Cas
   if (!humanCast) {
     questions.no_humans = {
       type: "noul",
-      instructions: "Does this image contain NO human people, human children, human faces, or human hands anywhere in it?",
+      // Background figures count (2026-11-09): Tilda's fair pages shipped
+      // human silhouettes and tiny villagers in the background that the
+      // foreground-only wording never caught.
+      instructions: "Does this image contain NO human people, human children, human faces, or human hands anywhere in it, including small figures, silhouettes, or crowds in the background?",
     };
   }
+  // Wardrobe completeness (2026-11-09): dupe/cast gates ask whether a
+  // character is present and the right species, never whether their
+  // outfit is complete. Asked only for characters whose bible entry
+  // carries a wardrobe list, so books without wardrobe data are ungated.
+  castList.slice(0, 3).forEach((c, i) => {
+    const wardrobe = String(c.wardrobe ?? "").trim();
+    if (!wardrobe) return;
+    questions[`wardrobe_${i}`] = {
+      type: "noul",
+      instructions: `Is ${c.name} wearing or carrying their complete signature outfit: ${wardrobe}? Answer yes only if every listed item is present and visible on ${c.name} in this image.`,
+    };
+  });
+  // Extra characters (2026-11-09): the dupe gates key on named cast
+  // members, so an unnamed second bird of the lead's species (three
+  // magpies at Tilda's fair) passed every gate. Foreground only:
+  // distant background animals at a market or fair are scenery.
+  const names = castList.map((c) => c.name).join(", ");
+  questions.no_extra_characters = {
+    type: "noul",
+    instructions: `Are the only animals in the foreground of this image the cast members (${names}), with no additional animal of any species in the foreground, and in particular no second bird of the lead character's species?`,
+  };
 }
 
 // Returns a reject reason, or null when every integrity answer holds.
@@ -258,6 +290,15 @@ function castIntegrityReject(a: any, castList: CastChar[], label: string): strin
   if (a.no_humans) {
     const humP = a.no_humans?.noul ?? 1;
     if (humP < 0.5) return `${label}: no_humans scored ${humP.toFixed(2)} (a human appears in an animal-cast book)`;
+  }
+  for (let i = 0; i < Math.min(3, castList.length); i++) {
+    if (!a[`wardrobe_${i}`]) continue;
+    const wp = a[`wardrobe_${i}`]?.noul ?? 1;
+    if (wp < 0.5) return `${label}: wardrobe_complete for ${castList[i].name} scored ${wp.toFixed(2)} (signature outfit incomplete or missing)`;
+  }
+  if (a.no_extra_characters) {
+    const xp = a.no_extra_characters?.noul ?? 1;
+    if (xp < 0.5) return `${label}: no_extra_characters scored ${xp.toFixed(2)} (an extra animal appears in the foreground)`;
   }
   return null;
 }
@@ -294,6 +335,22 @@ async function qcWithClef(
   const isPng = bytes[0] === 0x89 && bytes[1] === 0x50;
   const ct = isPng ? "image/png" : "image/jpeg";
   const questions: Record<string, any> = { ...QC_QUESTIONS };
+  // Outline-only + style gates (CG, 2026-11-09). The purity gate's
+  // has_color question asks about gray fills, so solid BLACK fills
+  // (a filled magpie hood, filled trousers) scored clean and shipped:
+  // Tilda's installed pages measured 0.81-0.94 on a fills proposition
+  // against 0.05 on clean pages. Line pages are coloring pages: every
+  // region stays a white outline. The style gate exists because three
+  // of Tilda's finales drifted chibi (0.18-0.31 against 0.6-0.88 on
+  // good pages) and no gate asked about style at all.
+  questions.outline_only = {
+    type: "noul",
+    instructions: "Is every region of this drawing a white outline region, with NO large area filled solid black anywhere: no filled black head, body, wing, garment, or trousers, only black outline lines on white?",
+  };
+  questions.style_match = {
+    type: "noul",
+    instructions: "Is this page drawn in a detailed storybook line-art style with realistic animal proportions, and NOT a simple chibi cartoon style with an oversized round head, huge eyes, and a small cute body?",
+  };
   if (castText) {
     // Same anatomy + whole-cast species checks the color path runs: the
     // line path shipped a turtle drawn as a second fox (Fern S2 page 0,
@@ -376,6 +433,24 @@ async function qcWithClef(
       console.log(`${why}, rejecting`);
       return { pass: false, scores, reason: why };
     }
+  }
+  const outlineP = a.outline_only?.noul ?? 1;
+  if (outlineP < 0.5) {
+    const reason = `line style QC: outline_only scored ${outlineP.toFixed(2)} (large solid black fills present; line pages are outline only)`;
+    console.log(`${reason}, rejecting`);
+    return { pass: false, scores, reason };
+  }
+  const styleP = a.style_match?.noul ?? 1;
+  // Style bar is 0.35, not 0.5 (bench, 2026-11-09): the proposition is
+  // noisy in the 0.39-0.56 band on verified-clean pages (a shipped Mira
+  // page replays at 0.392), while the true chibi finales score 0.106
+  // and 0.145. At 0.5 the gate would burn paid re-rolls on clean pages;
+  // at 0.35 it catches the egregious breaks and stays appealable for
+  // the borderline band. Bench: factory-ops/audits/2026-11-09-factory-tuning-bench/.
+  if (styleP < 0.35) {
+    const reason = `line style QC: style_match scored ${styleP.toFixed(2)} (chibi or off-style rendering, not detailed storybook line art)`;
+    console.log(`${reason}, rejecting`);
+    return { pass: false, scores, reason };
   }
   return { pass: true, scores, reason: null };
 }
