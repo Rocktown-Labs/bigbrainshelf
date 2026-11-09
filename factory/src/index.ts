@@ -4,9 +4,9 @@ import { RegenWorkflow } from "./regen";
 import { ColorizeWorkflow } from "./colorize";
 import { PageFixWorkflow } from "./pagefix";
 import { RepairWorkflow, ReassembleWorkflow } from "./repair";
-import { generateImage, qcImage, sheetKeyFor, anchoredPrompt } from "./ai";
+import { generateImageMetered, qcImageDetailed, sheetKeyFor, anchoredPrompt } from "./ai";
 import { callModel } from "./models";
-import { rebuildEditorChapters, ensureRunCols } from "./bookbuild";
+import { rebuildEditorChapters, ensureRunCols, logGenAttempt } from "./bookbuild";
 import { ensureBackCoverImages } from "./matter";
 import { validateBible, normalizeBible, lintWorldInventory } from "./biblegate";
 import { runReadPass } from "./readpass";
@@ -369,11 +369,29 @@ export default {
         }
         const bible = await r2GetJson(env.BOOKS, `books/${slug}/bible.json`);
         const prompt = anchoredPrompt(pg.imagePrompt, pg.character, bible);
-        let bytes = await generateImage(env, prompt, sheet);
-        if (!(await qcImage(env.AI, bytes, sheet))) {
+        // Both rolls are metered and archived with their gate scores
+        // (2026-11-08: this route used to discard the first reject and
+        // keep no record of either roll). Ship behavior is unchanged:
+        // one retry on a QC reject, and the last roll ships to the
+        // editor for human review either way.
+        const first = await generateImageMetered(env, prompt, sheet);
+        let qd = await qcImageDetailed(env.AI, first.bytes, sheet);
+        let bytes = first.bytes;
+        if (qd.pass) {
+          await logGenAttempt(env, slug, "line", chapter, pageIdx, 1, { outcome: "accepted", scores: qd.scores, cost: first.cost }, first.bytes);
+        } else {
+          await logGenAttempt(env, slug, "line", chapter, pageIdx, 1, { outcome: "qc_reject", reason: qd.reason, scores: qd.scores, cost: first.cost }, first.bytes);
           console.log("redo-image: QC rejected, one retry");
-          bytes = await generateImage(env, prompt, sheet);
-          if (!(await qcImage(env.AI, bytes, sheet))) {
+          const second = await generateImageMetered(env, prompt, sheet);
+          bytes = second.bytes;
+          qd = await qcImageDetailed(env.AI, second.bytes, sheet);
+          await logGenAttempt(env, slug, "line", chapter, pageIdx, 2, {
+            outcome: qd.pass ? "accepted" : "qc_reject",
+            reason: qd.pass ? null : `${qd.reason ?? "qc reject"} (shipped for human review in the editor)`,
+            scores: qd.scores,
+            cost: second.cost,
+          }, second.bytes);
+          if (!qd.pass) {
             console.log("redo-image: retry also failed QC; shipping it for human review in the editor");
           }
         }
