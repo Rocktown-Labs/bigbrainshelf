@@ -47,6 +47,11 @@ test('the chapters route carries change notes and book status in the review payl
   const src = readFileSync(new URL('../src/pages/api/editor/chapters.ts', import.meta.url), 'utf8');
   expect(src).toContain('changeRequests');
   expect(src).toContain('bookStatus');
+  // The viewer gates its front-cover slot on book.cover_key; when the
+  // catalog fetch left startup, the payload had to carry the key too
+  // or the cover silently vanished from QC (regression, 2026-11-09).
+  expect(src).toContain('coverKey');
+  expect(src).toContain('cover_key');
   expect(src).toContain('FROM change_requests WHERE book_slug = ?');
   // Notes stay best-effort: the identity load must not depend on them.
   expect(src).toContain('notes degrade to empty');
@@ -56,6 +61,7 @@ test('the viewer seeds notes from the payload and never polls on an interval', (
   const src = readFileSync(new URL('../src/pages/admin/books/[slug].astro', import.meta.url), 'utf8');
   expect(src).toContain('data.changeRequests');
   expect(src).toContain('applyRequests(data.changeRequests)');
+  expect(src).toContain('cover_key: data.coverKey');
   expect(src).not.toContain('setInterval(loadRequests');
   expect(src).toContain('refreshRequestsOnReturn');
   // Startup no longer fetches the whole catalog to find one book.
