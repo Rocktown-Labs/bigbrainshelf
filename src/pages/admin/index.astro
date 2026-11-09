@@ -3,6 +3,7 @@ import "../../styles/global.css";
 import AdminShell from "../../components/AdminShell.astro";
 import { env } from "cloudflare:workers";
 import { getAdminDashboard } from "../../lib/admin-dashboard";
+import { luluConfigured } from "../../lib/lulu";
 import { getPackingQueue } from "../../lib/packing";
 
 if (!Astro.locals.user) {
@@ -17,7 +18,7 @@ export const prerender = false;
 // gated behind (hover: hover) and (pointer: fine), no tap highlight.
 const e = env as any;
 const nowSec = Math.floor(Date.now() / 1000);
-const d = await getAdminDashboard(e.DB, nowSec);
+const d = await getAdminDashboard(e.DB, nowSec, luluConfigured(e));
 // The "you just made money" line (CG, 2026-10-31): completed
 // orders and revenue over the last 24 hours, shown under the
 // 30-day revenue card.
@@ -230,12 +231,59 @@ const attentionEmpty =
               </a>
             </li>
           )}
+          {d.urgent.failedPrintJobCount > 0 && (
+            <li>
+              <a class="row" href="/admin/orders">
+                <span class="badge">{d.urgent.failedPrintJobCount}</span>
+                <span class="row-main">
+                  <span class="row-title">Print {d.urgent.failedPrintJobCount === 1 ? "job" : "jobs"} failed at the printer</span>
+                  {d.urgent.failedPrintJobs[0]?.lastError && (
+                    <span class="row-sub">{d.urgent.failedPrintJobs[0].lastError.slice(0, 120)}</span>
+                  )}
+                </span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          )}
+          {d.urgent.unsubmittedOrderCount > 0 && (
+            <li>
+              <a class="row" href="/admin/orders">
+                <span class="badge">{d.urgent.unsubmittedOrderCount}</span>
+                <span class="row-main">
+                  <span class="row-title">Paid printed {d.urgent.unsubmittedOrderCount === 1 ? "order has" : "orders have"} no print job a day after payment</span>
+                </span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          )}
+          {d.urgent.stuckPrintJobCount > 0 && (
+            <li>
+              <a class="row" href="/admin/orders">
+                <span class="badge">{d.urgent.stuckPrintJobCount}</span>
+                <span class="row-main">
+                  <span class="row-title">Print {d.urgent.stuckPrintJobCount === 1 ? "job" : "jobs"} waiting over a day to reach the printer</span>
+                </span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          )}
+          {d.urgent.longProductionCount > 0 && (
+            <li>
+              <a class="row" href="/admin/orders">
+                <span class="badge">{d.urgent.longProductionCount}</span>
+                <span class="row-main">
+                  <span class="row-title">Print {d.urgent.longProductionCount === 1 ? "job" : "jobs"} at the printer over a week without shipping</span>
+                </span>
+                <span class="chev" aria-hidden="true">›</span>
+              </a>
+            </li>
+          )}
           {d.urgent.boxesDueSoon > 0 && (
             <li>
               <a class="row" href="/admin/club">
                 <span class="badge">{d.urgent.boxesDueSoon}</span>
                 <span class="row-main">
-                  <span class="row-title">Club {d.urgent.boxesDueSoon === 1 ? "box ships" : "boxes ship"} within 2 days, not yet being prepared</span>
+                  <span class="row-title">Club {d.urgent.boxesDueSoon === 1 ? "box ships" : "boxes ship"} within 2 days, {d.urgent.podActive ? "contents not settled yet" : "not yet being prepared"}</span>
                 </span>
                 <span class="chev" aria-hidden="true">›</span>
               </a>
