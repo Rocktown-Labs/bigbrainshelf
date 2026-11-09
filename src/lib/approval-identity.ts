@@ -47,7 +47,7 @@ export async function captureApprovalRevision(db: any, books: any, slug: string,
   for (const p of inventory.pages) { probeKeys.add(p.lineKey); if (p.colorKey) probeKeys.add(p.colorKey); }
   for (const t of targets) probeKeys.add(t.key);
   const headKeys = [...probeKeys].filter(k => !versioned.has(k));
-  const heads = await mapPool(headKeys, 12, async (key) => ({ key, head: await books.head(key).catch(() => null) }));
+  const heads = await mapPool(headKeys, 32, async (key) => ({ key, head: await books.head(key).catch(() => null) }));
   let fingerprint: string | null = null;
   if (heads.every(h => h.head && h.head.etag)) {
     for (const h of heads) versioned.set(h.key, h.head.etag);

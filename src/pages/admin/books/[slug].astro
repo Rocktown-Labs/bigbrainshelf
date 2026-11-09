@@ -948,22 +948,25 @@ if (fromAll) {
       }
     }
 
+    function applyRequests(list) {
+      reqList = list || [];
+      reqs = {};
+      reqList.forEach(function (r) {
+        var k = key(r.chapter_num, r.page_index);
+        if (!reqs[k]) reqs[k] = r;
+      });
+      renderRail();
+      if (view === "cover") {
+        var el = document.getElementById("cover-reqs");
+        if (el) el.innerHTML = coverRequestsHtml();
+      }
+    }
+
     function loadRequests() {
+      lastReqRefresh = Date.now();
       return fetch("/api/change-requests?slug=" + encodeURIComponent(slug))
         .then(function (r) { return r.json(); })
-        .then(function (list) {
-          reqList = list || [];
-          reqs = {};
-          reqList.forEach(function (r) {
-            var k = key(r.chapter_num, r.page_index);
-            if (!reqs[k]) reqs[k] = r;
-          });
-          renderRail();
-          if (view === "cover") {
-            var el = document.getElementById("cover-reqs");
-            if (el) el.innerHTML = coverRequestsHtml();
-          }
-        }).catch(function () {});
+        .then(applyRequests).catch(function () {});
     }
 
     function loadBook() {
@@ -1005,17 +1008,20 @@ if (fromAll) {
       if (e.key === "ArrowLeft") go(cur - 1);
     });
 
-    Promise.all([
-      loadBook(),
-      fetch("/api/editor/chapters?slug=" + encodeURIComponent(slug)).then(function (r) { return r.json(); })
-    ])
-      .then(function (results) { return results[1]; })
+    fetch("/api/editor/chapters?slug=" + encodeURIComponent(slug)).then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.revision) throw new Error(data.error || "Review identity is missing");
         approvalRevision = data.revision;
         (data.approvals || []).forEach(function (r) { approvals[key(r.chapterNum, r.pageIndex)] = !!r.approved; });
         signoffStates = data.signoffs || null;
-        if (!book) document.getElementById("title").textContent = data.title || slug;
+        // Title/status ride in the chapters payload (viewer speed fix,
+        // 2026-11-09); the catalog fetch is no longer part of startup.
+        book = { title: data.title || slug, status: data.bookStatus || "" };
+        document.getElementById("title").textContent = book.title;
+        if (data.bookStatus) {
+          document.getElementById("bookstatus").innerHTML =
+            '<span class="status ' + esc(data.bookStatus) + '">' + esc(data.bookStatus) + "</span>";
+        }
         (data.chapters || []).forEach(function (ch, ci) {
           (ch.pages || []).forEach(function (pg, pi) {
             pages.push({
@@ -1097,8 +1103,11 @@ if (fromAll) {
         });
         render();
         renderSignoffs();
-        // Notes can arrive independently; they do not delay the first page.
-        loadRequests();
+        // Notes ride in the chapters payload; they no longer cost a
+        // second startup fetch. Fall back to fetching them only when
+        // an older deployment answers without them.
+        if (Array.isArray(data.changeRequests)) applyRequests(data.changeRequests);
+        else loadRequests();
       })
       .catch(function () {
         document.getElementById("msg").textContent = "Could not load this book's pages yet.";
@@ -1127,7 +1136,18 @@ if (fromAll) {
       });
     });
 
-    setInterval(loadRequests, 25000);
+    // Notes refresh when the reviewer returns to the tab instead of
+    // polling every 25s (viewer speed fix, 2026-11-09): the interval
+    // kept a database round trip and a rail re-render running forever
+    // in every open review tab. Sends still refresh immediately.
+    var lastReqRefresh = Date.now();
+    function refreshRequestsOnReturn() {
+      if (document.hidden) return;
+      if (Date.now() - lastReqRefresh < 10000) return;
+      loadRequests();
+    }
+    window.addEventListener("focus", refreshRequestsOnReturn);
+    document.addEventListener("visibilitychange", refreshRequestsOnReturn);
   </script>
   <script is:inline>
     document.querySelectorAll(".js-signout").forEach(function (el) {
