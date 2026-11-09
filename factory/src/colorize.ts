@@ -33,8 +33,11 @@ import {
   MAX_ROLLS,
   heldPages,
   rebuildEditorChapters,
+  editFixLines,
+  editFindings,
 } from "./bookbuild";
-import { gatewayConfigured, generateGatewayImageMetered, colorizeExtra } from "./gateway";
+import { gatewayConfigured, generateGatewayImageMetered, colorizeExtra, editGatewayImageGptMetered, gptEditEnabled } from "./gateway";
+import { analyzePage } from "./purity";
 import { budgetGate } from "./budget";
 import { emitEvent } from "./events";
 import { recordEdition } from "./editions";
@@ -121,6 +124,13 @@ export async function genColorizeWithQC(
   const events: GenEvent[] = [];
   if (pageRefs.cropUsed.length) events.push({ attempt: 0, outcome: "crop_used", cost: null });
   if (pageRefs.cropMissed.length) events.push({ attempt: 0, outcome: "crop_miss", cost: null });
+  // Best reject, kept for the GPT rescue edit below: among Clef
+  // rejects the one with the fewest failing clauses wins (the line
+  // path's rule); a hard cast-gate reject counts as one failure.
+  let bestReject: { bytes: Uint8Array; reasons: string[]; failCount: number } | null = null;
+  const noteReject = (b: Uint8Array, reasons: string[], failCount: number) => {
+    if (!bestReject || failCount < bestReject.failCount) bestReject = { bytes: b, reasons, failCount };
+  };
   for (let attempt = 1; attempt <= MAX_ROLLS; attempt++) {
     const cap = await spendCapHit(env, slug);
     if (cap !== null) {
@@ -158,6 +168,7 @@ export async function genColorizeWithQC(
       if (gate.reason && gate.mode === "hard") {
         events.push({ attempt, outcome: "cast_reject", cost });
         await logGenAttempt(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, attempt, { outcome: "cast_reject", reason: gate.reason, scores: qd.scores, cost }, bytes);
+        noteReject(bytes, [gate.reason], 1);
         console.log(`cast gate rejected colorize image (attempt ${attempt} of ${MAX_ROLLS}): ${gate.reason}`);
         continue;
       }
@@ -172,7 +183,66 @@ export async function genColorizeWithQC(
     }
     events.push({ attempt, outcome: "qc_reject", cost });
     await logGenAttempt(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, attempt, { outcome: "qc_reject", reason: qd.reason, scores: qd.scores, cost }, bytes);
+    noteReject(bytes, [qd.reason ?? "quality control rejected the page"], (qd.reason ?? "").split(/[;|]/).filter((s) => s.trim()).length || 5);
     console.log(`colorize QC rejected image (attempt ${attempt} of ${MAX_ROLLS})`);
+  }
+  // ---- GPT rescue edit (CG, 2026-11-08): colorize has no edit
+  // pass of its own, so when the flag is on the GPT editor is its
+  // first and only correction rung. It edits the best reject with
+  // the line original beside it as the composition ground truth.
+  // Same caps, same gates, same archive as every other attempt.
+  if (bestReject && gptEditEnabled(env)) {
+    const gptAttempt = MAX_ROLLS + 1;
+    const cap = await spendCapHit(env, slug);
+    const bcap = cap === null ? await budgetGate(env, slug) : null;
+    if (cap !== null || bcap !== null) {
+      events.push({ attempt: gptAttempt, outcome: "spend_capped", cost: null });
+      console.log("gpt rescue edit skipped: spend cap or book budget reached");
+    } else {
+      try {
+        const fixes = editFixLines(bestReject.reasons, "color");
+        const gptPrompt =
+          "Edit the first image, a colorized children's book page that failed quality control. " +
+          "Keep the drawing, the composition, the characters, and the watercolor colors the same except for the fixes below.\n" +
+          `What failed quality control: ${editFindings(bestReject.reasons)}.\n` +
+          (fixes.length ? `Fix exactly these problems: ${fixes.join(" ")}\n` : "") +
+          "The second image is the original black-and-white line drawing: the color page must match its lines, characters, poses, and objects exactly. " +
+          "The remaining images are the characters' model sheets: match them exactly. " +
+          "Change nothing else. No text, no letters, no words, no numbers anywhere in the image.";
+        const cur = await editGatewayImageGptMetered(env, gptPrompt, [bestReject.bytes, lineBytes, ...sheets.slice(0, 3)]);
+        const bytes = cur.bytes;
+        const a = analyzePage(bytes);
+        let failReason: string | null = null;
+        let failScores: any = null;
+        if (a.decoded && Math.abs(a.width / a.height - 0.75) > 0.06) {
+          failReason = `gpt edit: aspect ${a.width}x${a.height} is not 3:4`;
+        } else {
+          const qd = await qcColorImageDetailed(env.AI, bytes, pageRefs.sheet, castText, castList);
+          if (!qd.pass) {
+            failReason = qd.reason;
+            failScores = qd.scores;
+          } else {
+            const gate = await castGateVerdict(env, bytes, castList);
+            if (gate.reason && gate.mode === "hard") {
+              failReason = gate.reason;
+              failScores = qd.scores;
+            } else {
+              events.push({ attempt: gptAttempt, outcome: "accepted_gpt_edit", cost: cur.cost });
+              await logGenAttempt(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, gptAttempt, { outcome: "accepted_gpt_edit", reason: `gpt rescue edit on the best reject (${editFindings(bestReject.reasons)})${gate.reason ? `; cast flag (${gate.mode}): ${gate.reason}` : ""}`, scores: qd.scores, cost: cur.cost }, bytes);
+              await logGenEvents(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, events);
+              console.log("gpt rescue edit accepted: colorize page fixed from its best reject");
+              return { status: "ok", bytes };
+            }
+          }
+        }
+        events.push({ attempt: gptAttempt, outcome: "gpt_edit_reject", cost: cur.cost });
+        await logGenAttempt(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, gptAttempt, { outcome: "gpt_edit_reject", reason: failReason ?? "gpt edit failed a gate", scores: failScores, cost: cur.cost }, bytes);
+        console.log(`gpt rescue edit rejected: ${failReason}`);
+      } catch (e: any) {
+        events.push({ attempt: gptAttempt, outcome: "gpt_edit_error", cost: null });
+        console.log(`gpt rescue edit errored: ${e?.message ?? e}`);
+      }
+    }
   }
   // Inline appeal (2026-11-07): same hold-point second opinion as
   // the line and picture-color paths. A rescue_candidate verdict
@@ -181,7 +251,7 @@ export async function genColorizeWithQC(
     const appeal = await attemptInlineAppeal(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, runStart);
     if (appeal.rescued && appeal.bytes) {
       events.push({ attempt: MAX_ROLLS, outcome: "accepted_appeal", cost: null });
-      await logGenAttempt(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, MAX_ROLLS + 1, { outcome: "accepted_appeal", reason: `inline appeal rescued attempt ${appeal.attemptId} (Opus verdict: rescue_candidate)`, cost: null }, appeal.bytes);
+      await logGenAttempt(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, MAX_ROLLS + 2, { outcome: "accepted_appeal", reason: `inline appeal rescued attempt ${appeal.attemptId} (Opus verdict: rescue_candidate)`, cost: null }, appeal.bytes);
       await logGenEvents(env, slug, "colorize", meta?.chapter ?? null, meta?.page ?? null, events);
       console.log("inline appeal rescued the colorize page; shipping the appealed roll instead of holding");
       return { status: "ok", bytes: appeal.bytes };

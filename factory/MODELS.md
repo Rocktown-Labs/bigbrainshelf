@@ -17,7 +17,12 @@ TypeScript Worker (`src/models.ts` is the chain authority):
   chain (Opus) reads the entire planned book before any art spend;
   BLOCK failures park the book at `needs_review`.
 - **Images**: Nano Banana (gateway) is the artist; Clef is the image
-  QC judge; Jev gates story text cheaply inside the critic.
+  QC judge; Jev gates story text cheaply inside the critic. A
+  flag-gated GPT rescue editor (`GPT_EDIT_RUNG=on`, gpt-image via the
+  gateway's `/v1/images/edits`, `src/gateway.ts`) sits between the
+  edit pass and the inline appeal in the line path and is colorize's
+  only edit rung: it edits the best reject, never originates, and
+  faces the same gates and archive as any other attempt.
 - **Cast-listing judge** (`judgeCastListing` + `castListingOk` in
   `src/ai.ts`): Gemini 3.8 Flash (direct, temperature 0) lists what is
   actually drawn on a page (species + counts, humans, single-scene,
