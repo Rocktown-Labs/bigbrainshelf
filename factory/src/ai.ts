@@ -191,9 +191,10 @@ export async function generateColorImage(env: any, scene: string, refBytes?: Uin
   return bytes;
 }
 
-export async function generateColorImageMetered(env: any, scene: string, refBytes?: Uint8Array | null): Promise<{ bytes: Uint8Array; cost: number | null }> {
+export async function generateColorImageMetered(env: any, scene: string, refBytes?: Uint8Array | Uint8Array[] | null): Promise<{ bytes: Uint8Array; cost: number | null }> {
   if (!gatewayConfigured(env)) throw new Error("color art needs the gateway: AI_GATEWAY_KEY secret not set");
-  return generateGatewayImageMetered(env, colorPagePrompt(scene, !!refBytes), refBytes ? [refBytes] : []);
+  const refs = !refBytes ? [] : Array.isArray(refBytes) ? refBytes : [refBytes];
+  return generateGatewayImageMetered(env, colorPagePrompt(scene, refs.length > 0), refs);
 }
 
 // QC runs on the Clef family: the full 27B decision model first, the

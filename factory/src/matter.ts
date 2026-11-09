@@ -10,8 +10,9 @@ import { bookVocabulary } from '../../packages/core/src/book-vocabulary';
 // coloring book it doubles as a bonus coloring page).
 import { STYLE_SUFFIX, generateImageMetered, generateColorImageMetered, qcImageDetailed, qcColorImageDetailed } from "./ai";
 import type { BookMatter } from "./pdf";
-import { BookBuildEnv, r2GetBytes, genImageWithQC, MAX_ROLLS, logGenAttempt, spendCapHit } from "./bookbuild";
+import { BookBuildEnv, r2GetBytes, genImageWithQC, MAX_ROLLS, logGenAttempt, spendCapHit, loadSheets } from "./bookbuild";
 import { budgetGate } from "./budget";
+import { editGatewayImageGptMetered, gptEditEnabled } from "./gateway";
 
 export function bibleCharacters(bible: any): any[] {
   if (Array.isArray(bible?.characters) && bible.characters.length) return bible.characters;
@@ -118,19 +119,55 @@ export function backCoverColorPrompt(bible: any): string {
 // attempts fail QC, ship NO art (a text-only back cover) rather than the
 // flagged last attempt the chapter pipeline settles for. A missing
 // chapter page would break a book; a missing back-cover image is just
-// a plainer back cover, and it beats letter-soup art.
+// a plainer back cover, and it beats letter-soup art. Rolls are
+// conditioned on the cast's model sheets, and when the GPT edit rung
+// is enabled the best reject gets one edit pass before the shutout.
 // Every attempt is metered and archived (gen_attempts + bytes in R2)
 // with the detailed gate scores and the deciding reason, like every
 // other generation loop since 2026-11-01. Before this, back-cover
 // rejects vanished into worker logs, so a shutout (Penny 2026-11-03,
 // Tilda 2026-11-08) could not be diagnosed or reviewed after the fact.
+// The gates a back-cover roll can fail, with the fix line the GPT edit
+// rung acts on for each. Back covers deliberately carry NO cast gates
+// (Penny precedent 2026-11-03): purity + color + anatomy only.
+function coverFailures(kind: "color" | "line", scores: any): string[] {
+  const s = scores ?? {};
+  const out: string[] = [];
+  if (typeof s.has_text === "number" && s.has_text > 0.12) out.push("has_text");
+  if (kind === "color") {
+    if (typeof s.is_color === "number" && s.is_color < 0.5) out.push("is_color");
+  } else {
+    if (typeof s.has_color === "number" && s.has_color > 0.3) out.push("has_color");
+    if (typeof s.is_lineart === "number" && s.is_lineart < 0.4) out.push("is_lineart");
+  }
+  if (typeof s.anatomy === "number" && s.anatomy < 0.3) out.push("anatomy");
+  return out;
+}
+
+const COVER_FIX_LINES: Record<string, string> = {
+  has_text:
+    "Remove ALL text, lettering, words and numbers everywhere in the image, including on signs, banners, books, ledgers and buildings. Leave every sign, banner, book spine and surface completely blank.",
+  anatomy:
+    "Fix any malformed hands, paws, feet, limbs, wings or faces so every character's anatomy is natural and correct.",
+  is_color: "Keep the image in full, rich color.",
+  has_color: "Remove all color; the image must be pure black and white line art.",
+  is_lineart: "Make the image clean black and white line art with bold outlines.",
+};
+
 async function strictArt(
   env: BookBuildEnv,
   slug: string,
   kind: "color" | "line",
-  prompt: string
+  prompt: string,
+  castField: string
 ): Promise<Uint8Array | null> {
   const kindLabel = kind === "color" ? "back-cover-color" : "back-cover-line";
+  // Condition on the cast's model sheets like every page path does. Until
+  // 2026-11-09 back covers were generated from bible text alone, and the
+  // cast drifted off-sheet (Penny's back cover) with no gate able to see
+  // it: the sheets are the only identity ground truth the artist gets.
+  const sheets = await loadSheets(env, slug, castField, 3, kind);
+  let bestReject: { bytes: Uint8Array; scores: any; failures: string[] } | null = null;
   for (let attempt = 1; attempt <= MAX_ROLLS; attempt++) {
     const cap = await spendCapHit(env, slug);
     if (cap !== null) {
@@ -146,8 +183,8 @@ async function strictArt(
     }
     const cur =
       kind === "color"
-        ? await generateColorImageMetered(env, prompt, null)
-        : await generateImageMetered(env, prompt, null);
+        ? await generateColorImageMetered(env, prompt, sheets)
+        : await generateImageMetered(env, prompt, sheets);
     const qd =
       kind === "color" ? await qcColorImageDetailed(env.AI, cur.bytes) : await qcImageDetailed(env.AI, cur.bytes, null);
     if (qd.pass) {
@@ -156,6 +193,47 @@ async function strictArt(
     }
     await logGenAttempt(env, slug, kindLabel, null, null, attempt, { outcome: "qc_reject", reason: qd.reason, scores: qd.scores, cost: cur.cost }, cur.bytes);
     console.log(`back cover ${kind} art attempt ${attempt} failed QC: ${qd.reason ?? "no reason recorded"}`);
+    const failures = coverFailures(kind, qd.scores);
+    if (!bestReject || failures.length < bestReject.failures.length)
+      bestReject = { bytes: cur.bytes, scores: qd.scores, failures: failures.length ? failures : ["has_text"] };
+  }
+  // GPT edit rung (flag-gated, same pattern as the page paths): one edit
+  // pass on the best reject for localized defects a re-roll keeps
+  // redrawing, e.g. a named building's sign the artist letters no matter
+  // how the prompt bans it (Tilda's BURROW BANK, 2026-11-09: two gorgeous
+  // rolls, both shut out on has_text alone). The edit faces the same QC
+  // gates and is archived like every other attempt.
+  if (bestReject && gptEditEnabled(env)) {
+    const attempt = MAX_ROLLS + 1;
+    const cap = await spendCapHit(env, slug);
+    const bcap = cap === null ? await budgetGate(env, slug) : null;
+    if (cap !== null || bcap !== null) {
+      await logGenAttempt(env, slug, kindLabel, null, null, attempt, { outcome: "spend_capped", reason: "spend cap or book budget reached before the gpt edit rung" });
+    } else {
+      try {
+        const fixes = bestReject.failures.map((f) => COVER_FIX_LINES[f]).filter(Boolean);
+        const editPrompt =
+          "Edit the first image, a children's book back cover that failed quality control. " +
+          "Keep the scene, the composition, and the characters exactly the same except for the fixes below.\n" +
+          (fixes.length ? `Fix exactly these problems: ${fixes.join(" ")}\n` : "") +
+          "The other images are the characters' model sheets: match them exactly. Change nothing else. " +
+          (kind === "color"
+            ? "Full color watercolor storybook art, one single scene, no text anywhere."
+            : "Black and white line art, clean bold outlines, one single scene, no text, no color.");
+        const cur = await editGatewayImageGptMetered(env, editPrompt, [bestReject.bytes, ...sheets.slice(0, 3)]);
+        const qd =
+          kind === "color" ? await qcColorImageDetailed(env.AI, cur.bytes) : await qcImageDetailed(env.AI, cur.bytes, null);
+        if (qd.pass) {
+          await logGenAttempt(env, slug, kindLabel, null, null, attempt, { outcome: "accepted_gpt_edit", scores: qd.scores, cost: cur.cost }, cur.bytes);
+          return cur.bytes;
+        }
+        await logGenAttempt(env, slug, kindLabel, null, null, attempt, { outcome: "gpt_edit_reject", reason: qd.reason, scores: qd.scores, cost: cur.cost }, cur.bytes);
+        console.log(`back cover ${kind} art gpt edit failed QC: ${qd.reason ?? "no reason recorded"}`);
+      } catch (e: any) {
+        await logGenAttempt(env, slug, kindLabel, null, null, attempt, { outcome: "gpt_edit_error", reason: String(e?.message ?? e).slice(0, 300) });
+        console.log(`back cover ${kind} art gpt edit errored: ${e?.message ?? e}`);
+      }
+    }
   }
   console.log(`back cover ${kind} art: all attempts failed QC, shipping without art`);
   return null;
@@ -176,11 +254,12 @@ export async function ensureBackCoverImages(
   bible: any
 ): Promise<BackCoverImages> {
   const out: BackCoverImages = { color: null, line: null };
+  const castField = bibleCharacters(bible).map((c: any) => c.name).filter(Boolean).join(", ");
   const ck = BACK_COVER_COLOR_KEY(slug);
   out.color = await r2GetBytes(env.BOOKS, ck);
   if (!out.color) {
     try {
-      const bytes = await strictArt(env, slug, "color", backCoverColorPrompt(bible));
+      const bytes = await strictArt(env, slug, "color", backCoverColorPrompt(bible), castField);
       if (bytes) {
         await env.BOOKS.put(ck, bytes, { httpMetadata: { contentType: "image/jpeg" } });
         out.color = bytes;
@@ -193,7 +272,7 @@ export async function ensureBackCoverImages(
   out.line = await r2GetBytes(env.BOOKS, lk);
   if (!out.line) {
     try {
-      const bytes = await strictArt(env, slug, "line", backCoverPrompt(bible));
+      const bytes = await strictArt(env, slug, "line", backCoverPrompt(bible), castField);
       if (bytes) {
         await env.BOOKS.put(lk, bytes, { httpMetadata: { contentType: "image/jpeg" } });
         out.line = bytes;
