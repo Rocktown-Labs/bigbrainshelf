@@ -1,3 +1,4 @@
+import { readArtifactRelease, releaseArtifact, openReleaseArtifact } from "../../lib/artifact-releases";
 import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
 import { getAuth } from "../../lib/auth";
@@ -49,11 +50,16 @@ export const GET: APIRoute = async ({ request, url }) => {
   const book = await e.DB.prepare(
     "SELECT title, public_slug, picture_book_key, coloring_book_key, epub_key, color_book_key, audiobook_key FROM books WHERE slug = ?"
   ).bind(slug).first() as any;
-  const key = format === "coloring" ? book?.coloring_book_key : format === "epub" ? book?.epub_key : format === "color" ? book?.color_book_key : format === "audiobook" ? book?.audiobook_key : book?.picture_book_key;
-  if (!key) return Response.json({ error: "File not available." }, { status: 404 });
-
-  const obj = await e.BOOKS.get(key);
-  if (!obj) return Response.json({ error: "File not found." }, { status: 404 });
+  let artifact, obj;
+  try {
+    const release = await readArtifactRelease(e.DB, e.BOOKS, slug);
+    const role = { picture: 'picture_book_key', coloring: 'coloring_book_key', color: 'color_book_key', epub: 'epub_key', audiobook: 'audiobook_key' }[format];
+    artifact = releaseArtifact(release, role);
+    obj = await openReleaseArtifact(e.BOOKS, artifact);
+  } catch {
+    return Response.json({ error: "This book's verified release is unavailable. Please try again later." }, { status: 503 });
+  }
+  const key = artifact.key;
 
   // The download belongs to a purchase: resolve the granting order
   // (or shipped club box) so the file can be stamped for this buyer
@@ -202,7 +208,7 @@ export const GET: APIRoute = async ({ request, url }) => {
       return new Response(served.body as any, { headers: h });
     } catch (err) {
       console.error("m4b stamp failed, serving original", (err as any)?.message || err);
-      const fresh = await e.BOOKS.get(key).catch(() => null);
+      const fresh = await openReleaseArtifact(e.BOOKS, artifact).catch(() => null);
       if (fresh) return new Response(fresh.body, { headers });
       return Response.json({ error: "File not found." }, { status: 404 });
     }

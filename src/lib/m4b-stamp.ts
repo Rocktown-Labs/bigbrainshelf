@@ -278,8 +278,12 @@ function sanitizeKeyPart(s: string): string {
  * is part of the key: re-cast the source and the next download
  * stamps afresh instead of serving the old stamp. */
 export function m4bStampCacheKey(sourceKey: string, grantKey: string, sourceVersion: string): string {
-  const base = sourceKey.replace(/\.m4b$/i, "");
-  return `${base}-stamped/${sanitizeKeyPart(grantKey)}/${sanitizeKeyPart(sourceVersion)}.m4b`;
+  const released = sourceKey.match(/^books\/([^/]+)\/releases\/([^/]+)\/artifacts\/([^/]+)\.m4b$/i);
+  // Buyer copies are mutable derivatives, outside the immutable release tree.
+  const base = released
+    ? `books/${released[1]}/derivatives/audio/${released[2]}/${released[3]}`
+    : sourceKey.replace(/\.m4b$/i, "") + "-stamped";
+  return `${base}/${sanitizeKeyPart(grantKey)}/${sanitizeKeyPart(sourceVersion)}.m4b`;
 }
 
 export function r2SourceVersion(obj: any): string {

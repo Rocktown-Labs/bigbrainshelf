@@ -4,6 +4,7 @@ import { Database } from 'bun:sqlite';
 import { readFileSync } from 'node:fs';
 import { captureBookRevision, assertRevisionUnchanged, readPlanInventory, revisionHash } from '../packages/core/src/book-revision';
 import { captureApprovalRevision, saveApprovals } from '../src/lib/approval-identity';
+import { readArtifactRelease, openReleaseArtifact, releaseArtifact } from '../src/lib/artifact-releases';
 import { publishVerifiedBook } from '../src/lib/publish-gate';
 import { getDeliveryReadiness } from '../src/lib/delivery-readiness';
 import { recordSignoff } from '../src/lib/qc-signoffs';
@@ -31,12 +32,18 @@ async function fixture(chapters = 1, approveFinales = true, signoffs = true) {
   put('books/test/picture-book.pdf', 'PICTURE');
   put('books/test/coloring-book.pdf', 'COLORING');
   const bucket = {
-    async get(key: string) {
+    async get(key: string, opts?: any) {
       const object = objects.get(key);
       if (!object) return null;
+      if (opts?.onlyIf?.etagMatches && opts.onlyIf.etagMatches !== object.etag) return { etag: object.etag };
       const bytes = new TextEncoder().encode(object.value);
-      return { etag: object.etag, arrayBuffer: async () => bytes.buffer,
+      return { etag: object.etag, size: bytes.length, arrayBuffer: async () => bytes.buffer,
         body: new ReadableStream({ start(c) { c.enqueue(bytes.subarray(0, 2)); c.enqueue(bytes.subarray(2)); c.close(); } }) };
+    },
+    async put(key: string, body: any, opts?: any) {
+      if (opts?.onlyIf?.etagDoesNotMatch === '*' && objects.has(key)) return null;
+      const data = typeof body === 'string' ? body : new TextDecoder().decode(body instanceof Uint8Array ? body : await new Response(body).arrayBuffer());
+      put(key, data); return { etag: objects.get(key)!.etag };
     },
     async head(key: string) { return objects.has(key) ? { etag: objects.get(key)!.etag, customMetadata: objects.get(key)!.customMetadata } : null; },
     async list({ prefix, cursor }: any) {
@@ -50,6 +57,7 @@ async function fixture(chapters = 1, approveFinales = true, signoffs = true) {
   raw.exec(readFileSync(new URL('../db/migrations/0001_release_and_run_provenance.sql', import.meta.url), 'utf8'));
   raw.exec(readFileSync(new URL('../db/migrations/0002_artifact_approvals.sql', import.meta.url), 'utf8'));
   raw.exec(readFileSync(new URL('../db/migrations/0003_qc_signoffs.sql', import.meta.url), 'utf8'));
+  raw.exec(readFileSync(new URL('../db/migrations/0005_immutable_artifact_releases.sql', import.meta.url), 'utf8'));
   raw.exec(`CREATE TABLE books (slug TEXT PRIMARY KEY, title TEXT, status TEXT, price INTEGER, price_print INTEGER,
     updated_at INTEGER, picture_book_key TEXT, coloring_book_key TEXT, color_book_key TEXT,
     epub_key TEXT, audiobook_key TEXT, cover_key TEXT);
@@ -266,4 +274,51 @@ test('unchanged artifacts do not authorize an override of changed readiness evid
     reason: 'CG reviewed the earlier audio evidence', checks: ['audio'], verification: blocked.verification,
   } }, 'cg', f.checks)).rejects.toThrow('Readiness changed');
   expect(f.status()).toBe('ready_for_qa');
+});
+
+
+test('promotion pins exact downloads, promotes atomically and retains previous releases', async () => {
+  const f = await fixture();
+  const one = await publishVerifiedBook(f.db, f.bucket, { book_slug: 'test' }, 'cg', f.checks);
+  const frozen = await readArtifactRelease(f.db, f.bucket, 'test');
+  expect(frozen.id).toBe(one.releaseId);
+  f.put('books/test/picture-book.pdf', 'LATER');
+  const old = await openReleaseArtifact(f.bucket, releaseArtifact(frozen, 'picture_book_key'));
+  expect(new TextDecoder().decode(await old.arrayBuffer())).toBe('PICTURE');
+  await expect(publishVerifiedBook(f.db, f.bucket, { book_slug: 'test' }, 'cg', f.checks)).rejects.toThrow();
+  expect((await readArtifactRelease(f.db, f.bucket, 'test')).id).toBe(one.releaseId);
+  expect(f.raw.query('SELECT * FROM artifact_releases').all()).toHaveLength(1);
+});
+
+test('D1 rollback retains staged evidence and leaves the previous delivery head intact', async () => {
+  const f = await fixture();
+  const previous = await publishVerifiedBook(f.db, f.bucket, { book_slug: 'test' }, 'cg', f.checks);
+  const count = f.objects.size;
+  const broken = { ...f.db, batch: async () => { throw new Error('DB outage'); } };
+  await expect(publishVerifiedBook(broken, f.bucket, { book_slug: 'test' }, 'cg', f.checks)).rejects.toThrow('Publication could not be confirmed');
+  expect((await readArtifactRelease(f.db, f.bucket, 'test')).id).toBe(previous.releaseId);
+  expect(f.objects.size).toBeGreaterThan(count);
+  expect(f.raw.query('SELECT * FROM publish_releases').all()).toHaveLength(1);
+});
+
+test('concurrent release-head changes fence promotion and retain both prior release and staged intent', async () => {
+  const f = await fixture();
+  const first = await publishVerifiedBook(f.db,f.bucket,{book_slug:'test'},'cg',f.checks);
+  // Mimic another valid promotion winning after this request observed its old head.
+  const normalBatch = f.db.batch;
+  let raced = false;
+  f.db.batch = async (statements: any[]) => {
+    if (!raced) {
+      raced = true;
+      const row: any = f.raw.query('SELECT * FROM artifact_releases').get();
+      f.raw.query('INSERT INTO publish_releases (id,book_slug,revision,manifest_json,checks_json,created_at) SELECT ?,book_slug,revision,manifest_json,checks_json,created_at FROM publish_releases WHERE id=?').run('race-winner',first.releaseId);
+      f.raw.query('INSERT INTO artifact_releases VALUES (?,?,?,?,?,?,?)').run('race-winner','test',row.revision,'books/test/releases/race-winner/manifest.json',row.manifest_sha256,row.manifest_etag,0);
+      f.raw.exec("UPDATE artifact_release_heads SET release_id='race-winner'");
+    }
+    return normalBatch(statements);
+  };
+  await expect(publishVerifiedBook(f.db,f.bucket,{book_slug:'test'},'cg',f.checks)).rejects.toThrow('Publication could not be confirmed');
+  expect((f.raw.query('SELECT release_id FROM artifact_release_heads').get() as any).release_id).toBe('race-winner');
+  expect(f.raw.query('SELECT * FROM publish_releases').all()).toHaveLength(2);
+  expect([...f.objects.keys()].filter(k=>k.endsWith('/intent.json'))).toHaveLength(2);
 });

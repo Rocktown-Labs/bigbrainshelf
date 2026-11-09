@@ -1,3 +1,4 @@
+import { releaseBucket, seedPrintReleases } from "./helpers/release-fixture";
 // Print fulfillment (src/lib/print-fulfillment.ts + src/lib/lulu.ts)
 // against an in-memory DB, a fake R2 bucket, and a stubbed Lulu API:
 // job building (per-unit items, gift sets in one job, serials minted
@@ -103,16 +104,7 @@ async function stockPdf(): Promise<Uint8Array> {
   for (let i = 0; i < 5; i++) doc.addPage([612, 792]);
   return doc.save();
 }
-const fakeBooks = {
-  async get(key: string) {
-    const bytes = objects.get(key);
-    if (!bytes) return null;
-    return { body: bytes, arrayBuffer: async () => bytes.slice().buffer };
-  },
-  async put(key: string, value: any) {
-    objects.set(key, new Uint8Array(value instanceof Uint8Array ? value : new Uint8Array(await value.arrayBuffer())));
-  },
-};
+const fakeBooks = releaseBucket(objects);
 
 const env: any = {
   FULFILLMENT_PROVIDER: "lulu",
@@ -179,6 +171,7 @@ async function main() {
     "books/mira-the-heron-and-the-still-water/print/story-interior.pdf",
     await stockPdf(),
   );
+  await seedPrintReleases(raw, db, fakeBooks, objects);
 
   // -- printed x2: one job, two per-unit story items, serials first.
   const order1 = orderRow("ord-1", [
@@ -219,7 +212,7 @@ async function main() {
     JSON.stringify(job2?.items.map((i) => i.kind)));
   const coloringItem = job2?.items.find((i) => i.kind === "coloring");
   check("coloring is never personalized",
-    coloringItem?.personalized === false && coloringItem?.interiorKey.endsWith("print/coloring-interior.pdf") === true);
+    coloringItem?.personalized === false && coloringItem?.interiorKey.includes("/releases/fixture-mira-the-heron-and-the-still-water/artifacts/") === true);
   check("giftset story unit takes the set serial",
     job2?.items.find((i) => i.kind === "story")?.serialCode ===
     (await listSerialsForOrder(db, "ord-2")).find((s) => s.format === "giftset")?.code);
