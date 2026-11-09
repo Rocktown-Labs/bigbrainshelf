@@ -12,7 +12,7 @@ import { STYLE_SUFFIX, generateImageMetered, generateColorImageMetered, qcImageD
 import type { BookMatter } from "./pdf";
 import { BookBuildEnv, r2GetBytes, genImageWithQC, MAX_ROLLS, logGenAttempt, spendCapHit, loadSheets } from "./bookbuild";
 import { budgetGate } from "./budget";
-import { editGatewayImageGptMetered, gptEditEnabled } from "./gateway";
+import { editGatewayImageGptMetered, generateGatewayImageMetered, gptEditEnabled } from "./gateway";
 
 export function bibleCharacters(bible: any): any[] {
   if (Array.isArray(bible?.characters) && bible.characters.length) return bible.characters;
@@ -101,6 +101,18 @@ export function backCoverPrompt(bible: any): string {
   );
 }
 
+// Twin-derivation prompt (CG, 2026-11-09): the color back cover is
+// PAINTED from the line back cover, never rolled independently, so the
+// pair is one drawing in two finishes like the story pages are. Mirrors
+// COLORIZE_PROMPT in colorize.ts (kept local: colorize.ts imports this
+// module, so importing it back would cycle).
+const COVER_PAINT_PROMPT =
+  "Colorize the first image: a black-and-white line drawing for a children's book back cover. " +
+  "Keep every line, character, pose, and object exactly where it is. Only add rich, warm " +
+  "watercolor color inside the existing lines, matching the character reference sheets " +
+  "when they are provided. Do not add, remove, move, or redraw anything. " +
+  "No text, no letters, no words, no numbers anywhere in the image.";
+
 export const BACK_COVER_COLOR_KEY = (slug: string) => `books/${slug}/back-cover-color.jpg`;
 export const BACK_COVER_LINE_KEY = (slug: string) => `books/${slug}/back-cover-line.jpg`;
 
@@ -159,7 +171,11 @@ async function strictArt(
   slug: string,
   kind: "color" | "line",
   prompt: string,
-  castField: string
+  castField: string,
+  // When set on a color call, the color art is PAINTED from these line
+  // bytes (the line master) instead of rolled independently, so the
+  // cover twins are one drawing in two finishes (CG, 2026-11-09).
+  masterLine?: Uint8Array | null
 ): Promise<Uint8Array | null> {
   const kindLabel = kind === "color" ? "back-cover-color" : "back-cover-line";
   // Condition on the cast's model sheets like every page path does. Until
@@ -182,9 +198,11 @@ async function strictArt(
       return null;
     }
     const cur =
-      kind === "color"
-        ? await generateColorImageMetered(env, prompt, sheets)
-        : await generateImageMetered(env, prompt, sheets);
+      kind === "color" && masterLine
+        ? await generateGatewayImageMetered(env, COVER_PAINT_PROMPT, [masterLine, ...sheets])
+        : kind === "color"
+          ? await generateColorImageMetered(env, prompt, sheets)
+          : await generateImageMetered(env, prompt, sheets);
     const qd =
       kind === "color" ? await qcColorImageDetailed(env.AI, cur.bytes) : await qcImageDetailed(env.AI, cur.bytes, null);
     if (qd.pass) {
@@ -248,6 +266,13 @@ export interface BackCoverImages {
 // generates it and stores it in R2. The picture book's back cover is
 // full color (like the front cover); the coloring book's back page is
 // B&W line art, so it doubles as a bonus coloring page.
+//
+// The LINE cover is the master: it is ensured first, and a missing
+// color cover is painted from the line bytes so the twins are one
+// drawing in two finishes (CG, 2026-11-09: independent rolls staged
+// the same scene two different ways on Mira and Tilda). Only when the
+// painted twin fails every roll does the color cover fall back to an
+// independent roll, loudly, so assembly is never blocked on the twin.
 export async function ensureBackCoverImages(
   env: BookBuildEnv,
   slug: string,
@@ -255,19 +280,6 @@ export async function ensureBackCoverImages(
 ): Promise<BackCoverImages> {
   const out: BackCoverImages = { color: null, line: null };
   const castField = bibleCharacters(bible).map((c: any) => c.name).filter(Boolean).join(", ");
-  const ck = BACK_COVER_COLOR_KEY(slug);
-  out.color = await r2GetBytes(env.BOOKS, ck);
-  if (!out.color) {
-    try {
-      const bytes = await strictArt(env, slug, "color", backCoverColorPrompt(bible), castField);
-      if (bytes) {
-        await env.BOOKS.put(ck, bytes, { httpMetadata: { contentType: "image/jpeg" } });
-        out.color = bytes;
-      }
-    } catch (e: any) {
-      console.log(`color back cover failed for ${slug}: ${e?.message ?? e}`);
-    }
-  }
   const lk = BACK_COVER_LINE_KEY(slug);
   out.line = await r2GetBytes(env.BOOKS, lk);
   if (!out.line) {
@@ -279,6 +291,28 @@ export async function ensureBackCoverImages(
       }
     } catch (e: any) {
       console.log(`line back cover failed for ${slug}: ${e?.message ?? e}`);
+    }
+  }
+  const ck = BACK_COVER_COLOR_KEY(slug);
+  out.color = await r2GetBytes(env.BOOKS, ck);
+  if (!out.color) {
+    try {
+      let bytes: Uint8Array | null = null;
+      if (out.line) {
+        bytes = await strictArt(env, slug, "color", backCoverColorPrompt(bible), castField, out.line);
+        if (!bytes) {
+          console.log(`painted back-cover twin failed for ${slug}; falling back to an independent color roll`);
+        }
+      }
+      if (!bytes) {
+        bytes = await strictArt(env, slug, "color", backCoverColorPrompt(bible), castField);
+      }
+      if (bytes) {
+        await env.BOOKS.put(ck, bytes, { httpMetadata: { contentType: "image/jpeg" } });
+        out.color = bytes;
+      }
+    } catch (e: any) {
+      console.log(`color back cover failed for ${slug}: ${e?.message ?? e}`);
     }
   }
   return out;
