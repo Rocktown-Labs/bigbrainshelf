@@ -78,6 +78,17 @@ export function composeMatter(bible: any): Omit<BookMatter, "backImage" | "backL
   };
 }
 
+// Shared no-text ban for back-cover prompts: the same explicit
+// language PR #65 gave the front cover, extended with ledgers after
+// Tilda's 2026-11-08 archived rejects showed the two surviving
+// defects were a BURROW BANK sign and the word LEDGER on a book
+// spine. The old trailing "No text, no words..." was ignored by the
+// artist in busy market scenes.
+const NO_TEXT_BAN =
+  "No text of any kind anywhere in the image: no signs, no lettering, " +
+  "no words, no numbers, including on stalls, banners, books, ledgers, " +
+  "or buildings. Any sign, banner, or book is left completely blank.";
+
 export function backCoverPrompt(bible: any): string {
   const chars = bibleCharacters(bible);
   const cast = chars
@@ -85,7 +96,7 @@ export function backCoverPrompt(bible: any): string {
     .join(". ");
   return (
     `${cast}. All the friends together in ${bible?.setting ?? "their favorite place"}, ` +
-    `smiling and waving at the reader, a happy final scene. ${STYLE_SUFFIX} No text, no words, no letters, no signs.`
+    `smiling and waving at the reader, a happy final scene. ${STYLE_SUFFIX} ${NO_TEXT_BAN}`
   );
 }
 
@@ -99,7 +110,7 @@ export function backCoverColorPrompt(bible: any): string {
     .join(". ");
   return (
     `${cast}. All the friends together in ${bible?.setting ?? "their favorite place"}, ` +
-    `smiling and waving at the reader, a happy final scene. No text, no words, no letters, no signs.`
+    `smiling and waving at the reader, a happy final scene. ${NO_TEXT_BAN}`
   );
 }
 
