@@ -16,6 +16,8 @@ const GATEWAY_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
 export interface GatewayEnv {
   AI_GATEWAY_KEY?: string;
   AI_GATEWAY_IMAGE_MODEL?: string;
+  AI_GATEWAY_GPT_IMAGE_MODEL?: string;
+  GPT_EDIT_RUNG?: string;
 }
 
 export function gatewayConfigured(env: GatewayEnv): boolean {
@@ -141,6 +143,76 @@ export async function generateGatewayImage(
 ): Promise<Uint8Array> {
   const { bytes } = await generateGatewayImageMetered(env, prompt, refBytes, aspect);
   return bytes;
+}
+
+// ------------------------------------------------------- GPT image edits
+//
+// The rescue editor (CG, 2026-11-08). When Nano Banana's rolls and
+// its own edit pass cannot land a page, the surviving defects are
+// often the artist's correlated blind spots, so the escalation hands
+// the best reject to a DIFFERENT model family. GPT image models are
+// image-only on the gateway: they refuse the chat-completions shape
+// above ("is an image model, not a language model. Use the image
+// generation API instead.") and answer only on the OpenAI-compatible
+// images endpoints. This is that second call shape: POST
+// /v1/images/edits with the reject first and the character sheets
+// after it and the fix directive as the prompt, on the same gateway
+// key and balance. Callers gate it behind GPT_EDIT_RUNG; it is an
+// editor of existing attempts, never a fallback artist.
+export const GPT_IMAGE_EDIT_MODEL = "openai/gpt-image-2";
+// Flat metering estimate for one GPT edit when the response carries
+// no dollar cost (the images endpoints report tokens, not dollars):
+// a high-fidelity gpt-image edit at page size.
+export const GPT_EDIT_COST_USD = 0.21;
+const GATEWAY_IMAGES_URL = "https://ai-gateway.vercel.sh/v1/images";
+
+export function gptEditEnabled(env: GatewayEnv): boolean {
+  const v = String(env?.GPT_EDIT_RUNG ?? "").toLowerCase();
+  return v === "on" || v === "1" || v === "true";
+}
+
+// Edit existing image bytes with a GPT image model through the
+// gateway's images endpoint. The first image is the page being
+// fixed; the rest are references (model sheets, the line original).
+// Output size follows the input (no size is sent); callers aspect-
+// gate the result like any other attempt.
+export async function editGatewayImageGptMetered(
+  env: GatewayEnv,
+  prompt: string,
+  imageBytes: (Uint8Array | null | undefined)[]
+): Promise<{ bytes: Uint8Array; cost: number | null }> {
+  const key = env.AI_GATEWAY_KEY;
+  if (!key) throw new Error("AI_GATEWAY_KEY secret not set");
+  const imgs = imageBytes.filter((b): b is Uint8Array => !!b && b.length > 0).slice(0, 5);
+  if (!imgs.length) throw new Error("gpt edit needs at least one source image");
+  const images = imgs.map((b) => {
+    const isPng = b[0] === 0x89 && b[1] === 0x50;
+    return { image_url: `data:${isPng ? "image/png" : "image/jpeg"};base64,${bytesToB64(b)}` };
+  });
+  const res = await fetch(`${GATEWAY_IMAGES_URL}/edits`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    signal: AbortSignal.timeout(300000),
+    body: JSON.stringify({
+      model: env.AI_GATEWAY_GPT_IMAGE_MODEL || GPT_IMAGE_EDIT_MODEL,
+      prompt,
+      images,
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`gateway gpt edit HTTP ${res.status}: ${t.slice(0, 200)}`);
+  }
+  const resp: any = await res.json();
+  const item = resp?.data?.[0] ?? {};
+  const bytes = imageFromString(
+    String(item?.b64_json ?? item?.image_url?.url ?? item?.url ?? item?.data ?? "")
+  );
+  if (!bytes) throw new Error("gateway gpt edit response carried no image");
+  const reported = typeof resp?.usage?.cost === "number" ? resp.usage.cost : null;
+  const cost = reported ?? GPT_EDIT_COST_USD;
+  console.log(`gateway gpt edit cost: $${cost}${reported === null ? " (flat estimate)" : ""}`);
+  return { bytes, cost };
 }
 
 // House color style for picture-book pages, matching the approved

@@ -12,7 +12,7 @@ import { extractText as unpdfExtractText } from "unpdf";
 import { generateImage, generateImageMetered, generateColorImage, generateColorImageMetered, qcImage, qcImageDetailed, qcColorImage, qcColorImageDetailed, sheetKeyFor, anchoredPrompt, judgeCastListing, castListingOk } from "./ai";
 import { loadCrops, loadCropBytes, resolveSceneCrops, cropsCoverage } from "./crops";
 import { linePurity, analyzePage, pageVerdict, purifyPage } from "./purity";
-import { gatewayConfigured, generateGatewayImage, generateGatewayImageMetered, colorPagePrompt, linePromptFromScene } from "./gateway";
+import { gatewayConfigured, generateGatewayImage, generateGatewayImageMetered, colorPagePrompt, linePromptFromScene, editGatewayImageGptMetered, gptEditEnabled } from "./gateway";
 import { validateBible, normalizeBible } from "./biblegate";
 import { snapshotIfChanged } from "./versioning";
 import { attemptInlineAppeal } from "./appeals";
@@ -677,7 +677,7 @@ export function coloringCaption(pg: any): string {
 // diagnosis translated into fix instructions, and gate the result
 // with the exact same gates. One edit pass per gen call, budgeted
 // and capped like any other roll, archived like any other attempt.
-function editFixLines(reasons: string[]): string[] {
+export function editFixLines(reasons: string[], kind: "line" | "color" = "line"): string[] {
   const fixes = new Set<string>();
   const joined = reasons.join(" | ").toLowerCase();
   if (joined.includes("anatomy")) fixes.add("Correct the anatomy so every paw, foot, limb, and tail is natural and correctly drawn.");
@@ -689,17 +689,22 @@ function editFixLines(reasons: string[]): string[] {
     fixes.add("Match each character to their model sheet (the other reference images) exactly: same face, markings, and accessories.");
   if (joined.includes("cast") || joined.includes("missing"))
     fixes.add("Every character named in the scene direction must be present in the scene, drawn once, matching their model sheet.");
-  if (joined.includes("color") || joined.includes("chroma"))
-    fixes.add("Remove all color: pure black and white line art only.");
-  if (joined.includes("gray") || joined.includes("fill") || joined.includes("shading"))
-    fixes.add("Use clean black outlines on a white background only: no gray fills, no shading, no signature marks.");
+  // The color bans below are line-path only: on a color page a Clef
+  // reason mentioning color is about fidelity, not a request to
+  // strip the page back to line art.
+  if (kind === "line") {
+    if (joined.includes("color") || joined.includes("chroma"))
+      fixes.add("Remove all color: pure black and white line art only.");
+    if (joined.includes("gray") || joined.includes("fill") || joined.includes("shading"))
+      fixes.add("Use clean black outlines on a white background only: no gray fills, no shading, no signature marks.");
+  }
   if (joined.includes("text") || joined.includes("letter"))
     fixes.add("Remove any text, letters, or words from the image.");
   if (joined.includes("human")) fixes.add("No humans or human-like figures anywhere in the scene.");
   return [...fixes];
 }
 
-function editFindings(reasons: string[]): string {
+export function editFindings(reasons: string[]): string {
   // The artist cannot use gate scores; strip them and keep the prose.
   return reasons
     .map((r) => r.replace(/scored?\\s*[\\d.]+/gi, "below the quality bar").replace(/score\\s*=\\s*[\\d.]+/gi, "score below the quality bar").replace(/\\s+/g, " ").trim())
@@ -909,6 +914,78 @@ export async function genImageWithQC(
       }
     }
   }
+  // ---- GPT rescue edit (CG, 2026-11-08): a second editor from a
+  // different model family takes the same best reject when the flag
+  // is on. Nano Banana's surviving defects are its own correlated
+  // blind spots; GPT image edits through the gateway's images
+  // endpoint break the correlation. Same caps, same gates, same
+  // archive; the result is an edit of an existing attempt, never a
+  // fresh origination.
+  if (bestReject && gptEditEnabled(env)) {
+    const gptAttempt = MAX_ROLLS + 2;
+    const cap = await spendCapHit(env, slug);
+    const bcap = cap === null ? await budgetGate(env, slug) : null;
+    if (cap !== null || bcap !== null) {
+      events.push({ attempt: gptAttempt, outcome: "spend_capped", cost: null });
+      console.log("gpt rescue edit skipped: spend cap or book budget reached");
+    } else {
+      try {
+        const fixes = editFixLines(bestReject.reasons);
+        const gptPrompt =
+          "Edit the first image, a children's book page that failed quality control. " +
+          "Keep the scene, the composition, and the characters the same except for the fixes below.\n" +
+          `What failed quality control: ${editFindings(bestReject.reasons)}.\n` +
+          (fixes.length ? `Fix exactly these problems: ${fixes.join(" ")}\n` : "") +
+          `The scene to preserve, in full: ${prompt}\n` +
+          "The other images are the characters' model sheets: match them exactly. " +
+          "Change nothing else. Black and white line art, clean bold outlines, one single scene, no text, no color.";
+        const cur = await editGatewayImageGptMetered(env, gptPrompt, [bestReject.bytes, ...sheets.slice(0, 3)]);
+        let bytes = cur.bytes;
+        const a = analyzePage(bytes);
+        let failReason: string | null = null;
+        let failScores: any = null;
+        if (a.decoded && Math.abs(a.width / a.height - 0.75) > 0.06) {
+          failReason = `gpt edit: aspect ${a.width}x${a.height} is not 3:4`;
+        } else {
+          const v = pageVerdict(a);
+          if (v.verdict === "reject") {
+            failReason = `gpt edit: purity: ${v.reasons.join("; ")}`;
+          } else {
+            if (v.verdict === "autofix") {
+              const fixed = purifyPage(bytes);
+              if (fixed && pageVerdict(analyzePage(fixed)).verdict === "clean") bytes = fixed;
+              else failReason = `gpt edit: purity autofix failed: ${v.reasons.join("; ")}`;
+            }
+            if (!failReason) {
+              const qd = await qcImageDetailed(env.AI, bytes, sheet, castText, castList);
+              if (!qd.pass) {
+                failReason = qd.reason;
+                failScores = qd.scores;
+              } else {
+                const gate = await castGateVerdict(env, bytes, castList);
+                if (gate.reason && gate.mode === "hard") {
+                  failReason = gate.reason;
+                  failScores = qd.scores;
+                } else {
+                  events.push({ attempt: gptAttempt, outcome: "accepted_gpt_edit", cost: cur.cost });
+                  await logGenAttempt(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, gptAttempt, { outcome: "accepted_gpt_edit", reason: `gpt rescue edit on the best reject (${editFindings(bestReject.reasons)})${gate.reason ? `; cast flag (${gate.mode}): ${gate.reason}` : ""}`, scores: qd.scores, cost: cur.cost }, bytes);
+                  await logGenEvents(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, events);
+                  console.log("gpt rescue edit accepted: page fixed from its best reject");
+                  return bytes;
+                }
+              }
+            }
+          }
+        }
+        events.push({ attempt: gptAttempt, outcome: "gpt_edit_reject", cost: cur.cost });
+        await logGenAttempt(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, gptAttempt, { outcome: "gpt_edit_reject", reason: failReason ?? "gpt edit failed a gate", scores: failScores, cost: cur.cost }, bytes);
+        console.log(`gpt rescue edit rejected: ${failReason}`);
+      } catch (e: any) {
+        events.push({ attempt: gptAttempt, outcome: "gpt_edit_error", cost: null });
+        console.log(`gpt rescue edit errored: ${e?.message ?? e}`);
+      }
+    }
+  }
   // Inline appeal (2026-11-07): before the page parks, its most
   // recent appealable reject gets the Opus second opinion. A
   // rescue_candidate verdict ships the archived roll; anything else
@@ -918,7 +995,7 @@ export async function genImageWithQC(
     const appeal = await attemptInlineAppeal(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, runStart);
     if (appeal.rescued && appeal.bytes) {
       events.push({ attempt: MAX_ROLLS, outcome: "accepted_appeal", cost: null });
-      await logGenAttempt(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, MAX_ROLLS + 2, { outcome: "accepted_appeal", reason: `inline appeal rescued attempt ${appeal.attemptId} (Opus verdict: rescue_candidate)`, cost: null }, appeal.bytes);
+      await logGenAttempt(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, MAX_ROLLS + 3, { outcome: "accepted_appeal", reason: `inline appeal rescued attempt ${appeal.attemptId} (Opus verdict: rescue_candidate)`, cost: null }, appeal.bytes);
       await logGenEvents(env, slug, "line", meta?.chapter ?? null, meta?.page ?? null, events);
       console.log("inline appeal rescued the page; shipping the appealed roll instead of holding");
       return appeal.bytes;
