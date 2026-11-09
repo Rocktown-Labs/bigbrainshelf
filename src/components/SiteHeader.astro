@@ -110,7 +110,7 @@ const btnOutline = "border border-orange-600/60 text-orange-700 hover:bg-orange-
               aria-haspopup="menu"
               aria-expanded="false"
               aria-controls="user-account-menu-dropdown"
-              class="inline-flex items-center gap-2 min-h-11 pl-2 pr-3.5 rounded-full border border-stone-300 bg-white text-sm font-bold text-stone-800 hover:border-stone-500 hover:bg-stone-50 select-none transition duration-100 active:scale-[0.97]"
+              class="inline-flex items-center gap-2 min-h-11 pl-2 pr-2 sm:pr-3.5 rounded-full border border-stone-300 bg-white text-sm font-bold text-stone-800 hover:border-stone-500 hover:bg-stone-50 select-none transition duration-100 active:scale-[0.97]"
             >
               <span
                 id="user-account-avatar"
@@ -118,10 +118,10 @@ const btnOutline = "border border-orange-600/60 text-orange-700 hover:bg-orange-
               >
                 {adminUser?.email ? String(adminUser.email)[0].toUpperCase() : "U"}
               </span>
-              <span id="user-account-menu-label" class="min-w-0 max-w-[7rem] sm:max-w-[9rem] truncate">
+              <span id="user-account-menu-label" class="hidden sm:inline min-w-0 max-w-[7rem] sm:max-w-[9rem] truncate">
                 {adminUser?.email ? String(adminUser.email).split("@")[0] : "Account"}
               </span>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="text-stone-400 shrink-0"><path d="m6 9 6 6 6-6"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="hidden sm:block text-stone-400 shrink-0"><path d="m6 9 6 6 6-6"/></svg>
             </button>
 
             <div
@@ -265,6 +265,11 @@ const btnOutline = "border border-orange-600/60 text-orange-700 hover:bg-orange-
           : u.username
             ? "@" + u.username
             : u.name || String(u.email).split("@")[0];
+        // The chip label stays short: a @handle as-is, otherwise just
+        // the first name. The full name lives in the dropdown header.
+        var chipLabel = handle.charAt(0) === "@"
+          ? handle
+          : String(u.name || handle).trim().split(/\s+/)[0] || handle;
         var labelEl = document.getElementById("user-account-menu-label");
         var avatarEl = document.getElementById("user-account-avatar");
         var nameEl = document.getElementById("user-menu-display-name");
@@ -272,7 +277,7 @@ const btnOutline = "border border-orange-600/60 text-orange-700 hover:bg-orange-
         var roleEl = document.getElementById("user-menu-role-badge");
         var adminLink = document.getElementById("user-menu-admin-link");
 
-        if (labelEl) labelEl.textContent = handle;
+        if (labelEl) labelEl.textContent = chipLabel;
         if (avatarEl) {
           var ch = (u.displayUsername || u.username || u.name || u.email || "U")
             .replace(/^@+/, "")
@@ -280,7 +285,7 @@ const btnOutline = "border border-orange-600/60 text-orange-700 hover:bg-orange-
             .toUpperCase();
           avatarEl.textContent = ch || "U";
         }
-        if (nameEl) nameEl.textContent = handle;
+        if (nameEl) nameEl.textContent = u.name || handle;
         if (emailEl) emailEl.textContent = u.email || "";
         if (roleEl) {
           roleEl.textContent = u.isAdmin || u.role === "admin" ? "Admin" : "Family";
