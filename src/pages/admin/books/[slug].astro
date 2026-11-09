@@ -1005,13 +1005,16 @@ if (fromAll) {
       if (e.key === "ArrowLeft") go(cur - 1);
     });
 
-    loadBook().then(function () {
-      return fetch("/api/editor/chapters?slug=" + encodeURIComponent(slug));
-    })
-      .then(function (r) { return r.json(); })
+    Promise.all([
+      loadBook(),
+      fetch("/api/editor/chapters?slug=" + encodeURIComponent(slug)).then(function (r) { return r.json(); })
+    ])
+      .then(function (results) { return results[1]; })
       .then(function (data) {
         if (!data.revision) throw new Error(data.error || "Review identity is missing");
         approvalRevision = data.revision;
+        (data.approvals || []).forEach(function (r) { approvals[key(r.chapterNum, r.pageIndex)] = !!r.approved; });
+        signoffStates = data.signoffs || null;
         if (!book) document.getElementById("title").textContent = data.title || slug;
         (data.chapters || []).forEach(function (ch, ci) {
           (ch.pages || []).forEach(function (pg, pi) {
@@ -1092,10 +1095,11 @@ if (fromAll) {
           concept: "",
           image: ""
         });
-        return loadRequests();
+        render();
+        renderSignoffs();
+        // Notes can arrive independently; they do not delay the first page.
+        loadRequests();
       })
-      .then(render)
-      .then(function () { loadApprovals(); loadSignoffs(); })
       .catch(function () {
         document.getElementById("msg").textContent = "Could not load this book's pages yet.";
       });

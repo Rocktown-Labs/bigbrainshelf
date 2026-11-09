@@ -1,9 +1,10 @@
-import { captureApprovalRevision } from './approval-identity';
+import { approvedPages, approvalTargets, captureApprovalRevision } from './approval-identity';
 import { adminMediaUrl } from './media';
+import { colorEditionComplete, getSignoffStates } from './qc-signoffs';
 
 /** QC renders the same plan inventory and bytes that its approval will bind. */
-export async function readReviewBook(db: any, books: any, slug: string) {
-  const snapshot = await captureApprovalRevision(db, books, slug);
+export async function readReviewBook(db: any, books: any, slug: string, captured?: Awaited<ReturnType<typeof captureApprovalRevision>>) {
+  const snapshot = captured ?? await captureApprovalRevision(db, books, slug);
   const { manifest, inventory } = snapshot;
   const image = (key: string | null) => {
     const artifact = manifest.artifacts.find(a => a.key === key);
@@ -21,4 +22,17 @@ export async function readReviewBook(db: any, books: any, slug: string) {
   return { slug, revision: manifest.revision, totalPages: manifest.pages.length, chapters,
     cover: image(`books/${slug}/cover-titled.jpg`) || image(`books/${slug}/cover.jpg`),
     backCoverColor: image(`books/${slug}/back-cover-color.jpg`), backCoverLine: image(`books/${slug}/back-cover-line.jpg`) };
+}
+
+/** One captured version backs the pages, marks and sign-offs in a QC load. */
+export async function readReviewSession(db: any, books: any, slug: string) {
+  const snapshot = await captureApprovalRevision(db, books, slug);
+  const [review, rows, signoffs] = await Promise.all([
+    readReviewBook(db, books, slug, snapshot),
+    approvedPages(db, snapshot.manifest, true),
+    getSignoffStates(db, slug, snapshot.manifest.revision, colorEditionComplete(snapshot.manifest)),
+  ]);
+  const approvals = approvalTargets(snapshot.manifest).map(p => ({ chapterNum: p.chapter, pageIndex: p.page,
+    approved: rows.some((r: any) => r.chapter_num === p.chapter && r.page_index === p.page) }));
+  return { ...review, approvals, signoffs };
 }
