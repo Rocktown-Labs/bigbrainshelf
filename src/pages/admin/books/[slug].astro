@@ -129,6 +129,17 @@ if (fromAll) {
     .doclist { list-style: none; padding: 0; margin: 8px 0; }
     .doclist li { padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: .95em; }
     .doclist .sz { color: #888; font-size: .85em; margin-left: 8px; }
+    /* QC modal (CG, 2026-11-08): replaces native alert()/confirm() in
+       the review flows. Native alerts froze the page behind a raw
+       error string ("Stale or unverifiable assembled PDF: ...") and
+       read as the viewer being broken, which it was not. */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(28,25,23,.55); display: flex; align-items: center; justify-content: center; z-index: 200; padding: 16px; }
+    .modal-overlay[hidden] { display: none; }
+    .modal-card { background: #fff; border-radius: 14px; max-width: 440px; width: 100%; padding: 22px; box-shadow: 0 18px 50px rgba(28,25,23,.35); }
+    .modal-title { font-size: 17px; font-weight: 700; margin: 0 0 8px; }
+    .modal-body { font-size: 14.5px; line-height: 1.5; color: #44403c; margin: 0 0 18px; white-space: pre-wrap; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+    .markbar button.saving { opacity: .55; cursor: wait; }
     .coverimg { max-width: 300px; width: 100%; border-radius: 10px; border: 1px solid #e7e5e4; display: block; }
     @media (max-width: 720px) {
       #rail { display: none; }
@@ -194,6 +205,14 @@ if (fromAll) {
     <main id="main"><p id="msg">Loading the book...</p></main>
   </div>
 
+  <div id="qc-modal" class="modal-overlay" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="qc-modal-title">
+      <p class="modal-title" id="qc-modal-title"></p>
+      <p class="modal-body" id="qc-modal-body"></p>
+      <div class="modal-actions" id="qc-modal-actions"></div>
+    </div>
+  </div>
+
   <script is:inline define:vars={{ slug, adminSlug }}>
     // Covers load through the gated admin media route, never the
     // media host directly: the host serves raw keys immutable for a
@@ -215,6 +234,89 @@ if (fromAll) {
     // complete and Colorize unlocks, here and on Readiness.
     var approvals = {};
     var approvalRevision = null;
+
+    // Modal (CG, 2026-11-08): one in-page dialog for every message
+    // and confirmation in the review flows, instead of native
+    // alert()/confirm(). Actions: [{id, label, primary}] — the
+    // chosen id goes to opts.onAction; dismissal without a choice
+    // reports null.
+    var modalCleanup = null;
+    function closeModal(result) {
+      var overlay = document.getElementById("qc-modal");
+      overlay.hidden = true;
+      if (modalCleanup) { var cb = modalCleanup; modalCleanup = null; cb(result); }
+    }
+    function showModal(opts) {
+      var overlay = document.getElementById("qc-modal");
+      document.getElementById("qc-modal-title").textContent = opts.title || "";
+      document.getElementById("qc-modal-body").textContent = opts.body || "";
+      var actions = document.getElementById("qc-modal-actions");
+      actions.innerHTML = "";
+      modalCleanup = function (result) { if (opts.onAction) opts.onAction(result); };
+      (opts.actions || [{ id: "ok", label: "OK", primary: true }]).forEach(function (a) {
+        var b = document.createElement("button");
+        b.textContent = a.label;
+        b.className = a.primary ? "btn" : "ghostbtn";
+        b.addEventListener("click", function () { closeModal(a.id); });
+        actions.appendChild(b);
+      });
+      overlay.hidden = false;
+      var first = actions.querySelector("button");
+      if (first) first.focus();
+    }
+    function showErrorModal(title, message) {
+      showModal({ title: title, body: message, actions: [{ id: "ok", label: "OK", primary: true }] });
+    }
+    // Save failures get human words and, where a fix exists, the fix
+    // as a button. The stale-PDF case is the common one: pages
+    // changed after the PDFs were assembled, so marks cannot bind
+    // until the factory reassembles (which draws nothing new).
+    function handleSaveError(err) {
+      var msg = (err && err.message) || "Something went wrong.";
+      if (/Stale or unverifiable assembled PDF/i.test(msg)) {
+        showModal({
+          title: "This book changed after its PDF was built",
+          body: "Some pages were redrawn after the PDFs were assembled, so the store PDFs no longer match the pages on screen and marks cannot be saved against them yet.\n\nReassembling rebuilds the PDFs from the current pages. It draws nothing new and costs nothing.",
+          actions: [
+            { id: "later", label: "Not now" },
+            { id: "reassemble", label: "Reassemble this book", primary: true }
+          ],
+          onAction: function (id) { if (id === "reassemble") runReassemble(); }
+        });
+        return;
+      }
+      if (/changed since review|Book changed/i.test(msg)) {
+        showModal({
+          title: "This book changed while you were reviewing",
+          body: "A page changed after this review loaded, so this mark was not saved. Reload to review the current pages.",
+          actions: [
+            { id: "later", label: "Not now" },
+            { id: "reload", label: "Reload", primary: true }
+          ],
+          onAction: function (id) { if (id === "reload") window.location.reload(); }
+        });
+        return;
+      }
+      showErrorModal("That did not save", msg);
+    }
+    function runReassemble() {
+      showModal({ title: "Reassembling...", body: "Asking the factory to rebuild this book's PDFs from its current pages.", actions: [] });
+      fetch("/api/editor/reassemble", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ book_slug: slug })
+      }).then(function (r) {
+        return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || "Reassembly could not be started"); return d; });
+      }).then(function () {
+        showModal({
+          title: "Reassembly is running",
+          body: "Give it a minute or two, then reload this page. Your marks will save against the rebuilt PDFs.",
+          actions: [{ id: "reload", label: "Reload now", primary: true }],
+          onAction: function (id) { if (id === "reload") window.location.reload(); }
+        });
+      }).catch(function (err) {
+        showErrorModal("Reassembly could not be started", err.message);
+      });
+    }
 
     function loadApprovals() {
       return fetch("/api/editor/approvals?book_slug=" + encodeURIComponent(slug))
@@ -276,7 +378,18 @@ if (fromAll) {
       var question = kind === "story"
         ? "You read the full story, start to finish, and it is good to publish?"
         : "You read the full color edition, start to finish, and it is good to publish?";
-      if (!confirm(question)) return;
+      showModal({
+        title: kind === "story" ? "Sign off: full story" : "Sign off: full color",
+        body: question,
+        actions: [
+          { id: "cancel", label: "Cancel" },
+          { id: "sign", label: "Sign off", primary: true }
+        ],
+        onAction: function (id) { if (id === "sign") doSignoff(kind, btn); }
+      });
+    }
+
+    function doSignoff(kind, btn) {
       btn.disabled = true;
       btn.textContent = "Signing...";
       fetch("/api/editor/signoffs", {
@@ -288,7 +401,7 @@ if (fromAll) {
         signoffStates = d;
         renderSignoffs();
       }).catch(function (err) {
-        alert(err.message);
+        handleSaveError(err);
         btn.disabled = false;
         btn.textContent = "Sign off";
       });
@@ -310,13 +423,32 @@ if (fromAll) {
       updateQcProgress();
     }
 
+    // Pending state (CG, 2026-11-08): a click used to give no sign
+    // of life while the save ran — the first save after art changes
+    // re-verifies the whole book server-side and can take seconds —
+    // so the buttons read as dead and clicks stacked up. Now the
+    // pair disables and shows Saving... until the server answers.
+    function setMarkPending(cn, pi, pending) {
+      document.querySelectorAll('[data-mkgood][data-cn="' + cn + '"][data-pi="' + pi + '"]').forEach(function (b) {
+        b.disabled = pending;
+        b.classList.toggle("saving", pending);
+        if (pending) { b.setAttribute("data-label", b.textContent); b.textContent = "Saving..."; }
+        else if (b.getAttribute("data-label")) { b.textContent = b.getAttribute("data-label"); b.removeAttribute("data-label"); }
+      });
+      document.querySelectorAll('[data-mkbad][data-cn="' + cn + '"][data-pi="' + pi + '"]').forEach(function (b) {
+        b.disabled = pending;
+        b.classList.toggle("saving", pending);
+      });
+    }
+
     function postApproval(cn, pi, ok) {
+      setMarkPending(cn, pi, true);
       fetch("/api/editor/approvals", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ book_slug: slug, chapterNum: cn, pageIndex: pi, approved: ok, revision: approvalRevision })
       }).then(function(r) { return r.json().then(function(data) { if (!r.ok) throw new Error(data.error || "Approval failed"); return data; }); })
-        .then(function() { approvals[key(cn, pi)] = ok; paintMarks(cn, pi); })
-        .catch(function(error) { alert(error.message); });
+        .then(function() { approvals[key(cn, pi)] = ok; paintMarks(cn, pi); setMarkPending(cn, pi, false); })
+        .catch(function(error) { setMarkPending(cn, pi, false); handleSaveError(error); });
     }
 
     function wireMark(idSuffix) {
@@ -731,7 +863,7 @@ if (fromAll) {
         } catch (err) {
           opBuild.disabled = false;
           opBuild.textContent = "Build this book";
-          alert("Could not start the build: " + err.message);
+          showErrorModal("Could not start the build", err.message);
         }
       });
       var opPilot = document.getElementById("op-pilot-btn");
@@ -752,7 +884,7 @@ if (fromAll) {
         } catch (err) {
           opPilot.disabled = false;
           opPilot.textContent = "Approve pilot, build the rest";
-          alert("Could not approve the pilot: " + err.message);
+          showErrorModal("Could not approve the pilot", err.message);
         }
       });
       var opDelete = document.getElementById("op-delete-btn");
@@ -772,7 +904,7 @@ if (fromAll) {
         } catch (err) {
           opDelete.disabled = false;
           opDelete.textContent = "Delete";
-          alert("Could not delete: " + err.message);
+          showErrorModal("Could not delete", err.message);
         }
       });
       document.getElementById("upload-form").addEventListener("submit", function (e) {
