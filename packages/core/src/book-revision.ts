@@ -16,12 +16,16 @@ export interface RevisionArtifact {
   bytes: number;
   sha256: string;
 }
+export interface RevisionPrintable {
+  kind: string; podPackageId: string; interiorPages: number; interiorKey: string; coverKey: string; validationStatus: string | null;
+}
 export interface BookRevision {
   schema: 'book-revision/v1';
   slug: string;
   pages: RevisionPage[];
   artifacts: RevisionArtifact[];
   revision: string;
+  printables?: RevisionPrintable[];
 }
 
 function canonical(value: any): string {

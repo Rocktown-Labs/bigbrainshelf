@@ -1,3 +1,5 @@
+import { releasedPrintable, recordPrintReleaseItem, verifyPrintReleaseItem } from './print-release';
+import { openReleaseArtifact } from './artifact-releases';
 // Print fulfillment (Lulu lane): the registry of print-ready files,
 // the print jobs built from paid orders and locked club boxes, and
 // the passes that submit those jobs to Lulu and mirror their
@@ -616,15 +618,6 @@ function producedOnLabel(createdAtSec: number | null | undefined): string | null
   }
 }
 
-async function readR2Bytes(books: any, key: string): Promise<Uint8Array | null> {
-  if (!books || typeof books.get !== "function") return null;
-  const obj = await books.get(key).catch(() => null);
-  if (!obj) return null;
-  if (typeof obj.arrayBuffer === "function") return new Uint8Array(await obj.arrayBuffer());
-  if (obj.body instanceof Uint8Array) return obj.body;
-  if (obj.body) return new Uint8Array(await new Response(obj.body as any).arrayBuffer());
-  return null;
-}
 
 /**
  * Shared builder: one job row plus its item rows from a unit list.
@@ -673,11 +666,15 @@ async function createJobFromUnits(
 
   // Resolve printables up front; a single missing file blocks the
   // whole job (a partial parcel set would split the shipment story).
-  const printables = new Map<string, Printable | null>();
+  const printables = new Map<string, Awaited<ReturnType<typeof releasedPrintable>> | null>();
   const missing: string[] = [];
+  const missingReasons: string[] = [];
   for (const unit of args.units) {
     const key = `${unit.slug}|${unit.kind}`;
-    if (!printables.has(key)) printables.set(key, await getPrintable(db, unit.slug, unit.kind));
+    if (!printables.has(key)) printables.set(key, await releasedPrintable(db, env?.BOOKS, unit.slug, unit.kind).catch((error) => {
+      missingReasons.push(`${key}: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }));
     if (!printables.get(key) && !missing.includes(key)) missing.push(key);
   }
   const blocked = missing.length > 0;
@@ -697,7 +694,7 @@ async function createJobFromUnits(
     SHIPPING_LEVEL,
     PRODUCTION_DELAY_MINUTES,
     blocked ? "blocked_no_printable" : "queued",
-    blocked ? `No printable registered for: ${missing.join(", ")}` : null,
+    blocked ? `No verified frozen printable available for: ${missing.join(", ")}. ${missingReasons.join("; ")}` : null,
     warnings.length ? warnings.join("; ") : null,
     ts,
     ts
@@ -719,8 +716,7 @@ async function createJobFromUnits(
       // write-in line) and the copy's serial. Failure here must not
       // lose the job: fall back to the stock interior and note it.
       try {
-        const stock = await readR2Bytes(env?.BOOKS, printable.interiorKey);
-        if (!stock) throw new Error(`stock interior not readable: ${printable.interiorKey}`);
+        const stock = new Uint8Array(await (await openReleaseArtifact(env?.BOOKS, printable.interior)).arrayBuffer());
         const stamped = await stampPdfForPrint(stock, {
           childName: unit.dedicationName,
           bookTitle: title,
@@ -763,6 +759,7 @@ async function createJobFromUnits(
       ts,
       ts
     ).run();
+    if (printable) await recordPrintReleaseItem(db, itemId, printable, personalized ? interiorKey : null);
   }
   if (notes.length) {
     await db.prepare("UPDATE print_jobs SET notes = ?, updated_at = ? WHERE id = ?")
@@ -1045,6 +1042,7 @@ export async function submitPrintJob(
       if (!item.podPackageId || !item.interiorKey || !item.coverKey) {
         throw new Error(`item ${item.externalId} is missing its printable files`);
       }
+      await verifyPrintReleaseItem(db, env?.BOOKS, item);
       lineItems.push({
         externalId: item.externalId,
         title: item.title || item.slug,

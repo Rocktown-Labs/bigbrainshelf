@@ -1,3 +1,4 @@
+import { releaseBucket, seedPrintReleases } from "./helpers/release-fixture";
 // Lulu webhook (src/pages/api/lulu/webhook.ts -> handleLuluWebhookPost):
 // the fast path into the same sync the cron poll runs. Dark (404)
 // while LULU_WEBHOOK_SECRET is unset; 401 on a bad HMAC-SHA256
@@ -63,16 +64,7 @@ raw.prepare("INSERT INTO books (slug, title, status) VALUES (?, ?, 'complete')")
   .run("mira-the-heron-and-the-still-water", "Mira the Heron and the Still Water");
 
 const objects = new Map<string, Uint8Array>();
-const fakeBooks = {
-  async get(key: string) {
-    const bytes = objects.get(key);
-    if (!bytes) return null;
-    return { body: bytes, arrayBuffer: async () => bytes.slice().buffer };
-  },
-  async put(key: string, value: any) {
-    objects.set(key, new Uint8Array(value instanceof Uint8Array ? value : new Uint8Array(await value.arrayBuffer())));
-  },
-};
+const fakeBooks = releaseBucket(objects);
 
 const SECRET = "whsec_test_value";
 const SITE = "https://bigbrainshelf.com";
@@ -165,6 +157,7 @@ async function main() {
   const doc = await PDFDocument.create();
   for (let i = 0; i < 5; i++) doc.addPage([612, 792]);
   objects.set("books/mira-the-heron-and-the-still-water/print/story-interior.pdf", await doc.save());
+  await seedPrintReleases(raw, db, fakeBooks, objects);
   installFetch();
 
   raw.prepare(

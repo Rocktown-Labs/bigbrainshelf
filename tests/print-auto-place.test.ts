@@ -1,3 +1,4 @@
+import { releaseBucket, seedPrintReleases } from "./helpers/release-fixture";
 // Print auto-place (CG, 2026-11-07): a paid order with physical
 // lines places its Lulu print job from the completion funnel itself
 // (processCheckoutCompleted with env, the same call the Stripe
@@ -73,16 +74,7 @@ raw.prepare("INSERT INTO books (slug, title, status, public_slug) VALUES (?, ?, 
 
 // Fake R2 with a real stock interior so personalization runs.
 const objects = new Map<string, Uint8Array>();
-const fakeBooks = {
-  async get(key: string) {
-    const bytes = objects.get(key);
-    if (!bytes) return null;
-    return { body: bytes, arrayBuffer: async () => bytes.slice().buffer };
-  },
-  async put(key: string, value: any) {
-    objects.set(key, new Uint8Array(value instanceof Uint8Array ? value : new Uint8Array(await value.arrayBuffer())));
-  },
-};
+const fakeBooks = releaseBucket(objects);
 
 const SITE = "https://bigbrainshelf.com";
 const env: any = {
@@ -159,6 +151,7 @@ async function main() {
   const doc = await PDFDocument.create();
   for (let i = 0; i < 5; i++) doc.addPage([612, 792]);
   objects.set("books/mira-the-heron-and-the-still-water/print/story-interior.pdf", await doc.save());
+  await seedPrintReleases(raw, db, fakeBooks, objects);
   installFetch();
 
   // -- Lane on: completion builds the job and submits it.

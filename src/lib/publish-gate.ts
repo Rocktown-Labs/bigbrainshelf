@@ -1,3 +1,4 @@
+import { freezeArtifactRelease, recordReleaseFailure } from './artifact-releases';
 import { captureApprovalRevision, assertApprovedAssembly, approvalCountSql, orderedApprovalBindings } from './approval-identity';
 import { assertRevisionUnchanged, revisionHash } from '../../packages/core/src/book-revision';
 import { countApprovedInventory } from './book-plans';
@@ -79,16 +80,29 @@ export async function publishVerifiedBook(
   if (blockers.some(b => !waived.has(b.id)))
     throw new PublishBlocked('readiness', blockers.map(b => b.detail).join(' '), blockers, 409, verification);
 
+  try {
+    await assertRevisionUnchanged(books, observations);
+    if ((await captureApprovalRevision(db, books, slug)).manifest.revision !== manifest.revision) throw new Error('Revision inventory changed');
+  } catch { throw new PublishBlocked('revision', 'Book artifacts changed during verification. Review the new revision and retry.'); }
+
+  const releaseId = crypto.randomUUID();
+  const previousHead = await db.prepare('SELECT release_id FROM artifact_release_heads WHERE book_slug = ?').bind(slug).first();
+  let frozen;
+  try { frozen = await freezeArtifactRelease(books, manifest, releaseId, actor); }
+  catch { throw new PublishBlocked('freeze', 'Release staging failed byte verification. Publication was not changed. Retained candidates can be inspected before retrying.', [], 503); }
+
   // Recheck object versions immediately before the DB transaction. This is a
-  // race detector, not a substitute for immutable release keys (next slice).
+  // race detector. Delivery itself uses only the frozen release verified above.
   try {
     await assertRevisionUnchanged(books, observations);
     if ((await captureApprovalRevision(db, books, slug)).manifest.revision !== manifest.revision)
       throw new Error('Revision inventory changed');
   }
-  catch { throw new PublishBlocked('revision', 'Book artifacts changed during verification. Review the new revision and retry.'); }
+  catch (error) {
+    await recordReleaseFailure(books, slug, releaseId, 'promotion', error);
+    throw new PublishBlocked('revision', 'Book artifacts changed during verification. Review the new revision and retry.');
+  }
   const now = Date.now();
-  const releaseId = crypto.randomUUID();
   const prices = publishPriceStamp(book);
   const bookFields = ['updated_at', 'status', 'price', 'price_print', 'picture_book_key',
     'coloring_book_key', 'color_book_key', 'epub_key', 'audiobook_key', 'cover_key'];
@@ -101,14 +115,23 @@ export async function publishVerifiedBook(
         (id, book_slug, revision, manifest_json, checks_json, override_json, actor, created_at)
         VALUES (CASE WHEN EXISTS (SELECT 1 FROM books WHERE slug = ? AND ${bookFence})
           AND (${approvalCountSql}) = ?
+          AND (SELECT release_id FROM artifact_release_heads WHERE book_slug = ?) IS ?
+          AND EXISTS (SELECT 1 FROM book_qc_signoffs WHERE book_slug = ? AND revision = ? AND kind = 'story')
+          AND EXISTS (SELECT 1 FROM book_qc_signoffs WHERE book_slug = ? AND revision = ? AND kind = 'color')
           THEN ? ELSE NULL END, ?, ?, ?, ?, ?, ?, ?)`)
         .bind(slug, ...bookFields.map(field => book[field] ?? null), ...orderedApprovalBindings(manifest), manifest.pages.length,
+          slug, previousHead?.release_id ?? null, slug, manifest.revision, slug, manifest.revision,
           releaseId, slug, manifest.revision, JSON.stringify(manifest), JSON.stringify({ audio, delivery, blockers }),
           override ? JSON.stringify({ reason: override.reason.trim(), checks: [...waived], waived: blockers, verification }) : null, actor, now),
+      db.prepare(`INSERT INTO artifact_releases (id, book_slug, revision, manifest_key, manifest_sha256, manifest_etag, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+        .bind(releaseId, slug, manifest.revision, frozen.manifestKey, frozen.manifestSha256, frozen.manifestEtag, now),
+      db.prepare(`INSERT INTO artifact_release_heads (book_slug, release_id) VALUES (?, ?) ON CONFLICT(book_slug) DO UPDATE SET release_id = excluded.release_id`)
+        .bind(slug, releaseId),
       db.prepare('UPDATE books SET status = ?, price = ?, price_print = ?, updated_at = ? WHERE slug = ?')
         .bind('complete', prices.price, prices.price_print, now, slug),
     ]);
-  } catch {
+  } catch (error) {
+    await recordReleaseFailure(books, slug, releaseId, 'promotion', error);
     throw new PublishBlocked('record', 'Publication could not be confirmed. Check the release journal before retrying.', [], 503);
   }
   await recordWorkerRun({ DB: db, BBS_BUILD_PROVENANCE: provenanceBinding }, {

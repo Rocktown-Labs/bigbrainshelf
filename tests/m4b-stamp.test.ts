@@ -171,11 +171,16 @@ store.set("books/broken/audiobook.m4b", new FakeObj(junk, "etag-b1"));
 const broken = await serveStampedM4b(books, "books/broken/audiobook.m4b", store.get("books/broken/audiobook.m4b"), grant);
 assert(!broken.stamped && puts === 2, "unstampable file serves the original and writes no cache entry");
 
+// Released masters keep their per-buyer cache outside the frozen release tree.
+const releasedCache = m4bStampCacheKey("books/test/releases/release-one/artifacts/0-abc.m4b", "grant-one", "etag-one");
+assert(releasedCache.startsWith("books/test/derivatives/audio/release-one/0-abc/"), "released audiobook copies live in the named derivatives namespace");
+assert(releasedCache !== m4bStampCacheKey("books/test/releases/release-two/artifacts/0-abc.m4b", "grant-one", "etag-one"), "a new release cannot reuse an old release's buyer copy");
+
 // ---- Route pins ---------------------------------------------------------------
 const downloadSrc = await read("../src/pages/api/download.ts");
 assert(downloadSrc.includes("serveStampedM4b"), "account route serves stamped M4Bs");
 assert(downloadSrc.indexOf("consumeDownload") < downloadSrc.indexOf("serveStampedM4b(e.BOOKS"), "account route: the stamp happens only after the budget is consumed");
-assert(downloadSrc.indexOf('"File not found."') < downloadSrc.indexOf("serveStampedM4b(e.BOOKS"), "account route: file existence is still checked before any stamping");
+assert(downloadSrc.indexOf("obj = await openReleaseArtifact(e.BOOKS, artifact)") < downloadSrc.indexOf("serveStampedM4b(e.BOOKS"), "account route: file existence is still checked before any stamping");
 const orderDownloadSrc = await read("../src/pages/api/order-download.ts");
 assert(orderDownloadSrc.includes("serveStampedM4b"), "guest route serves stamped M4Bs");
 assert(orderDownloadSrc.indexOf("consumeDownload") < orderDownloadSrc.indexOf("serveStampedM4b(e.BOOKS"), "guest route: the stamp happens only after the budget is consumed");

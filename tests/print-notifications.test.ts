@@ -1,3 +1,4 @@
+import { releaseBucket, seedPrintReleases } from "./helpers/release-fixture";
 // Print parcel notifications (slice 4 core): sync enqueues exactly
 // one print_shipped email per parcel when its shipment first gains
 // tracking, and exactly one print_delivered when the parcel is
@@ -78,16 +79,7 @@ async function stockPdf(): Promise<Uint8Array> {
   for (let i = 0; i < 5; i++) doc.addPage([612, 792]);
   return doc.save();
 }
-const fakeBooks = {
-  async get(key: string) {
-    const bytes = objects.get(key);
-    if (!bytes) return null;
-    return { body: bytes, arrayBuffer: async () => bytes.slice().buffer };
-  },
-  async put(key: string, value: any) {
-    objects.set(key, new Uint8Array(value instanceof Uint8Array ? value : new Uint8Array(await value.arrayBuffer())));
-  },
-};
+const fakeBooks = releaseBucket(objects);
 
 const env: any = {
   FULFILLMENT_PROVIDER: "lulu",
@@ -173,6 +165,7 @@ async function main() {
   await ensurePrintSchema(db);
   await seedPrintables(db);
   objects.set("books/mira-the-heron-and-the-still-water/print/story-interior.pdf", await stockPdf());
+  await seedPrintReleases(raw, db, fakeBooks, objects);
   installFetch();
 
   // -- Order with two parcels: both ship, then both deliver.

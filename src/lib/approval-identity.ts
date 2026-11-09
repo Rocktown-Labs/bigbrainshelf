@@ -1,3 +1,4 @@
+import { readRevisionPrintables } from './release-printables';
 import { prepareAssembly } from '../../packages/core/src/assembly-identity';
 import { captureBookRevision, readPlanInventory, revisionHash, assertRevisionUnchanged, type BookRevision, type RevisionPage } from '../../packages/core/src/book-revision';
 
@@ -25,6 +26,8 @@ export async function captureApprovalRevision(db: any, books: any, slug: string,
     const key = `books/${slug}/${file}`;
     if (!targets.some(a => a.key === key) && await books.head(key)) targets.push({ key, role: file });
   }
+  const printables = await readRevisionPrintables(db, slug);
+  for (const p of printables) targets.push({ key: p.interiorKey, role: `print:${p.kind}:interior` }, { key: p.coverKey, role: `print:${p.kind}:cover` });
   const inventory = await readPlanInventory(books, slug);
 
   // Version fingerprint (2026-11-06): the deep capture below reads
@@ -51,6 +54,7 @@ export async function captureApprovalRevision(db: any, books: any, slug: string,
     fingerprint = revisionHash({
       slug,
       targets: targets.map(t => [t.key, t.role]),
+      ...(printables.length ? { printables } : {}),
       versions: [...versioned.entries()].sort((a, b) => a[0].localeCompare(b[0])),
     });
     try {
@@ -63,6 +67,11 @@ export async function captureApprovalRevision(db: any, books: any, slug: string,
   }
 
   const deep = await captureBookRevision(books, slug, targets, inventory);
+  if (printables.length) {
+    const { revision: _, ...payload } = deep.manifest;
+    const withPrint = { ...payload, printables };
+    deep.manifest = { ...withPrint, revision: revisionHash(withPrint) };
+  }
   if (fingerprint && !options.readOnly) {
     // Cache only when the byte capture observed exactly the versions
     // the fingerprint was built from. A mid-capture change skips the

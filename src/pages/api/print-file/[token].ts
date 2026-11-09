@@ -1,3 +1,4 @@
+import { openPrintReleaseFile } from "../../../lib/print-release";
 import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
 import { resolvePrintFileToken } from "../../../lib/print-fulfillment";
@@ -15,7 +16,7 @@ export const GET: APIRoute = async ({ params }) => {
   const token = String(params.token || "");
   const resolved = await resolvePrintFileToken(e.DB, token).catch(() => null);
   if (!resolved) return new Response("Not found", { status: 404 });
-  const obj = await e.BOOKS.get(resolved.r2Key).catch(() => null);
+  const obj = await openPrintReleaseFile(e.DB, e.BOOKS, resolved).catch(() => null);
   if (!obj) return new Response("Not found", { status: 404 });
   return new Response(obj.body, {
     headers: {
