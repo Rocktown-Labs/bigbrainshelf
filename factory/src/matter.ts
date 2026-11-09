@@ -10,7 +10,8 @@ import { bookVocabulary } from '../../packages/core/src/book-vocabulary';
 // coloring book it doubles as a bonus coloring page).
 import { STYLE_SUFFIX, generateImageMetered, generateColorImageMetered, qcImageDetailed, qcColorImageDetailed } from "./ai";
 import type { BookMatter } from "./pdf";
-import { BookBuildEnv, r2GetBytes, genImageWithQC, MAX_ROLLS, logGenAttempt, spendCapHit, loadSheets } from "./bookbuild";
+import { BookBuildEnv, r2GetBytes, genImageWithQC, MAX_ROLLS, logGenAttempt, spendCapHit, loadSheets, castTextOf, castListOf } from "./bookbuild";
+import { twinSimilarity, TWIN_SIMILARITY_BAR } from "./twin-similarity";
 import { budgetGate } from "./budget";
 import { editGatewayImageGptMetered, generateGatewayImageMetered, gptEditEnabled } from "./gateway";
 
@@ -113,6 +114,19 @@ const COVER_PAINT_PROMPT =
   "when they are provided. Do not add, remove, move, or redraw anything. " +
   "No text, no letters, no words, no numbers anywhere in the image.";
 
+// Edit-path derivation prompt (CG, 2026-11-09): the chat-generation
+// paint above is not pixel-locked and recomposed Tilda's cover from
+// her line master (the diagnostic is in the PR). The GPT images-edit
+// path treats its first image as the object being edited, so the
+// twin derivation rides it whenever the rung is enabled; the
+// similarity gate in strictArt is the hard check either way.
+const COVER_PAINT_EDIT_PROMPT =
+  "Colorize this children's book back cover line drawing. This is an edit of this exact " +
+  "drawing, not a new scene: keep every line, character, pose, and object exactly where " +
+  "it is. Only add rich, warm watercolor color inside the existing lines, matching the " +
+  "character reference sheets for colors and markings. Do not add, remove, move, or " +
+  "redraw anything. No text, no letters, no words, no numbers anywhere in the image.";
+
 export const BACK_COVER_COLOR_KEY = (slug: string) => `books/${slug}/back-cover-color.jpg`;
 export const BACK_COVER_LINE_KEY = (slug: string) => `books/${slug}/back-cover-line.jpg`;
 
@@ -140,8 +154,13 @@ export function backCoverColorPrompt(bible: any): string {
 // rejects vanished into worker logs, so a shutout (Penny 2026-11-03,
 // Tilda 2026-11-08) could not be diagnosed or reviewed after the fact.
 // The gates a back-cover roll can fail, with the fix line the GPT edit
-// rung acts on for each. Back covers deliberately carry NO cast gates
-// (Penny precedent 2026-11-03): purity + color + anatomy only.
+// rung acts on for each. Color covers carry the colorize-grade cast
+// questions too (CG, 2026-11-09, reversing the 2026-11-03 Penny
+// precedent for covers): the back-cover prompt stages the full cast
+// together by design, so cast questions have a true scene to judge,
+// and the Tilda recomposition proved purity-only QC cannot see a
+// wrong or restaged cover. Derived color covers additionally carry
+// the twin-similarity gate against their line master.
 function coverFailures(kind: "color" | "line", scores: any): string[] {
   const s = scores ?? {};
   const out: string[] = [];
@@ -153,6 +172,7 @@ function coverFailures(kind: "color" | "line", scores: any): string[] {
     if (typeof s.is_lineart === "number" && s.is_lineart < 0.4) out.push("is_lineart");
   }
   if (typeof s.anatomy === "number" && s.anatomy < 0.3) out.push("anatomy");
+  if (typeof s.twin_similarity === "number" && s.twin_similarity < TWIN_SIMILARITY_BAR) out.push("twin_drift");
   return out;
 }
 
@@ -164,6 +184,8 @@ const COVER_FIX_LINES: Record<string, string> = {
   is_color: "Keep the image in full, rich color.",
   has_color: "Remove all color; the image must be pure black and white line art.",
   is_lineart: "Make the image clean black and white line art with bold outlines.",
+  twin_drift:
+    "Keep the exact composition of the line drawing being colorized: every character, object and background element in the same position, pose and size. Color inside the existing drawing only; do not restage the scene or invent new objects.",
 };
 
 async function strictArt(
@@ -175,7 +197,9 @@ async function strictArt(
   // When set on a color call, the color art is PAINTED from these line
   // bytes (the line master) instead of rolled independently, so the
   // cover twins are one drawing in two finishes (CG, 2026-11-09).
-  masterLine?: Uint8Array | null
+  masterLine?: Uint8Array | null,
+  castText?: string | null,
+  castList?: any[] | null
 ): Promise<Uint8Array | null> {
   const kindLabel = kind === "color" ? "back-cover-color" : "back-cover-line";
   // Condition on the cast's model sheets like every page path does. Until
@@ -197,14 +221,49 @@ async function strictArt(
       console.log(`book budget ($${bcap}) reached for ${slug}; back cover ${kind} art held`);
       return null;
     }
-    const cur =
-      kind === "color" && masterLine
-        ? await generateGatewayImageMetered(env, COVER_PAINT_PROMPT, [masterLine, ...sheets])
-        : kind === "color"
-          ? await generateColorImageMetered(env, prompt, sheets)
-          : await generateImageMetered(env, prompt, sheets);
-    const qd =
-      kind === "color" ? await qcColorImageDetailed(env.AI, cur.bytes) : await qcImageDetailed(env.AI, cur.bytes, null);
+    let cur: { bytes: Uint8Array; cost: number | null };
+    if (kind === "color" && masterLine && gptEditEnabled(env)) {
+      // Twin derivation rides the GPT edit path (first image is the
+      // object edited, size preserved); the chat paint below is the
+      // fallback when the edit errors, and the similarity gate
+      // judges every candidate the same way.
+      try {
+        cur = await editGatewayImageGptMetered(env, COVER_PAINT_EDIT_PROMPT, [masterLine, ...sheets]);
+      } catch (e: any) {
+        console.log(`back cover twin gpt edit failed, falling back to gateway paint: ${e?.message ?? e}`);
+        cur = await generateGatewayImageMetered(env, COVER_PAINT_PROMPT, [masterLine, ...sheets]);
+      }
+    } else if (kind === "color" && masterLine) {
+      cur = await generateGatewayImageMetered(env, COVER_PAINT_PROMPT, [masterLine, ...sheets]);
+    } else if (kind === "color") {
+      cur = await generateColorImageMetered(env, prompt, sheets);
+    } else {
+      cur = await generateImageMetered(env, prompt, sheets);
+    }
+    let qd =
+      kind === "color"
+        ? await qcColorImageDetailed(env.AI, cur.bytes, sheets[0] ?? null, castText, castList)
+        : await qcImageDetailed(env.AI, cur.bytes, null);
+    if (kind === "color" && masterLine) {
+      // The twin gate: composition similarity against the line
+      // master, scored and archived on every candidate. A candidate
+      // that passes Clef but restaged the scene is a reject, and an
+      // undecodable candidate is unverifiable, never a pass.
+      const sim = twinSimilarity(masterLine, cur.bytes);
+      const scores = { ...(qd.scores ?? {}), twin_similarity: sim };
+      if (qd.pass && (sim === null || sim < TWIN_SIMILARITY_BAR)) {
+        qd = {
+          pass: false,
+          scores,
+          reason:
+            sim === null
+              ? "twin_unverifiable: candidate could not be decoded for the composition check against the line master"
+              : `twin_drift: composition similarity ${sim.toFixed(3)} is below the ${TWIN_SIMILARITY_BAR} bar against the line master`,
+        };
+      } else {
+        qd = { ...qd, scores };
+      }
+    }
     if (qd.pass) {
       await logGenAttempt(env, slug, kindLabel, null, null, attempt, { outcome: "accepted", scores: qd.scores, cost: cur.cost }, cur.bytes);
       return cur.bytes;
@@ -239,8 +298,26 @@ async function strictArt(
             ? "Full color watercolor storybook art, one single scene, no text anywhere."
             : "Black and white line art, clean bold outlines, one single scene, no text, no color.");
         const cur = await editGatewayImageGptMetered(env, editPrompt, [bestReject.bytes, ...sheets.slice(0, 3)]);
-        const qd =
-          kind === "color" ? await qcColorImageDetailed(env.AI, cur.bytes) : await qcImageDetailed(env.AI, cur.bytes, null);
+        let qd =
+          kind === "color"
+            ? await qcColorImageDetailed(env.AI, cur.bytes, sheets[0] ?? null, castText, castList)
+            : await qcImageDetailed(env.AI, cur.bytes, null);
+        if (qd.pass && kind === "color" && masterLine) {
+          const sim = twinSimilarity(masterLine, cur.bytes);
+          const scores = { ...(qd.scores ?? {}), twin_similarity: sim };
+          if (sim === null || sim < TWIN_SIMILARITY_BAR) {
+            qd = {
+              pass: false,
+              scores,
+              reason:
+                sim === null
+                  ? "twin_unverifiable: gpt edit could not be decoded for the composition check against the line master"
+                  : `twin_drift: gpt edit composition similarity ${sim.toFixed(3)} is below the ${TWIN_SIMILARITY_BAR} bar against the line master`,
+            };
+          } else {
+            qd = { ...qd, scores };
+          }
+        }
         if (qd.pass) {
           await logGenAttempt(env, slug, kindLabel, null, null, attempt, { outcome: "accepted_gpt_edit", scores: qd.scores, cost: cur.cost }, cur.bytes);
           return cur.bytes;
@@ -279,7 +356,10 @@ export async function ensureBackCoverImages(
   bible: any
 ): Promise<BackCoverImages> {
   const out: BackCoverImages = { color: null, line: null };
-  const castField = bibleCharacters(bible).map((c: any) => c.name).filter(Boolean).join(", ");
+  const namedChars = bibleCharacters(bible);
+  const castField = namedChars.map((c: any) => c.name).filter(Boolean).join(", ");
+  const castText = castTextOf(namedChars);
+  const castList = castListOf(namedChars);
   const lk = BACK_COVER_LINE_KEY(slug);
   out.line = await r2GetBytes(env.BOOKS, lk);
   if (!out.line) {
@@ -298,14 +378,24 @@ export async function ensureBackCoverImages(
   if (!out.color) {
     try {
       let bytes: Uint8Array | null = null;
+      let paintedFailed = false;
       if (out.line) {
-        bytes = await strictArt(env, slug, "color", backCoverColorPrompt(bible), castField, out.line);
+        bytes = await strictArt(env, slug, "color", backCoverColorPrompt(bible), castField, out.line, castText, castList);
         if (!bytes) {
+          paintedFailed = true;
           console.log(`painted back-cover twin failed for ${slug}; falling back to an independent color roll`);
         }
       }
       if (!bytes) {
-        bytes = await strictArt(env, slug, "color", backCoverColorPrompt(bible), castField);
+        bytes = await strictArt(env, slug, "color", backCoverColorPrompt(bible), castField, null, castText, castList);
+        if (bytes && paintedFailed) {
+          // The archive must never read this as a twin: record the
+          // fallback explicitly (meta-scale rule: keep the data).
+          await logGenAttempt(env, slug, "back-cover-color", null, null, 0, {
+            outcome: "fallback_independent",
+            reason: "painted twin failed every gated attempt; independent roll shipped so assembly is not blocked",
+          });
+        }
       }
       if (bytes) {
         await env.BOOKS.put(ck, bytes, { httpMetadata: { contentType: "image/jpeg" } });
