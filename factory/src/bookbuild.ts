@@ -379,6 +379,7 @@ export function castListOf(named: any[]): any[] | null {
         name: String(c.name),
         species: String(c.species),
         visual: String(c.visual ?? ""),
+        wardrobe: String(c.wardrobe ?? ""),
       }))
     : null;
 }
@@ -700,7 +701,17 @@ export function editFixLines(reasons: string[], kind: "line" | "color" = "line")
   }
   if (joined.includes("text") || joined.includes("letter"))
     fixes.add("Remove any text, letters, or words from the image.");
-  if (joined.includes("human")) fixes.add("No humans or human-like figures anywhere in the scene.");
+  if (joined.includes("human")) fixes.add("No humans or human-like figures anywhere in the scene, including the background.");
+  // Tuning gates (2026-11-09): the new line QC clauses carry their own
+  // steering, since a fresh re-roll alone reproduces the same misses.
+  if (joined.includes("outline_only") || joined.includes("solid black fill"))
+    fixes.add("Convert every filled black area into a clean outline on white: no solid black fills anywhere, black markings drawn as outline boundaries only.");
+  if (joined.includes("wardrobe"))
+    fixes.add("Draw each character's complete signature outfit from their model sheet, every item present, including trousers where the character wears them.");
+  if (joined.includes("no_extra_characters") || joined.includes("extra animal"))
+    fixes.add("Remove every animal that is not a named cast member for this scene; only the named cast appears in the foreground.");
+  if (joined.includes("style_match") || joined.includes("chibi"))
+    fixes.add("Draw in the book's detailed storybook line style with realistic animal proportions: no chibi proportions, no oversized round head or huge cartoon eyes.");
   return [...fixes];
 }
 

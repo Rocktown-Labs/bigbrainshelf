@@ -313,7 +313,15 @@ export const LINE_PAGE_STYLE =
   "Render as a clean black and white line art coloring page for kids: " +
   "bold black outlines only on a pure white background, absolutely no " +
   "color, no shading, no gray fills, wide white margins. No text, no " +
-  "words, no letters, no numbers anywhere in the image.";
+  "words, no letters, no numbers anywhere in the image. " +
+  // OUTLINE-ONLY (CG, 2026-11-09): line pages are coloring pages, so no
+  // region is ever filled solid black, not even a marking that is black
+  // in the character's colors. A magpie's black hood, a badger's black
+  // stripes, dark trousers: all drawn as an outline boundary with the
+  // inside left white, so a child can color every region.
+  "Outline only: no solid black fills anywhere, not even on a character " +
+  "whose markings are black in color; draw the boundary outline of every " +
+  "black marking and leave its inside white and colorable.";
 
 export function lineArtPrompt(planPrompt: string, hasRefs: boolean): string {
   const refLead = hasRefs

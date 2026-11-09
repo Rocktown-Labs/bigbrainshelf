@@ -255,6 +255,9 @@ export function buildPrompt(
     "before replying.\n" +
     "- Max 2 characters and 3 props per image. One clear subject, bold clean outlines, " +
     "no shading, no gray fills, wide white margins.\n" +
+    "- OUTLINE ONLY: describe black markings (a magpie's hood, a badger's stripes, dark " +
+    "trousers) as outlined regions, never as filled black areas; line pages are coloring " +
+    "pages and every region stays white and colorable.\n" +
     "ALSO give every page and the finale a structured \"scene\" object. Rules for scene " +
     "fields: cast names appear ONLY in cast[].name, never inside doing, setting, or " +
     "props; describe places by what they look like, never by their name; each cast " +
