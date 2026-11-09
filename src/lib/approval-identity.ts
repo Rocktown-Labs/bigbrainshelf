@@ -105,12 +105,12 @@ export async function approvedPages(db: any, manifest: BookRevision, includeMatt
   const { results } = await db.prepare(approvedRowsSql).bind(...orderedApprovalBindings(manifest, includeMatter)).all();
   return results ?? [];
 }
-export async function assertApprovedAssembly(books: any, manifest: BookRevision) {
+export async function assertApprovedAssembly(books: any, manifest: BookRevision, verified?: { inventory: Awaited<ReturnType<typeof readPlanInventory>>; observations: { key: string; etag: string }[] }) {
   const inputs = new Map<string, string>();
   for (const artifact of manifest.artifacts.filter(a => ['picture_book_key', 'coloring_book_key', 'color_book_key'].includes(a.role))) {
     const edition = artifact.role === 'color_book_key' ? 'color' : 'line';
     const kind = artifact.role === 'color_book_key' ? 'color' : artifact.role === 'coloring_book_key' ? 'coloring' : 'picture';
-    if (!inputs.has(edition)) inputs.set(edition, (await prepareAssembly(books, manifest.slug, edition)).manifest.revision);
+    if (!inputs.has(edition)) inputs.set(edition, (await prepareAssembly(books, manifest.slug, edition, verified ? { ...verified, manifest } : undefined)).manifest.revision);
     const head = await books.head(artifact.key);
     const metadata = head?.customMetadata;
     if (metadata?.kind !== kind || metadata?.assemblyRevision !== inputs.get(edition) || metadata?.pdfSha256 !== artifact.sha256 ||
@@ -134,7 +134,7 @@ export async function saveApprovals(db: any, books: any, snapshot: Awaited<Retur
     const current = await captureApprovalRevision(db, books, manifest.slug);
     if (current.manifest.revision !== manifest.revision) throw new Error('Book changed since review. Reload before approving.');
     await assertRevisionUnchanged(books, snapshot.observations);
-    if (approved) await assertApprovedAssembly(books, manifest);
+    if (approved) await assertApprovedAssembly(books, manifest, current);
   } catch (error) {
     throw new ApprovalIdentityError(error instanceof Error ? error.message : 'Book artifact identity is unverified');
   }

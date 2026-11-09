@@ -1,6 +1,6 @@
 import { normalizeBible } from './bible-normalization';
 import { sha256Hex } from './sha256';
-import { captureBookRevision, readPlanInventory, revisionHash, type RevisionPage } from './book-revision';
+import { captureBookRevision, readPlanInventory, revisionHash, type RevisionPage, type BookRevision, type RevisionArtifact } from './book-revision';
 
 export const bytesHash = (bytes: Uint8Array) => sha256Hex(bytes);
 const stateFields = new Set(['imageKey', 'imageColorKey', 'held', 'heldReason', 'colorHeld', 'colorHeldReason', 'lineIdentity', 'colorIdentity']);
@@ -25,8 +25,41 @@ export function colorIdentityCurrent(bible: any, plan: any, page: any, lineSha25
     && page.colorIdentity?.revision === revision && page.colorIdentity?.lineSha256 === lineSha256 && page.colorIdentity?.sha256 === colorSha256;
 }
 
-export async function prepareAssembly(books: any, slug: string, edition: 'line' | 'color') {
-  const inventory = await readPlanInventory(books, slug);
+export interface VerifiedAssemblyInput {
+  inventory: Awaited<ReturnType<typeof readPlanInventory>>;
+  manifest: BookRevision;
+  observations: { key: string; etag: string }[];
+}
+
+/** Reuse a byte-verified revision, never a client-provided assertion. All object
+ * versions are still checked by the approval writer before recording a mark. */
+function assemblyInputFromRevision(verified: VerifiedAssemblyInput, slug: string, targets: { key: string; role: string }[]) {
+  const { revision, ...payload } = verified.manifest;
+  if (verified.manifest.slug !== slug || revisionHash(payload) !== revision || revisionHash(verified.inventory.pages) !== revisionHash(verified.manifest.pages))
+    throw new Error('Captured revision does not match assembly inventory');
+  const artifacts = new Map<string, RevisionArtifact>();
+  for (const source of verified.inventory.sources) {
+    const original = verified.manifest.artifacts.find(a => a.key === source.key);
+    if (!original || original.sha256 !== bytesHash(source.bytes) || original.bytes !== source.bytes.length)
+      throw new Error(`Source changed since capture: ${source.key}`);
+    artifacts.set(source.key, { ...original, role: source.role });
+  }
+  for (const target of [...verified.inventory.pages.flatMap(p => [
+    { key: p.lineKey, role: 'line-art' }, ...(p.colorKey ? [{ key: p.colorKey, role: 'color-art' }] : [])
+  ]), ...targets]) {
+    if (artifacts.has(target.key)) continue;
+    const original = verified.manifest.artifacts.find(a => a.key === target.key);
+    if (!original || !original.bytes || !verified.observations.some(o => o.key === target.key && o.etag))
+      throw new Error(`Artifact is not byte-verified in captured revision: ${target.key}`);
+    artifacts.set(target.key, { ...original, role: target.role });
+  }
+  const input = { schema: 'book-revision/v1' as const, slug, pages: verified.inventory.pages,
+    artifacts: [...artifacts.values()].sort((a, b) => a.key.localeCompare(b.key)) };
+  return { manifest: { ...input, revision: revisionHash(input) }, observations: verified.observations.filter(o => artifacts.has(o.key)) };
+}
+
+export async function prepareAssembly(books: any, slug: string, edition: 'line' | 'color', verified?: VerifiedAssemblyInput) {
+  const inventory = verified?.inventory ?? await readPlanInventory(books, slug);
   const bible = JSON.parse(new TextDecoder().decode(inventory.sources[0].bytes));
   const plans = new Map(inventory.sources.filter(s => s.role === 'plan').map(s => [s.key, JSON.parse(new TextDecoder().decode(s.bytes))]));
   for (const [key, plan] of plans) if (!plan.finale) throw new Error(`Required chapter finale missing: ${key}`);
@@ -36,7 +69,7 @@ export async function prepareAssembly(books: any, slug: string, edition: 'line' 
     if (await books.head(key)) targets.push({ key, role: file });
     else if (file !== 'cover-titled.jpg') throw new Error(`Required assembly artifact missing: ${key}`);
   }
-  const captured = await captureBookRevision(books, slug, targets, inventory);
+  const captured = verified ? assemblyInputFromRevision(verified, slug, targets) : await captureBookRevision(books, slug, targets, inventory);
   const entries = inventory.pages.map(ref => {
     const plan = plans.get(ref.planKey);
     const page = ref.kind === 'finale' ? plan.finale : plan.pages[ref.page];

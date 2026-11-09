@@ -150,8 +150,13 @@ export async function captureBookRevision(
 
 /** Detects changes during capture/checking. Atomic release pointers come in the assembly slice. */
 export async function assertRevisionUnchanged(books: any, observations: { key: string; etag: string }[]) {
-  for (const seen of observations) {
-    const current = await books.head(seen.key);
-    if (!current || current.etag !== seen.etag) throw new Error(`Artifact changed during verification: ${seen.key}`);
+  let cursor = 0;
+  async function worker() {
+    while (cursor < observations.length) {
+      const seen = observations[cursor++];
+      const current = await books.head(seen.key);
+      if (!current || current.etag !== seen.etag) throw new Error(`Artifact changed during verification: ${seen.key}`);
+    }
   }
+  await Promise.all(Array.from({ length: Math.min(12, observations.length) }, worker));
 }
