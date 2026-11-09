@@ -8,9 +8,10 @@ import { bookVocabulary } from '../../packages/core/src/book-vocabulary';
 // no model calls except the back-cover illustration, which goes through
 // the same artist + QC path as chapter pages (B&W line art; in the
 // coloring book it doubles as a bonus coloring page).
-import { STYLE_SUFFIX, generateImage, generateColorImage, qcImage, qcColorImage } from "./ai";
+import { STYLE_SUFFIX, generateImageMetered, generateColorImageMetered, qcImageDetailed, qcColorImageDetailed } from "./ai";
 import type { BookMatter } from "./pdf";
-import { BookBuildEnv, r2GetBytes, genImageWithQC, MAX_ROLLS } from "./bookbuild";
+import { BookBuildEnv, r2GetBytes, genImageWithQC, MAX_ROLLS, logGenAttempt, spendCapHit } from "./bookbuild";
+import { budgetGate } from "./budget";
 
 export function bibleCharacters(bible: any): any[] {
   if (Array.isArray(bible?.characters) && bible.characters.length) return bible.characters;
@@ -107,20 +108,43 @@ export function backCoverColorPrompt(bible: any): string {
 // flagged last attempt the chapter pipeline settles for. A missing
 // chapter page would break a book; a missing back-cover image is just
 // a plainer back cover, and it beats letter-soup art.
+// Every attempt is metered and archived (gen_attempts + bytes in R2)
+// with the detailed gate scores and the deciding reason, like every
+// other generation loop since 2026-11-01. Before this, back-cover
+// rejects vanished into worker logs, so a shutout (Penny 2026-11-03,
+// Tilda 2026-11-08) could not be diagnosed or reviewed after the fact.
 async function strictArt(
   env: BookBuildEnv,
+  slug: string,
   kind: "color" | "line",
   prompt: string
 ): Promise<Uint8Array | null> {
+  const kindLabel = kind === "color" ? "back-cover-color" : "back-cover-line";
   for (let attempt = 1; attempt <= MAX_ROLLS; attempt++) {
-    const bytes =
+    const cap = await spendCapHit(env, slug);
+    if (cap !== null) {
+      await logGenAttempt(env, slug, kindLabel, null, null, attempt, { outcome: "spend_capped", reason: `spend cap $${cap} reached before this roll` });
+      console.log(`spend cap ($${cap}) reached for ${slug}; back cover ${kind} art held`);
+      return null;
+    }
+    const bcap = await budgetGate(env, slug);
+    if (bcap !== null) {
+      await logGenAttempt(env, slug, kindLabel, null, null, attempt, { outcome: "budget_capped", reason: `book budget $${bcap} reached before this roll (cross-run budget)` });
+      console.log(`book budget ($${bcap}) reached for ${slug}; back cover ${kind} art held`);
+      return null;
+    }
+    const cur =
       kind === "color"
-        ? await generateColorImage(env, prompt, null)
-        : await generateImage(env, prompt, null);
-    const ok =
-      kind === "color" ? await qcColorImage(env.AI, bytes) : await qcImage(env.AI, bytes, null);
-    if (ok) return bytes;
-    console.log(`back cover ${kind} art attempt ${attempt} failed QC`);
+        ? await generateColorImageMetered(env, prompt, null)
+        : await generateImageMetered(env, prompt, null);
+    const qd =
+      kind === "color" ? await qcColorImageDetailed(env.AI, cur.bytes) : await qcImageDetailed(env.AI, cur.bytes, null);
+    if (qd.pass) {
+      await logGenAttempt(env, slug, kindLabel, null, null, attempt, { outcome: "accepted", scores: qd.scores, cost: cur.cost }, cur.bytes);
+      return cur.bytes;
+    }
+    await logGenAttempt(env, slug, kindLabel, null, null, attempt, { outcome: "qc_reject", reason: qd.reason, scores: qd.scores, cost: cur.cost }, cur.bytes);
+    console.log(`back cover ${kind} art attempt ${attempt} failed QC: ${qd.reason ?? "no reason recorded"}`);
   }
   console.log(`back cover ${kind} art: all attempts failed QC, shipping without art`);
   return null;
@@ -145,7 +169,7 @@ export async function ensureBackCoverImages(
   out.color = await r2GetBytes(env.BOOKS, ck);
   if (!out.color) {
     try {
-      const bytes = await strictArt(env, "color", backCoverColorPrompt(bible));
+      const bytes = await strictArt(env, slug, "color", backCoverColorPrompt(bible));
       if (bytes) {
         await env.BOOKS.put(ck, bytes, { httpMetadata: { contentType: "image/jpeg" } });
         out.color = bytes;
@@ -158,7 +182,7 @@ export async function ensureBackCoverImages(
   out.line = await r2GetBytes(env.BOOKS, lk);
   if (!out.line) {
     try {
-      const bytes = await strictArt(env, "line", backCoverPrompt(bible));
+      const bytes = await strictArt(env, slug, "line", backCoverPrompt(bible));
       if (bytes) {
         await env.BOOKS.put(lk, bytes, { httpMetadata: { contentType: "image/jpeg" } });
         out.line = bytes;
