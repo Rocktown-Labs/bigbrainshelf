@@ -7,6 +7,7 @@ import { getDeliveryReadiness } from "../../../../lib/delivery-readiness";
 import { getPublishReadiness } from "../../../../lib/publish-readiness";
 import { deliverableList, formatBytes } from "../../../../lib/deliverables";
 import { getBookQcState } from "../../../../lib/book-plans";
+import { deriveReadinessSteps, type ReadinessStepState } from "../../../../lib/readiness-steps";
 
 if (!Astro.locals.user) {
   return Astro.redirect("/admin/login");
@@ -71,9 +72,38 @@ const verdictColor = delivery
 const checkIcon = (s: string) => (s === "pass" ? "✓" : s === "fail" ? "✗" : "?");
 const checkColor = (s: string) => (s === "pass" ? "#15803d" : s === "fail" ? "#b91c1c" : "#a8a29e");
 const colorCheck = delivery?.checks.find((c) => c.id === "color-edition");
-const castCheck = delivery?.checks.find((c) => c.id === "full-cast");
+const castCheck = delivery?.checks.find((c) => c.id === "cast-complete");
 const audioCheck = delivery?.checks.find((c) => c.id === "audio-production");
+const colorSignoffCheck = delivery?.checks.find((c) => c.id === "color-qc-signoff");
 const marketingCheck = delivery?.checks.find((c) => c.id === "marketing-assets");
+
+// Step states (CG, 2026-11-10): the finalize list reads in sync
+// with the project. A step whose work has landed says so; a step
+// waiting on the owner's review says that; the run buttons present
+// as the current step only when the work has not happened. The
+// derivation is artifact-first and lives in readiness-steps.ts.
+const steps = deriveReadinessSteps({
+  qcComplete,
+  qcTotalPages: qcState.totalPages,
+  colorCheck: colorCheck ? colorCheck.state : null,
+  colorCheckDetail: colorCheck ? colorCheck.detail : null,
+  linePages: lineImgs,
+  colorPages: colorTwins,
+  colorSignoff: colorSignoffCheck ? colorSignoffCheck.state : null,
+  castState: castCheck ? castCheck.state : null,
+  audioState: audioCheck ? audioCheck.state : null,
+  publishReady: publish ? publish.ready : null,
+  deliveryVerdict: delivery ? delivery.verdict : null,
+  marketingState: marketingCheck ? marketingCheck.state : null,
+});
+const stepBadgeStyle = (s: ReadinessStepState) =>
+  s === "done"
+    ? "background:#dcfce7;color:#15803d"
+    : s === "waiting"
+      ? "background:#fef3c7;color:#b45309"
+      : s === "current"
+        ? "background:#ffedd5;color:#c2410c"
+        : "background:#f5f5f4;color:#78716c";
 ---
 
 <html lang="en">
@@ -102,7 +132,7 @@ const marketingCheck = delivery?.checks.find((c) => c.id === "marketing-assets")
         <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
           <span class="font-bold text-stone-400">1</span>
           <div class="flex-1 min-w-[220px]">
-            <p class="font-semibold">QC the pages</p>
+            <p class="font-semibold flex items-center gap-2">QC the pages <span class="rounded-full text-xs font-semibold px-2.5 py-0.5" style={stepBadgeStyle(steps.qc.state)}>{steps.qc.badge}</span></p>
             <p class="text-sm text-stone-500">{qcState.label} Review the pages in QC, then mark the book approved here. Redoing any page clears its approval again. Coloring waits for QC, always.</p>
           </div>
           <a class="rounded-lg bg-orange-600 text-white text-sm font-semibold px-4 py-2" href={`/admin/books/${adminSlug}`}>Open QC</a>
@@ -112,15 +142,15 @@ const marketingCheck = delivery?.checks.find((c) => c.id === "marketing-assets")
         <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
           <span class="font-bold text-stone-400">2</span>
           <div class="flex-1 min-w-[220px]">
-            <p class="font-semibold">Colorize</p>
-            <p class="text-sm text-stone-500">{colorCheck ? colorCheck.detail : "Color edition state unknown."}{colorTwins !== null && lineImgs ? ` ${colorTwins} of ${lineImgs} pages colored.` : ""}{!qcComplete ? " Colorize unlocks when every page is green in QC." : ""}</p>
+            <p class="font-semibold flex items-center gap-2">Colorize <span class="rounded-full text-xs font-semibold px-2.5 py-0.5" style={stepBadgeStyle(steps.colorize.state)}>{steps.colorize.badge}</span></p>
+            <p class="text-sm text-stone-500">{steps.colorize.detail}</p>
           </div>
-          <button id="colorize-btn" data-slug={slug} disabled={!qcComplete} class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 py-2 hover:border-stone-500 disabled:opacity-40 disabled:hover:border-stone-300">Colorize</button>
+          <button id="colorize-btn" data-slug={slug} disabled={!qcComplete} title={steps.colorize.action === "rerun" ? "Re-run colorize: the factory skips pages that are already current." : undefined} class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 py-2 hover:border-stone-500 disabled:opacity-40 disabled:hover:border-stone-300">{steps.colorize.action === "rerun" ? "Re-run colorize" : "Colorize"}</button>
         </li>
         <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
           <span class="font-bold text-stone-400">3</span>
           <div class="flex-1 min-w-[220px]">
-            <p class="font-semibold">Casting and audio</p>
+            <p class="font-semibold flex items-center gap-2">Casting and audio <span class="rounded-full text-xs font-semibold px-2.5 py-0.5" style={stepBadgeStyle(steps.castingAudio.state)}>{steps.castingAudio.badge}</span></p>
             <p class="text-sm text-stone-500">{castCheck ? castCheck.detail + " " : ""}{audioCheck ? audioCheck.detail : ""} No audio is generated without casting first; the generator refuses an uncast book.</p>
           </div>
           <a class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 py-2 hover:border-stone-500" href="/admin/cast-gemini">Casting</a>
@@ -128,7 +158,7 @@ const marketingCheck = delivery?.checks.find((c) => c.id === "marketing-assets")
         <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
           <span class="font-bold text-stone-400">4</span>
           <div class="flex-1 min-w-[220px]">
-            <p class="font-semibold">Publish</p>
+            <p class="font-semibold flex items-center gap-2">Publish <span class="rounded-full text-xs font-semibold px-2.5 py-0.5" style={stepBadgeStyle(steps.publish.state)}>{steps.publish.badge}</span></p>
             <p class="text-sm text-stone-500">{publish ? publish.statusLabel : "Publish state unknown."}</p>
           </div>
           <button id="publish-btn" data-slug={slug} class="rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 py-2">Publish</button>
@@ -136,7 +166,7 @@ const marketingCheck = delivery?.checks.find((c) => c.id === "marketing-assets")
         <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
           <span class="font-bold text-stone-400">5</span>
           <div class="flex-1 min-w-[220px]">
-            <p class="font-semibold">Marketing</p>
+            <p class="font-semibold flex items-center gap-2">Marketing <span class="rounded-full text-xs font-semibold px-2.5 py-0.5" style={stepBadgeStyle(steps.marketing.state)}>{steps.marketing.badge}</span></p>
             <p class="text-sm text-stone-500">{marketingCheck ? marketingCheck.detail : ""} {manifestMissing === null ? "No marketing kit yet." : manifestMissing.length ? `Kit is missing: ${manifestMissing.join("; ")}.` : "Kit is complete; marketing can pull it and run."}</p>
           </div>
           <span class="text-xs text-stone-400">books/{slug}/marketing/manifest.json</span>
