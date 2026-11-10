@@ -1,5 +1,5 @@
 {
- "generatedAt": 1793209483,
+ "generatedAt": 1794328612,
  "characters": {
   "juno": {
    "name": "Juno",
@@ -1562,6 +1562,182 @@
     "h": 1200
    },
    "v": 6
+  },
+  "ruby": {
+   "name": "Ruby",
+   "bookSlug": "ruby-the-cheetah",
+   "sheetKey": "characters/ruby.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ruby/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ruby/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ruby/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ruby/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ruby/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ruby/pose-5.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/ruby/pose-6.png"
+   ],
+   "poseCount": 6,
+   "method": "manual",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.01228,
+     "y": 0.03333,
+     "w": 0.24888,
+     "h": 0.305
+    },
+    {
+     "x": 0.21875,
+     "y": 0.0325,
+     "w": 0.35826,
+     "h": 0.30583
+    },
+    {
+     "x": 0.75335,
+     "y": 0.0325,
+     "w": 0.21429,
+     "h": 0.30583
+    },
+    {
+     "x": 0.0,
+     "y": 0.355,
+     "w": 0.41964,
+     "h": 0.27167
+    },
+    {
+     "x": 0.34821,
+     "y": 0.3925,
+     "w": 0.35379,
+     "h": 0.255
+    },
+    {
+     "x": 0.0279,
+     "y": 0.65333,
+     "w": 0.25,
+     "h": 0.17833
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "tari": {
+   "name": "Tari",
+   "bookSlug": "ruby-the-cheetah",
+   "sheetKey": "characters/tari.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tari/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tari/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tari/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tari/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tari/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/tari/pose-5.png"
+   ],
+   "poseCount": 5,
+   "method": "manual",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.03237,
+     "y": 0.05333,
+     "w": 0.25893,
+     "h": 0.23917
+    },
+    {
+     "x": 0.00893,
+     "y": 0.29667,
+     "w": 0.38281,
+     "h": 0.27917
+    },
+    {
+     "x": 0.36272,
+     "y": 0.34167,
+     "w": 0.34487,
+     "h": 0.23333
+    },
+    {
+     "x": 0.68415,
+     "y": 0.32833,
+     "w": 0.30469,
+     "h": 0.2475
+    },
+    {
+     "x": 0.03906,
+     "y": 0.59917,
+     "w": 0.22768,
+     "h": 0.20167
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
+  },
+  "quilla": {
+   "name": "Quilla",
+   "bookSlug": "ruby-the-cheetah",
+   "sheetKey": "characters/quilla.png",
+   "portrait": "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/quilla/portrait.png",
+   "poses": [
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/quilla/pose-1.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/quilla/pose-2.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/quilla/pose-3.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/quilla/pose-4.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/quilla/pose-5.png",
+    "https://pub-5e76d8a2d35343dbaa517e251b84e9c5.r2.dev/cast-gallery/quilla/pose-6.png"
+   ],
+   "poseCount": 6,
+   "method": "manual",
+   "published": true,
+   "boxes": [
+    {
+     "x": 0.04018,
+     "y": 0.03583,
+     "w": 0.25,
+     "h": 0.2725
+    },
+    {
+     "x": 0.25223,
+     "y": 0.035,
+     "w": 0.28571,
+     "h": 0.27333
+    },
+    {
+     "x": 0.50446,
+     "y": 0.035,
+     "w": 0.27344,
+     "h": 0.27167
+    },
+    {
+     "x": 0.04129,
+     "y": 0.29833,
+     "w": 0.26674,
+     "h": 0.26667
+    },
+    {
+     "x": 0.33594,
+     "y": 0.315,
+     "w": 0.37723,
+     "h": 0.255
+    },
+    {
+     "x": 0.03125,
+     "y": 0.57333,
+     "w": 0.23549,
+     "h": 0.19833
+    }
+   ],
+   "portraitIndex": 0,
+   "sheetSize": {
+    "w": 896,
+    "h": 1200
+   },
+   "v": 1
   }
  }
 }

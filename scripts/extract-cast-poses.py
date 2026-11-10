@@ -42,6 +42,9 @@ CHARACTERS = [
     ("Willa", "willa", "compoundeffect", "characters/willa.png"),
     ("Penny", "penny", "richdadpoordad", "characters/penny.png"),
     ("Bram", "bram", "richdadpoordad", "characters/bram.png"),
+    ("Ruby", "ruby", "ruby-the-cheetah", "characters/ruby.png"),
+    ("Tari", "tari", "ruby-the-cheetah", "characters/tari.png"),
+    ("Quilla", "quilla", "ruby-the-cheetah", "characters/quilla.png"),
     ("Hazel", "hazel", "richdadpoordad", "characters/hazel.png"),
     ("Fern", "fern", "algorithms", "characters/fern.png"),
     ("Moss", "moss", "algorithms", "characters/moss.png"),
@@ -230,6 +233,25 @@ MANUAL_BOXES = {
     "the-otter": [[97, 81, 781, 389], [95, 441, 309, 735],
                   [355, 497, 833, 751], [62, 780, 486, 1040],
                   [421, 881, 851, 1137]],
+    # Ruby the Cheetah cast (added 2026-11-10): the rich hero sheets pack
+    # their turnaround rows too tightly for contour detection (figures
+    # merge into pair clusters), so the gallery boxes are hand-measured
+    # off the sheets. Curated to full-body poses + one head study each,
+    # matching the rest of the cast; object studies are not gallery poses.
+    # Ruby: front, side, back, walking, carving at the waystone, head.
+    "ruby": [[30, 59, 215, 387], [215, 58, 498, 387], [694, 58, 848, 387],
+             [1, 446, 356, 732], [329, 488, 612, 760], [38, 797, 236, 985]],
+    # Quilla: front, side, back (green backpack), walking with the rolled
+    # map, crouched over the spread map, head.
+    "quilla": [[53, 60, 243, 353], [243, 59, 465, 353], [469, 59, 680, 351],
+               [54, 375, 259, 661], [319, 396, 621, 666], [42, 702, 225, 912]],
+    # Tari: front, walking, counting seed pods, sitting, head. The
+    # turnaround row interleaves (the side view's head pokes into the
+    # back view's rectangle and vice versa), so the side/back/three-
+    # quarter views stay sheet-only rather than shipping neighbour
+    # intrusions in the gallery crops.
+    "tari": [[45, 80, 245, 335], [26, 374, 333, 673], [342, 427, 617, 673],
+             [629, 410, 870, 675], [49, 733, 225, 947]],
 }
 
 
