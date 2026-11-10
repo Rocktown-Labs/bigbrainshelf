@@ -56,7 +56,7 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
     <section id="view-cast">
       <div class="mt-4 flex flex-wrap items-center gap-2" role="group" aria-label="Sort the casting shelf">
         <button class="pill on" data-castfilter="all">All books</button>
-        <button class="pill" data-castfilter="needs">Needs voices</button>
+        <button class="pill" data-castfilter="needs">Needs lead voice</button>
         <button class="pill" data-castfilter="cast">All cast</button>
         <input id="cast-search" type="search" placeholder="Search the shelf" class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm w-56" />
         <span class="text-sm text-stone-400" id="shelf-count"></span>
@@ -122,7 +122,18 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
     function castInfo(book) {
       var chars = book.characters || [];
       var cast = chars.filter(function (c) { return !!voiceNameFor(c.name); }).length;
-      return { total: chars.length, cast: cast, needs: chars.length - cast };
+      // Single-voice audiobooks (CG, 2026-11-04): the protagonist's
+      // voice alone reads the whole book, so only the lead counts as
+      // required. Supporting casting is optional (kept for future
+      // video work) and never counts toward what a book still needs.
+      var lead = null;
+      for (var i = 0; i < chars.length; i++) {
+        if (chars[i].role === "protagonist") { lead = chars[i]; break; }
+      }
+      if (!lead && chars.length) lead = chars[0];
+      var needs = lead && !voiceNameFor(lead.name) ? 1 : 0;
+      var optional = chars.filter(function (c) { return c !== lead && !voiceNameFor(c.name); }).length;
+      return { total: chars.length, cast: cast, needs: needs, optional: optional };
     }
 
     // ---------- shelf ----------
@@ -142,8 +153,10 @@ import geminiVoicesData from "../../data/cast/gemini-voices.json";
       var info = castInfo(book);
       var chip;
       if (info.total === 0) chip = '<span class="cast-chip none">No cast in bible yet</span>';
-      else if (info.needs === 0) chip = '<span class="cast-chip ok">All cast</span>';
-      else chip = '<span class="cast-chip needs">Needs voices: ' + info.needs + "</span>";
+      else if (info.needs > 0) chip = '<span class="cast-chip needs">Needs lead voice</span>';
+      else if (info.optional > 0) chip = '<span class="cast-chip ok">Lead cast</span>' +
+        '<span class="cast-chip none">' + info.optional + " optional</span>";
+      else chip = '<span class="cast-chip ok">All cast</span>';
       // Card geometry mirrors the customer library shelf exactly:
       // aspect frame, extrabold two-line title, one chip on its own
       // row under the title with real spacing.
