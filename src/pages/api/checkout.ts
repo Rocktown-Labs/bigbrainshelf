@@ -2,7 +2,9 @@ import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
 import Stripe from "stripe";
 import { getAuth } from "../../lib/auth";
-import { getOrCreatePendingOrder, attachStripeSession, normalizeFormat, isPhysicalFormat, checkoutItemPrice, enqueueConfirmation, itemQty, lineQty, type CartItem } from "../../lib/orders";
+import { getOrCreatePendingOrder, attachStripeSession, normalizeFormat, isPhysicalFormat, checkoutItemPrice, enqueueConfirmation, itemQty, lineQty, stampOrderPricing, type CartItem } from "../../lib/orders";
+import { isAdminBuyer, allocateAdminCost, adminCostTargetCents, ADMIN_COST_MARKUP_CENTS, PRICING_MODE_ADMIN_COST, type AdminCostUnitGroup } from "../../lib/admin-cost";
+import { taxCodeForBookFormat, taxCodeForClubPlan, stripeTaxEnabled, STRIPE_TAX_CODES } from "../../lib/stripe-tax";
 import { getDigitalEntitlements } from "../../lib/library";
 import {
   normalizeShipDestination,
@@ -103,9 +105,29 @@ import { ensureClubTable, getClubSignup, clubPlanOf } from "../../lib/club";
 // order's items JSON for the print lane to personalize from.
 //
 // Stripe Tax: automatic_tax is enabled ONLY when the TAX_ENABLED worker
-// env value is "1"/"true". Stripe rejects sessions outright when Tax is
+// env value is "1"/"true" (lib/stripe-tax.ts, the one gate both
+// checkout routes read). Stripe rejects sessions outright when Tax is
 // not activated on the account, so the flag stays off until CG has
 // activated Stripe Tax and added his tax registration in the dashboard.
+// Every session's lines carry product tax codes either way, so the
+// flip needs no code change when it comes.
+//
+// Admin cost pricing (CG, 2026-11-10; lib/admin-cost.ts): a signed-in
+// ADMIN buying physical prints pays Lulu's cost for the one job the
+// cart ships as, plus $3, instead of retail — his prep path for the
+// first real Lulu orders. The gate is the server-side session email
+// against the admin list; nothing in the request body can reach it.
+// The cost comes from Lulu's cost calculation for the buyer's exact
+// destination (quoteLuluJobCost; credentials of the selected Lulu
+// environment, sandbox until cutover), which needs the address, so
+// it is computed in a pre-pass below once the cart is known to carry
+// physical lines and the payload carries a complete address + phone.
+// When the cost cannot be had (no credentials, or a print line with
+// no registered printable), an admin's physical checkout fails with
+// the reason rather than silently charging retail. In this mode the
+// shipping charge is $0: Lulu's shipping already sits inside the job
+// cost. Digital, audio, club, promo and guest flows are untouched,
+// except that promo codes do not combine with admin cost pricing.
 const GUEST_ID_RE = /^[A-Za-z0-9-]{16,80}$/;
 
 export const POST: APIRoute = async ({ request }) => {
@@ -309,6 +331,74 @@ export const POST: APIRoute = async ({ request }) => {
       })
     : new Map<string, { digital: boolean; audio: boolean; owned: boolean }>();
 
+  // Admin cost pre-pass (see the header note): the session identity
+  // is the only gate. The cost calculation needs the destination, so
+  // it runs only when this payload carries a complete address and a
+  // phone; an incomplete one falls through to the shipping block's
+  // own missing-field errors, exactly as a retail checkout reports
+  // them. The "promo" action never reaches pricing (it validates and
+  // returns), so it skips the cost call; the promo combination is
+  // refused below on the flag alone.
+  const adminBuyer = isAdminBuyer(user);
+  const adminPhysical = adminBuyer && bookWanted.some((w) => isPhysicalFormat(w.format));
+  let adminCost: {
+    targetCents: number;
+    jobCost: import("../../lib/print-fulfillment").LuluJobCost;
+    groups: Map<string, AdminCostUnitGroup[]>;
+  } | null = null;
+  let adminCostError = "";
+  if (adminPhysical && action !== "promo") {
+    const preDest = normalizeShipDestination(body?.address);
+    if (!preDest.name && user) preDest.name = String(user.name || "");
+    const prePhone = String(body?.address?.phone ?? body?.phone ?? "").trim();
+    if (!missingAddressFields(preDest.address).length && prePhone) {
+      try {
+        const { quoteLuluJobCost } = await import("../../lib/print-fulfillment");
+        const jobCost = await quoteLuluJobCost(e.DB, e, {
+          items: bookWanted.filter(
+            (w) => isPhysicalFormat(w.format) && bySlug[w.slug] && !bySlug[w.slug].audio_only
+          ),
+          name: preDest.name,
+          address: preDest.address,
+          phone: prePhone,
+        });
+        if (!jobCost) {
+          adminCostError =
+            "no Lulu cost is available for every print line in this cart (a book has no registered printable yet, or Lulu credentials are not configured on the store)";
+        } else {
+          const targetCents = adminCostTargetCents(jobCost.totalInclTaxCents);
+          const inputs = [];
+          for (const w of bookWanted) {
+            if (!isPhysicalFormat(w.format)) continue;
+            const b = bySlug[w.slug];
+            if (!b || b.audio_only) continue;
+            const rp = checkoutItemPrice(b, w.format, { digital: false, audio: false });
+            if (!rp) continue;
+            inputs.push({ key: w.slug + ":" + w.format, retailUnitCents: rp.cents, qty: lineQty(w) });
+          }
+          const groups = new Map<string, AdminCostUnitGroup[]>();
+          for (const g of allocateAdminCost(inputs, targetCents)) {
+            const arr = groups.get(g.key) || [];
+            arr.push(g);
+            groups.set(g.key, arr);
+          }
+          adminCost = { targetCents, jobCost, groups };
+        }
+      } catch (err) {
+        console.error("admin cost calculation failed:", err);
+        adminCostError = "Lulu's cost calculation failed for this cart";
+      }
+      if (adminCostError) {
+        return Response.json(
+          {
+            error: `Admin cost pricing could not price this order: ${adminCostError}. Nothing was charged; a non-admin checkout of the same cart is unaffected.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+  }
+
   const lineItems: any[] = [];
   const bought: CartItem[] = [];
   for (const w of bookWanted) {
@@ -334,6 +424,32 @@ export const POST: APIRoute = async ({ request }) => {
             : priced.upgrade
               ? `${b.title} (Digital, audiobook credit applied)`
               : `${b.title} (Digital)`;
+    // Admin cost mode: this physical line's price comes from the
+    // job-cost allocation, not the catalog. One Stripe line per
+    // unit-price group; the order's stored lines carry the charged
+    // unit price (priceCents), so the receipt and the admin read
+    // what was actually charged, like a manual order's lines.
+    const adminGroups = adminCost && isPhysicalFormat(w.format)
+      ? adminCost.groups.get(w.slug + ":" + w.format)
+      : undefined;
+    if (adminGroups && adminGroups.length) {
+      for (const g of adminGroups) {
+        lineItems.push({
+          price_data: {
+            currency: "usd",
+            unit_amount: g.unitCents,
+            product_data: {
+              name: `${name} · Admin cost (Lulu + $3)`,
+              tax_code: taxCodeForBookFormat(w.format),
+              metadata: { slug: b.slug, format: w.format, pricing_mode: PRICING_MODE_ADMIN_COST },
+            },
+          },
+          quantity: g.qty,
+        });
+        bought.push({ ...w, qty: g.qty, priceCents: g.unitCents });
+      }
+      continue;
+    }
     if (priced.cents > 0) {
       lineItems.push({
         price_data: {
@@ -341,6 +457,7 @@ export const POST: APIRoute = async ({ request }) => {
           unit_amount: priced.cents,
           product_data: {
             name,
+            tax_code: taxCodeForBookFormat(w.format),
             metadata: { slug: b.slug, format: w.format },
           },
         },
@@ -365,6 +482,7 @@ export const POST: APIRoute = async ({ request }) => {
         product_data: {
           name: clubSpec.productName,
           description: clubSpec.productDescription,
+          tax_code: taxCodeForClubPlan(clubSpec.clubPlan),
           metadata: { slug: clubSpec.slug, format: clubSpec.period },
         },
       },
@@ -419,6 +537,17 @@ export const POST: APIRoute = async ({ request }) => {
       percentOff: Number((v as any).promo?.percent_off || 0),
       discountCents: Number((v as any).discountCents || 0),
     };
+  }
+  // Promo codes price off the catalog; admin cost pricing replaces
+  // the catalog price for print lines. The two never combine (the
+  // repricing below would distribute a percentage over costed lines
+  // and the order would no longer cover the Lulu bill it exists to
+  // cover).
+  if (promoApplied && adminPhysical) {
+    return Response.json(
+      { error: "Promo codes do not combine with admin cost pricing. Remove the code to order prints at Lulu cost." },
+      { status: 400 }
+    );
   }
   if (action === "promo") {
     if (!promoApplied) {
@@ -477,8 +606,10 @@ export const POST: APIRoute = async ({ request }) => {
     // Lulu's field limits, enforced on the Lulu path only: over-long
     // values are the buyer's to fix here rather than silently
     // truncated (the job build's normalization stays as the backstop
-    // for orders written any other way).
-    if (laneOn) {
+    // for orders written any other way). Admin cost pricing also
+    // sends this address to Lulu's cost calculation, so it enforces
+    // the same limits with the lane off.
+    if (laneOn || adminCost) {
       const tooLong = (
         [
           ["Full name", dest.name, LULU_LIMITS.name],
@@ -499,8 +630,11 @@ export const POST: APIRoute = async ({ request }) => {
     // club-only cart (needsAddress through The Book Club alone) has
     // validated its address and phone above and skips it entirely:
     // no quote, no shipping charge, the address rides the order into
-    // the membership's ships-to at completion.
-    if (physical) {
+    // the membership's ships-to at completion. An admin cost cart
+    // skips it too: its shipping already sits inside the job cost
+    // the pre-pass priced, and the synthetic quote below records the
+    // destination on the order with a $0 shipping charge.
+    if (physical && !adminCost) {
     const fpBase = {
       buyerKey: buyerId,
       state: String(dest.address?.state || ""),
@@ -589,6 +723,28 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
     } // physical book lines only: the quote machinery ends here.
+    if (physical && adminCost) {
+      quote = {
+        carrier: "Lulu",
+        service: "Print on demand",
+        amount: "0.00",
+        amountCents: 0,
+        currency: "usd",
+        estimatedDays: null,
+        shipmentId: "",
+        rateId: "",
+        twoDay: false,
+        validatedAddress: null,
+      };
+      quoteDetail = {
+        level: "MAIL",
+        currency: adminCost.jobCost.currency,
+        shippingExclTaxCents: null,
+        shippingTaxCents: adminCost.jobCost.totalTaxCents,
+        shippingInclTaxCents: adminCost.jobCost.shippingInclTaxCents,
+        fulfillmentFeeCents: adminCost.jobCost.fulfillmentInclTaxCents ?? 0,
+      };
+    }
   }
   // The shipping charge: the quote rounded up to the next whole
   // dollar (an exact-dollar quote stays as it is). One variable feeds
@@ -614,6 +770,16 @@ export const POST: APIRoute = async ({ request }) => {
       // moves to Review with no shipping line.
       address_only: needsAddress && !physical,
       items_total: itemsTotal,
+      // Admin cost mode: the preview names what the lines are priced
+      // from, so the review step never shows a number the buyer
+      // cannot account for.
+      ...(adminCost
+        ? {
+            pricing_mode: PRICING_MODE_ADMIN_COST,
+            lulu_cost_cents: adminCost.jobCost.totalInclTaxCents,
+            markup_cents: ADMIN_COST_MARKUP_CENTS,
+          }
+        : {}),
       ...(promoApplied
         ? { promo: { code: promoApplied.code, percent_off: promoApplied.percentOff, discount_cents: promoApplied.discountCents } }
         : {}),
@@ -663,6 +829,24 @@ export const POST: APIRoute = async ({ request }) => {
     items: bought,
     amount: total,
   });
+  if (adminCost) {
+    // The unmistakable mark: the order row itself says this was an
+    // admin cost order and what Lulu cost it was priced from, so the
+    // orders admin badges it and the revenue sums leave it out. A
+    // reused pending row (same cart inside the window) re-stamps to
+    // the same values. A stamp failure never blocks the purchase.
+    await stampOrderPricing(e.DB, order.id, PRICING_MODE_ADMIN_COST, {
+      lulu_env: adminCost.jobCost.envName,
+      currency: adminCost.jobCost.currency,
+      job_total_cost_incl_tax_cents: adminCost.jobCost.totalInclTaxCents,
+      job_total_cost_excl_tax_cents: adminCost.jobCost.totalExclTaxCents,
+      job_tax_cents: adminCost.jobCost.totalTaxCents,
+      fulfillment_incl_tax_cents: adminCost.jobCost.fulfillmentInclTaxCents,
+      shipping_incl_tax_cents: adminCost.jobCost.shippingInclTaxCents,
+      markup_cents: ADMIN_COST_MARKUP_CENTS,
+      merchandise_target_cents: adminCost.targetCents,
+    }).catch((err: any) => console.error("admin cost stamp failed", err?.message || err));
+  }
   // Where the buyer lands after paying: the account library when
   // signed in; for guests, the tokened order page (the delivery token
   // is minted with the pending order, so the URL is known now; the
@@ -690,6 +874,15 @@ export const POST: APIRoute = async ({ request }) => {
           fulfillment_fee_cents: quoteDetail.fulfillmentFeeCents,
           total_cents: shippingCents,
           fingerprint: quoteFingerprint,
+          ...(adminCost
+            ? {
+                pricing_mode: PRICING_MODE_ADMIN_COST,
+                lulu_env: adminCost.jobCost.envName,
+                job_total_cost_incl_tax_cents: adminCost.jobCost.totalInclTaxCents,
+                markup_cents: ADMIN_COST_MARKUP_CENTS,
+                merchandise_target_cents: adminCost.targetCents,
+              }
+            : {}),
         }
       : {
           provider: "shippo",
@@ -752,7 +945,7 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({ error: "Checkout is not configured yet." }, { status: 503 });
   }
 
-  const taxEnabled = String(e.TAX_ENABLED || "").toLowerCase() === "1" || String(e.TAX_ENABLED || "").toLowerCase() === "true";
+  const taxEnabled = stripeTaxEnabled(e);
   const sessionParams: any = {
     // A cart with a club line subscribes: subscription mode, the
     // book lines riding as one-time prices beside the recurring
@@ -790,6 +983,11 @@ export const POST: APIRoute = async ({ request }) => {
     };
   }
   if (promoApplied) sessionParams.metadata.promo_code = promoApplied.code;
+  if (adminCost) {
+    sessionParams.metadata.pricing_mode = PRICING_MODE_ADMIN_COST;
+    sessionParams.metadata.lulu_cost_cents = String(adminCost.jobCost.totalInclTaxCents);
+    sessionParams.metadata.markup_cents = String(ADMIN_COST_MARKUP_CENTS);
+  }
   // Signed-in buyers: Stripe pre-fills the account email. Guests:
   // no customer_email is set, so Stripe collects one on its page;
   // the webhook copies it onto the order at completion. A guest
@@ -798,19 +996,22 @@ export const POST: APIRoute = async ({ request }) => {
   // that address instead of asking again.
   if (user) sessionParams.customer_email = String(user.email || "");
   else if (clubSpec) sessionParams.customer_email = guestEmail;
-  if (physical && quote && dest) {
+  if (physical && quote && dest && shippingCents > 0) {
     // The shipping charge rides as a fixed-amount shipping option (not
     // a line item): Stripe then reports it as the session's
     // shipping_cost, keeps it out of the item list the receipt renders,
     // and taxes it as shipping when Tax is on. The display name is the
     // quoted carrier + service, so the buyer sees on Stripe's page
-    // exactly what the checkout page quoted them.
+    // exactly what the checkout page quoted them. A $0 charge (admin
+    // cost mode, whose shipping sits inside the job cost) sends no
+    // shipping option at all.
     sessionParams.shipping_options = [
       {
         shipping_rate_data: {
           type: "fixed_amount",
           fixed_amount: { amount: shippingCents, currency: "usd" },
           display_name: [quote.carrier, quote.service].filter(Boolean).join(" ") || "Shipping",
+          tax_code: STRIPE_TAX_CODES.shipping,
         },
       },
     ];

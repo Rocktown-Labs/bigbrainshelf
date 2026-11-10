@@ -17,6 +17,7 @@ import {
   AUDIO_CLUB_PRICE_CENTS,
   AUDIO_CLUB_ANNUAL_PRICE_CENTS,
 } from "../../../lib/offers";
+import { taxCodeForClubPlan, stripeTaxEnabled } from "../../../lib/stripe-tax";
 
 // POST /api/club/checkout { name, shelf, plan, club_plan } -> { url }
 // Starts a club membership: a Stripe Checkout SUBSCRIPTION at the
@@ -149,9 +150,10 @@ export const POST: APIRoute = async ({ request }) => {
     shelf,
     plan: period,
   };
-  const taxEnabled =
-    String(e.TAX_ENABLED || "").toLowerCase() === "1" ||
-    String(e.TAX_ENABLED || "").toLowerCase() === "true";
+  // Stripe Tax reads the same one gate as the store checkout
+  // (lib/stripe-tax.ts); the line carries its product tax code now
+  // so collection works the day the flag flips.
+  const taxEnabled = stripeTaxEnabled(e);
   const sessionParams: any = {
     mode: "subscription",
     customer_email: email,
@@ -164,6 +166,7 @@ export const POST: APIRoute = async ({ request }) => {
           product_data: {
             name: productName,
             description: productDescription,
+            tax_code: taxCodeForClubPlan(clubPlan),
           },
         },
         quantity: 1,

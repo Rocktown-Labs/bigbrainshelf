@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
-import { setPhysicalStatus, orderItemLabels, orderPickList, shortOrderId, ensureOrderPackColumns, parsePackState, normalizePackState, setOrderPack, ensureOrderManualColumns, createManualOrder, listManualOrderCatalog } from "../../../lib/orders";
+import { setPhysicalStatus, orderItemLabels, orderPickList, shortOrderId, ensureOrderPackColumns, parsePackState, normalizePackState, setOrderPack, ensureOrderManualColumns, ensureOrderPricingColumns, createManualOrder, listManualOrderCatalog } from "../../../lib/orders";
 import { flushOutbox } from "../../../lib/email";
 import { shippoStatus, ensureOrderLabelColumns, ensureOrderQuoteColumns, ensureOrderTrackingColumns, ensureOrderPickupColumns, getLabelQuote, buyLabelForOrder, schedulePickupForOrder, pickupStateFor } from "../../../lib/shippo";
 import { packLinesForGroups, packProgress, getPackingQueue, getCompletedParcels } from "../../../lib/packing";
@@ -91,6 +91,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
   await ensureOrderPackColumns(e.DB).catch(() => {});
   await ensureOrderPickupColumns(e.DB).catch(() => {});
   await ensureOrderManualColumns(e.DB).catch(() => {});
+  await ensureOrderPricingColumns(e.DB).catch(() => {});
 
   // The manual-order form's catalog (public titles + default prices).
   if (url.searchParams.get("catalog")) {
@@ -104,7 +105,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const detailId = url.searchParams.get("order_id");
   if (detailId) {
     const order = await e.DB.prepare(
-      "SELECT id, email, book_slugs, items, amount, currency, status, physical_status, stripe_session_id, created_at, ship_name, ship_address, shipping_cents, quoted_carrier, quoted_service, carrier, carrier_service, tracking_number, label_url, label_cost_cents, shippo_transaction_id, shippo_rate_id, shippo_shipment_id, source, admin_note, pack_json, pickup_confirmation, pickup_window, pickup_scheduled_at, tracking_status FROM orders WHERE id = ?"
+      "SELECT id, email, book_slugs, items, amount, currency, status, physical_status, stripe_session_id, created_at, ship_name, ship_address, shipping_cents, quoted_carrier, quoted_service, carrier, carrier_service, tracking_number, label_url, label_cost_cents, shippo_transaction_id, shippo_rate_id, shippo_shipment_id, source, admin_note, pack_json, pickup_confirmation, pickup_window, pickup_scheduled_at, tracking_status, pricing_mode, pricing_detail FROM orders WHERE id = ?"
     ).bind(detailId).first();
     if (!order) return Response.json({ error: "order not found" }, { status: 404 });
     // Opening an order is what clears it from the sidebar badge
@@ -217,7 +218,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
        (SELECT COUNT(*) FROM orders WHERE status = 'complete' AND (physical_status IN ('shipped', 'delivered') OR physical_status IS NULL)) AS fulfilled,
        (SELECT COUNT(*) FROM orders WHERE created_at >= ?) AS orders_7d,
        (SELECT COUNT(*) FROM orders) AS orders_total,
-       (SELECT COALESCE(SUM(amount), 0) FROM orders WHERE status = 'complete' AND created_at >= ?) AS revenue_30d`
+       (SELECT COALESCE(SUM(amount), 0) FROM orders WHERE status = 'complete' AND created_at >= ? AND COALESCE(pricing_mode, '') != 'admin_cost') AS revenue_30d`
   ).bind(nowSec - 7 * 86400, nowSec - 30 * 86400).first() as any;
   const tabCounts = {
     toFulfill: Number(statRow?.to_fulfill || 0),
@@ -239,7 +240,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(Math.max(1, Number(url.searchParams.get("page") || 1) || 1), pages);
   const orders = await e.DB.prepare(
-    `SELECT id, email, book_slugs, items, amount, currency, status, physical_status, stripe_session_id, created_at, ship_name, ship_address, shipping_cents, quoted_carrier, quoted_service, carrier, carrier_service, tracking_number, label_url, label_cost_cents FROM orders WHERE ${TAB_WHERE[tab]} ORDER BY created_at DESC LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}`
+    `SELECT id, email, book_slugs, items, amount, currency, status, physical_status, stripe_session_id, created_at, ship_name, ship_address, shipping_cents, quoted_carrier, quoted_service, carrier, carrier_service, tracking_number, label_url, label_cost_cents, pricing_mode, pricing_detail FROM orders WHERE ${TAB_WHERE[tab]} ORDER BY created_at DESC LIMIT ${PAGE_SIZE} OFFSET ${(page - 1) * PAGE_SIZE}`
   ).all();
   // Items are displayed by book TITLE with a format label, resolved
   // here against the books table (the same pattern the confirmation

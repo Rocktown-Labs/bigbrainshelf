@@ -83,6 +83,18 @@ const orderId = String(Astro.params.id || "");
     function fmtDateLong(ts) {
       return new Date((ts || 0) * 1000).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     }
+    // Admin cost orders: the one-line account of what Lulu will
+    // charge for the job this order was priced from (the breakdown
+    // rides the order's pricing_detail JSON).
+    function adminCostDetailLine(o) {
+      try {
+        var d = JSON.parse(o.pricing_detail || "{}");
+        if (d.job_total_cost_incl_tax_cents == null) return "";
+        return "Lulu job cost " + money(d.job_total_cost_incl_tax_cents) +
+          " + " + money(d.markup_cents || 0) + " markup = " + money(d.merchandise_target_cents || 0) +
+          " merchandise (" + (d.lulu_env || "sandbox") + ").";
+      } catch (e) { return ""; }
+    }
     function nextStatus(o) {
       var i = FLOW.indexOf(o.physical_status || "preorder_received");
       return i >= 0 && i < FLOW.length - 1 ? FLOW[i + 1] : null;
@@ -442,10 +454,15 @@ const orderId = String(Astro.params.id || "");
           '<span class="chip chip-lg chip-' + esc(o.status) + '">' + esc(o.status) + "</span>" +
           (o.physical_status ? '<span class="chip chip-lg chip-print">' + esc(LABELS[o.physical_status] || o.physical_status) + "</span>" : "") +
           (o.source === "manual" ? '<span class="chip chip-lg" style="background:#ede9fe;color:#5b21b6">Manual order</span>' : "") +
+          (o.pricing_mode === "admin_cost" ? '<span class="chip chip-lg" style="background:#e0f2fe;color:#075985">Admin cost order</span>' : "") +
         "</div>" +
         (o.source === "manual"
           ? '<p class="text-sm text-stone-500 mt-1.5">Created by hand in admin. No payment was taken here.' +
             (o.admin_note ? ' <span class="font-medium text-stone-700">Note: ' + esc(o.admin_note) + "</span>" : "") + "</p>"
+          : "") +
+        (o.pricing_mode === "admin_cost"
+          ? '<p class="text-sm text-stone-500 mt-1.5">Priced at Lulu cost + $3 for an admin self-order (prep, not store revenue).' +
+            (adminCostDetailLine(o) ? ' <span class="font-medium text-stone-700">' + esc(adminCostDetailLine(o)) + "</span>" : "") + "</p>"
           : "") +
 
         (o.status === "pending"
