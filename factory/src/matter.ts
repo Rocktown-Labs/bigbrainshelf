@@ -114,18 +114,18 @@ const COVER_PAINT_PROMPT =
   "when they are provided. Do not add, remove, move, or redraw anything. " +
   "No text, no letters, no words, no numbers anywhere in the image.";
 
-// Edit-path derivation prompt (CG, 2026-11-09): the chat-generation
-// paint above is not pixel-locked and recomposed Tilda's cover from
-// her line master (the diagnostic is in the PR). The GPT images-edit
-// path treats its first image as the object being edited, so the
-// twin derivation rides it whenever the rung is enabled; the
-// similarity gate in strictArt is the hard check either way.
-const COVER_PAINT_EDIT_PROMPT =
-  "Colorize this children's book back cover line drawing. This is an edit of this exact " +
-  "drawing, not a new scene: keep every line, character, pose, and object exactly where " +
-  "it is. Only add rich, warm watercolor color inside the existing lines, matching the " +
-  "character reference sheets for colors and markings. Do not add, remove, move, or " +
-  "redraw anything. No text, no letters, no words, no numbers anywhere in the image.";
+// Derivation history (CG, 2026-11-09): v1 painted through chat
+// generation with no composition check and the model recomposed
+// Tilda's cover (similarity 0.076-0.133). v2 derived through the GPT
+// images-edit path, on the theory that an edit holds its input; the
+// proof run disproved it for covers: the edit re-renders painterly,
+// scored 0.139-0.144 against the master, and mashed Rook into a
+// magpie wearing Tilda's pouch. v3 (this): the chat paint above is
+// the derivation again, because it demonstrably paints true twins
+// (a verified 0.556 twin is installed as Tilda's color back cover),
+// and the similarity gate plus cast QC in strictArt are the hard
+// accept checks. GPT edit stays where it always belonged: the
+// rescue rung, its output gated like every other candidate.
 
 export const BACK_COVER_COLOR_KEY = (slug: string) => `books/${slug}/back-cover-color.jpg`;
 export const BACK_COVER_LINE_KEY = (slug: string) => `books/${slug}/back-cover-line.jpg`;
@@ -222,18 +222,7 @@ async function strictArt(
       return null;
     }
     let cur: { bytes: Uint8Array; cost: number | null };
-    if (kind === "color" && masterLine && gptEditEnabled(env)) {
-      // Twin derivation rides the GPT edit path (first image is the
-      // object edited, size preserved); the chat paint below is the
-      // fallback when the edit errors, and the similarity gate
-      // judges every candidate the same way.
-      try {
-        cur = await editGatewayImageGptMetered(env, COVER_PAINT_EDIT_PROMPT, [masterLine, ...sheets]);
-      } catch (e: any) {
-        console.log(`back cover twin gpt edit failed, falling back to gateway paint: ${e?.message ?? e}`);
-        cur = await generateGatewayImageMetered(env, COVER_PAINT_PROMPT, [masterLine, ...sheets]);
-      }
-    } else if (kind === "color" && masterLine) {
+    if (kind === "color" && masterLine) {
       cur = await generateGatewayImageMetered(env, COVER_PAINT_PROMPT, [masterLine, ...sheets]);
     } else if (kind === "color") {
       cur = await generateColorImageMetered(env, prompt, sheets);
@@ -302,10 +291,13 @@ async function strictArt(
           kind === "color"
             ? await qcColorImageDetailed(env.AI, cur.bytes, sheets[0] ?? null, castText, castList)
             : await qcImageDetailed(env.AI, cur.bytes, null);
-        if (qd.pass && kind === "color" && masterLine) {
+        if (kind === "color" && masterLine) {
+          // Record the similarity on EVERY derived candidate, pass
+          // or fail (v2 recorded it only on passes, which blinded
+          // the archive on exactly the rejects that mattered).
           const sim = twinSimilarity(masterLine, cur.bytes);
           const scores = { ...(qd.scores ?? {}), twin_similarity: sim };
-          if (sim === null || sim < TWIN_SIMILARITY_BAR) {
+          if (qd.pass && (sim === null || sim < TWIN_SIMILARITY_BAR)) {
             qd = {
               pass: false,
               scores,
