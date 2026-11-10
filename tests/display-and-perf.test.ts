@@ -97,8 +97,8 @@ assert(shortOrderId("") === "#", "short order id tolerates an empty id");
 assert(adminOrdersApi.includes("shortOrderId") && adminOrdersApi.includes("short_id"), "the admin orders API attaches the short id to each row");
 assert(adminOrdersPage.includes("o.short_id"), "the orders list renders the short id as the row lead");
 assert(adminOrdersPage.includes("<table") && adminOrdersPage.includes("otable") && adminOrdersPage.includes('id="orders-rows"'), "the orders list is a slim fixed-layout table");
-assert(adminOrdersPage.includes("fmtCircles") && adminOrdersPage.includes("fcircle"), "the orders list renders one format circle per format present");
-assert(adminOrdersPage.includes('width="14" height="14"'), "list format SVGs carry fixed width/height attributes so they cannot balloon");
+assert(adminOrdersPage.includes("stagePill") && adminOrdersPage.includes("covers-line"), "the orders list renders small real covers and the derived stage pill (orders redo, CG 2026-11-10)");
+assert(adminOrdersPage.includes(".covers-line img{width:26px;height:34px"), "list cover thumbnails carry fixed CSS sizes so they cannot balloon");
 const globalCss = read("../src/styles/global.css");
 assert(globalCss.includes(".fcircle svg") && globalCss.includes("width: 14px") && globalCss.includes(".fchip svg") && globalCss.includes("width: 11px"), "the global stylesheet pins chip and circle SVG sizes for injected DOM");
 assert(globalCss.includes(".fmt-giftset") && globalCss.includes(".orderband") && globalCss.includes(".ptable"), "the shared format system and order-template styles live in the global stylesheet");
@@ -112,14 +112,14 @@ assert(adminOrdersApi.includes("email_outbox") && adminOrdersApi.includes("WHERE
 
 // ---- Pick-list rows + tabs (2026-10-29) -----------------------------
 assert(adminOrdersApi.includes("orderPickList") && adminOrdersApi.includes("items_pick"), "the admin orders API resolves the pick list server-side");
-assert(adminOrdersPage.includes("items_pick") && adminOrdersPage.includes("fmtPick"), "the orders list renders the pick list, not full titles, in the row summary");
-assert(adminOrdersPage.includes("fmt-audio") && adminOrdersPage.includes("fmt-digital") && adminOrdersPage.includes("fmt-printed"), "each format carries its own colored circle class on the list");
-assert(adminOrdersPage.includes('giftset: { cls: "fmt-giftset", label: "Gift set", icon: ICONS.gift }'), "the gift set carries its own gift-box circle on the list (S4, CG 2026-11-03; replaces the printed-family fold)");
-assert(adminOrdersPage.includes("pick-more") && adminOrdersPage.includes('" more</span>'), "pick-list overflow renders as +N more after the first two items");
+assert(adminOrdersPage.includes("items_pick") && adminOrdersPage.includes("contentsHtml"), "the orders list renders covers + item naming in the contents cell, never status chatter");
+assert(adminOrdersPage.includes("KIND_LABELS") && adminOrdersPage.includes("Printed (POD)"), "each order carries its kind label on the list (Digital / Printed (POD) / Club)");
+assert(adminOrdersPage.includes('giftset: "gift set"'), "the gift set names as its own item in the contents cell (orders redo naming)");
+assert(adminOrdersPage.includes("stagePill(o.stage)"), "stage language lives in the Stage column only, not the contents cell (CG, 2026-11-10)");
 assert(!adminOrdersPage.includes("esc(fmtItems(o))"), "the row summary no longer renders full title labels");
 assert(adminOrdersApi.includes("tabCounts") && adminOrdersApi.includes("TAB_WHERE"), "the orders API classifies the filter tabs server-side");
-assert(adminOrdersPage.includes('data-tab="tofulfill"') && adminOrdersPage.includes('data-tab="fulfilled"') && adminOrdersPage.includes('data-tab="all"'), "the orders list carries the three filter tabs");
-assert(adminOrdersApi.includes("PAGE_SIZE = 25") && adminOrdersPage.includes('id="orders-pager"'), "the orders list paginates server-side at 25 per page");
+assert(adminOrdersPage.includes('id="kind-chips"') && adminOrdersPage.includes('data-saved="stuck"') && adminOrdersPage.includes('data-saved="manual_waiting"'), "the orders list carries kind chips and saved filters (orders redo)");
+assert(adminOrdersApi.includes("per_page") && adminOrdersPage.includes('id="per-page"') && adminOrdersPage.includes('id="orders-pager"'), "the orders list paginates server-side, 10 per page by default with a 10/25/50 selector (prototype v3)");
 
 // ---- Order detail rebuild (2026-10-29): the "Order history"
 // template (summary band + products table), the raw UUID and the
@@ -127,7 +127,7 @@ assert(adminOrdersApi.includes("PAGE_SIZE = 25") && adminOrdersPage.includes('id
 assert(adminOrdersApi.includes("items_detail"), "the detail payload carries structured items (title, format, count)");
 assert(adminOrderDetail.includes("items_detail") && adminOrderDetail.includes("fchip"), "the detail products table renders full titles with the shared format chips");
 assert(adminOrderDetail.includes("orderband") && adminOrderDetail.includes("Date placed") && adminOrderDetail.includes("Total amount"), "the detail page leads with the template summary band");
-assert(adminOrderDetail.includes("View Product") && adminOrderDetail.includes("In your library") && adminOrderDetail.includes("Awaiting payment"), "detail product rows carry per-row status mapped to the truth");
+assert(adminOrderDetail.includes("View Product") && adminOrderDetail.includes("stagePill") && adminOrderDetail.includes("Status notes"), "detail lines carry the derived stage pill; status prose lives in the Status notes section (orders redo)");
 assert(adminOrderDetail.includes("g.cover") && adminOrderDetail.includes("g.href") && adminOrderDetail.includes("g.unitCents"), "detail product rows dress groups with cover, product link, and unit price");
 const picksDressed = await orderPickList(fakeDb, [
   { id: "o-dress", items: '[{"slug":"mastery","format":"digital"}]', book_slugs: '["mastery"]' },

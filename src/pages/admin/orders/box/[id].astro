@@ -65,6 +65,20 @@ const boxId = String(Astro.params.id || "");
     .picksum .pick-nocover{width:44px;height:58px;display:grid;place-items:center;border-radius:6px;background:#f5f5f4;color:#a8a29e;font-size:.6rem;font-weight:700;text-align:center}
     .pickbtn{border:1px solid #d6d3d1;background:#fff;border-radius:9px;font-size:.8rem;font-weight:700;padding:0 12px;min-height:38px;cursor:pointer}
     .pickbtn.danger{color:#b91c1c;border-color:#fecaca}
+    /* Orders admin redo: the box on a SHELF (house style). Books
+       stand on a wooden plank, small real covers, each captioned
+       with its kind + lane + stage only. */
+    .shelfwrap{background:linear-gradient(#fffdf8,#faf5ea);border:1px solid #ead9bd;border-radius:12px;padding:16px 14px 10px;margin-top:10px}
+    .shelf{display:flex;align-items:flex-end;gap:16px;overflow-x:auto;padding:0 4px}
+    .sbook{flex:none;width:78px;text-align:center}
+    .sbook img{display:block;width:62px;height:82px;object-fit:cover;border-radius:3px 6px 6px 3px;margin:0 auto;background:#f5f5f4;box-shadow:2px 3px 6px rgba(90,55,10,.25)}
+    .sbook .sno{width:62px;height:82px;border-radius:3px 6px 6px 3px;margin:0 auto;background:#f5f5f4;display:grid;place-items:center;color:#a8a29e;font-size:.62rem;font-weight:800;box-shadow:2px 3px 6px rgba(90,55,10,.18);padding:6px;box-sizing:border-box}
+    .plank{height:11px;background:linear-gradient(#c08a48,#96682c);border-radius:3px;box-shadow:0 4px 6px rgba(90,55,10,.3);margin-top:0}
+    .scaps{display:flex;gap:16px;overflow-x:auto;padding:0 4px}
+    .scap{flex:none;width:78px;text-align:center;padding-top:7px}
+    .scap .k{display:block;font-size:.68rem;font-weight:800;color:#44403c}
+    .scap .ls{display:block;font-size:.64rem;font-weight:600;color:#a16207;margin-top:1px;line-height:1.35}
+    .pkgsum{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.83rem;color:#57534e;font-weight:600}
     input,select,textarea{font-size:16px}
   </style>
   </head>
@@ -274,8 +288,114 @@ const boxId = String(Astro.params.id || "");
         (j.hasPartial ? '<span class="text-[13px] font-medium text-amber-600">Part shipped</span>' : "") + '</p>' +
         (items ? '<ul class="mt-1">' + items + '</ul>' : "") +
         (j.lastError ? '<p class="text-sm text-red-600 mt-1.5">' + esc(j.lastError) + '</p>' : "") +
-        '<p class="text-[13px] text-stone-500 mt-2">The sticker packet still packs and ships from home on the label step above.</p>' +
+        (data.home_pack_lane ? '<p class="text-[13px] text-stone-500 mt-2">The sticker packet still packs and ships from home on the label step above (Lane B).</p>' : "") +
       "</section>";
+    }
+
+    // The box, as it goes out (orders admin redo, prototype v3):
+    // the contents standing on a shelf, house style. Each item is
+    // captioned with its kind + lane + stage only; the books are
+    // named in the Make the books section above. Lanes: A = printed
+    // by Lulu (only when a job exists; otherwise the books pack at
+    // home and say so), C = digital (the two owned audiobooks, which
+    // grant when the box locks). The insert card is a Lane A item:
+    // Lulu prints it at packaging time. Lane B (home sticker
+    // packet) renders only behind the home_pack_lane flag.
+    var JOB_ITEM_STAGE = {
+      CREATED: "Sent to Lulu", UNPAID: "Sent to Lulu", PAYMENT_IN_PROGRESS: "Sent to Lulu",
+      PRODUCTION_DELAYED: "Sent to Lulu, cancel window open", PRODUCTION_READY: "In production",
+      IN_PRODUCTION: "In production", ACCEPTED: "In production",
+      SHIPPED: "Shipped", DELIVERED: "Delivered", REJECTED: "Rejected by Lulu",
+      ERROR: "Lulu error", CANCELED: "Canceled",
+    };
+    function shelfHtml(data) {
+      var b = data.box;
+      var j = data.print_job;
+      var bySlug = {};
+      (data.eligibleBooks || []).forEach(function (bk) { bySlug[bk.slug] = bk; });
+      var coverFor = function (slug) {
+        var bk = bySlug[slug];
+        return bk && bk.cover ? bk.cover : null;
+      };
+      var items = [];
+      if (j && (j.items || []).length) {
+        j.items.forEach(function (it) {
+          var stage = JOB_ITEM_STAGE[String(it.status || "").toUpperCase()] || String(it.status || "").replace(/_/g, " ");
+          if (it.trackingId && (String(it.status).toUpperCase() === "SHIPPED")) {
+            stage += " · " + (it.carrierName || "USPS") + " …" + String(it.trackingId).slice(-4);
+          }
+          items.push({
+            cover: coverFor(it.slug),
+            kind: it.kind === "coloring" ? "Coloring book" : "Story book",
+            laneStage: "Lane A · " + stage,
+          });
+        });
+      } else {
+        (data.pack_lines || []).filter(function (l) { return l.key.indexOf("extras:") !== 0; }).forEach(function (l) {
+          items.push({
+            cover: l.cover || null,
+            kind: l.key.indexOf("coloring") >= 0 ? "Coloring book" : "Story book",
+            laneStage: "Home · " + (STATUS_LABELS[b.status] || b.status),
+          });
+        });
+      }
+      // Insert card: the one physical extra that CAN ride in a Lulu
+      // package, printed by Lulu at packaging time.
+      items.push({ cover: null, glyph: "Insert card", kind: "Insert card", laneStage: j ? "Lane A · Prints with the job" : "Lane A · Prints with the Lulu job" });
+      // Lane C: the box's two owned audiobooks.
+      var slotSlugs = [b.resolved_book_slug || b.selected_book_slug, b.second_resolved_book_slug || b.second_selected_book_slug].filter(Boolean);
+      var granted = ["locked", "preparing", "shipped", "delivered"].indexOf(String(b.status)) >= 0;
+      slotSlugs.forEach(function (slug) {
+        items.push({
+          cover: coverFor(slug),
+          kind: "Audiobook",
+          laneStage: "Lane C · " + (granted ? "Owned, delivered at lock" : "Grants when the box locks"),
+        });
+      });
+      if (!items.length) return "";
+      var shippedCount = j ? (j.items || []).filter(function (it) { return ["SHIPPED", "DELIVERED"].indexOf(String(it.status || "").toUpperCase()) >= 0; }).length : 0;
+      var bookCount = items.filter(function (x) { return x.kind === "Story book" || x.kind === "Coloring book"; }).length;
+      var summary = '<div class="pkgsum">' +
+        "<span>Book Club box · Quarterly</span>" +
+        "<span>Ships by " + esc(fmtDay(b.ship_date)) + "</span>" +
+        (j
+          ? "<span>One Lulu job · " + bookCount + " books + insert card</span><span>" + shippedCount + " of " + bookCount + " parcels shipped</span>"
+          : "<span>Packs at home · " + bookCount + " books + insert card</span>") +
+        "</div>";
+      var books = items.map(function (x) {
+        return '<div class="sbook">' +
+          (x.cover ? '<img src="' + esc(x.cover) + '" alt="" loading="lazy">' : '<span class="sno">' + esc(x.glyph || "Big Brain Shelf") + "</span>") +
+          "</div>";
+      }).join("");
+      var caps = items.map(function (x) {
+        return '<div class="scap"><span class="k">' + esc(x.kind) + '</span><span class="ls">' + esc(x.laneStage) + "</span></div>";
+      }).join("");
+      return '<section class="card mt-4"><h2 class="font-bold">The box, as it goes out</h2>' +
+        '<div class="mt-2">' + summary + "</div>" +
+        '<div class="shelfwrap"><div class="shelf">' + books + '</div><div class="plank"></div><div class="scaps">' + caps + "</div></div>" +
+        '<p class="text-[13px] text-stone-500 mt-2">Sticker sheets cannot ride in a Lulu parcel: Lulu prints every item in the package and holds no inventory. That is why the home packet lane stays flagged off unless an operator turns it on.</p>' +
+      "</section>";
+    }
+
+    // Lane B, behind the home_pack_lane flag (default OFF): the
+    // sticker packet packed at home. Read-only mirror of the pack
+    // ticks; the working checklist stays in Fulfillment.
+    function laneBHtml(data) {
+      if (!data.home_pack_lane) return "";
+      var stickers = (data.pack_lines || []).filter(function (l) { return l.key === "extras:stickers"; });
+      if (!stickers.length) return "";
+      var state = data.pack_state || {};
+      var rows = stickers.map(function (l) {
+        return '<div class="packrow">' +
+          '<input type="checkbox" disabled' + (state[l.key] ? " checked" : "") + ' aria-label="Packed: ' + esc(l.label) + '">' +
+          (l.cover ? '<img src="' + esc(l.cover) + '" alt="" loading="lazy">' : '<span class="pack-nocover">BBS</span>') +
+          '<span class="min-w-0 flex-1"><span class="block text-sm font-semibold leading-snug">' + esc(l.label) + "</span>" +
+          '<span class="block text-[13px] text-stone-500">' + esc(l.detail) + "</span></span>" +
+        "</div>";
+      }).join("");
+      return '<section class="card mt-4"><h2 class="font-bold">Lane B · Sticker packet (home)</h2>' +
+        '<p class="text-[13px] text-stone-500 mt-1">Feature flag home_pack_lane is ON. The sticker packet packs at home and ships on the box label; ticks mirror the Fulfillment checklist.</p>' +
+        '<div class="mt-1">' + rows + "</div></section>";
     }
 
     async function load() {
@@ -342,13 +462,17 @@ const boxId = String(Astro.params.id || "");
 
         pickHtml(data) +
 
+        shelfHtml(data) +
+
         '<section class="card mt-4" id="label"><h2 class="font-bold">Fulfillment</h2>' + steps + stageBtns + shipHint +
           packHtml(data) +
           '<div class="mt-4 border-t border-stone-100 pt-3"><h3 class="font-bold text-sm">Print the label</h3>' + labelHtml(data) + "</div>" +
           pickupHtml(data) +
         "</section>" +
 
-        printJobHtml(data);
+        printJobHtml(data) +
+
+        laneBHtml(data);
 
       // Change reveals the slot's grid; Clear empties the slot
       // through the same update_box action.

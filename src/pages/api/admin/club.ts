@@ -28,6 +28,7 @@ import { coverDerivative } from "../../../lib/derivatives";
 import { adminMediaUrl } from "../../../lib/media";
 import { getOrMintSerial, listSerialsForBox, serialLabel } from "../../../lib/serials";
 import { buildJobForBox, getPrintJobForBox, luluConfigured, submitPrintJob } from "../../../lib/print-fulfillment";
+import { homePackLaneEnabled } from "../../../lib/order-stages";
 
 // Admin Book Club queue. Gated by the middleware's admin session cookie,
 // with the locals.user check as defense in depth (same pattern as
@@ -229,6 +230,13 @@ export const GET: APIRoute = async ({ locals, url }) => {
       serials,
       print_job: printJob,
       eligibleBooks,
+      // Lane B (the home sticker packet) rides behind this flag
+      // (orders admin redo, 2026-11-10): default OFF, and off hides
+      // the lane on the box page entirely. Stickers cannot ride in a
+      // Lulu parcel (Lulu prints every item it ships and holds no
+      // inventory), so the packet is a home chore only when an
+      // operator turns the lane on: CLUB_HOME_PACK_LANE=1.
+      home_pack_lane: homePackLaneEnabled(e),
       shippo: shippoStatus(e),
     });
   }

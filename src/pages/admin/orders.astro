@@ -46,6 +46,44 @@ export const prerender = false;
     .tabbtn .n{font-variant-numeric:tabular-nums;font-weight:800}
     .tabbtn[aria-selected="true"]{background:#1c1917;border-color:#1c1917;color:#fff}
     .tabbtn:active{transform:scale(.97)}
+    /* Orders admin redo (prototype v3): lane banner, filter chips,
+       search, bulk bar, cover thumbs, stage pills. */
+    .lane-banner{margin-top:14px;border-radius:10px;padding:9px 14px;font-size:.85rem;font-weight:600;border:1px solid #fde68a;background:#fffbeb;color:#92400e}
+    .lane-banner.on{border-color:#bbf7d0;background:#f0fdf4;color:#166534}
+    .filterbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:16px}
+    .searchbox{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e7e5e4;border-radius:10px;padding:0 12px;min-height:44px}
+    .searchbox input{border:0;outline:0;flex:1;font-size:16px;background:transparent;min-height:42px}
+    .kchip{touch-action:manipulation;display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:6px 13px;border-radius:999px;border:1px solid #e7e5e4;background:#fff;font-size:.83rem;font-weight:600;color:#57534e;cursor:pointer}
+    .kchip .n{font-variant-numeric:tabular-nums;font-weight:800}
+    .kchip[aria-pressed="true"]{background:#1c1917;border-color:#1c1917;color:#fff}
+    .kchip:active{transform:scale(.97)}
+    .kchip.saved[aria-pressed="true"]{background:#9a3412;border-color:#9a3412}
+    .stagesel,.perpagesel{min-height:44px;border:1px solid #e7e5e4;border-radius:10px;background:#fff;padding:6px 10px;font-size:.85rem;font-weight:600;color:#44403c}
+    .bulkbar{display:none;margin-top:12px;background:#1c1917;color:#fff;border-radius:12px;padding:8px 12px;align-items:center;gap:8px;flex-wrap:wrap}
+    .bulkbar.show{display:flex}
+    .bulkbar .n{font-weight:800;font-size:.88rem;margin-right:2px}
+    .bulkbar button{background:#fff;color:#1c1917;border:0;border-radius:8px;padding:8px 13px;font-size:.82rem;font-weight:700;cursor:pointer;min-height:38px}
+    .bulkbar button.clear{background:transparent;color:#d6d3d1}
+    .bulkbar .res{font-size:.8rem;color:#fde68a;width:100%}
+    .covers-line{display:flex;gap:4px;margin-bottom:4px}
+    .covers-line img{width:26px;height:34px;object-fit:cover;border-radius:3px;border:1px solid #e7e5e4;background:#f5f5f4;display:block}
+    .stagepill{display:inline-block;font-size:.72rem;font-weight:800;border-radius:999px;padding:3px 9px;white-space:nowrap}
+    .stagepill.ok{background:#ecfdf5;color:#047857}
+    .stagepill.progress{background:#eff6ff;color:#1d4ed8}
+    .stagepill.attention{background:#fffbeb;color:#b45309}
+    .stagepill.exception{background:#fef2f2;color:#b91c1c}
+    .stagepill.muted{background:#f5f5f4;color:#57534e}
+    .age-cell{font-size:.8rem;color:#78716c;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .kind-cell{font-size:.8rem;font-weight:700;color:#44403c;white-space:nowrap}
+    .c-check{width:40px}
+    .c-order{width:19%}
+    .c-contents{width:32%}
+    .c-kind{width:11%}
+    .c-stage{width:19%}
+    .c-age{display:none}
+    .c-total{width:11%}
+    .c-act2{width:48px}
+    @media (min-width:768px){ .c-age{display:table-cell;width:9%} .c-order{width:16%} .c-contents{width:29%} }
     /* The orders table (daisyUI table aesthetic, hand-rolled in the
        admin's CSS per the shadcn precedent: slim rows, zebra
        striping, hover highlight, quiet uppercase headers). Fixed
@@ -165,26 +203,61 @@ export const prerender = false;
       </details>
     </section>
 
-    <div class="mt-5 flex flex-wrap gap-2" role="tablist" aria-label="Order filters">
-      <button class="tabbtn" role="tab" data-tab="tofulfill" aria-selected="false">To fulfill <span class="n" data-count="toFulfill"></span></button>
-      <button class="tabbtn" role="tab" data-tab="fulfilled" aria-selected="false">Fulfilled <span class="n" data-count="fulfilled"></span></button>
-      <button class="tabbtn" role="tab" data-tab="all" aria-selected="false">All <span class="n" data-count="all"></span></button>
+    <div id="lane-banner" class="lane-banner">Lulu lane: checking…</div>
+
+    <div class="filterbar" aria-label="Order filters">
+      <label class="searchbox">
+        <span aria-hidden="true">⌕</span>
+        <input id="orders-search" type="search" placeholder="Search order id, email, tracking…" autocomplete="off" />
+      </label>
+      <select id="stage-select" class="stagesel" aria-label="Stage filter">
+        <option value="all">All stages</option>
+        <option value="needs_attention">Needs attention</option>
+        <option value="queued">Job queued / cancel window</option>
+        <option value="in_production">In production</option>
+        <option value="home">At home (packing)</option>
+        <option value="shipped">Shipped</option>
+        <option value="delivered">Delivered</option>
+      </select>
+      <select id="per-page" class="perpagesel" aria-label="Orders per page">
+        <option value="10">10 / page</option>
+        <option value="25">25 / page</option>
+        <option value="50">50 / page</option>
+      </select>
+    </div>
+    <div class="filterbar" style="margin-top:8px" aria-label="Kind and saved filters">
+      <span id="kind-chips" class="contents"></span>
+      <button class="kchip saved" data-saved="needs_action" aria-pressed="false">Needs action</button>
+      <button class="kchip saved" data-saved="shipping_today" aria-pressed="false">Shipping today</button>
+      <button class="kchip saved" data-saved="stuck" aria-pressed="false">Stuck</button>
+      <button class="kchip saved" data-saved="manual_waiting" aria-pressed="false">Manual waiting</button>
     </div>
 
-    <div class="mt-3.5 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
+    <div id="bulk-bar" class="bulkbar" aria-live="polite">
+      <span class="n" id="bulk-count">0 selected</span>
+      <button type="button" id="bulk-create-jobs">Create print jobs</button>
+      <button type="button" id="bulk-sync">Sync Lulu status</button>
+      <button type="button" id="bulk-export">Export CSV</button>
+      <button type="button" class="clear" id="bulk-clear">Clear</button>
+      <span class="res" id="bulk-result"></span>
+    </div>
+
+    <div class="mt-4 overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
       <table class="otable">
         <thead>
           <tr>
-            <th class="c-date" scope="col">Date</th>
-            <th class="c-id" scope="col">Customer</th>
-            <th class="c-items" scope="col">Items</th>
-            <th class="c-price" scope="col">Price</th>
-            <th class="c-fmt" scope="col">Format</th>
-            <th class="c-act" scope="col"><span class="sr-only">Action</span></th>
+            <th class="c-check" scope="col"><input type="checkbox" id="check-all" aria-label="Select all on this page" /></th>
+            <th class="c-order" scope="col">Order</th>
+            <th class="c-contents" scope="col">Contents</th>
+            <th class="c-kind" scope="col">Kind</th>
+            <th class="c-stage" scope="col">Stage</th>
+            <th class="c-age" scope="col">Age</th>
+            <th class="c-total" scope="col">Total</th>
+            <th class="c-act2" scope="col"><span class="sr-only">Action</span></th>
           </tr>
         </thead>
         <tbody id="orders-rows">
-          <tr><td colspan="6" class="text-stone-400 text-sm">Loading...</td></tr>
+          <tr><td colspan="8" class="text-stone-400 text-sm">Loading...</td></tr>
         </tbody>
       </table>
       <p id="orders-empty" class="hidden px-4 py-6 text-sm text-stone-400"></p>
@@ -226,41 +299,42 @@ export const prerender = false;
     // remains the fallback if a pick list is missing. The SVGs carry
     // fixed width/height attributes AND the .fcircle size rules in
     // the global stylesheet, so they can never balloon again.
-    var ICONS = {
-      audio: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2.5" y="14" width="4" height="6.5" rx="1.6"/><rect x="17.5" y="14" width="4" height="6.5" rx="1.6"/></svg>',
-      digital: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v10.5m0 0 4-4m-4 4-4-4"/><path d="M4.5 19.5h15"/></svg>',
-      printed: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.2C10.3 4.7 8.2 4.2 5 4.2v13.6c3.2 0 5.3.5 7 2 1.7-1.5 3.8-2 7-2V4.2c-3.2 0-5.3.5-7 2Z"/><path d="M12 6.2v13.6"/></svg>',
-      gift: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="8" width="17" height="4"/><path d="M5.5 12v8.5h13V12M12 8v12.5"/><path d="M12 8s-4.2.3-5.3-1.5C5.7 4.9 7.6 3.2 9.3 3.9 11.1 4.6 12 8 12 8Zm0 0s4.2.3 5.3-1.5c1-1.6-.9-3.3-2.6-2.6C12.9 4.6 12 8 12 8Z"/></svg>'
-    };
-    var CIRCLES = {
-      audio: { cls: "fmt-audio", label: "Audio", icon: ICONS.audio },
-      digital: { cls: "fmt-digital", label: "Digital", icon: ICONS.digital },
-      printed: { cls: "fmt-printed", label: "Printed", icon: ICONS.printed },
-      giftset: { cls: "fmt-giftset", label: "Gift set", icon: ICONS.gift }
-    };
-    function fmtPick(o) {
+    // Orders admin redo (prototype v3): the Contents cell holds the
+    // covers and the item naming ONLY ("Mira digital bundle"); all
+    // status language lives in the Stage column, and the prose
+    // explanations live on the order page (CG, 2026-11-10).
+    var FORMAT_NAMING = { digital: "digital bundle", printed: "printed", giftset: "gift set", audio: "audiobook", monthly: "club", quarterly: "club", annual: "club", yearly: "club" };
+    var KIND_LABELS = { digital: "Digital", pod: "Printed (POD)", club: "Club" };
+    function contentsHtml(o) {
       var pick = o.items_pick || [];
-      if (!pick.length) {
-        if (o.items_display && o.items_display.length) return esc(o.items_display.join(", "));
-        return "Items unavailable";
+      var covers = (o.covers && o.covers.length ? o.covers : pick.map(function (g) { return g.cover; }).filter(Boolean).slice(0, 4));
+      var thumbs = covers.length
+        ? '<span class="covers-line">' + covers.map(function (c) { return '<img src="' + esc(c) + '" alt="" loading="lazy">'; }).join("") + "</span>"
+        : "";
+      var names;
+      if (pick.length) {
+        names = pick.map(function (g) {
+          return esc((g.count > 1 ? g.count + " " : "") + g.name + " " + (FORMAT_NAMING[g.format] || g.format));
+        }).join(", ");
+      } else if (o.items_display && o.items_display.length) {
+        names = esc(o.items_display.join(", "));
+      } else {
+        names = "Items unavailable";
       }
-      var parts = pick.slice(0, 2).map(function (g) { return esc(g.count + " " + g.name); });
-      if (pick.length > 2) parts.push('<span class="pick-more">+' + (pick.length - 2) + " more</span>");
-      return parts.join(", ");
+      return thumbs + '<span class="block truncate text-sm font-medium text-stone-700">' + names +
+        (o.has_gift ? ' <span class="inline-block rounded-full bg-orange-100 text-orange-800 text-[10px] font-bold px-1.5 py-0.5 align-middle">Gift</span>' : "") +
+        (o.pricing_mode === "admin_cost" ? ' <span class="inline-block rounded-full bg-sky-100 text-sky-800 text-[10px] font-bold px-1.5 py-0.5 align-middle">Admin cost</span>' : "") + "</span>";
     }
-    function fmtCircles(o) {
-      var pick = o.items_pick || [];
-      var seen = {};
-      var out = [];
-      pick.forEach(function (g) {
-        // One circle per FORMAT (a gift set earns its own gift-box
-        // circle beside a printed book's, never folded into it).
-        if (seen[g.format]) return;
-        seen[g.format] = 1;
-        var f = CIRCLES[g.format] || CIRCLES.digital;
-        out.push('<span class="fcircle ' + f.cls + '" title="' + f.label + '" aria-label="' + f.label + '">' + f.icon + "</span>");
-      });
-      return out.join("");
+    function stagePill(stage) {
+      if (!stage) return '<span class="stagepill muted">—</span>';
+      return '<span class="stagepill ' + esc(stage.tone || "muted") + '">' + esc(stage.label || "") + "</span>";
+    }
+    function ageText(ts) {
+      var s = Math.max(0, Math.floor(Date.now() / 1000) - (ts || 0));
+      if (s < 3600) return Math.max(1, Math.floor(s / 60)) + "m";
+      if (s < 86400) return Math.floor(s / 3600) + "h";
+      var d = Math.floor(s / 86400);
+      return d + (d === 1 ? " day" : " days");
     }
     function nextStatus(o) {
       var i = FLOW.indexOf(o.physical_status || "preorder_received");
@@ -268,8 +342,10 @@ export const prerender = false;
     }
     function money(cents) { return "$" + ((cents || 0) / 100).toFixed(2); }
 
-    var currentTab = null; // null until the server names the default tab
-    var currentPage = 1;
+    // Redo filter state. Selection holds across pages and filters
+    // (prototype v3); the bulk bar reports per-row results.
+    var F = { kind: "all", stage: "all", saved: "", q: "", perPage: 10, page: 1 };
+    var selected = {};
     var ordersById = {};
 
     // ---- Row kebab menu -------------------------------------------
@@ -410,23 +486,65 @@ export const prerender = false;
       }).join("");
     }
 
+    function renderKindChips(counts) {
+      var defs = [
+        { key: "all", label: "All" },
+        { key: "needs_attention", label: "Needs attention" },
+        { key: "digital", label: "Digital" },
+        { key: "pod", label: "Printed (POD)" },
+        { key: "club", label: "Club boxes" }
+      ];
+      var wrap = document.getElementById("kind-chips");
+      wrap.innerHTML = defs.map(function (d) {
+        var n = d.key === "all" ? counts.all : d.key === "needs_attention" ? counts.needsAttention : counts[d.key];
+        var pressed = d.key === "needs_attention" ? F.stage === "needs_attention" : F.kind === d.key;
+        return '<button class="kchip" data-kind="' + d.key + '" aria-pressed="' + (pressed ? "true" : "false") + '">' + d.label + (n != null ? ' <span class="n">' + n + "</span>" : "") + "</button>";
+      }).join("");
+      wrap.querySelectorAll("[data-kind]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var k = b.getAttribute("data-kind");
+          if (k === "needs_attention") {
+            F.stage = F.stage === "needs_attention" ? "all" : "needs_attention";
+            document.getElementById("stage-select").value = F.stage;
+          } else {
+            F.kind = k;
+          }
+          F.page = 1;
+          load();
+        });
+      });
+    }
+
+    function renderBulk() {
+      var ids = Object.keys(selected);
+      var bar = document.getElementById("bulk-bar");
+      bar.classList.toggle("show", ids.length > 0);
+      document.getElementById("bulk-count").textContent = ids.length + " selected";
+    }
+
     async function load() {
-      var qs = currentTab ? "?tab=" + encodeURIComponent(currentTab) + "&page=" + currentPage : "";
-      var r = await fetch("/api/admin/orders" + qs);
+      var params = new URLSearchParams();
+      params.set("per_page", String(F.perPage));
+      params.set("page", String(F.page));
+      if (F.kind !== "all") params.set("kind", F.kind);
+      if (F.stage !== "all") params.set("stage", F.stage);
+      if (F.saved) params.set("saved", F.saved);
+      if (F.q) params.set("q", F.q);
+      var r = await fetch("/api/admin/orders?" + params.toString());
       var data = await r.json();
-      currentTab = data.tab || "all";
-      currentPage = data.page || 1;
+      F.page = data.page || 1;
       renderPacking(data.packing);
       renderCompleted(data.packing_completed);
+      renderKindChips(data.kindCounts || {});
 
-      var tabCounts = data.tabCounts || {};
-      document.querySelectorAll(".tabbtn").forEach(function (b) {
-        var t = b.getAttribute("data-tab");
-        b.setAttribute("aria-selected", t === currentTab ? "true" : "false");
-        var key = t === "tofulfill" ? "toFulfill" : t;
-        var slot = b.querySelector("[data-count]");
-        if (slot) slot.textContent = tabCounts[key] != null ? tabCounts[key] : "";
-      });
+      var banner = document.getElementById("lane-banner");
+      if (data.podActive) {
+        banner.className = "lane-banner on";
+        banner.textContent = "Lulu lane: ON · print jobs go to Lulu; home packing still covers orders without a job.";
+      } else {
+        banner.className = "lane-banner";
+        banner.textContent = "Lulu lane: OFF · orders pack at home until the flip.";
+      }
 
       var stats = data.stats || {};
       document.getElementById("stat-fulfill").textContent = stats.toFulfill != null ? stats.toFulfill : "–";
@@ -436,16 +554,16 @@ export const prerender = false;
       document.getElementById("stat-revenue").textContent = stats.revenue30dCents != null ? money(stats.revenue30dCents) : "–";
 
       var shippo = data.shippo || { configured: false, originConfigured: false, ready: false, missing: ["SHIPPO_API_KEY"] };
-      var banner = document.getElementById("shippo-banner");
-      banner.classList.remove("hidden");
+      var sbanner = document.getElementById("shippo-banner");
+      sbanner.classList.remove("hidden");
       if (shippo.missing && shippo.missing.length) {
-        banner.className = "mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800";
-        banner.innerHTML = "<strong>Shippo setup is incomplete.</strong> Still missing: " +
+        sbanner.className = "mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800";
+        sbanner.innerHTML = "<strong>Shippo setup is incomplete.</strong> Still missing: " +
           shippo.missing.map(function (m) { return '<code class="font-mono text-xs bg-amber-100 rounded px-1">' + esc(m) + "</code>"; }).join(", ") +
           ". Add each as a worker secret and label buying appears on each order's page.";
       } else {
-        banner.className = "mt-3 rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800";
-        banner.textContent = "Shippo connected. Open any printed order to get a rate and buy its label.";
+        sbanner.className = "mt-3 rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800";
+        sbanner.textContent = "Shippo connected. Open any printed order to get a rate and buy its label.";
       }
 
       var counts = data.outbox || {};
@@ -460,25 +578,26 @@ export const prerender = false;
       var emptyEl = document.getElementById("orders-empty");
       var pager = document.getElementById("orders-pager");
       var pages = data.pages || 1;
-      if (pages > 1) {
+      if ((data.total || 0) > F.perPage || pages > 1) {
         pager.classList.remove("hidden");
         pager.classList.add("flex");
         document.getElementById("page-label").textContent =
-          "Page " + currentPage + " of " + pages + " · " + (data.total || 0) + " orders";
+          "Page " + F.page + " of " + pages + " · " + (data.total || 0) + " orders";
         var prev = document.getElementById("page-prev");
         var nextB = document.getElementById("page-next");
-        prev.disabled = currentPage <= 1;
-        nextB.disabled = currentPage >= pages;
-        prev.style.opacity = currentPage <= 1 ? ".4" : "";
-        nextB.style.opacity = currentPage >= pages ? ".4" : "";
+        prev.disabled = F.page <= 1;
+        nextB.disabled = F.page >= pages;
+        prev.style.opacity = F.page <= 1 ? ".4" : "";
+        nextB.style.opacity = F.page >= pages ? ".4" : "";
       } else {
         pager.classList.add("hidden");
         pager.classList.remove("flex");
       }
       if (!data.orders || !data.orders.length) {
         tbody.innerHTML = "";
-        emptyEl.textContent = currentTab === "tofulfill" ? "Nothing waiting to fulfill." : "No orders here yet.";
+        emptyEl.textContent = "No orders match these filters.";
         emptyEl.classList.remove("hidden");
+        renderBulk();
         return;
       }
       emptyEl.classList.add("hidden");
@@ -487,60 +606,32 @@ export const prerender = false;
       ordersById = {};
       data.orders.forEach(function (o) { ordersById[o.id] = o; });
       data.orders.forEach(function (o) {
-        // Fulfillment stages exist only for orders with physical
-        // items; those carry a physical_status and digital-only
-        // orders keep it NULL. (A complete digital order used to
-        // get a "Mark In print" button; CG caught it 2026-10-31.)
-        var next = o.physical_status ? nextStatus(o) : null;
         var tr = document.createElement("tr");
-        // The row leads with the customer name (orders carry it as
-        // ship_name; manual orders store the buyer name there too),
-        // falling back to the email when the name is blank. The
-        // short ID rides under the name, and one quiet sub-line
-        // under that carries the status: the payment state while
-        // unpaid, the fulfillment stage once a printed order is
-        // moving.
         var custName = String(o.ship_name || "").trim() || String(o.email || "").trim();
-        var sub = o.status !== "complete"
-          ? o.status
-          : (o.physical_status ? (LABELS[o.physical_status] || o.physical_status) : "");
-        var btn = next && o.status === "complete"
-          ? '<button data-order="' + esc(o.id) + '" data-next="' + next + '" class="advance tap rounded-lg bg-orange-600 text-white text-xs font-bold px-3.5 min-h-[44px] whitespace-nowrap">Mark ' + LABELS[next] + "</button>"
-          : "";
-        var kebab = '<button type="button" class="kebab" data-kebab="' + esc(o.id) + '" aria-haspopup="menu" aria-label="More actions for order ' + esc(o.short_id || o.id) + '">' + DOTS + "</button>";
+        var checked = selected[o.id] ? " checked" : "";
         tr.innerHTML =
-          '<td class="c-date"><span class="text-[13px] text-stone-500 whitespace-nowrap">' + esc(fmtDay(o.created_at)) + "</span></td>" +
-          '<td class="c-id">' +
+          '<td class="c-check"><input type="checkbox" data-check="' + esc(o.id) + '"' + checked + ' aria-label="Select order ' + esc(o.short_id || o.id) + '" style="width:18px;height:18px"></td>' +
+          '<td class="c-order">' +
             (custName ? '<span class="block font-extrabold tracking-tight truncate leading-tight">' + esc(custName) + "</span>" : "") +
             '<span class="block truncate ' + (custName ? "text-[11px] text-stone-400 mt-0.5" : "font-extrabold tracking-tight leading-tight") + '">' + esc(o.short_id || o.id) + "</span>" +
-            (sub ? '<span class="block text-[11px] text-stone-400 capitalize mt-0.5 truncate">' + esc(sub) + "</span>" : "") + "</td>" +
-          '<td class="c-items"><span class="block truncate text-sm font-medium text-stone-700">' + fmtPick(o) + (o.has_gift ? ' <span class="inline-block rounded-full bg-orange-100 text-orange-800 text-[10px] font-bold px-1.5 py-0.5 align-middle">Gift</span>' : "") + (o.pricing_mode === "admin_cost" ? ' <span class="inline-block rounded-full bg-sky-100 text-sky-800 text-[10px] font-bold px-1.5 py-0.5 align-middle">Admin cost</span>' : "") + "</span></td>" +
-          '<td class="c-price"><span class="font-bold tabular-nums text-sm whitespace-nowrap">' + money(o.amount) + "</span></td>" +
-          '<td class="c-fmt"><span class="flex flex-wrap gap-1">' + fmtCircles(o) + "</span></td>" +
-          '<td class="c-act"><span class="flex items-center justify-end gap-1">' + btn + kebab + "</span></td>";
+            '<span class="block text-[11px] text-stone-400 mt-0.5 truncate">' + esc(fmtDay(o.created_at)) + "</span></td>" +
+          '<td class="c-contents">' + contentsHtml(o) + "</td>" +
+          '<td class="c-kind"><span class="kind-cell">' + esc(KIND_LABELS[o.kind] || "Digital") + "</span></td>" +
+          '<td class="c-stage">' + stagePill(o.stage) + "</td>" +
+          '<td class="c-age"><span class="age-cell">' + esc(ageText(o.created_at)) + "</span></td>" +
+          '<td class="c-total"><span class="font-bold tabular-nums text-sm whitespace-nowrap">' + money(o.amount) + "</span></td>" +
+          '<td class="c-act2"><button type="button" class="kebab" data-kebab="' + esc(o.id) + '" aria-haspopup="menu" aria-label="More actions for order ' + esc(o.short_id || o.id) + '">' + DOTS + "</button></td>";
         tr.addEventListener("click", function () {
           window.location.href = "/admin/orders/" + o.id;
         });
         tbody.appendChild(tr);
       });
-      tbody.querySelectorAll(".advance").forEach(function (el) {
-        el.addEventListener("click", async function (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          el.disabled = true;
-          el.textContent = "Saving...";
-          var ar = await fetch("/api/admin/orders", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "set_physical_status", order_id: el.getAttribute("data-order"), status: el.getAttribute("data-next") }),
-          });
-          if (!ar.ok) {
-            // The ship gate refuses plainly (no label, pack not
-            // finished); say why instead of silently reloading.
-            var aerr = await ar.json().catch(function () { return {}; });
-            alert(aerr.error || "That step is not ready yet. Open the order to see what is missing.");
-          }
-          load();
+      tbody.querySelectorAll("[data-check]").forEach(function (el) {
+        el.addEventListener("click", function (ev) { ev.stopPropagation(); });
+        el.addEventListener("change", function () {
+          var id = el.getAttribute("data-check");
+          if (el.checked) selected[id] = true; else delete selected[id];
+          renderBulk();
         });
       });
       tbody.querySelectorAll("[data-kebab]").forEach(function (el) {
@@ -553,6 +644,42 @@ export const prerender = false;
           else openMenu(o, el);
         });
       });
+      renderBulk();
+    }
+
+    async function bulkRun(action) {
+      var ids = Object.keys(selected);
+      if (!ids.length) return;
+      var res = document.getElementById("bulk-result");
+      res.textContent = "Working…";
+      try {
+        var r = await fetch("/api/admin/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: action, order_ids: ids }),
+        });
+        var j = await r.json();
+        if (action === "export_csv" && j.csv) {
+          var blob = new Blob([j.csv], { type: "text/csv" });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = j.filename || "orders-export.csv";
+          a.click();
+          setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+          res.textContent = "Exported " + ids.length + " orders.";
+          return;
+        }
+        if (Array.isArray(j.results)) {
+          var ok = j.results.filter(function (x) { return x.ok; }).length;
+          res.textContent = ok + " of " + j.results.length + " done. " +
+            j.results.filter(function (x) { return !x.ok; }).slice(0, 3).map(function (x) { return x.message; }).join(" · ");
+        } else {
+          res.textContent = j.error || "Done.";
+        }
+      } catch (e) {
+        res.textContent = "That batch failed to run.";
+      }
+      load();
     }
 
     document.getElementById("retry-emails").addEventListener("click", async function () {
@@ -569,21 +696,57 @@ export const prerender = false;
       load();
     });
 
-    document.querySelectorAll(".tabbtn").forEach(function (b) {
+    document.querySelectorAll("[data-saved]").forEach(function (b) {
       b.addEventListener("click", function () {
-        var t = b.getAttribute("data-tab");
-        if (t && t !== currentTab) {
-          currentTab = t;
-          currentPage = 1;
-          load();
-        }
+        var s = b.getAttribute("data-saved");
+        F.saved = F.saved === s ? "" : s;
+        document.querySelectorAll("[data-saved]").forEach(function (x) {
+          x.setAttribute("aria-pressed", x.getAttribute("data-saved") === F.saved ? "true" : "false");
+        });
+        F.page = 1;
+        load();
       });
     });
+    document.getElementById("stage-select").addEventListener("change", function (ev) {
+      F.stage = ev.target.value;
+      F.page = 1;
+      load();
+    });
+    document.getElementById("per-page").addEventListener("change", function (ev) {
+      F.perPage = Number(ev.target.value) || 10;
+      F.page = 1;
+      load();
+    });
+    var searchTimer = null;
+    document.getElementById("orders-search").addEventListener("input", function (ev) {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () {
+        F.q = String(ev.target.value || "").trim();
+        F.page = 1;
+        load();
+      }, 300);
+    });
+    document.getElementById("check-all").addEventListener("change", function (ev) {
+      document.querySelectorAll("[data-check]").forEach(function (el) {
+        el.checked = ev.target.checked;
+        var id = el.getAttribute("data-check");
+        if (ev.target.checked) selected[id] = true; else delete selected[id];
+      });
+      renderBulk();
+    });
+    document.getElementById("bulk-clear").addEventListener("click", function () {
+      selected = {};
+      document.getElementById("bulk-result").textContent = "";
+      load();
+    });
+    document.getElementById("bulk-create-jobs").addEventListener("click", function () { bulkRun("batch_create_print_jobs"); });
+    document.getElementById("bulk-sync").addEventListener("click", function () { bulkRun("batch_sync_print_jobs"); });
+    document.getElementById("bulk-export").addEventListener("click", function () { bulkRun("export_csv"); });
     document.getElementById("page-prev").addEventListener("click", function () {
-      if (currentPage > 1) { currentPage -= 1; load(); window.scrollTo({ top: 0 }); }
+      if (F.page > 1) { F.page -= 1; load(); window.scrollTo({ top: 0 }); }
     });
     document.getElementById("page-next").addEventListener("click", function () {
-      currentPage += 1; load(); window.scrollTo({ top: 0 });
+      F.page += 1; load(); window.scrollTo({ top: 0 });
     });
 
     load();

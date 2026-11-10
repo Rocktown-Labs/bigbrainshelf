@@ -15,6 +15,154 @@ import {
   syncPrintJobs,
 } from "../../../lib/print-fulfillment";
 import { luluConfigured, luluEnvName } from "../../../lib/lulu";
+import {
+  orderKindOf,
+  stageForGroup,
+  headlineStage,
+  matchesSavedFilter,
+  type StageJobInput,
+} from "../../../lib/order-stages";
+import { MEDIA_PUBLIC } from "../../../lib/derivatives";
+
+// ---- Orders admin redo helpers (prototype v3, 2026-11-10) --------
+// Per-line stages are derived server-side from the rows of record
+// (lib/order-stages) so the list, the detail page, and the tests all
+// read the same truth. Group slugs are resolved server-side only:
+// the pick-list payload deliberately carries no internal slug, and
+// none is added here either; stages and tiles are attached to the
+// group objects instead.
+
+// Print jobs for many orders in two queries (list path).
+async function bulkStageJobs(db: any, orderIds: string[]): Promise<Map<string, StageJobInput[]>> {
+  const out = new Map<string, StageJobInput[]>();
+  if (!orderIds.length) return out;
+  try {
+    const ph = orderIds.map(() => "?").join(",");
+    const jobs = await db.prepare(
+      `SELECT id, order_id, status, lulu_status, has_partial, created_at FROM print_jobs WHERE order_id IN (${ph})`
+    ).bind(...orderIds).all();
+    const jobRows = (jobs.results || []) as any[];
+    if (!jobRows.length) return out;
+    const items = await db.prepare(
+      `SELECT job_id, slug, kind, status FROM print_job_items WHERE job_id IN (${jobRows.map(() => "?").join(",")})`
+    ).bind(...jobRows.map((j) => j.id)).all();
+    const itemsByJob = new Map<string, any[]>();
+    for (const it of (items.results || []) as any[]) {
+      const arr = itemsByJob.get(String(it.job_id)) || [];
+      arr.push({ slug: String(it.slug), kind: String(it.kind), status: it.status });
+      itemsByJob.set(String(it.job_id), arr);
+    }
+    for (const j of jobRows) {
+      const sj: StageJobInput = {
+        id: String(j.id),
+        status: String(j.status),
+        luluStatus: j.lulu_status,
+        hasPartial: !!Number(j.has_partial || 0),
+        createdAt: Number(j.created_at || 0),
+        items: itemsByJob.get(String(j.id)) || [],
+      };
+      const arr = out.get(String(j.order_id)) || [];
+      arr.push(sj);
+      out.set(String(j.order_id), arr);
+    }
+  } catch { /* print tables still landing; stages fall back to home/digital */ }
+  return out;
+}
+
+// Align each pick group with the slug of the raw order line it came
+// from: title match against the books table first (exact, since the
+// group title IS the book's public title), positional order second.
+// `titles` maps slug -> book title, preloaded by the caller.
+function resolveGroupSlugs(order: any, groups: any[], titles: Map<string, string>): (string | null)[] {
+  const rawSlugs: string[] = [];
+  try {
+    const parsed = JSON.parse(order.items || "[]");
+    if (Array.isArray(parsed)) for (const x of parsed) if (x && x.slug) rawSlugs.push(String(x.slug));
+  } catch { /* fall through */ }
+  if (!rawSlugs.length) {
+    try {
+      const parsed = JSON.parse(order.book_slugs || "[]");
+      if (Array.isArray(parsed)) for (const s of parsed) rawSlugs.push(String(s));
+    } catch { /* none */ }
+  }
+  const used = new Set<number>();
+  return groups.map((g, gi) => {
+    let idx = rawSlugs.findIndex((s, i) => !used.has(i) && titles.get(s) === g.title);
+    if (idx < 0) idx = rawSlugs.findIndex((_, i) => !used.has(i) && i === gi);
+    if (idx < 0) idx = rawSlugs.findIndex((_, i) => !used.has(i));
+    if (idx < 0) return null;
+    used.add(idx);
+    return rawSlugs[idx];
+  });
+}
+
+async function loadBookTitles(db: any, slugs: string[]): Promise<Map<string, string>> {
+  const titles = new Map<string, string>();
+  const uniq = [...new Set(slugs)];
+  if (!uniq.length) return titles;
+  try {
+    const rows = await db.prepare(
+      `SELECT slug, title FROM books WHERE slug IN (${uniq.map(() => "?").join(",")})`
+    ).bind(...uniq).all();
+    for (const r of (rows.results || []) as any[]) titles.set(String(r.slug), String(r.title || ""));
+  } catch { /* titles unavailable; positional fallback still works */ }
+  return titles;
+}
+
+function stageJobsFromPrintJobs(printJobs: any[]): StageJobInput[] {
+  return (printJobs || []).map((j) => ({
+    id: String(j.id),
+    status: String(j.status),
+    luluStatus: j.luluStatus ?? j.lulu_status ?? null,
+    hasPartial: !!j.hasPartial,
+    createdAt: Number(j.createdAt || 0),
+    items: (j.items || []).map((it: any) => ({ slug: String(it.slug), kind: String(it.kind), status: it.status ?? null })),
+  }));
+}
+
+// Deliverable tiles for a digital/audio group (order detail). Tile
+// labels are BARE FILE TYPES (CG, 2026-11-10): pdf / pdf / ebook /
+// audio, with the download count as a small corner badge, never a
+// descriptive caption. A physical group gets one cover tile labeled
+// "printed" (a gift set gets two: story + coloring, both "printed").
+function tilesForGroup(
+  group: any,
+  book: any | undefined,
+  downloadsByKind: Record<string, number>
+): { label: string; img: string | null; glyph: string; count: number | null }[] {
+  const badge = (kinds: string[]) => {
+    let n: number | null = null;
+    for (const k of kinds) if (downloadsByKind[k] != null) n = (n ?? 0) + downloadsByKind[k];
+    return n;
+  };
+  if (group.format === "printed") {
+    return [{ label: "printed", img: group.cover || null, glyph: "▤", count: null }];
+  }
+  if (group.format === "giftset") {
+    return [
+      { label: "printed", img: group.cover || null, glyph: "▤", count: null },
+      { label: "printed", img: group.cover || null, glyph: "▦", count: null },
+    ];
+  }
+  if (group.format === "audio") {
+    return [{ label: "audio", img: group.cover || null, glyph: "♪", count: badge(["audiobook"]) }];
+  }
+  // digital bundle
+  const tiles: { label: string; img: string | null; glyph: string; count: number | null }[] = [
+    { label: "pdf", img: group.cover || null, glyph: "▤", count: badge(["picture", "color"]) },
+  ];
+  if (book?.coloring_book_key) {
+    tiles.push({
+      label: "pdf",
+      img: book?._lineFirstPage || null,
+      glyph: "▦",
+      count: badge(["coloring"]),
+    });
+  }
+  if (book?.epub_key) tiles.push({ label: "ebook", img: null, glyph: "▤", count: badge(["epub"]) });
+  if (book?.audiobook_key) tiles.push({ label: "audio", img: null, glyph: "♪", count: badge(["audiobook"]) });
+  return tiles;
+}
 
 // Admin order operations. Gated by the middleware's admin session cookie,
 // with the locals.user check as defense in depth (same pattern as
@@ -184,6 +332,61 @@ export const GET: APIRoute = async ({ locals, url }) => {
         }));
       }
     } catch { /* counts table still migrating; the section is best-effort */ }
+    // Orders admin redo: per-line stages + deliverable tiles,
+    // derived from the rows of record (lib/order-stages). The status
+    // prose the old table cell carried lives here now, on the order
+    // page: each line's stage note rides its group.
+    let kind = "digital";
+    let headline_stage: any = null;
+    try {
+      const groups = ((order as any).items_detail || []) as any[];
+      const stageJobs = stageJobsFromPrintJobs(print_jobs);
+      const rawSlugs: string[] = [];
+      for (const src of [(order as any).items, (order as any).book_slugs]) {
+        try {
+          const parsed = JSON.parse(src || "[]");
+          if (Array.isArray(parsed)) for (const x of parsed) {
+            if (typeof x === "string") rawSlugs.push(x);
+            else if (x && x.slug) rawSlugs.push(String(x.slug));
+          }
+        } catch { /* next source */ }
+        if (rawSlugs.length) break;
+      }
+      const slugs = resolveGroupSlugs(order, groups, await loadBookTitles(e.DB, rawSlugs));
+      const orderInput = {
+        status: String((order as any).status || ""),
+        physicalStatus: (order as any).physical_status || null,
+        createdAt: Number((order as any).created_at || 0),
+        source: (order as any).source || null,
+      };
+      const bookRows = new Map<string, any>();
+      const wanted = [...new Set(slugs.filter(Boolean))] as string[];
+      if (wanted.length) {
+        const brows = await e.DB.prepare(
+          `SELECT slug, coloring_book_key, epub_key, audiobook_key FROM books WHERE slug IN (${wanted.map(() => "?").join(",")})`
+        ).bind(...wanted).all();
+        for (const b of (brows.results || []) as any[]) {
+          bookRows.set(String(b.slug), {
+            ...b,
+            _lineFirstPage: MEDIA_PUBLIC + `books/${b.slug}/images/S1-page-0.jpg`,
+          });
+        }
+      }
+      const dlBySlugKind = new Map<string, Record<string, number>>();
+      for (const dc of download_counts as any[]) {
+        const rec = dlBySlugKind.get(dc.slug) || {};
+        rec[dc.file_kind] = dc.count;
+        dlBySlugKind.set(dc.slug, rec);
+      }
+      groups.forEach((g, i) => {
+        const slug = slugs[i];
+        g.stage = stageForGroup({ format: g.format, slug }, orderInput, stageJobs);
+        const book = slug ? bookRows.get(slug) : undefined;
+        g.tiles = tilesForGroup(g, book, slug ? dlBySlugKind.get(slug) || {} : {});
+      });
+      kind = orderKindOf(groups.map((g) => ({ format: g.format })));
+      headline_stage = headlineStage(groups.map((g) => g.stage));
+    } catch { /* stages are additive; the classic payload still renders */ }
     return Response.json({
       order,
       emails,
@@ -191,6 +394,8 @@ export const GET: APIRoute = async ({ locals, url }) => {
       download_counts,
       download_limit: DOWNLOAD_LIMIT,
       print_jobs,
+      kind,
+      headline_stage,
       lulu: { configured: luluConfigured(e), env: luluEnvName(e) },
     });
   }
@@ -225,6 +430,123 @@ export const GET: APIRoute = async ({ locals, url }) => {
     fulfilled: Number(statRow?.fulfilled || 0),
     all: Number(statRow?.orders_total || 0),
   };
+  // ---- Orders admin redo (prototype v3): the data-table list ----
+  // Active when any redo filter param rides along (kind / stage /
+  // saved / q / per_page). Derivation happens server-side over a
+  // bounded candidate window (newest 1000 matching the SQL-level
+  // filters), then kind/stage/saved filters and pagination apply in
+  // JS over the derived rows. The legacy tab path below is untouched
+  // for any caller that does not opt in.
+  const isV2 = ["kind", "stage", "saved", "q", "per_page"].some((k) => url.searchParams.has(k));
+  if (isV2) {
+    const TAB_WHERE_V2: Record<string, string> = {
+      tofulfill: "status = 'complete' AND physical_status IN ('preorder_received', 'in_print', 'packed')",
+      fulfilled: "status = 'complete' AND (physical_status IN ('shipped', 'delivered') OR physical_status IS NULL)",
+      all: "1 = 1",
+    };
+    const rawTabV2 = String(url.searchParams.get("tab") || "");
+    const tabV2 = TAB_WHERE_V2[rawTabV2] ? rawTabV2 : "all";
+    const q = String(url.searchParams.get("q") || "").trim();
+    const whereParts = [TAB_WHERE_V2[tabV2]];
+    const binds: any[] = [];
+    if (q.length >= 2) {
+      whereParts.push("(id LIKE ? OR email LIKE ? OR tracking_number LIKE ? OR ship_name LIKE ?)");
+      const like = `%${q}%`;
+      binds.push(like, like, like, like);
+    }
+    const cand = await e.DB.prepare(
+      `SELECT id, email, book_slugs, items, amount, currency, status, physical_status, stripe_session_id, created_at, ship_name, ship_address, shipping_cents, quoted_carrier, quoted_service, carrier, carrier_service, tracking_number, label_url, label_cost_cents, pricing_mode, pricing_detail, source FROM orders WHERE ${whereParts.join(" AND ")} ORDER BY created_at DESC LIMIT 1000`
+    ).bind(...binds).all();
+    const rows = (cand.results || []) as any[];
+    const picks = await orderPickList(e.DB, rows).catch(() => new Map());
+    const jobsByOrder = await bulkStageJobs(e.DB, rows.map((o) => String(o.id)));
+    const podActive = luluConfigured(e);
+    // Shipping today: orders with a Lulu parcel whose shipped_at
+    // falls on today's Chicago date (shipments are the only rows
+    // that carry a real ship timestamp).
+    let shippedTodayIds = new Set<string>();
+    if (String(url.searchParams.get("saved") || "") === "shipping_today") {
+      try {
+        const todayCt = new Date(nowSec * 1000).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+        const sh = await e.DB.prepare(
+          "SELECT DISTINCT order_id FROM print_shipments WHERE order_id IS NOT NULL AND shipped_at IS NOT NULL AND date(shipped_at, 'unixepoch', '-5 hours') = ?"
+        ).bind(todayCt).all();
+        shippedTodayIds = new Set(((sh.results || []) as any[]).map((r) => String(r.order_id)));
+      } catch { /* shipments table still landing */ }
+    }
+    const kindCounts = { all: 0, digital: 0, pod: 0, club: 0, needsAttention: 0 };
+    const allSlugs: string[] = [];
+    for (const o of rows) {
+      try {
+        const parsed = JSON.parse(o.items || "[]");
+        if (Array.isArray(parsed)) for (const x of parsed) if (x && x.slug) allSlugs.push(String(x.slug));
+      } catch { /* none */ }
+    }
+    const listTitles = await loadBookTitles(e.DB, allSlugs);
+    const derived = rows.map((o) => {
+      const groups = picks.get(o.id) || [];
+      const jobs = jobsByOrder.get(String(o.id)) || [];
+      const slugsP = resolveGroupSlugs(o, groups, listTitles);
+      const orderInput = { status: String(o.status || ""), physicalStatus: o.physical_status || null, createdAt: Number(o.created_at || 0), source: o.source || null };
+      const stages = groups.map((g: any, i: number) => stageForGroup({ format: g.format, slug: slugsP[i] }, orderInput, jobs));
+      const headline = headlineStage(stages);
+      const kind = orderKindOf(groups.map((g: any) => ({ format: g.format })));
+      o.items_pick = groups;
+      o.has_gift = groups.some((g: any) => g.gift === true);
+      o.short_id = shortOrderId(String(o.id));
+      o.kind = kind;
+      o.stage = headline;
+      o.covers = groups.map((g: any) => g.cover).filter(Boolean).slice(0, 4);
+      kindCounts.all += 1;
+      kindCounts[kind as "digital" | "pod" | "club"] += 1;
+      if (headline.bucket === "needs_attention") kindCounts.needsAttention += 1;
+      return { order: o, kind, headline, jobs, orderInput };
+    });
+    const kindParam = String(url.searchParams.get("kind") || "all");
+    const stageParam = String(url.searchParams.get("stage") || "all");
+    const savedParam = String(url.searchParams.get("saved") || "");
+    const filtered = derived.filter((d) => {
+      if (kindParam !== "all" && d.kind !== kindParam) return false;
+      if (stageParam === "needs_attention" && d.headline.bucket !== "needs_attention") return false;
+      if (stageParam !== "all" && stageParam !== "needs_attention" && d.headline.bucket !== stageParam) return false;
+      if (savedParam === "shipping_today") return shippedTodayIds.has(String(d.order.id));
+      if (savedParam) {
+        const oldestJobAgeSec = d.jobs.length ? nowSec - Math.min(...d.jobs.map((j) => j.createdAt)) : null;
+        return matchesSavedFilter(savedParam, d.orderInput, d.headline, { nowSec, podActive, hasJob: d.jobs.length > 0, oldestJobAgeSec });
+      }
+      return true;
+    });
+    const perPageRaw = Number(url.searchParams.get("per_page") || 10);
+    const perPage = [10, 25, 50].includes(perPageRaw) ? perPageRaw : 10;
+    const totalFiltered = filtered.length;
+    const pagesF = Math.max(1, Math.ceil(totalFiltered / perPage));
+    const pageF = Math.min(Math.max(1, Number(url.searchParams.get("page") || 1) || 1), pagesF);
+    const pageRows = filtered.slice((pageF - 1) * perPage, pageF * perPage).map((d) => d.order);
+    const packing = await getPackingQueue(e.DB).catch(() => []);
+    const packingCompleted = await getCompletedParcels(e.DB).catch(() => []);
+    return Response.json({
+      v2: true,
+      orders: pageRows,
+      packing,
+      packing_completed: packingCompleted,
+      outbox: counts,
+      tab: tabV2,
+      page: pageF,
+      pageSize: perPage,
+      total: totalFiltered,
+      pages: pagesF,
+      tabCounts,
+      kindCounts,
+      podActive,
+      stats: {
+        toFulfill: Number(statRow?.to_fulfill || 0),
+        orders7d: Number(statRow?.orders_7d || 0),
+        ordersTotal: Number(statRow?.orders_total || 0),
+        revenue30dCents: Number(statRow?.revenue_30d || 0),
+      },
+      shippo: shippoStatus(e),
+    });
+  }
   // Filter tabs + server pagination (25 per page) so the list stays
   // fast at volume. No tab param lands on the default tab: To fulfill
   // when there is work waiting, otherwise All.
@@ -370,6 +692,78 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const result = await cancelPrintJobById(e.DB, e, jobId);
     if (!result.ok) return Response.json({ error: result.error || "Could not cancel the print job." }, { status: 400 });
     return Response.json({ ok: true, job: result.job });
+  }
+  // Batch actions (orders admin redo): the list's bulk bar. Every
+  // row reports its own result; a batch never silently half-applies.
+  // Rows an action does not apply to are skipped WITH the reason.
+  if (action === "batch_create_print_jobs" || action === "batch_sync_print_jobs") {
+    const ids = (Array.isArray(body?.order_ids) ? body.order_ids : []).map((x: any) => String(x || "")).filter(Boolean).slice(0, 100);
+    if (!ids.length) return Response.json({ error: "order_ids required" }, { status: 400 });
+    const results: { order_id: string; ok: boolean; message: string }[] = [];
+    for (const orderId of ids) {
+      if (action === "batch_sync_print_jobs") {
+        try {
+          const s = await syncPrintJobs(e.DB, e, { orderId });
+          results.push({ order_id: orderId, ok: true, message: s.synced ? `Synced ${s.synced} job${s.synced === 1 ? "" : "s"}` : "No submitted job to sync" });
+        } catch (err: any) {
+          results.push({ order_id: orderId, ok: false, message: String(err?.message || "Sync failed").slice(0, 140) });
+        }
+        continue;
+      }
+      if (!luluConfigured(e)) {
+        results.push({ order_id: orderId, ok: false, message: "Skipped: the Lulu lane is off" });
+        continue;
+      }
+      const order = await e.DB.prepare("SELECT * FROM orders WHERE id = ?").bind(orderId).first() as any;
+      if (!order) { results.push({ order_id: orderId, ok: false, message: "Skipped: order not found" }); continue; }
+      if (order.status !== "complete" || !order.physical_status) {
+        results.push({ order_id: orderId, ok: false, message: "Skipped: not a completed physical order" });
+        continue;
+      }
+      try {
+        const job = await buildJobsForOrder(e.DB, e, order);
+        if (!job) { results.push({ order_id: orderId, ok: false, message: "Skipped: no printed items" }); continue; }
+        if (job.status === "queued") {
+          const outcome = await submitPrintJob(e.DB, e, job, SITE);
+          results.push(outcome.ok
+            ? { order_id: orderId, ok: true, message: "Job created and sent to Lulu" }
+            : { order_id: orderId, ok: false, message: `Built, but Lulu submission failed: ${outcome.error}` });
+        } else {
+          results.push({ order_id: orderId, ok: true, message: `Job already ${job.status}` });
+        }
+      } catch (err: any) {
+        results.push({ order_id: orderId, ok: false, message: String(err?.message || "Could not build the job").slice(0, 140) });
+      }
+    }
+    return Response.json({ ok: true, results });
+  }
+  if (action === "export_csv") {
+    const ids = (Array.isArray(body?.order_ids) ? body.order_ids : []).map((x: any) => String(x || "")).filter(Boolean).slice(0, 500);
+    if (!ids.length) return Response.json({ error: "order_ids required" }, { status: 400 });
+    const rows = await e.DB.prepare(
+      `SELECT * FROM orders WHERE id IN (${ids.map(() => "?").join(",")}) ORDER BY created_at DESC`
+    ).bind(...ids).all();
+    const orderRows = (rows.results || []) as any[];
+    const picks = await orderPickList(e.DB, orderRows).catch(() => new Map());
+    const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const lines = ["order_id,date,email,name,items,kind,status,stage,total_cents,tracking"];
+    for (const o of orderRows) {
+      const groups = picks.get(o.id) || [];
+      const kind = orderKindOf(groups.map((g: any) => ({ format: g.format })));
+      lines.push([
+        shortOrderId(String(o.id)),
+        new Date(Number(o.created_at || 0) * 1000).toISOString(),
+        o.email || "",
+        o.ship_name || "",
+        groups.map((g: any) => `${g.title} (${g.format})${g.count > 1 ? ` x${g.count}` : ""}`).join("; "),
+        kind,
+        o.status || "",
+        o.physical_status || (o.status === "complete" ? "delivered" : ""),
+        String(o.amount ?? ""),
+        o.tracking_number || "",
+      ].map(esc).join(","));
+    }
+    return Response.json({ ok: true, csv: lines.join("\n"), filename: `orders-export-${new Date().toISOString().slice(0, 10)}.csv` });
   }
   if (action === "set_physical_status") {
     const orderId = String(body?.order_id || "");

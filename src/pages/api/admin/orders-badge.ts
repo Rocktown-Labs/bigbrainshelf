@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 import { ensureAllSeenColumns } from "../../../lib/seen";
+import { buildAdminNotifications, getNotificationReadIds } from "../../../lib/admin-notifications";
+import { luluConfigured } from "../../../lib/lulu";
 
 // GET /api/admin/orders-badge
 // The sidebar's attention counts (CG, 2026-10-31): badges count
@@ -16,7 +18,7 @@ import { ensureAllSeenColumns } from "../../../lib/seen";
 // dashboard's subline. Admin-gated by the middleware.
 export const GET: APIRoute = async () => {
   const e = env as any;
-  const out = { count: 0, club: 0, reviews: 0, revenueCents: 0 };
+  const out = { count: 0, club: 0, reviews: 0, revenueCents: 0, notifications: 0 };
   try {
     await ensureAllSeenColumns(e.DB);
     const since = Math.floor(Date.now() / 1000) - 86400;
@@ -50,5 +52,15 @@ export const GET: APIRoute = async () => {
     ).first();
     out.reviews = Number(reviews?.n ?? 0);
   } catch { /* no reviews table yet */ }
+  try {
+    // Unread notification count for the sidebar (orders admin redo):
+    // derived fresh from the same builder the Notifications page
+    // uses, minus the persisted read marks.
+    const nowSec = Math.floor(Date.now() / 1000);
+    const todayIso = new Date(nowSec * 1000).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+    const items = await buildAdminNotifications(e.DB, nowSec, todayIso, { podActive: luluConfigured(e) });
+    const readIds = await getNotificationReadIds(e.DB);
+    out.notifications = items.filter((n) => !readIds.has(n.id)).length;
+  } catch { /* notifications are a bonus */ }
   return Response.json(out);
 };

@@ -34,6 +34,7 @@ const ICONS: Record<string, string> = {
   characters: '<circle cx="9" cy="8" r="3.5"/><path d="M2.8 20c.7-3.1 3.2-4.9 6.2-4.9s5.5 1.8 6.2 4.9"/><circle cx="17.3" cy="9" r="2.6"/><path d="M16.2 15.3c2.2.3 3.9 1.8 4.4 4.2"/>',
   casting: '<rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18v3.5"/>',
   orders: '<path d="M5.5 8h13l-1 12.5h-11z"/><path d="M9 10V6.5a3 3 0 0 1 6 0V10"/>',
+  inbox: '<path d="M3.5 13 6 4.5h12L20.5 13V19a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19z"/><path d="M3.5 13H9l1.3 2.6h3.4L15 13h5.5"/>',
   club: '<path d="M12 2.8 20 7v10l-8 4.2L4 17V7z"/><path d="M4.3 7.3 12 11l7.7-3.7"/><path d="M12 11v10"/>',
   reviews: '<path d="m12 3.2 2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-2.9-5.4 2.9 1.1-6L3.2 9.6l6.1-.8z"/>',
   users: '<circle cx=\"9\" cy=\"8\" r=\"3.5\"/><path d=\"M2.8 20c.7-3.1 3.2-4.9 6.2-4.9s5.5 1.8 6.2 4.9\"/><path d=\"M19.5 5.5v5M17 8h5\"/>',
@@ -195,6 +196,9 @@ const icon = (name: string) =>
           <a class={`bbs-item${item.href === current ? " bbs-active" : ""}`} href={item.href} data-label={item.label} aria-label={item.label}>
             <Fragment set:html={icon(item.icon)} />
             <span class="bbs-item-label">{item.label}</span>
+            {item.href === "/admin/notifications" && (
+              <span class="bbs-orders-badge" data-notifications-badge hidden></span>
+            )}
             {item.href === "/admin/orders" && (
               <span class="bbs-orders-badge" data-orders-badge hidden></span>
             )}
@@ -291,11 +295,12 @@ const icon = (name: string) =>
         el.hidden = false;
       }
     }
-    if (document.querySelector("[data-orders-badge], [data-club-badge], [data-reviews-badge]")) {
+    if (document.querySelector("[data-orders-badge], [data-club-badge], [data-reviews-badge], [data-notifications-badge]")) {
       fetch("/api/admin/orders-badge")
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
           if (!j) return;
+          fillBadge("[data-notifications-badge]", j.notifications);
           fillBadge("[data-orders-badge]", j.count);
           fillBadge("[data-club-badge]", j.club);
           fillBadge("[data-reviews-badge]", j.reviews);

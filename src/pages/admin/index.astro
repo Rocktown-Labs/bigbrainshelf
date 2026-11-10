@@ -3,8 +3,9 @@ import "../../styles/global.css";
 import AdminShell from "../../components/AdminShell.astro";
 import { env } from "cloudflare:workers";
 import { getAdminDashboard } from "../../lib/admin-dashboard";
+import { buildAdminNotifications } from "../../lib/admin-notifications";
+import { getOrderPipeline } from "../../lib/order-stages";
 import { luluConfigured } from "../../lib/lulu";
-import { getPackingQueue } from "../../lib/packing";
 
 if (!Astro.locals.user) {
   return Astro.redirect("/admin/login");
@@ -37,17 +38,19 @@ const fmtDate = (sec: number) =>
 const todayLabel = new Date(nowSec * 1000).toLocaleDateString("en-US", {
   timeZone: "America/Chicago", month: "long", day: "numeric",
 });
-// The packing shelf, compact (admin redesign S4): the same queue
-// the Orders page shows, as a strip here. Best-effort: a packing
-// query hiccup never takes the dashboard down.
-const packing = await getPackingQueue(e.DB).catch(() => []);
+// Orders admin redo (prototype v3): attention lives in the
+// Notifications tab now. The dashboard keeps ONE line (counts +
+// dollars at risk, from the same builder the inbox uses) and the
+// stage x kind pipeline; the alert cards are gone.
+const todayIso = new Date(nowSec * 1000).toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+const notifItems = await buildAdminNotifications(e.DB, nowSec, todayIso, { podActive: luluConfigured(e) }).catch(() => []);
+const notifAction = notifItems.filter((n) => n.severity === "action");
+const notifAwareness = notifItems.filter((n) => n.severity === "awareness");
+const notifAtRiskCents = notifAction.reduce((a, n) => a + (Number(n.amountCents) || 0), 0);
+const pipeline = await getOrderPipeline(e.DB).catch(() => null);
+const podLaneOn = luluConfigured(e);
 const clubTotal = d.audience.clubActiveByPlan.reduce((a, p) => a + p.count, 0);
 const clubPlanLabel = d.audience.clubActiveByPlan.map((p) => `${p.plan}: ${p.count}`).join(" · ");
-const attentionEmpty =
-  d.attention.brokenBooks.length === 0 && d.attention.booksAtGates === 0 &&
-  d.attention.boxesNeedAttention === 0 && d.attention.outboxFailed === 0 &&
-  d.attention.outboxPending === 0 && d.attention.reviewsPending === 0 &&
-  d.attention.uncastLeads.length === 0;
 ---
 
 <html lang="en">
@@ -96,6 +99,12 @@ const attentionEmpty =
     /* Urgent card: time-based trouble, red-tinted so it reads at a glance. */
     .urgent{border-color:#fecaca;background:#fffafa}
     .urgent h2{color:#b91c1c}
+
+    /* Orders admin redo: the one-line attention summary + pipeline. */
+    .attnline{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:12px;padding:13px 18px;margin:16px 0 0;font-weight:700;font-size:.95rem;text-decoration:none}
+    .attnline .viewall{font-size:.85rem;font-weight:700;color:#c2410c;white-space:nowrap}
+    .pipe-kind{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#a8a29e;margin:16px 0 2px}
+    .pipe-kind:first-of-type{margin-top:6px}
 
     .cols{display:grid;grid-template-columns:1fr;gap:0 20px}
     @media (min-width:900px){
@@ -179,239 +188,53 @@ const attentionEmpty =
       <a href="/admin/books/new">+ New story</a>
     </nav>
 
-    <div class="card">
-      <h2>What do we pack and ship?</h2>
-      {packing.length === 0 ? (
-        <p class="meta">Nothing waiting to pack. New printed orders and club boxes land here as they come in.</p>
+    <a class="attnline" href="/admin/notifications">
+      {notifAction.length > 0 ? (
+        <span>⚠ {notifAction.length} {notifAction.length === 1 ? "item needs" : "items need"} action{notifAtRiskCents > 0 ? ` · ${money(notifAtRiskCents)} at risk` : ""} · {notifAwareness.length} more to be aware of</span>
       ) : (
-        <div class="packstrip">
-          {packing.map((p) => (
-            <a class="packmini" href={p.href}>
-              {p.cover
-                ? <img src={p.cover} alt="" loading="lazy" />
-                : <span class="packmini-none">Big Brain Shelf</span>}
-              <span class="packmini-ref">{p.ref}</span>
-              <span class="packmini-meta">{p.needsPick ? "Mystery box: pick the books" : `${p.lines} ${p.lines === 1 ? "item" : "items"} to pack`}</span>
-              <span class="packmini-stage">{p.stage}</span>
-            </a>
-          ))}
-        </div>
+        <span>All clear. Nothing needs a human right now{notifAwareness.length ? ` · ${notifAwareness.length} to be aware of` : ""}.</span>
       )}
-    </div>
-
-    {d.urgent.total > 0 && (
-      <div class="card urgent">
-        <h2>Urgent</h2>
-        <ul class="list">
-          {d.urgent.overdueBoxCount > 0 && (
-            <li>
-              <a class="row" href="/admin/club">
-                <span class="badge">{d.urgent.overdueBoxCount}</span>
-                <span class="row-main">
-                  <span class="row-title">Club {d.urgent.overdueBoxCount === 1 ? "box" : "boxes"} past the ship date</span>
-                  {d.urgent.overdueBoxes[0] && (
-                    <span class="row-sub">Oldest was due {d.urgent.overdueBoxes[0].shipDate}, {d.urgent.overdueBoxes[0].daysOverdue} {d.urgent.overdueBoxes[0].daysOverdue === 1 ? "day" : "days"} overdue</span>
-                  )}
-                </span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          )}
-          {d.urgent.agedOrderCount > 0 && (
-            <li>
-              <a class="row" href="/admin/orders">
-                <span class="badge">{d.urgent.agedOrderCount}</span>
-                <span class="row-main">
-                  <span class="row-title">Printed {d.urgent.agedOrderCount === 1 ? "order" : "orders"} waiting 3+ days to ship</span>
-                  {d.urgent.agedOrders[0] && (
-                    <span class="row-sub">Oldest has waited {d.urgent.agedOrders[0].ageDays} days</span>
-                  )}
-                </span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          )}
-          {d.urgent.failedPrintJobCount > 0 && (
-            <li>
-              <a class="row" href="/admin/orders">
-                <span class="badge">{d.urgent.failedPrintJobCount}</span>
-                <span class="row-main">
-                  <span class="row-title">Print {d.urgent.failedPrintJobCount === 1 ? "job" : "jobs"} failed at the printer</span>
-                  {d.urgent.failedPrintJobs[0]?.lastError && (
-                    <span class="row-sub">{d.urgent.failedPrintJobs[0].lastError.slice(0, 120)}</span>
-                  )}
-                </span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          )}
-          {d.urgent.unsubmittedOrderCount > 0 && (
-            <li>
-              <a class="row" href="/admin/orders">
-                <span class="badge">{d.urgent.unsubmittedOrderCount}</span>
-                <span class="row-main">
-                  <span class="row-title">Paid printed {d.urgent.unsubmittedOrderCount === 1 ? "order has" : "orders have"} no print job a day after payment</span>
-                </span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          )}
-          {d.urgent.stuckPrintJobCount > 0 && (
-            <li>
-              <a class="row" href="/admin/orders">
-                <span class="badge">{d.urgent.stuckPrintJobCount}</span>
-                <span class="row-main">
-                  <span class="row-title">Print {d.urgent.stuckPrintJobCount === 1 ? "job" : "jobs"} waiting over a day to reach the printer</span>
-                </span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          )}
-          {d.urgent.longProductionCount > 0 && (
-            <li>
-              <a class="row" href="/admin/orders">
-                <span class="badge">{d.urgent.longProductionCount}</span>
-                <span class="row-main">
-                  <span class="row-title">Print {d.urgent.longProductionCount === 1 ? "job" : "jobs"} at the printer over a week without shipping</span>
-                </span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          )}
-          {d.urgent.boxesDueSoon > 0 && (
-            <li>
-              <a class="row" href="/admin/club">
-                <span class="badge">{d.urgent.boxesDueSoon}</span>
-                <span class="row-main">
-                  <span class="row-title">Club {d.urgent.boxesDueSoon === 1 ? "box ships" : "boxes ship"} within 2 days, {d.urgent.podActive ? "contents not settled yet" : "not yet being prepared"}</span>
-                </span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          )}
-          {d.urgent.failedChanges > 0 && (
-            <li>
-              <a class="row" href="/admin/books">
-                <span class="badge">{d.urgent.failedChanges}</span>
-                <span class="row-main">
-                  <span class="row-title">Page {d.urgent.failedChanges === 1 ? "fix" : "fixes"} failed</span>
-                  <span class="row-sub">Those pages kept their old art</span>
-                </span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          )}
-        </ul>
-      </div>
-    )}
+      <span class="viewall">Notifications ›</span>
+    </a>
 
     <div class="cols">
       <div class="card">
-        <h2>Needs attention</h2>
-        <ul class="list">
-          {d.attention.brokenBooks.map((b) => (
-            <li>
-              <a class="row" href={`/admin/books/${b.adminSlug}`}>
-                <span class="badge">!</span>
-                <span class="row-main">
-                  <span class="row-title">{b.title}</span>
-                  <span class="row-sub">{b.state}</span>
-                </span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          ))}
-          {d.attention.booksAtGates > 0 && (
-            <li>
-              <a class="row" href="/admin/books">
-                <span class="badge">{d.attention.booksAtGates}</span>
-                <span class="row-main">
-                  <span class="row-title">Books held at a review gate</span>
-                  <span class="row-sub">Pilot approval, QA, or repair</span>
-                </span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          )}
-          {d.attention.boxesNeedAttention > 0 && (
-            <li>
-              <a class="row" href="/admin/club">
-                <span class="badge">{d.attention.boxesNeedAttention}</span>
-                <span class="row-main"><span class="row-title">Club boxes need attention</span></span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          )}
-          {d.attention.outboxFailed > 0 && (
-            <li>
-              <a class="row" href="/admin/orders">
-                <span class="badge">{d.attention.outboxFailed}</span>
-                <span class="row-main"><span class="row-title">Emails failed to send</span></span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          )}
-          {d.attention.outboxPending > 0 && (
-            <li>
-              <a class="row" href="/admin/orders">
-                <span class="badge">{d.attention.outboxPending}</span>
-                <span class="row-main"><span class="row-title">Emails waiting in the outbox</span></span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          )}
-          {d.attention.reviewsPending > 0 && (
-            <li>
-              <a class="row" href="/admin/reviews">
-                <span class="badge">{d.attention.reviewsPending}</span>
-                <span class="row-main"><span class="row-title">Reviews awaiting moderation</span></span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          )}
-          {d.attention.uncastLeads.map((b) => (
-            <li>
-              <a class="row" href="/admin/cast-gemini">
-                <span class="badge">!</span>
-                <span class="row-main">
-                  <span class="row-title">{b.title}</span>
-                  <span class="row-sub">Published, but {b.lead} has no cast voice yet</span>
-                </span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          ))}
-          {attentionEmpty && (
-            <li><div class="row"><span class="ok">Nothing needs attention right now.</span></div></li>
-          )}
-        </ul>
+        <a class="sec-head" href="/admin/orders" aria-label="Pipeline: view orders">
+          <h2>Pipeline by stage</h2>
+          <span class="viewall">Orders ›</span>
+        </a>
+        {pipeline ? (
+          <div>
+            <p class="pipe-kind">Printed (POD)</p>
+            <ul class="list">
+              {pipeline.pod.map((r) => (
+                <li><div class="row"><span class="row-main"><span class="row-title" style={r.key === "exceptions" && r.count > 0 ? "color:#b91c1c" : ""}>{r.label}</span></span><span class="row-count">{r.count}</span></div></li>
+              ))}
+            </ul>
+            <p class="pipe-kind">At home{podLaneOn ? "" : " (the live lane while Lulu is off)"}</p>
+            <ul class="list">
+              {pipeline.home.map((r) => (
+                <li><div class="row"><span class="row-main"><span class="row-title">{r.label}</span></span><span class="row-count">{r.count}</span></div></li>
+              ))}
+            </ul>
+            <p class="pipe-kind">Digital</p>
+            <ul class="list">
+              <li><div class="row"><span class="row-main"><span class="row-title">Delivered</span></span><span class="row-count">{pipeline.digital.delivered}</span></div></li>
+              <li><div class="row"><span class="row-main"><span class="row-title">Awaiting payment</span></span><span class="row-count">{pipeline.digital.awaitingPayment}</span></div></li>
+            </ul>
+            <p class="pipe-kind">Club boxes</p>
+            <ul class="list">
+              {pipeline.club.map((r) => (
+                <li><div class="row"><span class="row-main"><span class="row-title" style={r.key === "past_due" && r.count > 0 ? "color:#b91c1c" : ""}>{r.label}</span></span><span class="row-count">{r.count}</span></div></li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p class="meta">Pipeline unavailable right now.</p>
+        )}
       </div>
 
       <div>
-        <div class="card">
-          <a class="sec-head" href="/admin/orders" aria-label="Fulfillment: view all orders">
-            <h2>Fulfillment</h2>
-            <span class="viewall">View all ›</span>
-          </a>
-          <p class="meta" style="margin-top:0">Printed orders by stage (completed orders only):</p>
-          <div class="steps" role="list" aria-label="Printed orders by fulfillment stage">
-            {d.fulfillment.printedByStatus.map((s) => (
-              <div class={s.count > 0 ? "step on" : "step"} role="listitem">
-                <span class="n">{s.count}</span>
-                <span class="l">{s.label}</span>
-              </div>
-            ))}
-          </div>
-          <ul class="list" style="margin-top:8px;border-top:1px solid #f5f5f4">
-            <li>
-              <a class="row" href="/admin/club">
-                <span class="row-main"><span class="row-title">Club boxes due in the next 7 days</span></span>
-                <span class="row-count">{d.fulfillment.boxesDue7d}</span>
-                <span class="chev" aria-hidden="true">›</span>
-              </a>
-            </li>
-          </ul>
-        </div>
         <div class="card">
           <h2>Audience</h2>
           <ul class="list">
