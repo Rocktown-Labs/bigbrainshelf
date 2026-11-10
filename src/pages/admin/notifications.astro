@@ -1,0 +1,161 @@
+---
+import "../../styles/global.css";
+import AdminShell from "../../components/AdminShell.astro";
+
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
+export const prerender = false;
+---
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Notifications · Big Brain Shelf admin</title>
+  <style is:global>
+    body{font-family:ui-sans-serif,system-ui,sans-serif;background:#fafaf9;color:#1c1917;margin:0}
+    .wrap{max-width:64rem;margin:0 auto;padding:1.5rem 1rem 3rem}
+    h1{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 .3rem}
+    .meta{color:#78716c;font-size:.9rem}
+    a{color:#c2410c}
+    .filters{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 10px;align-items:center}
+    .fchip{border:1px solid #e7e5e4;background:#fff;border-radius:999px;padding:7px 13px;font-size:.82rem;font-weight:600;color:#44403c;cursor:pointer;min-height:36px}
+    .fchip.on{background:#1c1917;color:#fff;border-color:#1c1917}
+    .fchip .n{font-variant-numeric:tabular-nums;opacity:.75;margin-left:4px}
+    .markall{margin-left:auto;background:none;border:0;color:#c2410c;font-weight:700;font-size:.85rem;cursor:pointer;padding:8px 4px}
+    .list{background:#fff;border:1px solid #e7e5e4;border-radius:12px;overflow:hidden}
+    .nrow{display:flex;align-items:center;gap:10px;min-height:54px;padding:7px 12px 7px 0;border-bottom:1px solid #f5f5f4;text-decoration:none;color:inherit;position:relative}
+    .nrow:last-child{border-bottom:0}
+    .nrow .rail{position:absolute;left:0;top:0;bottom:0;width:4px;background:#d6d3d1}
+    .nrow.sev-action .rail{background:#dc2626}
+    .nrow.sev-awareness .rail{background:#d97706}
+    .nrow.read{opacity:.55}
+    .ndot{width:8px;height:8px;border-radius:99px;background:#2563eb;flex:none;margin-left:12px}
+    .ndot.off{background:transparent}
+    .nmain{flex:1;min-width:0;padding-left:2px}
+    .ntitle{display:block;font-weight:700;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .nrow.read .ntitle{font-weight:600}
+    .ndetail{display:block;color:#78716c;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+    .ntag{flex:none;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;border-radius:999px;padding:3px 8px}
+    .ntag.action{background:#fef2f2;color:#b91c1c}
+    .ntag.awareness{background:#fffbeb;color:#b45309}
+    .nside{flex:none;text-align:right;font-variant-numeric:tabular-nums}
+    .namount{display:block;font-weight:800;font-size:.9rem}
+    .nage{display:block;color:#a8a29e;font-size:.72rem;margin-top:1px}
+    .nact{flex:none;border:1px solid #e7e5e4;background:#fff;border-radius:8px;padding:7px 11px;font-size:.8rem;font-weight:700;cursor:pointer;min-height:36px}
+    .nact:active{transform:scale(.97)}
+    .nread-btn{flex:none;border:0;background:none;color:#a8a29e;font-size:1rem;cursor:pointer;padding:8px;min-width:36px;min-height:36px}
+    .nread-btn.done{color:#059669}
+    .empty{padding:2rem 1rem;text-align:center;color:#78716c}
+    .note{font-size:.82rem;color:#78716c;margin:10px 2px;line-height:1.5}
+    .msg{font-size:.85rem;font-weight:600;margin:8px 2px;min-height:1.2em}
+  </style>
+</head>
+<body>
+  <AdminShell current="/admin/notifications" />
+  <main class="wrap">
+    <h1>Notifications</h1>
+    <p class="meta" id="summary">Everything that needs a human, in one list. This is the daily digest as a surface: same urgency rules, but filterable, tappable, and clearable. The email stays as the backup.</p>
+    <div class="filters" id="filters" role="tablist" aria-label="Notification filters"></div>
+    <p class="msg" id="msg" role="status"></p>
+    <div class="list" id="list"><div class="empty">Loading…</div></div>
+    <p class="note">Rows are derived from live orders, print jobs, club boxes, and the email outbox on every load. Fix the underlying thing and the row clears itself; marking read only quiets it here.</p>
+  </main>
+  <script is:inline>
+    var FILTERS = [
+      { key: "all", label: "All" },
+      { key: "action", label: "Action needed" },
+      { key: "awareness", label: "Awareness" },
+      { key: "print_jobs", label: "Print jobs" },
+      { key: "club", label: "Club" },
+      { key: "email_files", label: "Email & files" }
+    ];
+    var state = { items: [], counts: {}, filter: "all" };
+    var $ = function (id) { return document.getElementById(id); };
+    function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+    function money(c) { return "$" + (Number(c || 0) / 100).toFixed(2); }
+    function ageText(sec) {
+      if (!sec) return "";
+      var s = Math.max(0, Math.floor(Date.now() / 1000) - sec);
+      if (s < 3600) return Math.max(1, Math.floor(s / 60)) + "m old";
+      if (s < 86400) return Math.floor(s / 3600) + "h old";
+      var d = Math.floor(s / 86400);
+      return d + (d === 1 ? " day old" : " days old");
+    }
+    function countFor(key) {
+      if (key === "all") return state.counts.total || 0;
+      return state.counts[key] || 0;
+    }
+    function visible() {
+      return state.items.filter(function (n) {
+        if (state.filter === "all") return true;
+        if (state.filter === "action") return n.severity === "action";
+        if (state.filter === "awareness") return n.severity === "awareness";
+        return n.category === state.filter;
+      });
+    }
+    function renderFilters() {
+      $("filters").innerHTML = FILTERS.map(function (f) {
+        return '<button type="button" class="fchip' + (state.filter === f.key ? " on" : "") + '" data-filter="' + f.key + '">' + f.label + '<span class="n">' + countFor(f.key) + "</span></button>";
+      }).join("") + '<button type="button" class="markall" id="markall">Mark all read</button>';
+      document.querySelectorAll("[data-filter]").forEach(function (b) {
+        b.addEventListener("click", function () { state.filter = b.getAttribute("data-filter"); render(); });
+      });
+      $("markall").addEventListener("click", async function () {
+        await fetch("/api/admin/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "mark_all_read" }) });
+        load();
+      });
+    }
+    function render() {
+      renderFilters();
+      var rows = visible();
+      if (!rows.length) { $("list").innerHTML = '<div class="empty">Nothing here. This filter is clear.</div>'; return; }
+      $("list").innerHTML = rows.map(function (n) {
+        return '<div class="nrow sev-' + n.severity + (n.read ? " read" : "") + '">' +
+          '<span class="rail"></span><span class="ndot' + (n.read ? " off" : "") + '"></span>' +
+          '<a class="nmain" href="' + esc(n.href) + '"><span class="ntitle">' + esc(n.title) + "</span>" +
+          (n.detail ? '<span class="ndetail">' + esc(n.detail) + "</span>" : "") + "</a>" +
+          '<span class="ntag ' + n.severity + '">' + (n.severity === "action" ? "Action" : "Aware") + "</span>" +
+          '<span class="nside">' + (n.amountCents != null ? '<span class="namount">' + money(n.amountCents) + "</span>" : "") +
+          '<span class="nage">' + esc(ageText(n.sinceSec)) + "</span></span>" +
+          (n.action ? '<button type="button" class="nact" data-run="' + esc(n.id) + '">' + esc(n.actionLabel || "Run") + "</button>" : "") +
+          '<button type="button" class="nread-btn' + (n.read ? " done" : "") + '" data-read="' + esc(n.id) + '" title="Mark read" aria-label="Mark read">' + (n.read ? "✓" : "○") + "</button>" +
+          "</div>";
+      }).join("");
+      document.querySelectorAll("[data-run]").forEach(function (b) {
+        b.addEventListener("click", async function () {
+          b.disabled = true; b.textContent = "Working…";
+          try {
+            var r = await fetch("/api/admin/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "run", id: b.getAttribute("data-run") }) });
+            var j = await r.json();
+            $("msg").textContent = j.message || j.error || "Done.";
+            $("msg").style.color = r.ok ? "#047857" : "#b91c1c";
+          } catch (e) { $("msg").textContent = "That action failed to run."; $("msg").style.color = "#b91c1c"; }
+          load();
+        });
+      });
+      document.querySelectorAll("[data-read]").forEach(function (b) {
+        b.addEventListener("click", async function () {
+          await fetch("/api/admin/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "mark_read", id: b.getAttribute("data-read") }) });
+          load();
+        });
+      });
+    }
+    async function load() {
+      var r = await fetch("/api/admin/notifications");
+      var j = await r.json();
+      state.items = j.items || []; state.counts = j.counts || {};
+      if (state.counts.total) {
+        $("summary").textContent = state.counts.action + " need action" +
+          (state.counts.atRiskCents ? " · " + money(state.counts.atRiskCents) + " at risk" : "") +
+          " · " + state.counts.awareness + " more to be aware of" +
+          (state.counts.unread ? " · " + state.counts.unread + " unread" : "") + ".";
+      } else {
+        $("summary").textContent = "All clear. Nothing needs a human right now.";
+      }
+      render();
+    }
+    load();
+  </script>
+</body>
+</html>

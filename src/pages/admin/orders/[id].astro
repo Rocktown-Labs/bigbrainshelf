@@ -54,6 +54,26 @@ const orderId = String(Astro.params.id || "");
     .packrow input[type="checkbox"]{width:24px;height:24px;flex:none;accent-color:#ea580c;cursor:pointer}
     .packrow input[type="checkbox"]:disabled{cursor:not-allowed;opacity:.45}
     .packrow .pack-code{font-family:ui-monospace,monospace;font-size:.68rem;font-weight:700;background:#f5f5f4;border:1px solid #e7e5e4;border-radius:6px;padding:1px 6px;color:#57534e;white-space:nowrap}
+    /* Orders admin redo (prototype v3): slim lines, deliverable
+       tiles with BARE file-type labels (pdf / ebook / audio /
+       printed, CG 2026-11-10), stage pills, compact job KV rows. */
+    .stagepill{display:inline-block;font-size:.72rem;font-weight:800;border-radius:999px;padding:3px 9px;white-space:nowrap}
+    .stagepill.ok{background:#ecfdf5;color:#047857}
+    .stagepill.progress{background:#eff6ff;color:#1d4ed8}
+    .stagepill.attention{background:#fffbeb;color:#b45309}
+    .stagepill.exception{background:#fef2f2;color:#b91c1c}
+    .stagepill.muted{background:#f5f5f4;color:#57534e}
+    .tiles{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    .tile{position:relative;width:44px;text-align:center}
+    .tile .timg{width:44px;height:56px;border-radius:6px;border:1px solid #e7e5e4;background:#f5f5f4;object-fit:cover;display:block}
+    .tile .tglyph{width:44px;height:56px;border-radius:6px;border:1px solid #e7e5e4;background:#f5f5f4;display:grid;place-items:center;font-size:1.05rem;color:#78716c}
+    .tile .tlabel{display:block;font-size:.62rem;font-weight:700;color:#78716c;margin-top:3px;text-transform:lowercase}
+    .tile .tcount{position:absolute;top:-6px;right:-6px;background:#1c1917;color:#fff;font-size:.6rem;font-weight:800;border-radius:999px;padding:1px 5px;font-variant-numeric:tabular-nums}
+    .kv{display:grid;grid-template-columns:110px 1fr;gap:3px 12px;font-size:.85rem;margin-top:6px}
+    .kv dt{color:#a8a29e;font-weight:600}
+    .kv dd{margin:0;font-weight:600;color:#44403c;min-width:0}
+    .steps6{grid-template-columns:repeat(6,1fr)}
+    .notesline{font-size:.85rem;color:#57534e;line-height:1.55}
     input,select,textarea{font-size:16px}
   </style>
   </head>
@@ -160,9 +180,9 @@ const orderId = String(Astro.params.id || "");
       queued: "Queued", submitted: "Submitted", blocked_no_printable: "Missing print file",
       failed: "Failed", canceled: "Canceled",
       CREATED: "Created", UNPAID: "Unpaid", PAYMENT_IN_PROGRESS: "Payment in progress",
-      PRODUCTION_DELAYED: "In production delay", PRODUCTION_READY: "Production ready",
+      PRODUCTION_DELAYED: "Sent to Lulu, cancel window open", PRODUCTION_READY: "Production ready",
       IN_PRODUCTION: "In production", SHIPPED: "Shipped", DELIVERED: "Delivered",
-      REJECTED: "Rejected", ERROR: "Error", CANCELED: "Canceled",
+      REJECTED: "Rejected by Lulu", ERROR: "Lulu error", CANCELED: "Canceled",
       ACCEPTED: "Accepted",
     };
     function printJobLabel(s) { return PRINT_JOB_LABELS[s] || String(s || "").replace(/_/g, " "); }
@@ -181,32 +201,36 @@ const orderId = String(Astro.params.id || "");
       } else {
         inner = jobs.map(function (j) {
           var status = j.luluStatus || j.status;
-          var items = (j.items || []).map(function (it) {
-            return '<li class="py-2 border-b border-stone-100 last:border-0 flex flex-wrap items-center gap-x-2 gap-y-1">' +
-              '<span class="text-sm font-medium">' + esc(it.title || it.slug) + '</span>' +
-              '<span class="text-[13px] text-stone-500">' + (it.kind === "coloring" ? "Coloring book" : "Storybook") + '</span>' +
-              (it.dedicationName ? '<span class="text-[13px] text-stone-500">For ' + esc(it.dedicationName) + '</span>' : "") +
-              (it.serialLabel ? '<span class="text-[13px] text-stone-500">' + esc(it.serialLabel) + '</span>' : "") +
-              '<span class="chip">' + esc(printJobLabel(it.status)) + '</span>' +
+          var itemChips = (j.items || []).map(function (it) {
+            return '<span class="chip" title="' + esc(it.title || it.slug) + '">' +
+              (it.kind === "coloring" ? "Coloring" : "Story") + " · " + esc(printJobLabel(it.status)) + "</span>" +
               (it.trackingUrl
-                ? '<a class="text-[13px] font-semibold text-orange-700" href="' + esc(it.trackingUrl) + '" target="_blank" rel="noopener">Track' + (it.carrierName ? " (" + esc(it.carrierName) + ")" : "") + '</a>'
-                : it.trackingId ? '<span class="text-[13px] text-stone-500 font-mono">' + esc(it.trackingId) + '</span>' : "") +
-            "</li>";
-          }).join("");
+                ? ' <a class="text-[13px] font-semibold text-orange-700" href="' + esc(it.trackingUrl) + '" target="_blank" rel="noopener">Track' + (it.carrierName ? " (" + esc(it.carrierName) + ")" : "") + "</a>"
+                : it.trackingId ? ' <span class="text-[13px] text-stone-500 font-mono">' + esc(it.trackingId) + "</span>" : "");
+          }).join(" ");
+          var meta = (j.items || []).map(function (it) {
+            var bits = [];
+            if (it.dedicationName) bits.push("For " + it.dedicationName);
+            if (it.serialLabel) bits.push(it.serialLabel);
+            return bits.length ? esc((it.title || it.slug) + ": " + bits.join(" · ")) : "";
+          }).filter(Boolean).join("<br>");
           var cancellable = j.status === "queued" || ["CREATED", "UNPAID", "PRODUCTION_DELAYED"].indexOf(j.luluStatus || "") >= 0;
           var buttons = "";
           if (j.status === "submitted" && ["DELIVERED", "REJECTED", "ERROR", "CANCELED"].indexOf(j.luluStatus || "") < 0) buttons += '<button data-print-refresh="' + esc(j.id) + '" class="tap rounded-lg border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">Refresh status</button>';
           if (cancellable && j.status !== "canceled") buttons += '<button data-print-cancel="' + esc(j.id) + '" class="tap rounded-lg border border-red-200 text-red-700 text-sm font-semibold px-4 min-h-[44px]">Cancel print job</button>';
           return '<div class="mt-3 border-t border-stone-100 pt-3 first:border-0 first:pt-1">' +
-            '<p class="flex flex-wrap items-center gap-2"><span class="chip chip-print">' + esc(printJobLabel(status)) + '</span>' +
-            (j.luluJobId ? '<span class="text-[13px] text-stone-500">Lulu job <span class="font-mono">' + esc(j.luluJobId) + '</span></span>' : '<span class="text-[13px] text-stone-400">Not submitted yet</span>') +
-            (j.hasPartial ? '<span class="text-[13px] font-medium text-amber-600">Part shipped</span>' : "") +
-            (j.totalCostInclTax ? '<span class="text-[13px] text-stone-500">Lulu cost ' + esc(j.totalCostInclTax) + (j.currency ? " " + esc(j.currency) : "") + '</span>' : "") +
-            '</p>' +
-            (items ? '<ul class="mt-1">' + items + '</ul>' : "") +
-            (j.lastError ? '<p class="text-sm text-red-600 mt-1.5">' + esc(j.lastError) + '</p>' : "") +
-            (j.notes ? '<p class="text-[13px] text-stone-500 mt-1">' + esc(j.notes) + '</p>' : "") +
-            (buttons ? '<div class="mt-2.5 flex flex-wrap gap-2">' + buttons + '</div>' : "") +
+            '<dl class="kv">' +
+              "<dt>Status</dt><dd>" + esc(printJobLabel(status)) + (j.hasPartial ? ' <span class="text-amber-600">· part shipped</span>' : "") + "</dd>" +
+              (j.luluJobId ? "<dt>Lulu job</dt><dd class=\"font-mono text-[13px]\">" + esc(j.luluJobId) + "</dd>" : "<dt>Lulu job</dt><dd>Not submitted yet</dd>") +
+              (j.luluStatus ? "<dt>Lulu says</dt><dd class=\"font-mono text-[13px]\">" + esc(j.luluStatus) + "</dd>" : "") +
+              (itemChips ? "<dt>Items</dt><dd>" + itemChips + "</dd>" : "") +
+              (meta ? "<dt>Copies</dt><dd>" + meta + "</dd>" : "") +
+              (j.totalCostInclTax ? "<dt>Our cost</dt><dd>" + esc(j.totalCostInclTax) + (j.currency ? " " + esc(j.currency) : "") + "</dd>" : "") +
+              (j.createdAt ? "<dt>Submitted</dt><dd>" + esc(fmtWhen(j.createdAt)) + "</dd>" : "") +
+            "</dl>" +
+            (j.lastError ? '<p class="text-sm text-red-600 mt-1.5">' + esc(j.lastError) + "</p>" : "") +
+            (j.notes ? '<p class="text-[13px] text-stone-500 mt-1">' + esc(j.notes) + "</p>" : "") +
+            (buttons ? '<div class="mt-2.5 flex flex-wrap gap-2">' + buttons + "</div>" : "") +
           "</div>";
         }).join("");
       }
@@ -319,33 +343,51 @@ const orderId = String(Astro.params.id || "");
       // any order without print jobs, which is how home-fulfilled
       // orders are worked.
       var hasPrintJobs = !!(data.print_jobs && data.print_jobs.length);
+      // Lane reality: the home card hides only when a live Lulu lane
+      // is actually driving this order's jobs. While the lane is off,
+      // home fulfillment stays visible and primary even if test-era
+      // job rows exist.
+      var podDriven = hasPrintJobs && !!(data.lulu && data.lulu.configured);
       var shippo = data.shippo || { configured: false, originConfigured: false, ready: false, missing: ["SHIPPO_API_KEY"] };
       var a = parseAddr(o);
       var addrLines = [o.ship_name, a.line1, a.line2, [a.city, a.state].filter(Boolean).join(", "), a.postal_code, a.country].filter(Boolean);
       var next = nextStatus(o);
       var stageIdx = FLOW.indexOf(o.physical_status || "preorder_received");
-      var steps = o.physical_status ? '<div class="steps">' + FLOW.map(function (s, i) {
-        return '<div class="step' + (i <= stageIdx ? " on" : "") + '"><span class="l">' + LABELS[s] + "</span></div>";
-      }).join("") + "</div>" : "";
-      // Products: structured groups (full title, format, count,
-      // cover, product link, unit price) from the API via
-      // items_detail; items_display strings are the fallback.
       var groups = o.items_detail || [];
-      // Per-row status maps to the truth: a pending order awaits
-      // payment; printed rows ride the order's fulfillment stage
-      // (tracking rides along once shipped); digital and audio rows
-      // on a completed order live in the buyer's library.
-      function rowStatus(g) {
-        if (o.status !== "complete") return "Awaiting payment";
-        if (g && (g.format === "printed" || g.format === "giftset")) {
-          var lbl = LABELS[o.physical_status || "preorder_received"] || "Received";
-          if (o.physical_status === "shipped" && o.tracking_number) {
-            var via = [o.carrier, o.carrier_service].filter(Boolean).join(" ");
-            return lbl + '<span class="block text-xs text-stone-400 mt-0.5">Tracking ' + esc((via ? via + " " : "") + o.tracking_number) + "</span>";
-          }
-          return lbl;
-        }
-        return "In your library";
+      // The stepper is drawn from the physical line's derived stage
+      // (lib/order-stages via the API), not the legacy vocabulary:
+      // POD lines step Paid > Job created > Sent to Lulu > In
+      // production > Shipped > Delivered; home lines step the home
+      // track. Off-track stages (exceptions, canceled) draw no bar.
+      var physStage = null;
+      for (var gi = 0; gi < groups.length; gi++) {
+        if (groups[gi].stage && groups[gi].stage.steps && groups[gi].stage.steps.length) { physStage = groups[gi].stage; break; }
+      }
+      var steps = physStage
+        ? '<div class="steps' + (physStage.steps.length > 5 ? " steps6" : "") + '">' + physStage.steps.map(function (s, i) {
+            return '<div class="step' + (physStage.stepIndex >= 0 && i <= physStage.stepIndex ? " on" : "") + '"><span class="l">' + esc(s) + "</span></div>";
+          }).join("") + "</div>"
+        : "";
+      // Slim lines (prototype v3): small real cover, title + format
+      // chip, the deliverable tile strip with bare file-type labels,
+      // the line's derived stage pill, and its price. All status
+      // prose lives in the Status notes section below the band, not
+      // in these lines.
+      function stagePill(st) {
+        if (!st) return "";
+        return '<span class="stagepill ' + esc(st.tone || "muted") + '">' + esc(st.label || "") + "</span>";
+      }
+      function tilesHtml(g) {
+        var tiles = g.tiles || [];
+        if (!tiles.length) return "";
+        return '<div class="tiles">' + tiles.map(function (t) {
+          return '<span class="tile">' +
+            (t.img
+              ? '<img class="timg" src="' + esc(t.img) + '" alt="" loading="lazy" onerror="this.outerHTML=\'<span class=&quot;tglyph&quot;>' + esc(t.glyph || "▤") + '</span>\'">'
+              : '<span class="tglyph">' + esc(t.glyph || "▤") + "</span>") +
+            (t.count != null ? '<span class="tcount">' + esc(t.count) + "/" + (data.download_limit || 5) + "</span>" : "") +
+            '<span class="tlabel">' + esc(t.label) + "</span></span>";
+        }).join("") + "</div>";
       }
       var productRows = groups.length
         ? groups.map(function (g) {
@@ -355,17 +397,19 @@ const orderId = String(Astro.params.id || "");
                   : money(g.unitCents))
               : '<span class="text-stone-400">—</span>';
             return "<tr>" +
-              '<td><div class="flex items-center gap-3 min-w-0">' +
+              '<td><div class="flex items-start gap-3 min-w-0">' +
                 (g.cover
-                  ? '<img src="' + esc(g.cover) + '" alt="" width="64" height="64" class="w-16 h-16 rounded-lg object-cover border border-stone-200 flex-none" loading="lazy">'
-                  : '<span class="w-16 h-16 rounded-lg bg-stone-100 border border-stone-200 flex-none"></span>') +
-                '<div class="min-w-0"><p class="font-semibold text-sm leading-snug">' + esc(g.title) + "</p>" +
-                  '<p class="mt-1.5 flex items-center gap-2">' + fchip(g.format) +
+                  ? '<img src="' + esc(g.cover) + '" alt="" width="40" height="52" class="rounded-md object-cover border border-stone-200 flex-none" style="width:40px;height:52px" loading="lazy">'
+                  : '<span class="rounded-md bg-stone-100 border border-stone-200 flex-none" style="width:40px;height:52px"></span>') +
+                '<div class="min-w-0"><p class="font-semibold text-sm leading-snug">' + esc(g.title) +
+                  (g.count > 1 ? ' <span class="text-stone-400 font-semibold">× ' + g.count + "</span>" : "") + "</p>" +
+                  '<p class="mt-1 flex items-center gap-2 flex-wrap">' + fchip(g.format) +
                     (g.gift ? '<span class="chip" style="background:#ffedd5;color:#9a3412">Gift</span>' : "") +
+                    stagePill(g.stage) +
                     '<span class="text-[13px] text-stone-500 tabular-nums sm:hidden">' + priceCell + "</span></p>" +
+                  tilesHtml(g) +
                 "</div></div></td>" +
               '<td class="hidden sm:table-cell whitespace-nowrap font-semibold text-sm tabular-nums">' + priceCell + "</td>" +
-              '<td class="hidden sm:table-cell text-sm text-stone-600">' + rowStatus(g) + "</td>" +
               '<td class="hidden sm:table-cell whitespace-nowrap text-sm">' +
                 (g.href ? '<a href="' + esc(g.href) + '" target="_blank" rel="noopener" class="font-semibold text-orange-700 hover:text-orange-800">View Product</a>' : "") +
               "</td></tr>";
@@ -373,21 +417,41 @@ const orderId = String(Astro.params.id || "");
         : (o.items_display && o.items_display.length)
           ? o.items_display.map(function (t) {
               return "<tr>" +
-                '<td><div class="flex items-center gap-3 min-w-0"><span class="w-16 h-16 rounded-lg bg-stone-100 border border-stone-200 flex-none"></span>' +
+                '<td><div class="flex items-center gap-3 min-w-0"><span class="rounded-md bg-stone-100 border border-stone-200 flex-none" style="width:40px;height:52px"></span>' +
                   '<p class="font-semibold text-sm leading-snug">' + esc(t) + "</p></div></td>" +
                 '<td class="hidden sm:table-cell text-sm text-stone-400">—</td>' +
-                '<td class="hidden sm:table-cell text-sm text-stone-600">' + rowStatus(null) + "</td>" +
                 '<td class="hidden sm:table-cell"></td></tr>';
             }).join("")
-          : '<tr><td colspan="4" class="text-sm text-stone-400">Items unavailable</td></tr>';
+          : '<tr><td colspan="3" class="text-sm text-stone-400">Items unavailable</td></tr>';
       var productsTable =
         '<section class="orderblock mt-4"><table class="ptable"><thead class="hidden sm:table-header-group"><tr>' +
-          '<th scope="col">Product</th><th scope="col">Price</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Info</span></th>' +
+          '<th scope="col">Product</th><th scope="col">Price</th><th scope="col"><span class="sr-only">Info</span></th>' +
         "</tr></thead><tbody>" + productRows + "</tbody>" +
         (Number(o.shipping_cents || 0) > 0
-          ? '<tfoot><tr><td colspan="4" class="text-sm text-stone-500">Shipping <span class="float-right font-semibold text-stone-900 tabular-nums">' + money(o.shipping_cents) + "</span></td></tr></tfoot>"
+          ? '<tfoot><tr><td colspan="3" class="text-sm text-stone-500">Shipping <span class="float-right font-semibold text-stone-900 tabular-nums">' + money(o.shipping_cents) + "</span></td></tr></tfoot>"
           : "") +
         "</table></section>";
+      // Status notes: the prose the orders table used to carry in
+      // its cells lives here (CG, 2026-11-10): one line per order
+      // line that has something to say, from the derived stages.
+      var noteLines = [];
+      groups.forEach(function (g) {
+        var st = g.stage;
+        if (!st) return;
+        var line = "<strong>" + esc(g.title) + ":</strong> " + esc(st.label) + ".";
+        if (st.note) line += " " + esc(st.note);
+        if (st.key === "delivered" && (g.format === "digital" || g.format === "audio")) {
+          line += " Delivered at payment; the entitlement is live and the delivery email carries the files.";
+        }
+        noteLines.push(line);
+      });
+      (data.print_jobs || []).forEach(function (j) {
+        if (j.lastError) noteLines.push("<strong>Print job:</strong> " + esc(j.lastError));
+      });
+      var notesSection = noteLines.length
+        ? '<section class="card mt-4"><h2 class="font-bold">Status notes</h2>' +
+          noteLines.map(function (n) { return '<p class="notesline mt-1.5">' + n + "</p>"; }).join("") + "</section>"
+        : "";
       // The band's action is contextual, never a dead button: the
       // next fulfillment step while one applies, else the label PDF
       // once bought, else nothing (the label flow also keeps its own
@@ -452,7 +516,8 @@ const orderId = String(Astro.params.id || "");
         '<div class="flex flex-wrap items-center gap-2.5 mt-1">' +
           '<h1 class="text-[1.7rem] font-extrabold tracking-tight">' + esc(o.short_id || o.id) + "</h1>" +
           '<span class="chip chip-lg chip-' + esc(o.status) + '">' + esc(o.status) + "</span>" +
-          (o.physical_status ? '<span class="chip chip-lg chip-print">' + esc(LABELS[o.physical_status] || o.physical_status) + "</span>" : "") +
+          (data.headline_stage ? '<span class="stagepill ' + esc(data.headline_stage.tone || "muted") + '" style="font-size:.78rem;padding:4px 11px">' + esc(data.headline_stage.label || "") + "</span>" : "") +
+          (data.kind ? '<span class="chip chip-lg chip-print">' + esc(data.kind === "pod" ? "Printed (POD)" : data.kind === "club" ? "Club" : "Digital") + "</span>" : "") +
           (o.source === "manual" ? '<span class="chip chip-lg" style="background:#ede9fe;color:#5b21b6">Manual order</span>' : "") +
           (o.pricing_mode === "admin_cost" ? '<span class="chip chip-lg" style="background:#e0f2fe;color:#075985">Admin cost order</span>' : "") +
         "</div>" +
@@ -483,7 +548,9 @@ const orderId = String(Astro.params.id || "");
 
         productsTable +
 
-        (o.status !== "complete" || hasPrintJobs ? "" :
+        notesSection +
+
+        (o.status !== "complete" || podDriven ? "" :
           o.physical_status ?
           '<section class="card mt-4" id="label"><h2 class="font-bold">Fulfillment</h2>' + steps + stageBtns + shipHint +
             (o.tracking_status ? '<p class="text-sm text-stone-600 mt-2">Carrier status: ' + esc(o.tracking_status) + "</p>" : "") +

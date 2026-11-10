@@ -47,7 +47,7 @@ for (const field of ["toFulfill", "orders7d", "ordersTotal", "revenue30dCents"])
 }
 assert(ordersPage.includes('id="retry-emails"') && ordersPage.includes("retry_emails"), "the outbox retry action survives on the slim strip");
 assert(ordersPage.includes("SHIPPO") || ordersApi.includes("shippoStatus"), "the Shippo setup state still reaches the orders page");
-assert(ordersPage.includes('class="advance') || ordersPage.includes('"advance'), "the row quick advance action survives");
+assert(ordersPage.includes("menuItemsFor") && ordersPage.includes("set_physical_status"), "row actions survive in the kebab menu, stage advances included (orders redo: the advance button moved off the row)");
 for (const action of ["set_physical_status", "label_quote", "buy_label", "retry_emails"]) {
   assert(ordersApi.includes(action), `orders API action survives: ${action}`);
 }
@@ -57,8 +57,8 @@ for (const marker of ["Buyer", "Fulfillment", "Emails for this order", "Print la
 }
 assert(orderDetail.includes("set_physical_status"), "order detail keeps the fulfillment advance action");
 // Pick list + filter tabs (owner addendum, 2026-10-29).
-assert(ordersPage.includes("fmtPick") && ordersPage.includes("items_pick"), "orders rows summarize as a pick list (short names, counts, format chips)");
-assert(ordersPage.includes('data-tab="tofulfill"') && ordersPage.includes('data-tab="fulfilled"') && ordersPage.includes('data-tab="all"'), "orders filter tabs: To fulfill / Fulfilled / All");
+assert(ordersPage.includes("contentsHtml") && ordersPage.includes("items_pick"), "orders rows summarize as covers + item naming in the contents cell (orders redo, CG 2026-11-10)");
+assert(ordersPage.includes('id="kind-chips"') && ordersPage.includes('id="stage-select"') && ordersPage.includes('data-saved="needs_action"'), "orders filters: kind chips, stage select, saved filters (orders redo replaces the To fulfill / Fulfilled / All tabs)");
 assert(ordersApi.includes("tabCounts") && ordersApi.includes("items_pick"), "the orders API returns tab counts and pick lists");
 assert(ordersApi.includes("physical_status IS NULL"), "fulfilled includes completed digital/audio-only orders (physical_status IS NULL)");
 assert(orderDetail.includes("Order details") && orderDetail.includes("items_detail"), "order detail: structured items up top, reference ids de-emphasized at the bottom");

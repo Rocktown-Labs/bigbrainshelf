@@ -20,7 +20,10 @@ export interface AdminNavGroup {
 export const ADMIN_NAV: AdminNavGroup[] = [
   {
     label: "Overview",
-    items: [{ href: "/admin", label: "Dashboard", icon: "dashboard" }],
+    items: [
+      { href: "/admin", label: "Dashboard", icon: "dashboard" },
+      { href: "/admin/notifications", label: "Notifications", icon: "inbox" },
+    ],
   },
   {
     label: "Catalog",

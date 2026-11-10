@@ -139,7 +139,7 @@ for (const f of pageFiles) {
 assert(shellPages >= 20, `the shell is on every admin page (${shellPages} found)`);
 
 const dash = read("../src/pages/admin/index.astro");
-for (const marker of ["Total orders", "in the last 7 days", "Pending fulfillment", "Revenue, last 30 days", "Completed orders only", "Needs attention", "Fulfillment", "Audience", "Recent orders", "getAdminDashboard", "View all", "Club boxes due in the next 7 days"]) {
+for (const marker of ["Total orders", "in the last 7 days", "Pending fulfillment", "Revenue, last 30 days", "Completed orders only", "Pipeline by stage", "Audience", "Recent orders", "getAdminDashboard", "View all", "Notifications ›"]) {
   assert(dash.includes(marker), `dashboard carries: ${marker}`);
 }
 // Round 3 layout pins: three stat cards, actions below them, native
@@ -147,10 +147,11 @@ for (const marker of ["Total orders", "in the last 7 days", "Pending fulfillment
 assert(dash.includes("grid-template-columns:repeat(3,1fr)"), "stats are three across at every width");
 assert(dash.indexOf('class="stats"') < dash.indexOf('class="actions"'), "the actions pill row sits below the stat cards");
 assert(!dash.includes("Orders today") && !dash.includes("Orders, last 7 days"), "the old per-window order cards are gone");
-assert(dash.includes('class="steps"') && dash.includes('class="step'), "fulfillment stages render as a segmented stepper");
+assert(dash.includes("getOrderPipeline") && dash.includes("pipeline.pod") && dash.includes("pipeline.club"), "the pipeline renders stage x kind rows from the rollup (orders redo: the segmented stepper and alert cards are gone)");
+assert(dash.includes('href="/admin/notifications"') && dash.includes("buildAdminNotifications"), "attention is one line linking to Notifications, fed by the notifications builder");
 assert(dash.includes('class="row"') && dash.includes('class="sec-head"'), "sections use native list rows and tappable headers");
 assert(!dash.includes("<table"), "recent orders is a list, not the cramped table");
-for (const h of ["/admin/orders", "/admin/club", "/admin/books", "/admin/reviews", "/admin/cast-gemini"]) {
+for (const h of ["/admin/orders", "/admin/club", "/admin/books", "/admin/reviews", "/admin/notifications"]) {
   assert(dash.includes(`href="${h}"`), `dashboard links through to ${h}`);
 }
 
