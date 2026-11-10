@@ -4,7 +4,7 @@ import AdminShell from "../../components/AdminShell.astro";
 import { env } from "cloudflare:workers";
 import { getAdminDashboard } from "../../lib/admin-dashboard";
 import { buildAdminNotifications } from "../../lib/admin-notifications";
-import { getOrderPipeline } from "../../lib/order-stages";
+import { getOrderPipeline, visibleStageRows } from "../../lib/order-stages";
 import { luluConfigured } from "../../lib/lulu";
 
 if (!Astro.locals.user) {
@@ -49,6 +49,19 @@ const notifAwareness = notifItems.filter((n) => n.severity === "awareness");
 const notifAtRiskCents = notifAction.reduce((a, n) => a + (Number(n.amountCents) || 0), 0);
 const pipeline = await getOrderPipeline(e.DB).catch(() => null);
 const podLaneOn = luluConfigured(e);
+// Condense pass (CG, 2026-11-10): the pipeline card lists only
+// stages with activity, chip-style, grouped by lane. Zero-count
+// rows hide entirely (the exceptions row included, unless it has
+// something in it); an all-zero lane gets one quiet line.
+const pipePod = pipeline ? visibleStageRows(pipeline.pod) : [];
+const pipeHome = pipeline ? visibleStageRows(pipeline.home) : [];
+const pipeClub = pipeline ? visibleStageRows(pipeline.club) : [];
+const pipeDigital = pipeline
+  ? visibleStageRows([
+      { key: "delivered", label: "Delivered", count: pipeline.digital.delivered },
+      { key: "awaiting_payment", label: "Awaiting payment", count: pipeline.digital.awaitingPayment },
+    ])
+  : [];
 const clubTotal = d.audience.clubActiveByPlan.reduce((a, p) => a + p.count, 0);
 const clubPlanLabel = d.audience.clubActiveByPlan.map((p) => `${p.plan}: ${p.count}`).join(" · ");
 ---
@@ -105,6 +118,13 @@ const clubPlanLabel = d.audience.clubActiveByPlan.map((p) => `${p.plan}: ${p.cou
     .attnline .viewall{font-size:.85rem;font-weight:700;color:#c2410c;white-space:nowrap}
     .pipe-kind{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:#a8a29e;margin:16px 0 2px}
     .pipe-kind:first-of-type{margin-top:6px}
+    /* Pipeline chips (condense pass): active stages only, compact. */
+    .pipechips{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0 2px}
+    .pipechip{display:inline-flex;align-items:center;gap:5px;background:#f5f5f4;border:1px solid #e7e5e4;border-radius:999px;padding:4px 11px;font-size:.82rem;font-weight:600;color:#44403c}
+    .pipechip strong{font-weight:800;font-variant-numeric:tabular-nums;color:#1c1917}
+    .pipechip.exc{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
+    .pipechip.exc strong{color:#b91c1c}
+    .pipe-none{color:#a8a29e;font-size:.85rem;margin:3px 0 0}
 
     .cols{display:grid;grid-template-columns:1fr;gap:0 20px}
     @media (min-width:900px){
@@ -206,28 +226,45 @@ const clubPlanLabel = d.audience.clubActiveByPlan.map((p) => `${p.plan}: ${p.cou
         {pipeline ? (
           <div>
             <p class="pipe-kind">Printed (POD)</p>
-            <ul class="list">
-              {pipeline.pod.map((r) => (
-                <li><div class="row"><span class="row-main"><span class="row-title" style={r.key === "exceptions" && r.count > 0 ? "color:#b91c1c" : ""}>{r.label}</span></span><span class="row-count">{r.count}</span></div></li>
-              ))}
-            </ul>
+            {pipePod.length ? (
+              <div class="pipechips">
+                {pipePod.map((r) => (
+                  <span class={r.key === "exceptions" ? "pipechip exc" : "pipechip"}>{r.label} <strong>{r.count}</strong></span>
+                ))}
+              </div>
+            ) : (
+              <p class="pipe-none">Printed (POD) · nothing in flight</p>
+            )}
             <p class="pipe-kind">At home{podLaneOn ? "" : " (the live lane while Lulu is off)"}</p>
-            <ul class="list">
-              {pipeline.home.map((r) => (
-                <li><div class="row"><span class="row-main"><span class="row-title">{r.label}</span></span><span class="row-count">{r.count}</span></div></li>
-              ))}
-            </ul>
+            {pipeHome.length ? (
+              <div class="pipechips">
+                {pipeHome.map((r) => (
+                  <span class="pipechip">{r.label} <strong>{r.count}</strong></span>
+                ))}
+              </div>
+            ) : (
+              <p class="pipe-none">At home · nothing in flight</p>
+            )}
             <p class="pipe-kind">Digital</p>
-            <ul class="list">
-              <li><div class="row"><span class="row-main"><span class="row-title">Delivered</span></span><span class="row-count">{pipeline.digital.delivered}</span></div></li>
-              <li><div class="row"><span class="row-main"><span class="row-title">Awaiting payment</span></span><span class="row-count">{pipeline.digital.awaitingPayment}</span></div></li>
-            </ul>
+            {pipeDigital.length ? (
+              <div class="pipechips">
+                {pipeDigital.map((r) => (
+                  <span class="pipechip">{r.label} <strong>{r.count}</strong></span>
+                ))}
+              </div>
+            ) : (
+              <p class="pipe-none">Digital · nothing in flight</p>
+            )}
             <p class="pipe-kind">Club boxes</p>
-            <ul class="list">
-              {pipeline.club.map((r) => (
-                <li><div class="row"><span class="row-main"><span class="row-title" style={r.key === "past_due" && r.count > 0 ? "color:#b91c1c" : ""}>{r.label}</span></span><span class="row-count">{r.count}</span></div></li>
-              ))}
-            </ul>
+            {pipeClub.length ? (
+              <div class="pipechips">
+                {pipeClub.map((r) => (
+                  <span class={r.key === "past_due" ? "pipechip exc" : "pipechip"}>{r.label} <strong>{r.count}</strong></span>
+                ))}
+              </div>
+            ) : (
+              <p class="pipe-none">Club boxes · nothing in flight</p>
+            )}
           </div>
         ) : (
           <p class="meta">Pipeline unavailable right now.</p>

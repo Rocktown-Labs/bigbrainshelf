@@ -148,6 +148,7 @@ assert(dash.includes("grid-template-columns:repeat(3,1fr)"), "stats are three ac
 assert(dash.indexOf('class="stats"') < dash.indexOf('class="actions"'), "the actions pill row sits below the stat cards");
 assert(!dash.includes("Orders today") && !dash.includes("Orders, last 7 days"), "the old per-window order cards are gone");
 assert(dash.includes("getOrderPipeline") && dash.includes("pipeline.pod") && dash.includes("pipeline.club"), "the pipeline renders stage x kind rows from the rollup (orders redo: the segmented stepper and alert cards are gone)");
+assert(dash.includes("visibleStageRows") && dash.includes("nothing in flight") && dash.includes("pipechip"), "the pipeline shows only stages with activity, chip-style; all-zero lanes read 'nothing in flight' (condense pass, CG 2026-11-10)");
 assert(dash.includes('href="/admin/notifications"') && dash.includes("buildAdminNotifications"), "attention is one line linking to Notifications, fed by the notifications builder");
 assert(dash.includes('class="row"') && dash.includes('class="sec-head"'), "sections use native list rows and tappable headers");
 assert(!dash.includes("<table"), "recent orders is a list, not the cramped table");

@@ -14,6 +14,7 @@ import {
   matchesSavedFilter,
   homePackLaneEnabled,
   getOrderPipeline,
+  visibleStageRows,
   type StageJobInput,
 } from '../src/lib/order-stages';
 
@@ -130,6 +131,22 @@ test('club box Lane B flag: default off, on only for 1/true', () => {
   expect(homePackLaneEnabled({ CLUB_HOME_PACK_LANE: '1' })).toBe(true);
   expect(homePackLaneEnabled({ CLUB_HOME_PACK_LANE: 'true' })).toBe(true);
   expect(homePackLaneEnabled(null)).toBe(false);
+});
+
+test('dashboard pipeline hides zero-count stages (condense pass, CG 2026-11-10)', () => {
+  const rows = [
+    { key: 'job_queued', label: 'Paid, job queued', count: 0 },
+    { key: 'sent_to_lulu', label: 'Sent to Lulu, cancel window open', count: 4 },
+    { key: 'exceptions', label: 'Exceptions', count: 0 },
+  ];
+  // Only the active stage survives; the exceptions row hides at 0.
+  expect(visibleStageRows(rows).map((r) => r.key)).toEqual(['sent_to_lulu']);
+  // An exceptions row WITH activity stays (the dashboard paints it red).
+  const withExceptions = [...rows.slice(0, 2), { key: 'exceptions', label: 'Exceptions', count: 2 }];
+  expect(visibleStageRows(withExceptions).map((r) => r.key)).toEqual(['sent_to_lulu', 'exceptions']);
+  // An all-zero lane filters to empty, which the page renders as
+  // its one quiet "nothing in flight" line.
+  expect(visibleStageRows(rows.map((r) => ({ ...r, count: 0 })))).toEqual([]);
 });
 
 test('pipeline counts by stage x kind from the tables of record', async () => {
