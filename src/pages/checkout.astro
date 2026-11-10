@@ -443,7 +443,7 @@ try {
               // dedication, no quantity, no gift toggle.
               total += ci.price;
               return '<div class="flex gap-4 py-4 border-b border-stone-100">' +
-                '<div class="w-16 aspect-[3/4] rounded bg-[#1a3454] text-white flex items-center justify-center shrink-0"><span class="text-[9px] font-extrabold leading-tight tracking-wide text-center">BIG<br />BRAIN<br />SHELF</span></div>' +
+                '<div class="w-16 aspect-[3/4] rounded bg-[#1a3454] text-white flex items-center justify-center shrink-0 self-start"><span class="text-[9px] font-extrabold leading-tight tracking-wide text-center">BIG<br />BRAIN<br />SHELF</span></div>' +
                 '<div class="flex-1"><p class="text-sm font-semibold">' + ci.title + '</p><p class="text-xs text-stone-500">Membership · ' + ci.periodLabel + '</p>' +
                 '<button class="remove text-xs text-stone-400 hover:text-red-600 mt-1" data-idx="' + idx + '">Remove</button></div>' +
                 '<p class="text-sm font-semibold">' + store.money(ci.price) + '<span class="block text-xs font-normal text-stone-400">per billing period</span></p></div>';
@@ -462,8 +462,13 @@ try {
             // as the cart sheet; a flagged line wears the Gift tag.
             var giftToggle = '<label class="mt-1.5 flex items-center gap-1.5 text-xs text-stone-500 cursor-pointer w-fit"><input type="checkbox" class="gift-toggle accent-orange-600" data-idx="' + idx + '"' + (it.gift ? " checked" : "") + ' /> This is a gift</label>';
             var giftTag = it.gift ? ' <span class="align-middle rounded-full bg-orange-100 text-orange-800 text-[10px] font-bold px-1.5 py-0.5">Gift</span>' : '';
+            // Cover thumb: self-start + shrink-0 + object-contain,
+            // same fix as the cart sheet (2026-11-10). As a plain
+            // flex child the img stretched to the text column's
+            // height, defeating aspect-[3/4], and object-cover
+            // cropped the cover's title band.
             return '<div class="flex gap-4 py-4 border-b border-stone-100">' +
-              (b.cover_key ? '<img src="' + (b.cover_card || (store.R2 + b.cover_key)) + '" class="w-16 aspect-[3/4] object-cover rounded bg-stone-100" />' : '<div class="w-16 aspect-[3/4] rounded bg-stone-100"></div>') +
+              (b.cover_key ? '<img src="' + (b.cover_card || (store.R2 + b.cover_key)) + '" class="w-16 aspect-[3/4] object-contain rounded bg-stone-100 shrink-0 self-start" />' : '<div class="w-16 aspect-[3/4] rounded bg-stone-100 shrink-0 self-start"></div>') +
               '<div class="flex-1"><p class="text-sm font-semibold">' + b.title + giftTag + '</p><p class="text-xs text-stone-500 capitalize">' + (b.topic || "tech") + ' · ' + fmt + (q > 1 ? ' · Qty ' + q : '') + '</p>' + dedication + giftToggle +
               '<button class="remove text-xs text-stone-400 hover:text-red-600 mt-1 block" data-idx="' + idx + '">Remove</button></div>' +
               '<p class="text-sm font-semibold">' + store.money(p * q) + (q > 1 ? '<span class="block text-xs font-normal text-stone-400">' + store.money(p) + ' each</span>' : '') + '</p></div>';
