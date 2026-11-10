@@ -1281,6 +1281,45 @@ export async function ensureOrderManualColumns(db: DBLike): Promise<void> {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Pricing mode (admin cost-price ordering, CG 2026-11-10): an order
+// placed by an admin at Lulu cost + $3 carries pricing_mode =
+// 'admin_cost' and a pricing_detail JSON breakdown (the Lulu job
+// cost it was priced from, the markup, and the per-line amounts), so
+// the orders admin can badge it at a glance and the revenue sums can
+// leave it out — it is prep spend passing through, not store
+// revenue. Ordinary orders leave both columns NULL. Runtime-ensured
+// like the manual-order columns above.
+
+export async function ensureOrderPricingColumns(db: DBLike): Promise<void> {
+  await ensureOnce(db, "orders.pricing_columns", async () => {
+    const { results } = await db
+      .prepare("SELECT name FROM pragma_table_info('orders')")
+      .bind()
+      .all();
+    const have = new Set((results || []).map((r: any) => String(r.name)));
+    if (!have.has("pricing_mode")) {
+      await db.prepare("ALTER TABLE orders ADD COLUMN pricing_mode TEXT").bind().run();
+    }
+    if (!have.has("pricing_detail")) {
+      await db.prepare("ALTER TABLE orders ADD COLUMN pricing_detail TEXT").bind().run();
+    }
+  });
+}
+
+export async function stampOrderPricing(
+  db: DBLike,
+  orderId: string,
+  pricingMode: string,
+  detail: Record<string, unknown>
+): Promise<void> {
+  await ensureOrderPricingColumns(db);
+  await db
+    .prepare("UPDATE orders SET pricing_mode = ?, pricing_detail = ? WHERE id = ?")
+    .bind(pricingMode, JSON.stringify(detail), orderId)
+    .run();
+}
+
 export interface ManualOrderLineInput {
   // The book's PUBLIC slug, as picked in the form; the internal slug
   // is resolved server-side and is what the order row stores.

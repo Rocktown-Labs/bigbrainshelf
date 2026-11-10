@@ -10,7 +10,7 @@
 // human gates (pilot approval, QA, repair) — page-level hold state
 // itself lives in the factory's R2 page files, not in D1, so the
 // dashboard reports the book-level gates it can actually see.
-import { orderItemLabels } from "./orders";
+import { orderItemLabels, ensureOrderPricingColumns } from "./orders";
 import { ensurePublicSlugColumn, publicSlugFor } from "./public-slugs";
 import { getUrgency, type UrgencyData } from "./urgency";
 
@@ -82,6 +82,7 @@ export async function getAdminDashboard(db: any, nowSec: number, podActive = fal
   // The needs-attention query reads public_slug (admin links wear
   // it); make sure the column exists on any database this runs on.
   await ensurePublicSlugColumn(db).catch(() => {});
+  await ensureOrderPricingColumns(db).catch(() => {});
 
   // ---- Stat cards ---------------------------------------------------
   const ordersTotal = await count(db, "SELECT COUNT(*) AS n FROM orders");
@@ -91,8 +92,10 @@ export async function getAdminDashboard(db: any, nowSec: number, podActive = fal
   const orders7d = await count(
     db, "SELECT COUNT(*) AS n FROM orders WHERE created_at >= ?", nowSec - 7 * DAY
   );
+  // Admin cost orders (pricing_mode = 'admin_cost') are prep spend
+  // passing through, not store revenue: out of the 30-day sum.
   const revRow = await db
-    .prepare("SELECT COALESCE(SUM(amount), 0) AS n FROM orders WHERE status = 'complete' AND created_at >= ?")
+    .prepare("SELECT COALESCE(SUM(amount), 0) AS n FROM orders WHERE status = 'complete' AND created_at >= ? AND COALESCE(pricing_mode, '') != 'admin_cost'")
     .bind(nowSec - 30 * DAY)
     .first();
   const revenue30dCents = Number((revRow as any)?.n || 0);

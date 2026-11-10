@@ -57,6 +57,8 @@ import {
   getPrintJob,
   getPrintJobStatus,
   luluConfigured,
+  luluCredsPresent,
+  luluEnvName,
   luluStatusName,
   normalizeLuluAddress,
   sha256Hex,
@@ -398,6 +400,82 @@ export async function quoteLuluShipping(
     validatedAddress: null,
   };
   return { quote, detail };
+}
+
+// ---------------------------------------------------------------------------
+// Full job costing (admin cost-price ordering, CG 2026-11-10). The
+// shipping quote above reads only the shipping slice of Lulu's cost
+// calculation; an admin self-order prices from the WHOLE job cost
+// (printing + shipping + fulfilment, tax included) for the cart's
+// physical units as the one job they ship as. Unlike the shipping
+// quote this reads the cost calculation whenever Lulu credentials
+// are configured for the selected environment (sandbox today), even
+// while the fulfilment lane itself is off: it places nothing and
+// changes no fulfilment state, it only prices. Null when no
+// credential pair is configured or any physical unit has no
+// registered printable (the caller fails the admin checkout with
+// the reason rather than silently charging retail); a Lulu API
+// failure throws, same as the shipping quote.
+
+export interface LuluJobCost {
+  /** Which Lulu environment priced the job ("sandbox" | "production"). */
+  envName: string;
+  currency: string | null;
+  totalInclTaxCents: number;
+  totalExclTaxCents: number | null;
+  totalTaxCents: number | null;
+  fulfillmentInclTaxCents: number | null;
+  shippingInclTaxCents: number | null;
+}
+
+export async function quoteLuluJobCost(
+  db: DBLike,
+  env: any,
+  args: {
+    items: { slug: string; format: string; qty?: number }[];
+    name?: string | null;
+    address: {
+      line1?: string | null;
+      line2?: string | null;
+      city?: string | null;
+      state?: string | null;
+      postal_code?: string | null;
+      country?: string | null;
+    };
+    phone?: string | null;
+  }
+): Promise<LuluJobCost | null> {
+  if (!luluCredsPresent(env)) return null;
+  const lineItems = await resolveLuluQuoteLineItems(db, args.items);
+  if (!lineItems || !lineItems.length) return null;
+  const { address } = normalizeLuluAddress({
+    name: args.name,
+    line1: args.address?.line1,
+    line2: args.address?.line2,
+    city: args.address?.city,
+    state: args.address?.state,
+    postal_code: args.address?.postal_code,
+    country: args.address?.country,
+    phone: args.phone,
+  });
+  const cost = await costCalculation(env, {
+    lineItems,
+    shippingAddress: address,
+    shippingOption: LULU_CHECKOUT_SHIPPING_LEVEL,
+  });
+  const totalInclTaxCents = dollarsToCents(cost.totalCostInclTax);
+  if (totalInclTaxCents === null) {
+    throw new Error("Lulu cost calculation returned no total cost.");
+  }
+  return {
+    envName: luluEnvName(env),
+    currency: cost.currency,
+    totalInclTaxCents,
+    totalExclTaxCents: dollarsToCents(cost.totalCostExclTax),
+    totalTaxCents: dollarsToCents(cost.totalTax),
+    fulfillmentInclTaxCents: dollarsToCents(cost.fulfillmentCost),
+    shippingInclTaxCents: dollarsToCents(cost.shippingCost),
+  };
 }
 
 // ---------------------------------------------------------------------------
