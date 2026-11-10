@@ -217,12 +217,31 @@ const marketingCheck = delivery?.checks.find((c) => c.id === "marketing-assets")
       }
       bulkApprove("approve-all-btn", true, "Approve every page of this book? Do this after your QC review pass. Redoing a page later clears its approval.");
       bulkApprove("approve-clear-btn", false, "Clear every page approval on this book?");
+      // The publish API reports a refusal as { gate, reason, blockers }
+      // (src/pages/api/editor/publish.ts). This handler used to read
+      // j.error / j.reasons, which the API never sends, so every refusal
+      // collapsed to a bare "HTTP 409" and the click looked dead.
+      function publishRefusal(j, status) {
+        if (j.reason) return j.reason;
+        if (Array.isArray(j.blockers) && j.blockers.length) {
+          return j.blockers.map(function (b) { return b && b.detail ? ((b.id ? b.id + ": " : "") + b.detail) : ""; }).filter(Boolean).join(" ");
+        }
+        if (j.error) return j.error;
+        return "HTTP " + status;
+      }
       var pb = document.getElementById("publish-btn");
       if (pb) pb.addEventListener("click", function () {
-        if (!window.confirm("Publish this book now? The gates still apply: every page approved and the audio gate, unless an override is on record in the editor.")) return;
+        // Say something BEFORE the confirmation dialog: a dismissed or
+        // browser-suppressed dialog used to make this click a silent
+        // no-op, indistinguishable from a dead button (2026-11-10, Mira).
+        say("Publishing starts with the confirmation dialog. If no dialog appears, this browser is suppressing it.");
+        if (!window.confirm("Publish this book now? The gates still apply: every page approved and the audio gate, unless an override is on record in the editor.")) {
+          say("Publish cancelled at the confirmation step. Nothing was published.");
+          return;
+        }
         pb.disabled = true; say("Publishing...");
         fetch("/api/editor/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ book_slug: pb.getAttribute("data-slug") }) })
-          .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || (j.reasons ? j.reasons.join(" ") : "HTTP " + r.status)); return j; }); })
+          .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(publishRefusal(j, r.status)); return j; }); })
           .then(function () { say("Published. Reloading..."); setTimeout(function () { window.location.reload(); }, 800); })
           .catch(function (e) { say("Publish refused: " + (e.message || e)); pb.disabled = false; });
       });
