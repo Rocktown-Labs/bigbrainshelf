@@ -39,7 +39,7 @@ assert(clubPage.includes("Reservations &amp; canceled") && clubPage.includes("pa
 const ordersPage = read("../src/pages/admin/orders.astro");
 const ordersApi = read("../src/pages/api/admin/orders.ts");
 for (const marker of ["To fulfill", "Orders, last 7 days", "Revenue, last 30 days"]) {
-  assert(ordersPage.includes(marker), `orders stat card: ${marker}`);
+  assert(ordersPage.includes(marker), `orders stat line: ${marker}`);
 }
 assert(ordersPage.includes('id="stat-fulfill"') && ordersPage.includes('id="stat-revenue"'), "orders stats bind to the API stats payload");
 for (const field of ["toFulfill", "orders7d", "ordersTotal", "revenue30dCents"]) {
@@ -47,6 +47,20 @@ for (const field of ["toFulfill", "orders7d", "ordersTotal", "revenue30dCents"])
 }
 assert(ordersPage.includes('id="retry-emails"') && ordersPage.includes("retry_emails"), "the outbox retry action survives on the slim strip");
 assert(ordersPage.includes("SHIPPO") || ordersApi.includes("shippoStatus"), "the Shippo setup state still reaches the orders page");
+// Condense pass (CG phone review, 2026-11-10): the orders page is
+// the table plus what matters. Stat cards became one line, the
+// outbox became a status line, the Shippo banner left the list
+// page, secondary filters hide behind a toggle on mobile, the
+// per-page selector sits in the table footer, the packing queue is
+// slim rows, and mobile table rows are cover + buyer/item + pill.
+assert(ordersPage.includes('class="statline"') && !ordersPage.includes('class="stats"'), "orders stats are one slim line, not three cards (condense pass)");
+assert(!ordersPage.includes('id="shippo-banner"'), "the Shippo banner is gone from the orders list page (carrier state lives on order detail)");
+assert(ordersPage.includes("· pending ") && ordersPage.includes('id="retry-emails" hidden'), "the outbox is a status line and Retry shows only when pending/failed exist");
+assert(ordersPage.includes('id="filters-toggle"') && ordersPage.includes('id="filters-row"'), "stage select + saved filters sit in one secondary row behind the mobile Filters toggle");
+assert(ordersPage.includes('class="tablefoot"') && ordersPage.indexOf('id="per-page"') > ordersPage.indexOf('id="orders-rows"'), "the per-page selector lives in the table footer");
+assert(ordersPage.includes("packrow") && ordersPage.includes('id="packing-cards" class="packrows'), "the packing queue renders as slim rows");
+assert(ordersPage.includes("m-itemline") && ordersPage.includes("max-width:699px") && ordersPage.includes("grid-template-areas"), "mobile orders rows: slim grid (cover, buyer + item line, pill over total), no column headers");
+assert(ordersPage.includes("Club orders") && !ordersPage.includes("Club boxes"), "the kind chip reads Club orders, not Club boxes (boxes are not orders-table rows)");
 assert(ordersPage.includes("menuItemsFor") && ordersPage.includes("set_physical_status"), "row actions survive in the kebab menu, stage advances included (orders redo: the advance button moved off the row)");
 for (const action of ["set_physical_status", "label_quote", "buy_label", "retry_emails"]) {
   assert(ordersApi.includes(action), `orders API action survives: ${action}`);

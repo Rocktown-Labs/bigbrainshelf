@@ -269,6 +269,14 @@ export function homePackLaneEnabled(envLike: any): boolean {
   return v === "1" || v === "true";
 }
 
+// The dashboard shows only stages WITH activity (condense pass,
+// CG 2026-11-10): a zero-count stage row is noise on a phone, so
+// the pipeline card filters to count > 0 and an all-zero lane
+// renders one quiet "nothing in flight" line instead.
+export function visibleStageRows<T extends { count: number }>(rows: T[]): T[] {
+  return rows.filter((r) => r.count > 0);
+}
+
 // Dashboard pipeline: counts by stage x kind, maintained from the
 // tables of record at read time (the catalog is small; the
 // prototype's rollup table is a scale optimization, not a

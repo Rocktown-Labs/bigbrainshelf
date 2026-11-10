@@ -2,13 +2,17 @@
 import "../../styles/global.css";
 import AdminShell from "../../components/AdminShell.astro";
 export const prerender = false;
-// Orders admin (operator redesign, 2026-10-29): three stat cards, a
-// slim outbox strip, filter tabs, and the orders as a slim table
-// (Date | Customer + Order ID | Items | Price | Format circles |
-// next step) in the daisyUI table aesthetic, hand-rolled per the
-// shadcn precedent. The customer cell leads with the buyer name
-// (ship_name, email as the fallback) so rows are told apart at a
-// glance; the short order id rides under it.
+// Orders admin (operator redesign, 2026-10-29; condensed per CG's
+// phone review, 2026-11-10): the table is the page's main event.
+// Above it: a slim header, one stat line, the outbox as a status
+// line, the packing queue as slim rows, the lane one-liner, search,
+// one kind-chip row, and one secondary filter row (behind a Filters
+// toggle on mobile); the per-page selector sits in the table
+// footer. On mobile the table becomes slim rows (cover, buyer +
+// item line, stage pill over total) with no column headers. The
+// customer cell leads with the buyer name (ship_name, email as the
+// fallback) so rows are told apart at a glance; the short order id
+// rides under it.
 // The full order (buyer, address, label flow, email history) lives
 // on /admin/orders/[id]. Data comes from /api/admin/orders (admin
 // session required).
@@ -27,19 +31,24 @@ export const prerender = false;
        injected DOM. Class names here are page-specific. -->
   <style is:global>
     html{-webkit-tap-highlight-color:transparent}
-    /* Stat row: exactly three across at every width (dashboard style). */
-    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 4px}
-    .stat{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:12px;box-shadow:0 1px 2px rgba(28,25,23,.05)}
-    .stat .k{font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#a8a29e;margin:0;line-height:1.3}
-    .stat .v{font-size:1.45rem;font-weight:800;letter-spacing:-.02em;margin:.25rem 0 .1rem;font-variant-numeric:tabular-nums}
-    .stat .s{font-size:.72rem;color:#78716c;margin:0;line-height:1.35}
-    @media (min-width:640px){
-      .stats{gap:14px}
-      .stat{padding:16px 18px}
-      .stat .k{font-size:.72rem;letter-spacing:.12em}
-      .stat .v{font-size:1.9rem}
-      .stat .s{font-size:.8rem}
+    /* Condense pass (CG, 2026-11-10): the three stat cards became
+       ONE slim stat line; the table is the page's main event. */
+    .statline{margin:14px 0 0;font-size:.88rem;color:#78716c;font-variant-numeric:tabular-nums}
+    .statline strong{color:#1c1917;font-weight:800}
+    .statline .sep{color:#d6d3d1;margin:0 4px}
+    /* Secondary controls (stage select + saved filters): one quiet
+       row on desktop; on mobile they hide behind the Filters
+       toggle so the table starts sooner. */
+    .filters-toggle{display:none;align-items:center;min-height:44px;padding:8px 14px;border-radius:10px;border:1px solid #e7e5e4;background:#fff;font-size:.85rem;font-weight:700;color:#44403c;cursor:pointer;touch-action:manipulation}
+    @media (max-width:767px){
+      .filters-toggle{display:inline-flex}
+      #filters-row{display:none}
+      #filters-row.open{display:flex}
     }
+    /* Table footer: per-page lives here now, pager beside it. */
+    .tablefoot{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}
+    .tablefoot .perpage-wrap{display:inline-flex;align-items:center;gap:8px;font-size:.83rem;font-weight:600;color:#78716c}
+    .tablefoot #orders-pager{margin-left:auto}
     .tap{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
     /* Filter tabs: segmented pills with counts, 44px touch targets. */
     .tabbtn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 14px;border-radius:999px;border:1px solid #e7e5e4;background:#fff;font-size:.85rem;font-weight:600;color:#57534e;cursor:pointer}
@@ -109,6 +118,30 @@ export const prerender = false;
       .c-id{width:15%}.c-items{width:32%}.c-price{width:10%}.c-fmt{width:13%}.c-act{width:19%}
     }
     .pick-more{color:#a8a29e;font-weight:600}
+    /* Mobile rows (condense pass, CG 2026-11-10): below 700px the
+       table columns crammed and the stage pill overlapped the total.
+       A row is now a slim grid: small cover, buyer name + item line,
+       stage pill over total on the right. No column headers, no KIND
+       column (the item line and pill carry it), no bulk checkbox
+       (batch work is a desktop task); the whole row still taps
+       through to the order page. */
+    .m-itemline{display:none}
+    @media (max-width:699px){
+      .otable{table-layout:auto}
+      .otable thead{display:none}
+      .otable tbody tr{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"covers main stage" "covers main total";column-gap:10px;align-items:center;padding:9px 10px}
+      .otable td{padding:1px 0;border-bottom:0;width:auto}
+      .otable .c-check,.otable .c-kind,.otable .c-age,.otable .c-act2{display:none}
+      .otable .c-contents{grid-area:covers}
+      .otable .c-contents .names-line{display:none}
+      .otable .covers-line{margin:0}
+      .otable .covers-line img:nth-child(n+3){display:none}
+      .otable .c-order{grid-area:main;min-width:0}
+      .otable .c-order .o-idline,.otable .c-order .o-dateline{display:none}
+      .otable .m-itemline{display:block;font-size:.82rem;color:#57534e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+      .otable .c-stage{grid-area:stage;justify-self:end}
+      .otable .c-total{grid-area:total;justify-self:end}
+    }
     /* Row kebab (three-dots) menu: the button sits beside the next-
        step button in the actions cell with a full 44px tap target.
        The menu itself is ONE shared element on document.body with
@@ -122,20 +155,21 @@ export const prerender = false;
     .rowmenu-item{display:flex;align-items:center;width:100%;min-height:44px;padding:8px 12px;border-radius:8px;font-size:.9rem;font-weight:600;color:#1c1917;text-align:left;cursor:pointer;text-decoration:none;box-sizing:border-box;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
     .rowmenu-item:active{background:#f5f5f4}
     @media (hover:hover) and (pointer:fine){.rowmenu-item:hover{background:#f5f5f4}}
-    /* Packing shelf (S4): compact cards for everything awaiting
-       fulfillment, store orders and club boxes together. A card is
-       cover + ref + contents count + stage; tapping opens the one
-       fulfillment view for that parcel. */
-    .packshelf{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;-webkit-overflow-scrolling:touch}
-    .packcard{flex:none;width:128px;background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:8px;text-decoration:none;color:inherit;box-shadow:0 1px 2px rgba(28,25,23,.05)}
-    .packcard:active{transform:scale(.98)}
-    .packcard img,.packcard .pack-nocover{display:block;width:100%;height:96px;object-fit:cover;border-radius:8px;background:#f5f5f4}
-    .packcard .pack-nocover{display:grid;place-items:center;color:#a8a29e;font-size:.7rem;font-weight:700}
-    .packcard .pack-ref{display:block;font-size:.78rem;font-weight:800;letter-spacing:-.01em;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .packcard .pack-meta{display:block;font-size:.7rem;color:#78716c;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .packcard .pack-stage{display:inline-block;font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#9a3412;background:#ffedd5;border-radius:999px;padding:2px 7px;margin-top:6px}
-    .packcard .pack-stage.pick{color:#7c2d12;background:#fee2e2}
-    .packcard .pack-stage.done{color:#065f46;background:#d1fae5}
+    /* Packing queue (S4, condensed 2026-11-10): slim ROWS, one per
+       parcel awaiting fulfillment, store orders and club boxes
+       together. A row is small cover + ref + contents count + stage
+       pill; tapping opens the one fulfillment view for that parcel. */
+    .packrows{display:flex;flex-direction:column;gap:6px}
+    .packrow{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e7e5e4;border-radius:10px;padding:7px 10px;text-decoration:none;color:inherit}
+    .packrow:active{background:#f5f5f4}
+    .packrow img,.packrow .pack-nocover{flex:none;width:26px;height:34px;object-fit:cover;border-radius:3px;border:1px solid #e7e5e4;background:#f5f5f4;display:block}
+    .packrow .pack-nocover{display:grid;place-items:center;color:#a8a29e;font-size:.5rem;font-weight:700;text-align:center}
+    .packrow .pack-main{flex:1;min-width:0}
+    .packrow .pack-ref{display:block;font-size:.85rem;font-weight:800;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .packrow .pack-meta{display:block;font-size:.72rem;color:#78716c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .packrow .pack-stage{flex:none;font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#9a3412;background:#ffedd5;border-radius:999px;padding:2px 7px}
+    .packrow .pack-stage.pick{color:#7c2d12;background:#fee2e2}
+    .packrow .pack-stage.done{color:#065f46;background:#d1fae5}
     /* Completed section: finished parcels live behind one collapsed
        summary so the shelf above stays waiting work only. */
     #completed-details summary{list-style:none;min-height:32px;display:flex;align-items:center;gap:6px}
@@ -149,47 +183,25 @@ export const prerender = false;
   <AdminShell current="/admin/orders" />
 
   <main class="mx-auto max-w-6xl px-4 py-8" style="padding-bottom:calc(2rem + env(safe-area-inset-bottom, 0px))">
-    <div class="flex flex-wrap items-start gap-3">
-      <div class="flex-1 min-w-[220px]">
-        <h1 class="text-2xl font-bold tracking-tight">Orders</h1>
-        <p class="text-sm text-stone-500 mt-1">New orders, what needs shipping, and the email outbox.</p>
-      </div>
-      <a href="/admin/orders/new" class="tap inline-flex items-center rounded-lg bg-stone-900 text-white text-sm font-semibold px-4 min-h-[44px] no-underline">New manual order</a>
+    <div class="flex flex-wrap items-center gap-3">
+      <h1 class="flex-1 text-2xl font-bold tracking-tight">Orders</h1>
+      <a href="/admin/orders/new" class="tap inline-flex items-center rounded-lg bg-stone-900 text-white text-[13px] font-semibold px-3 min-h-[36px] no-underline">New manual order</a>
     </div>
 
-    <div class="stats">
-      <div class="stat">
-        <p class="k">To fulfill</p>
-        <p class="v" id="stat-fulfill">–</p>
-        <p class="s">Printed orders received, in print, or packed, not yet shipped.</p>
-      </div>
-      <div class="stat">
-        <p class="k">Orders, last 7 days</p>
-        <p class="v" id="stat-orders7">–</p>
-        <p class="s" id="stat-orders-total">All statuses.</p>
-      </div>
-      <div class="stat">
-        <p class="k">Revenue, last 30 days</p>
-        <p class="v" id="stat-revenue">–</p>
-        <p class="s">Completed orders only.</p>
-      </div>
-    </div>
+    <p class="statline">To fulfill <strong id="stat-fulfill">–</strong><span class="sep">·</span>Orders, last 7 days <strong id="stat-orders7">–</strong><span class="sep">·</span>Revenue, last 30 days <strong id="stat-revenue">–</strong></p>
 
-    <div id="outbox-strip" class="mt-5 rounded-xl bg-white border border-stone-200 px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+    <div id="outbox-strip" class="mt-3 rounded-xl bg-white border border-stone-200 px-4 py-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
       <span class="text-sm font-semibold">Email outbox</span>
       <span id="outbox-counts" class="text-sm text-stone-500">loading...</span>
       <span id="retry-result" class="text-sm text-stone-500"></span>
-      <button id="retry-emails" class="tap ml-auto rounded-lg bg-stone-900 text-white text-sm font-semibold px-4 min-h-[44px] hover:bg-stone-700">Retry pending emails</button>
+      <button id="retry-emails" hidden class="tap ml-auto rounded-lg bg-stone-900 text-white text-[13px] font-semibold px-3 min-h-[36px] hover:bg-stone-700">Retry pending</button>
     </div>
 
-    <div id="shippo-banner" class="mt-3 rounded-xl border px-4 py-2.5 text-sm hidden"></div>
-
-    <section id="packing-shelf" class="mt-6 hidden" aria-label="Packing queue">
+    <section id="packing-shelf" class="mt-5 hidden" aria-label="Packing queue">
       <h2 class="text-base font-bold tracking-tight">What do we pack and ship?</h2>
-      <p class="text-[13px] text-stone-500 mt-0.5">Store orders and club boxes waiting on us. Tap one to open it and pack it.</p>
-      <div id="packing-cards" class="packshelf mt-3"></div>
+      <div id="packing-cards" class="packrows mt-2"></div>
     </section>
-    <div id="packing-empty" class="mt-6 hidden rounded-xl bg-white border border-stone-200 px-4 py-4">
+    <div id="packing-empty" class="mt-5 hidden rounded-xl bg-white border border-stone-200 px-4 py-4">
       <p class="text-sm font-semibold">Nothing waiting to pack.</p>
       <p class="text-[13px] text-stone-500 mt-0.5">New printed orders and club boxes land here as they come in.</p>
       <a href="/admin/books" class="tap inline-flex items-center mt-3 rounded-lg bg-stone-900 text-white text-sm font-semibold px-4 min-h-[44px]">Browse the book shelf</a>
@@ -198,18 +210,24 @@ export const prerender = false;
     <section id="completed-shelf" class="mt-4 hidden" aria-label="Completed parcels">
       <details id="completed-details" class="rounded-xl bg-white border border-stone-200 px-4 py-3 shadow-sm">
         <summary class="tap cursor-pointer text-sm font-bold">Completed <span id="completed-count" class="text-stone-500 font-semibold"></span></summary>
-        <p class="text-[13px] text-stone-500 mt-1">Shipped and delivered parcels, newest first. Finished work lives here, off the packing shelf. Tap one to reopen it.</p>
-        <div id="completed-cards" class="packshelf mt-3"></div>
+        <p class="text-[13px] text-stone-500 mt-1">Shipped and delivered parcels, newest first. Finished work lives here, off the packing queue. Tap one to reopen it.</p>
+        <div id="completed-cards" class="packrows mt-3"></div>
       </details>
     </section>
 
     <div id="lane-banner" class="lane-banner">Lulu lane: checking…</div>
 
-    <div class="filterbar" aria-label="Order filters">
+    <div class="filterbar" aria-label="Order search">
       <label class="searchbox">
         <span aria-hidden="true">⌕</span>
         <input id="orders-search" type="search" placeholder="Search order id, email, tracking…" autocomplete="off" />
       </label>
+      <button type="button" id="filters-toggle" class="filters-toggle" aria-expanded="false" aria-controls="filters-row">Filters</button>
+    </div>
+    <div class="filterbar" style="margin-top:8px" aria-label="Kind filters">
+      <span id="kind-chips" class="contents"></span>
+    </div>
+    <div class="filterbar" id="filters-row" style="margin-top:8px" aria-label="Stage and saved filters">
       <select id="stage-select" class="stagesel" aria-label="Stage filter">
         <option value="all">All stages</option>
         <option value="needs_attention">Needs attention</option>
@@ -219,14 +237,6 @@ export const prerender = false;
         <option value="shipped">Shipped</option>
         <option value="delivered">Delivered</option>
       </select>
-      <select id="per-page" class="perpagesel" aria-label="Orders per page">
-        <option value="10">10 / page</option>
-        <option value="25">25 / page</option>
-        <option value="50">50 / page</option>
-      </select>
-    </div>
-    <div class="filterbar" style="margin-top:8px" aria-label="Kind and saved filters">
-      <span id="kind-chips" class="contents"></span>
       <button class="kchip saved" data-saved="needs_action" aria-pressed="false">Needs action</button>
       <button class="kchip saved" data-saved="shipping_today" aria-pressed="false">Shipping today</button>
       <button class="kchip saved" data-saved="stuck" aria-pressed="false">Stuck</button>
@@ -262,10 +272,19 @@ export const prerender = false;
       </table>
       <p id="orders-empty" class="hidden px-4 py-6 text-sm text-stone-400"></p>
     </div>
-    <div id="orders-pager" class="mt-4 hidden items-center justify-between gap-3">
-      <button id="page-prev" class="tap rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">‹ Newer</button>
-      <span id="page-label" class="text-sm text-stone-500"></span>
-      <button id="page-next" class="tap rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">Older ›</button>
+    <div class="tablefoot">
+      <label class="perpage-wrap">Show
+        <select id="per-page" class="perpagesel" aria-label="Orders per page">
+          <option value="10">10 / page</option>
+          <option value="25">25 / page</option>
+          <option value="50">50 / page</option>
+        </select>
+      </label>
+      <div id="orders-pager" class="hidden items-center gap-3">
+        <button id="page-prev" class="tap rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">‹ Newer</button>
+        <span id="page-label" class="text-sm text-stone-500"></span>
+        <button id="page-next" class="tap rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 min-h-[44px]">Older ›</button>
+      </div>
     </div>
   </main>
 
@@ -305,23 +324,23 @@ export const prerender = false;
     // explanations live on the order page (CG, 2026-11-10).
     var FORMAT_NAMING = { digital: "digital bundle", printed: "printed", giftset: "gift set", audio: "audiobook", monthly: "club", quarterly: "club", annual: "club", yearly: "club" };
     var KIND_LABELS = { digital: "Digital", pod: "Printed (POD)", club: "Club" };
+    function contentsNames(o) {
+      var pick = o.items_pick || [];
+      if (pick.length) {
+        return pick.map(function (g) {
+          return (g.count > 1 ? g.count + " " : "") + g.name + " " + (FORMAT_NAMING[g.format] || g.format);
+        }).join(", ");
+      }
+      if (o.items_display && o.items_display.length) return o.items_display.join(", ");
+      return "Items unavailable";
+    }
     function contentsHtml(o) {
       var pick = o.items_pick || [];
       var covers = (o.covers && o.covers.length ? o.covers : pick.map(function (g) { return g.cover; }).filter(Boolean).slice(0, 4));
       var thumbs = covers.length
         ? '<span class="covers-line">' + covers.map(function (c) { return '<img src="' + esc(c) + '" alt="" loading="lazy">'; }).join("") + "</span>"
         : "";
-      var names;
-      if (pick.length) {
-        names = pick.map(function (g) {
-          return esc((g.count > 1 ? g.count + " " : "") + g.name + " " + (FORMAT_NAMING[g.format] || g.format));
-        }).join(", ");
-      } else if (o.items_display && o.items_display.length) {
-        names = esc(o.items_display.join(", "));
-      } else {
-        names = "Items unavailable";
-      }
-      return thumbs + '<span class="block truncate text-sm font-medium text-stone-700">' + names +
+      return thumbs + '<span class="names-line block truncate text-sm font-medium text-stone-700">' + esc(contentsNames(o)) +
         (o.has_gift ? ' <span class="inline-block rounded-full bg-orange-100 text-orange-800 text-[10px] font-bold px-1.5 py-0.5 align-middle">Gift</span>' : "") +
         (o.pricing_mode === "admin_cost" ? ' <span class="inline-block rounded-full bg-sky-100 text-sky-800 text-[10px] font-bold px-1.5 py-0.5 align-middle">Admin cost</span>' : "") + "</span>";
     }
@@ -453,10 +472,10 @@ export const prerender = false;
       shelf.classList.remove("hidden");
       cards.innerHTML = list.map(function (p) {
         var meta = p.needsPick ? "Mystery box: pick the books" : (p.lines + (p.lines === 1 ? " item" : " items") + " to pack");
-        return '<a class="packcard tap" href="' + esc(p.href) + '">' +
-          (p.cover ? '<img src="' + esc(p.cover) + '" alt="" loading="lazy">' : '<span class="pack-nocover">Big Brain Shelf</span>') +
-          '<span class="pack-ref">' + esc(p.ref) + "</span>" +
-          '<span class="pack-meta">' + esc(meta) + "</span>" +
+        return '<a class="packrow tap" href="' + esc(p.href) + '">' +
+          (p.cover ? '<img src="' + esc(p.cover) + '" alt="" loading="lazy">' : '<span class="pack-nocover">BBS</span>') +
+          '<span class="pack-main"><span class="pack-ref">' + esc(p.ref) + "</span>" +
+          '<span class="pack-meta">' + esc(meta) + "</span></span>" +
           '<span class="pack-stage' + (p.needsPick ? " pick" : "") + '">' + esc(p.stage) + "</span></a>";
       }).join("");
     }
@@ -478,10 +497,10 @@ export const prerender = false;
       count.textContent = "(" + items.length + ")";
       cards.innerHTML = items.map(function (p) {
         var meta = p.lines + (p.lines === 1 ? " item" : " items");
-        return '<a class="packcard tap" href="' + esc(p.href) + '">' +
-          (p.cover ? '<img src="' + esc(p.cover) + '" alt="" loading="lazy">' : '<span class="pack-nocover">Big Brain Shelf</span>') +
-          '<span class="pack-ref">' + esc(p.ref) + "</span>" +
-          '<span class="pack-meta">' + esc(meta) + "</span>" +
+        return '<a class="packrow tap" href="' + esc(p.href) + '">' +
+          (p.cover ? '<img src="' + esc(p.cover) + '" alt="" loading="lazy">' : '<span class="pack-nocover">BBS</span>') +
+          '<span class="pack-main"><span class="pack-ref">' + esc(p.ref) + "</span>" +
+          '<span class="pack-meta">' + esc(meta) + "</span></span>" +
           '<span class="pack-stage done">' + esc(p.stage) + "</span></a>";
       }).join("");
     }
@@ -492,7 +511,11 @@ export const prerender = false;
         { key: "needs_attention", label: "Needs attention" },
         { key: "digital", label: "Digital" },
         { key: "pod", label: "Printed (POD)" },
-        { key: "club", label: "Club boxes" }
+        // Renamed in the condense pass (CG, 2026-11-10): this
+        // chip filters ORDERS carrying club products. Cycle boxes
+        // are not orders-table rows; they live in the packing
+        // queue and the club surfaces, so the chip says orders.
+        { key: "club", label: "Club orders" }
       ];
       var wrap = document.getElementById("kind-chips");
       wrap.innerHTML = defs.map(function (d) {
@@ -549,29 +572,20 @@ export const prerender = false;
       var stats = data.stats || {};
       document.getElementById("stat-fulfill").textContent = stats.toFulfill != null ? stats.toFulfill : "–";
       document.getElementById("stat-orders7").textContent = stats.orders7d != null ? stats.orders7d : "–";
-      document.getElementById("stat-orders-total").textContent =
-        (stats.ordersTotal != null ? stats.ordersTotal + " all time · " : "") + "All statuses.";
       document.getElementById("stat-revenue").textContent = stats.revenue30dCents != null ? money(stats.revenue30dCents) : "–";
 
-      var shippo = data.shippo || { configured: false, originConfigured: false, ready: false, missing: ["SHIPPO_API_KEY"] };
-      var sbanner = document.getElementById("shippo-banner");
-      sbanner.classList.remove("hidden");
-      if (shippo.missing && shippo.missing.length) {
-        sbanner.className = "mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800";
-        sbanner.innerHTML = "<strong>Shippo setup is incomplete.</strong> Still missing: " +
-          shippo.missing.map(function (m) { return '<code class="font-mono text-xs bg-amber-100 rounded px-1">' + esc(m) + "</code>"; }).join(", ") +
-          ". Add each as a worker secret and label buying appears on each order's page.";
-      } else {
-        sbanner.className = "mt-3 rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm text-green-800";
-        sbanner.textContent = "Shippo connected. Open any printed order to get a rate and buy its label.";
-      }
-
+      // The outbox is a status line now; its detail lives in
+      // Notifications. Retry appears only when there is something
+      // to retry. (The Shippo banner left the list page in the same
+      // pass: carrier setup state is order-detail business.)
       var counts = data.outbox || {};
       var failed = counts.failed || 0;
+      var pending = counts.pending || 0;
       document.getElementById("outbox-counts").textContent =
-        "pending: " + (counts.pending || 0) + " · sent: " + (counts.sent || 0) + " · failed: " + failed;
+        "· pending " + pending + " · sent " + (counts.sent || 0) + " · failed " + failed;
+      document.getElementById("retry-emails").hidden = pending === 0 && failed === 0;
       document.getElementById("outbox-strip").className =
-        "mt-5 rounded-xl border px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-2 " +
+        "mt-3 rounded-xl border px-4 py-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 " +
         (failed > 0 ? "bg-red-50 border-red-200" : "bg-white border-stone-200");
 
       var tbody = document.getElementById("orders-rows");
@@ -613,8 +627,9 @@ export const prerender = false;
           '<td class="c-check"><input type="checkbox" data-check="' + esc(o.id) + '"' + checked + ' aria-label="Select order ' + esc(o.short_id || o.id) + '" style="width:18px;height:18px"></td>' +
           '<td class="c-order">' +
             (custName ? '<span class="block font-extrabold tracking-tight truncate leading-tight">' + esc(custName) + "</span>" : "") +
-            '<span class="block truncate ' + (custName ? "text-[11px] text-stone-400 mt-0.5" : "font-extrabold tracking-tight leading-tight") + '">' + esc(o.short_id || o.id) + "</span>" +
-            '<span class="block text-[11px] text-stone-400 mt-0.5 truncate">' + esc(fmtDay(o.created_at)) + "</span></td>" +
+            '<span class="m-itemline">' + esc(contentsNames(o)) + "</span>" +
+            '<span class="o-idline block truncate ' + (custName ? "text-[11px] text-stone-400 mt-0.5" : "font-extrabold tracking-tight leading-tight") + '">' + esc(o.short_id || o.id) + "</span>" +
+            '<span class="o-dateline block text-[11px] text-stone-400 mt-0.5 truncate">' + esc(fmtDay(o.created_at)) + "</span></td>" +
           '<td class="c-contents">' + contentsHtml(o) + "</td>" +
           '<td class="c-kind"><span class="kind-cell">' + esc(KIND_LABELS[o.kind] || "Digital") + "</span></td>" +
           '<td class="c-stage">' + stagePill(o.stage) + "</td>" +
@@ -696,6 +711,11 @@ export const prerender = false;
       load();
     });
 
+    document.getElementById("filters-toggle").addEventListener("click", function (ev) {
+      var row = document.getElementById("filters-row");
+      var open = row.classList.toggle("open");
+      ev.currentTarget.setAttribute("aria-expanded", open ? "true" : "false");
+    });
     document.querySelectorAll("[data-saved]").forEach(function (b) {
       b.addEventListener("click", function () {
         var s = b.getAttribute("data-saved");
