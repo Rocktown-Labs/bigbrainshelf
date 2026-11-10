@@ -375,5 +375,32 @@
         "duration": 147.0
       }
     ]
+  },
+  "ruby-the-cheetah": {
+    "intro": {
+      "title": "Introduction",
+      "duration": 25.0
+    },
+    "outro": {
+      "title": "The End",
+      "duration": 11.4
+    },
+    "chapters": [
+      {
+        "duration": 109.7
+      },
+      {
+        "duration": 110.0
+      },
+      {
+        "duration": 126.5
+      },
+      {
+        "duration": 134.9
+      },
+      {
+        "duration": 114.5
+      }
+    ]
   }
 }
