@@ -161,7 +161,7 @@ export async function genColorizeWithQC(
       console.log(`colorize gateway failed (attempt ${attempt} of ${MAX_ROLLS}): ${e?.message ?? e}`);
       return { status: "gateway" };
     }
-    const qd = await qcColorImageDetailed(env.AI, bytes, pageRefs.sheet, castText, castList);
+    const qd = await qcColorImageDetailed(env.AI, bytes, pageRefs.sheet, castText, castList, env);
     if (qd.pass) {
       // Cast-listing gate, same contract as the line/color paths.
       const gate = await castGateVerdict(env, bytes, castList);
@@ -217,7 +217,7 @@ export async function genColorizeWithQC(
         if (a.decoded && Math.abs(a.width / a.height - 0.75) > 0.06) {
           failReason = `gpt edit: aspect ${a.width}x${a.height} is not 3:4`;
         } else {
-          const qd = await qcColorImageDetailed(env.AI, bytes, pageRefs.sheet, castText, castList);
+          const qd = await qcColorImageDetailed(env.AI, bytes, pageRefs.sheet, castText, castList, env);
           if (!qd.pass) {
             failReason = qd.reason;
             failScores = qd.scores;

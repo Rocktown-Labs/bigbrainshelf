@@ -375,7 +375,7 @@ export default {
         // one retry on a QC reject, and the last roll ships to the
         // editor for human review either way.
         const first = await generateImageMetered(env, prompt, sheet);
-        let qd = await qcImageDetailed(env.AI, first.bytes, sheet);
+        let qd = await qcImageDetailed(env.AI, first.bytes, sheet, null, null, env);
         let bytes = first.bytes;
         if (qd.pass) {
           await logGenAttempt(env, slug, "line", chapter, pageIdx, 1, { outcome: "accepted", scores: qd.scores, cost: first.cost }, first.bytes);
@@ -384,7 +384,7 @@ export default {
           console.log("redo-image: QC rejected, one retry");
           const second = await generateImageMetered(env, prompt, sheet);
           bytes = second.bytes;
-          qd = await qcImageDetailed(env.AI, second.bytes, sheet);
+          qd = await qcImageDetailed(env.AI, second.bytes, sheet, null, null, env);
           await logGenAttempt(env, slug, "line", chapter, pageIdx, 2, {
             outcome: qd.pass ? "accepted" : "qc_reject",
             reason: qd.pass ? null : `${qd.reason ?? "qc reject"} (shipped for human review in the editor)`,
