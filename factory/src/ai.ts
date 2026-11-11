@@ -303,6 +303,191 @@ function castIntegrityReject(a: any, castList: CastChar[], label: string): strin
   return null;
 }
 
+// ---------------------------------------------------------------------
+// Ghost-limb judge (2026-11-11). CG, after hand-labeling eleven
+// phantom-limb pages in Tilda that shipped: the Clef anatomy judge
+// "sucks and needs to be replaced by one who can see it." Measured on
+// that labeled corpus (offline bake-off, factory-ops/ghost-limb-bakeoff):
+// Clef's anatomy proposition scored the eleven positives 0.33-0.85 noul
+// against the 0.3 gate (recall 0.27 color, 0.10 line). The replacement
+// is a gateway vision judge running the limb-census prompt below: two
+// independent calls, flag if either sees a ghost limb. Bake-off on the
+// same corpus: color precision 0.77 / recall 0.91, line precision 0.60 /
+// recall 0.90, ~$0.002 per page judged. GPT-5-mini (0.50/0.50) and
+// GLM-4.5V (0.36/0.82, a quarter of calls unparseable) lost; a pure
+// count-the-limbs prompt collapsed (recall 0.09, the model normalizes
+// counts instead of counting), so the census rides inside this prompt
+// as a step, with the model rendering the verdict itself.
+// Clef still answers its anatomy question (score kept in QcDetail for
+// the record) and its 0.3 gate applies ONLY when this judge has no
+// opinion (no AI_GATEWAY_KEY, or both calls failed): an outage must
+// neither wave pages through silently nor hard-block generation.
+// Every judged image is archived in ghost_judge_log (verdict, both
+// calls' censuses, gateway cost) per the keep-the-data rule, and the
+// verdict also lands in QcDetail.scores as anatomy_ghost (1 = ghost).
+// ---------------------------------------------------------------------
+
+export const GHOST_JUDGE_MODEL = "google/gemini-2.5-flash";
+const GHOST_JUDGE_URL = "https://ai-gateway.vercel.sh/v1/chat/completions";
+
+export const GHOST_LIMB_PROMPT =
+  "You are an anatomy inspector for a children's picture book. Find GHOST LIMBS: extra " +
+  "limbs that should not exist.\n\n" +
+  "Do this inspection in order:\n" +
+  "STEP 1 - For every animal in the image, count: (a) LEGS: every limb ending in a foot, " +
+  "including feet on the ground or a perch, raised limbs, and limbs holding objects. " +
+  "(b) WINGS (birds only): limbs covered in feathers, attached at the shoulder or back. " +
+  "(c) OTHER LIMBS: any arm, hand, paw, or limb that is NEITHER a leg NOR a feathered wing - " +
+  "for example a smooth dark arm reaching from a bird's chest or belly, or a hand with " +
+  "fingers that is not at the tip of a wing.\n" +
+  "Natural counts: a bird has exactly 2 legs, 2 wings, and 0 other limbs. A four-legged " +
+  "animal has exactly 4 legs and 0 other limbs. A dressed character standing upright like a " +
+  "person has 2 legs, 2 arms, and 0 other limbs.\n\n" +
+  "STEP 2 - A GHOST LIMB is present if any animal's counts exceed its natural counts, or if " +
+  "any limb belongs to no animal's body. Judge by what is drawn: if a bird stands or perches " +
+  "on two legs and ALSO holds a watering can, a pail, coins, or a basket with another limb " +
+  "that is not one of its two feathered wings, that other limb is a ghost limb.\n\n" +
+  "Do NOT flag: an object held in a beak; a pouch or object hanging from a cord around the " +
+  "neck; a feathered WING holding, cradling, or tipping an object with its tip (that is one " +
+  "of the 2 wings, not an other limb); a bird standing on one leg with the second leg tucked " +
+  "up (still 2 legs in total); reflections in water; shadows; an animal partly hidden behind " +
+  "another.\n\n" +
+  'Answer with ONLY this JSON object: {"animals": [{"kind": "<animal>", "legs": <n>, ' +
+  '"wings": <n>, "other_limbs": <n>}], "ghost_limb": <true or false>, "detail": "<which ' +
+  'animal and which extra limb, or empty>"}';
+
+export interface GhostJudgeVerdict {
+  ghost: boolean;
+  detail: string;
+  model: string;
+}
+
+interface GhostCall {
+  ghost: boolean;
+  detail: string;
+  census: any;
+  cost: number | null;
+  tokensIn: number | null;
+  tokensOut: number | null;
+}
+
+async function ghostJudgeCall(key: string, model: string, bytes: Uint8Array): Promise<GhostCall> {
+  const isPng = bytes[0] === 0x89 && bytes[1] === 0x50;
+  const res = await fetch(GHOST_JUDGE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    signal: AbortSignal.timeout(120000),
+    body: JSON.stringify({
+      model,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: GHOST_LIMB_PROMPT },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:${isPng ? "image/png" : "image/jpeg"};base64,${bytesToB64(bytes)}`,
+              },
+            },
+          ],
+        },
+      ],
+      temperature: 0,
+      max_tokens: 3000,
+      providerOptions: { google: { thinkingConfig: { thinkingBudget: 0 } } },
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(`ghost judge HTTP ${res.status}: ${t.slice(0, 160)}`);
+  }
+  const resp: any = await res.json();
+  const text = String(resp?.choices?.[0]?.message?.content ?? "");
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error(`ghost judge reply unparseable: ${text.slice(0, 140)}`);
+  const parsed = JSON.parse(text.slice(start, end + 1));
+  return {
+    ghost: parsed?.ghost_limb === true,
+    detail: String(parsed?.detail ?? ""),
+    census: parsed,
+    cost: typeof resp?.usage?.cost === "number" ? resp.usage.cost : null,
+    tokensIn: resp?.usage?.prompt_tokens ?? null,
+    tokensOut: resp?.usage?.completion_tokens ?? null,
+  };
+}
+
+let ghostTableReady = false;
+async function archiveGhostVerdict(
+  env: any,
+  kind: "line" | "color",
+  model: string,
+  bytes: Uint8Array,
+  calls: GhostCall[],
+  verdict: GhostJudgeVerdict
+): Promise<void> {
+  try {
+    if (!env?.DB) return;
+    if (!ghostTableReady) {
+      await env.DB.prepare(
+        "CREATE TABLE IF NOT EXISTS ghost_judge_log (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at INTEGER, kind TEXT, model TEXT, image_sha256 TEXT, ghost INTEGER, detail TEXT, calls_json TEXT, cost_usd REAL)"
+      ).run();
+      ghostTableReady = true;
+    }
+    const digest = await crypto.subtle.digest("SHA-256", bytes as any);
+    const sha = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    const cost = calls.reduce((s, c) => s + (c.cost ?? 0), 0);
+    await env.DB.prepare(
+      "INSERT INTO ghost_judge_log (created_at, kind, model, image_sha256, ghost, detail, calls_json, cost_usd) VALUES (?,?,?,?,?,?,?,?)"
+    )
+      .bind(
+        Math.floor(Date.now() / 1000),
+        kind,
+        model,
+        sha,
+        verdict.ghost ? 1 : 0,
+        verdict.detail,
+        JSON.stringify(calls.map((c) => ({ ghost: c.ghost, detail: c.detail, census: c.census }))),
+        cost || null
+      )
+      .run();
+  } catch (e: any) {
+    console.log(`ghost judge archive failed (${e?.message ?? e})`);
+  }
+}
+
+// Two independent calls, flag if either sees a ghost limb (the union is
+// what the bake-off measured: single calls flip on borderline pages).
+// Returns null on no opinion: key unset, or every call failed.
+export async function judgeGhostLimbs(env: any, bytes: Uint8Array, kind: "line" | "color"): Promise<GhostJudgeVerdict | null> {
+  const key = env?.AI_GATEWAY_KEY;
+  if (!key) {
+    console.log("ghost-limb judge: no AI_GATEWAY_KEY secret, no opinion");
+    return null;
+  }
+  const model = env?.AI_GATEWAY_GHOST_MODEL || GHOST_JUDGE_MODEL;
+  const settled = await Promise.allSettled([ghostJudgeCall(key, model, bytes), ghostJudgeCall(key, model, bytes)]);
+  const calls: GhostCall[] = [];
+  for (const s of settled) {
+    if (s.status === "fulfilled") calls.push(s.value);
+    else console.log(`ghost-limb judge call failed: ${s.reason?.message ?? s.reason}`);
+  }
+  if (!calls.length) return null;
+  const ghost = calls.some((c) => c.ghost);
+  const detail = calls.find((c) => c.ghost && c.detail)?.detail ?? calls.find((c) => c.detail)?.detail ?? "";
+  const verdict: GhostJudgeVerdict = { ghost, detail, model };
+  await archiveGhostVerdict(env, kind, model, bytes, calls, verdict);
+  const tokIn = calls.reduce((s, c) => s + (c.tokensIn ?? 0), 0);
+  const tokOut = calls.reduce((s, c) => s + (c.tokensOut ?? 0), 0);
+  await logTextEvent(env, model, "ghost-limb-judge", null, {
+    input_tokens: tokIn || null,
+    output_tokens: tokOut || null,
+    cost_usd: calls.reduce((s, c) => s + (c.cost ?? 0), 0) || null,
+  });
+  return verdict;
+}
+
 // Detailed QC verdict (2026-11-01, CG's reject-logging ask): every
 // gate's score plus the first failing gate's reason, so a rejected
 // roll can be reviewed later instead of vanishing. The boolean
@@ -330,7 +515,8 @@ async function qcWithClef(
   id: string = CLEF,
   model: string = CLEF_MODEL,
   castText?: string | null,
-  castList?: CastChar[] | null
+  castList?: CastChar[] | null,
+  env?: any
 ): Promise<QcDetail> {
   const isPng = bytes[0] === 0x89 && bytes[1] === 0x50;
   const ct = isPng ? "image/png" : "image/jpeg";
@@ -405,7 +591,21 @@ async function qcWithClef(
       return { pass: false, scores, reason };
     }
   }
-  if (castText) {
+  // Ghost-limb gate (2026-11-11, replaces the Clef anatomy clause as
+  // the deciding anatomy check; see judgeGhostLimbs). Runs on every
+  // page, with or without a declared cast: the Tilda ghosts shipped on
+  // pages whose cast lists named one character. Clef's anatomy score
+  // stays in `scores` for the record, and its 0.3 bar applies only
+  // when the gateway judge has no opinion.
+  const gj = env ? await judgeGhostLimbs(env, bytes, "line") : null;
+  if (gj) {
+    scores.anatomy_ghost = gj.ghost ? 1 : 0;
+    if (gj.ghost) {
+      const reason = `anatomy QC (ghost-limb judge ${gj.model}): ${gj.detail || "extra or phantom limb reported"}`;
+      console.log(`${reason}, rejecting`);
+      return { pass: false, scores, reason };
+    }
+  } else if (castText) {
     const anatomyP = a.anatomy?.noul ?? 1;
     // Line-path anatomy bar is 0.3, matching the color path
     // (2026-11-07; the color bar moved on CG's 2026-11-01 ruling).
@@ -420,6 +620,8 @@ async function qcWithClef(
       console.log(`${reason}, rejecting`);
       return { pass: false, scores, reason };
     }
+  }
+  if (castText) {
     const castP = a.cast_match?.noul ?? 0;
     if (castP < 0.5) {
       const reason = `cast QC (line): cast_match=${castP.toFixed(2)} below 0.5`;
@@ -455,13 +657,13 @@ async function qcWithClef(
   return { pass: true, scores, reason: null };
 }
 
-export async function qcImageDetailed(AI: any, bytes: Uint8Array, sheetBytes?: Uint8Array | null, castText?: string | null, castList?: CastChar[] | null): Promise<QcDetail> {
+export async function qcImageDetailed(AI: any, bytes: Uint8Array, sheetBytes?: Uint8Array | null, castText?: string | null, castList?: CastChar[] | null, env?: any): Promise<QcDetail> {
   try {
-    return await qcWithClef(AI, bytes, sheetBytes, CLEF, CLEF_MODEL, castText, castList);
+    return await qcWithClef(AI, bytes, sheetBytes, CLEF, CLEF_MODEL, castText, castList, env);
   } catch (e) {
     console.log("Clef QC failed, falling back to Clef Flash:", (e as Error)?.message);
     try {
-      return await qcWithClef(AI, bytes, sheetBytes, CLEF_FAST, CLEF_FAST_MODEL, castText, castList);
+      return await qcWithClef(AI, bytes, sheetBytes, CLEF_FAST, CLEF_FAST_MODEL, castText, castList, env);
     } catch (e2) {
       console.log("Clef Flash QC failed too, rejecting the image:", (e2 as Error)?.message);
       return { pass: false, scores: {}, reason: "qc_error: both Clef chains failed" };
@@ -469,8 +671,8 @@ export async function qcImageDetailed(AI: any, bytes: Uint8Array, sheetBytes?: U
   }
 }
 
-export async function qcImage(AI: any, bytes: Uint8Array, sheetBytes?: Uint8Array | null, castText?: string | null, castList?: CastChar[] | null): Promise<boolean> {
-  return (await qcImageDetailed(AI, bytes, sheetBytes, castText, castList)).pass;
+export async function qcImage(AI: any, bytes: Uint8Array, sheetBytes?: Uint8Array | null, castText?: string | null, castList?: CastChar[] | null, env?: any): Promise<boolean> {
+  return (await qcImageDetailed(AI, bytes, sheetBytes, castText, castList, env)).pass;
 }
 
 // Color-art QC: same strict text bar, but the art question asks for full
@@ -478,7 +680,7 @@ export async function qcImage(AI: any, bytes: Uint8Array, sheetBytes?: Uint8Arra
 // drift question (character_match >= 0.5) applies too, same as line QC:
 // color pages carry the picture book, so drift matters most there.
 // Same Clef chain (27B, then Flash, then reject).
-async function qcColorWithClef(AI: any, bytes: Uint8Array, sheetBytes?: Uint8Array | null, id: string = CLEF, model: string = CLEF_MODEL, castText?: string | null, castList?: CastChar[] | null): Promise<QcDetail> {
+async function qcColorWithClef(AI: any, bytes: Uint8Array, sheetBytes?: Uint8Array | null, id: string = CLEF, model: string = CLEF_MODEL, castText?: string | null, castList?: CastChar[] | null, env?: any): Promise<QcDetail> {
   const isPng = bytes[0] === 0x89 && bytes[1] === 0x50;
   const ct = isPng ? "image/png" : "image/jpeg";
   const questions: Record<string, any> = {
@@ -538,16 +740,32 @@ async function qcColorWithClef(AI: any, bytes: Uint8Array, sheetBytes?: Uint8Arr
     console.log(`color QC reject: ${reason.slice(10)}`);
     return { pass: false, scores, reason };
   }
-  const anatomyP = a.anatomy?.noul ?? 1;
-  // Color-path anatomy bar is 0.3, not 0.5 (CG, 2026-11-01, from the
-  // gen_attempts census): clean color pages score 0.316-0.564 against
-  // this question while genuinely broken anatomy (hand-shaped feet)
-  // scores 0.144, so the 0.5 bar coin-flipped good art and burned
-  // rolls. The line path keeps its own 0.5 bar in qcWithClef.
-  if (anatomyP < 0.3) {
-    const reason = `anatomy QC: score=${anatomyP.toFixed(2)} below 0.3`;
-    console.log(`${reason}, rejecting`);
-    return { pass: false, scores, reason };
+  // Ghost-limb gate (2026-11-11, replaces the Clef anatomy clause as
+  // the deciding anatomy check; see judgeGhostLimbs). Clef's anatomy
+  // score stays in `scores` for the record; its 0.3 bar (CG,
+  // 2026-11-01: clean color pages score 0.316-0.564 against this
+  // question, broken anatomy 0.144) applies only when the gateway
+  // judge has no opinion.
+  const gj = env ? await judgeGhostLimbs(env, bytes, "color") : null;
+  if (gj) {
+    scores.anatomy_ghost = gj.ghost ? 1 : 0;
+    if (gj.ghost) {
+      const reason = `anatomy QC (ghost-limb judge ${gj.model}): ${gj.detail || "extra or phantom limb reported"}`;
+      console.log(`${reason}, rejecting`);
+      return { pass: false, scores, reason };
+    }
+  } else {
+    const anatomyP = a.anatomy?.noul ?? 1;
+    // Color-path anatomy bar is 0.3, not 0.5 (CG, 2026-11-01, from the
+    // gen_attempts census): clean color pages score 0.316-0.564 against
+    // this question while genuinely broken anatomy (hand-shaped feet)
+    // scores 0.144, so the 0.5 bar coin-flipped good art and burned
+    // rolls. The line path keeps its own 0.5 bar in qcWithClef.
+    if (anatomyP < 0.3) {
+      const reason = `anatomy QC: score=${anatomyP.toFixed(2)} below 0.3`;
+      console.log(`${reason}, rejecting`);
+      return { pass: false, scores, reason };
+    }
   }
   if (castText) {
     const castP = a.cast_match?.noul ?? 0;
@@ -575,13 +793,13 @@ async function qcColorWithClef(AI: any, bytes: Uint8Array, sheetBytes?: Uint8Arr
   return { pass: true, scores, reason: null };
 }
 
-export async function qcColorImageDetailed(AI: any, bytes: Uint8Array, sheetBytes?: Uint8Array | null, castText?: string | null, castList?: CastChar[] | null): Promise<QcDetail> {
+export async function qcColorImageDetailed(AI: any, bytes: Uint8Array, sheetBytes?: Uint8Array | null, castText?: string | null, castList?: CastChar[] | null, env?: any): Promise<QcDetail> {
   try {
-    return await qcColorWithClef(AI, bytes, sheetBytes, CLEF, CLEF_MODEL, castText, castList);
+    return await qcColorWithClef(AI, bytes, sheetBytes, CLEF, CLEF_MODEL, castText, castList, env);
   } catch (e) {
     console.log("Clef color QC failed, falling back to Clef Flash:", (e as Error)?.message);
     try {
-      return await qcColorWithClef(AI, bytes, sheetBytes, CLEF_FAST, CLEF_FAST_MODEL, castText, castList);
+      return await qcColorWithClef(AI, bytes, sheetBytes, CLEF_FAST, CLEF_FAST_MODEL, castText, castList, env);
     } catch (e2) {
       console.log("Clef Flash color QC failed too, rejecting the image:", (e2 as Error)?.message);
       return { pass: false, scores: {}, reason: "qc_error: both Clef chains failed" };
@@ -589,8 +807,8 @@ export async function qcColorImageDetailed(AI: any, bytes: Uint8Array, sheetByte
   }
 }
 
-export async function qcColorImage(AI: any, bytes: Uint8Array, sheetBytes?: Uint8Array | null, castText?: string | null, castList?: CastChar[] | null): Promise<boolean> {
-  return (await qcColorImageDetailed(AI, bytes, sheetBytes, castText, castList)).pass;
+export async function qcColorImage(AI: any, bytes: Uint8Array, sheetBytes?: Uint8Array | null, castText?: string | null, castList?: CastChar[] | null, env?: any): Promise<boolean> {
+  return (await qcColorImageDetailed(AI, bytes, sheetBytes, castText, castList, env)).pass;
 }
 
 // ---------------------------------------------------------------------

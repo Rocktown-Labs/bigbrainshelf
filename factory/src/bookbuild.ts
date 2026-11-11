@@ -681,6 +681,8 @@ export function coloringCaption(pg: any): string {
 export function editFixLines(reasons: string[], kind: "line" | "color" = "line"): string[] {
   const fixes = new Set<string>();
   const joined = reasons.join(" | ").toLowerCase();
+  if (joined.includes("ghost"))
+    fixes.add("Remove the extra (ghost) limb the QC judge flagged: every bird keeps exactly two legs and two feathered wings and no extra arm or hand; an object is held only with the beak, one of the two legs, or a feathered wing.");
   if (joined.includes("anatomy")) fixes.add("Correct the anatomy so every paw, foot, limb, and tail is natural and correctly drawn.");
   if (joined.includes("dupe") || joined.includes("appears more than once") || joined.includes("more than 1"))
     fixes.add("Each named character must appear exactly once in the scene. Remove any duplicate of a character.");
@@ -831,7 +833,7 @@ export async function genImageWithQC(
         continue;
       }
     }
-    const qd = await qcImageDetailed(env.AI, bytes, sheet, castText, castList);
+    const qd = await qcImageDetailed(env.AI, bytes, sheet, castText, castList, env);
     if (qd.pass) {
       // Cast-listing gate (Phase 2): one listing per Clef-accepted
       // roll. Hard mode rejects like a QC failure; flag mode records
@@ -896,7 +898,7 @@ export async function genImageWithQC(
               else failReason = `edit pass: purity autofix failed: ${v.reasons.join("; ")}`;
             }
             if (!failReason) {
-              const qd = await qcImageDetailed(env.AI, bytes, sheet, castText, castList);
+              const qd = await qcImageDetailed(env.AI, bytes, sheet, castText, castList, env);
               if (!qd.pass) {
                 failReason = qd.reason;
                 failScores = qd.scores;
@@ -968,7 +970,7 @@ export async function genImageWithQC(
               else failReason = `gpt edit: purity autofix failed: ${v.reasons.join("; ")}`;
             }
             if (!failReason) {
-              const qd = await qcImageDetailed(env.AI, bytes, sheet, castText, castList);
+              const qd = await qcImageDetailed(env.AI, bytes, sheet, castText, castList, env);
               if (!qd.pass) {
                 failReason = qd.reason;
                 failScores = qd.scores;
@@ -1045,7 +1047,7 @@ export async function genColorImageWithQC(
     }
     const cur = await generateColorImageMetered(env, prompt, null);
     const bytes = cur.bytes;
-    const qd = await qcColorImageDetailed(env.AI, bytes);
+    const qd = await qcColorImageDetailed(env.AI, bytes, null, null, null, env);
     if (qd.pass) {
       events.push({ attempt, outcome: "accepted", cost: cur.cost });
       await logGenAttempt(env, slug, "color", null, null, attempt, { outcome: "accepted", scores: qd.scores, cost: cur.cost }, bytes);
@@ -1134,7 +1136,7 @@ export async function genPictureColorWithQC(
       console.log(`gateway image failed (attempt ${attempt} of ${MAX_ROLLS}): ${e?.message ?? e}; skipping color for this page`);
       return null;
     }
-    const qd = await qcColorImageDetailed(env.AI, bytes, pageRefs.sheet, castText, castList);
+    const qd = await qcColorImageDetailed(env.AI, bytes, pageRefs.sheet, castText, castList, env);
     if (qd.pass) {
       // Cast-listing gate, same contract as the line path.
       const gate = await castGateVerdict(env, bytes, castList);

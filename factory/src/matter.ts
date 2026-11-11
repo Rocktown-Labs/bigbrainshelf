@@ -172,6 +172,10 @@ function coverFailures(kind: "color" | "line", scores: any): string[] {
     if (typeof s.is_lineart === "number" && s.is_lineart < 0.4) out.push("is_lineart");
   }
   if (typeof s.anatomy === "number" && s.anatomy < 0.3) out.push("anatomy");
+  // Ghost-limb judge verdict (2026-11-11): anatomy_ghost = 1 means the
+  // deciding anatomy judge flagged an extra limb; route it to the same
+  // anatomy fix line the Clef score used.
+  if (s.anatomy_ghost === 1) out.push("anatomy");
   if (typeof s.twin_similarity === "number" && s.twin_similarity < TWIN_SIMILARITY_BAR) out.push("twin_drift");
   return out;
 }
@@ -231,8 +235,8 @@ async function strictArt(
     }
     let qd =
       kind === "color"
-        ? await qcColorImageDetailed(env.AI, cur.bytes, sheets[0] ?? null, castText, castList)
-        : await qcImageDetailed(env.AI, cur.bytes, null);
+        ? await qcColorImageDetailed(env.AI, cur.bytes, sheets[0] ?? null, castText, castList, env)
+        : await qcImageDetailed(env.AI, cur.bytes, null, null, null, env);
     if (kind === "color" && masterLine) {
       // The twin gate: composition similarity against the line
       // master, scored and archived on every candidate. A candidate
@@ -289,8 +293,8 @@ async function strictArt(
         const cur = await editGatewayImageGptMetered(env, editPrompt, [bestReject.bytes, ...sheets.slice(0, 3)]);
         let qd =
           kind === "color"
-            ? await qcColorImageDetailed(env.AI, cur.bytes, sheets[0] ?? null, castText, castList)
-            : await qcImageDetailed(env.AI, cur.bytes, null);
+            ? await qcColorImageDetailed(env.AI, cur.bytes, sheets[0] ?? null, castText, castList, env)
+            : await qcImageDetailed(env.AI, cur.bytes, null, null, null, env);
         if (kind === "color" && masterLine) {
           // Record the similarity on EVERY derived candidate, pass
           // or fail (v2 recorded it only on passes, which blinded
