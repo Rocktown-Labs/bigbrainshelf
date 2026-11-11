@@ -46,6 +46,12 @@
 // The queue path above stays shadow measurement; the inline path
 // reuses the same judge, the same idempotency key, and the same
 // qc_second_opinions record, so both lanes read as one history.
+//
+// Ghost-limb gate (2026-11-11): an attempt whose QC scores carry
+// anatomy_ghost = 1 (the Gemini ghost judge's affirmative verdict,
+// PR #94) is never appealable. The appeal rescued two judge-flagged
+// Tilda rolls in the judge's first production run; see
+// APPEAL_GHOST_GATE_REASON below for the exact semantics.
 
 import { emitEvent } from "./events";
 import { emitAppealMetric } from "./metrics";
@@ -61,6 +67,43 @@ export function isAppealable(reason: string | null | undefined): boolean {
   const r = (reason ?? "").toLowerCase();
   if (RELIABLE_MARKERS.some((m) => r.includes(m))) return false;
   return APPEALABLE_MARKERS.some((m) => r.includes(m));
+}
+
+// ------------------------------------------------- ghost-limb gate
+//
+// (2026-11-11, CG's ruling after the first production judge run.)
+// The Gemini ghost-limb judge (PR #94) is the deciding anatomy gate;
+// its affirmative verdict lands in an attempt's scores as
+// anatomy_ghost = 1. "anatomy" is an appealable marker above, so the
+// Opus appeal could second-guess a ghost rejection, and did: it
+// rescued and shipped two Tilda rolls the judge had flagged (S1p3:
+// phantom hand on the watering can; S3p0: phantom leg, plus a
+// duplicated Rook). An affirmative ghost verdict is therefore NOT
+// appealable: no appeal path (inline rescue, queue enqueue, or a
+// verdict recorded earlier and reused by idempotency) may rescue or
+// install such a roll. Rolls the judge cleared (anatomy_ghost = 0)
+// and rolls it never saw (no anatomy_ghost score; the Clef fallback
+// decided, the pre-judge archive) keep the existing appeal behavior.
+// CG's own manual admin promotion of an archived roll is a human
+// verdict, not an appeal, and is deliberately not gated here.
+export const APPEAL_GHOST_GATE_REASON =
+  "appeal blocked by ghost-limb gate: anatomy_ghost=1 (ghost-limb judge flagged this roll; affirmative ghost verdicts are not appealable)";
+
+// True when the attempt's recorded QC scores carry an affirmative
+// ghost-limb verdict. Scores arrive as an object (rows built in
+// memory) or as the JSON string stored in gen_attempts.scores;
+// anything unparseable or absent is no-opinion, not a flag.
+export function isGhostFlagged(row: any): boolean {
+  if (!row) return false;
+  let scores: any = (row as any).scores;
+  if (typeof scores === "string") {
+    try {
+      scores = JSON.parse(scores);
+    } catch {
+      return false;
+    }
+  }
+  return scores != null && Number(scores.anatomy_ghost) === 1;
 }
 
 function bytesToB64(bytes: Uint8Array): string {
@@ -91,7 +134,7 @@ export async function enqueueAppeals(
 ): Promise<{ queued: number; candidates: number }> {
   await ensureTables(env);
   const rows: any = await env.DB.prepare(
-    "SELECT id, kind, chapter, page, attempt, outcome, reason, image_key FROM gen_attempts WHERE slug=? AND outcome NOT IN ('accepted','autofixed','promoted') ORDER BY id"
+    "SELECT id, kind, chapter, page, attempt, outcome, reason, scores, image_key FROM gen_attempts WHERE slug=? AND outcome NOT IN ('accepted','autofixed','promoted') ORDER BY id"
   )
     .bind(slug)
     .all();
@@ -109,7 +152,12 @@ export async function enqueueAppeals(
   const queuedIds = new Set((queuedRows.results ?? []).map((r: any) => r.attempt_id));
 
   const cands = (rows.results ?? []).filter(
-    (r: any) => r.image_key && isAppealable(r.reason) && !judgedIds.has(r.id) && !queuedIds.has(r.id)
+    (r: any) =>
+      r.image_key &&
+      isAppealable(r.reason) &&
+      !isGhostFlagged(r) &&
+      !judgedIds.has(r.id) &&
+      !queuedIds.has(r.id)
   );
   let queued = 0;
   for (const r of cands.slice(0, limit)) {
@@ -255,14 +303,16 @@ async function recordOpinion(env: any, j: any, attemptId: number, slug: string):
 // generation run: the most recent archived reject on a noisy gate.
 // Later attempts are steered by the earlier QC findings, so the last
 // reject is normally the closest miss; reliable-gate rejects
-// (isAppealable false) are never candidates.
+// (isAppealable false) are never candidates, and neither are rolls
+// the ghost-limb judge affirmatively flagged (isGhostFlagged).
 export function pickAppealCandidate(rows: any[]): any | null {
   const candidates = (rows ?? []).filter(
     (r) =>
       r &&
       r.image_key &&
       (r.outcome === "qc_reject" || r.outcome === "edit_reject" || r.outcome === "cast_reject") &&
-      isAppealable(r.reason)
+      isAppealable(r.reason) &&
+      !isGhostFlagged(r)
   );
   return candidates.length ? candidates[candidates.length - 1] : null;
 }
@@ -292,12 +342,41 @@ export async function attemptInlineAppeal(
   try {
     await ensureTables(env);
     const res: any = await env.DB.prepare(
-      "SELECT id, reason, outcome, image_key FROM gen_attempts WHERE slug=? AND kind=? AND chapter IS ? AND page IS ? AND created_at>=? ORDER BY id ASC"
+      "SELECT id, reason, outcome, scores, image_key FROM gen_attempts WHERE slug=? AND kind=? AND chapter IS ? AND page IS ? AND created_at>=? ORDER BY id ASC"
     )
       .bind(slug, kind, chapter, page, sinceTs)
       .all();
-    const cand = pickAppealCandidate(res?.results ?? []);
-    if (!cand) return { rescued: false };
+    const runRows: any[] = res?.results ?? [];
+    const cand = pickAppealCandidate(runRows);
+    if (!cand) {
+      // Archive the gate's refusals: rejects on this page that were
+      // appealable on their reason alone and were excluded ONLY by
+      // the ghost-limb gate. The hold itself is unchanged.
+      const ghostBlocked = runRows.filter(
+        (r) =>
+          r &&
+          r.image_key &&
+          (r.outcome === "qc_reject" || r.outcome === "edit_reject" || r.outcome === "cast_reject") &&
+          isAppealable(r.reason) &&
+          isGhostFlagged(r)
+      );
+      if (ghostBlocked.length) {
+        console.log(`inline appeal for ${slug} ${chapter ?? "?"}p${page ?? "?"}: ${APPEAL_GHOST_GATE_REASON} (attempts ${ghostBlocked.map((r) => r.id).join(", ")})`);
+        await emitEvent(env, {
+          slug,
+          kind: "appeal",
+          event: "appeal_blocked_ghost_gate",
+          detail: {
+            reason: APPEAL_GHOST_GATE_REASON,
+            blockedAttemptIds: ghostBlocked.map((r) => r.id),
+            chapter,
+            page,
+            kind,
+          },
+        });
+      }
+      return { rescued: false };
+    }
     const seen: any = await env.DB.prepare(
       "SELECT verdict FROM qc_second_opinions WHERE attempt_id=? AND judge_model=?"
     )
@@ -312,6 +391,20 @@ export async function attemptInlineAppeal(
       await recordOpinion(env, j, cand.id, slug);
     }
     if (verdict !== "rescue_candidate") {
+      return { rescued: false, verdict, attemptId: cand.id };
+    }
+    // Final guard, defense in depth behind pickAppealCandidate: a
+    // ghost-flagged roll is never installed, even if a rescue verdict
+    // for it already exists in qc_second_opinions (recorded by the
+    // shadow queue before this gate, or by any future selection bug).
+    if (isGhostFlagged(cand)) {
+      console.log(`inline appeal for ${slug} ${chapter ?? "?"}p${page ?? "?"}: ${APPEAL_GHOST_GATE_REASON} (attempt ${cand.id})`);
+      await emitEvent(env, {
+        slug,
+        kind: "appeal",
+        event: "appeal_blocked_ghost_gate",
+        detail: { reason: APPEAL_GHOST_GATE_REASON, blockedAttemptIds: [cand.id], chapter, page, kind },
+      });
       return { rescued: false, verdict, attemptId: cand.id };
     }
     if (!bytes) {
