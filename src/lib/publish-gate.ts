@@ -5,7 +5,7 @@ import { countApprovedInventory } from './book-plans';
 import { getPublishReadiness } from './publish-readiness';
 import { getDeliveryReadiness } from './delivery-readiness';
 import { publishPriceStamp } from './offers';
-import { colorEditionComplete, getSignoffStates, signoffBlockers } from './qc-signoffs';
+import { assessColorEdition, getSignoffStates, signoffBlockers } from './qc-signoffs';
 import { recordWorkerRun } from '../../packages/core/src/run-provenance';
 
 export class PublishBlocked extends Error {
@@ -57,7 +57,7 @@ export async function publishVerifiedBook(
   // revision. They are gates, not readiness evidence, so the override
   // below can never waive them (enforced where waived is validated).
   try {
-    const states = await getSignoffStates(db, slug, manifest.revision, colorEditionComplete(manifest));
+    const states = await getSignoffStates(db, slug, manifest.revision, assessColorEdition(manifest));
     blockers.push(...signoffBlockers(states));
   } catch { blockers.push({ id: 'signoff:verify', detail: 'QC sign-offs could not be verified.' }); }
 

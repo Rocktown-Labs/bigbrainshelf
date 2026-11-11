@@ -1,8 +1,11 @@
 import { stampLine, stampColor } from '../../packages/core/src/assembly-identity';
 export function fixture() {
-  const values = new Map<string, { bytes: Uint8Array; version: string; metadata?: any }>();
+  const values = new Map<string, { bytes: Uint8Array; version: string; metadata?: any; uploaded: Date }>();
   let serial = 0;
-  function put(key: string, value: unknown, metadata?: any) { values.set(key, { bytes: value instanceof Uint8Array ? value : new TextEncoder().encode(typeof value === 'string' ? value : JSON.stringify(value)), version: String(++serial), metadata }); }
+  // Like real R2: every object carries an uploaded timestamp, and a
+  // later put is a later upload (so a color twin put after its line
+  // page reads current, and a re-put line page makes its twin stale).
+  function put(key: string, value: unknown, metadata?: any) { values.set(key, { bytes: value instanceof Uint8Array ? value : new TextEncoder().encode(typeof value === 'string' ? value : JSON.stringify(value)), version: String(++serial), metadata, uploaded: new Date(Date.UTC(2026, 0, 1) + serial * 60_000) }); }
   const bible = { bookTitle: 'Test', conceptLadder: [{}] };
   const plan: any = { storyTitle: 'One', pages: [{ storyText: 'Story', imagePrompt: 'draw' }], finale: { storyText: 'Finale', imagePrompt: 'finale' } };
   for (const [pg, stem] of [[plan.pages[0], 'page-0'], [plan.finale, 'finale']] as const) {
@@ -15,8 +18,8 @@ export function fixture() {
   save();
   for (const name of ['cover.jpg', 'back-cover-color.jpg', 'back-cover-line.jpg']) put(`books/test/${name}`, 'COVER');
   const bucket = {
-    async get(key: string) { const v = values.get(key); return v ? { etag: v.version, arrayBuffer: async () => v.bytes.slice().buffer } : null; },
-    async head(key: string) { const v = values.get(key); return v ? { etag: v.version, customMetadata: v.metadata } : null; },
+    async get(key: string) { const v = values.get(key); return v ? { etag: v.version, uploaded: v.uploaded, arrayBuffer: async () => v.bytes.slice().buffer } : null; },
+    async head(key: string) { const v = values.get(key); return v ? { etag: v.version, uploaded: v.uploaded, customMetadata: v.metadata } : null; },
     async list({ prefix }: any) { return { objects: [...values.keys()].filter(key => key.startsWith(prefix)).map(key => ({ key })), truncated: false }; },
   };
   return { bible, plan, save, put, values, bucket };

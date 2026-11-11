@@ -36,7 +36,8 @@ export async function recordReleaseFailure(books: any, slug: string, id: string,
 /** Append-only staging. Failures intentionally leave the intent and all candidates.
  * Nothing changes a delivery pointer until every copied byte has been verified. */
 export async function freezeArtifactRelease(books: any, sourceManifest: BookRevision, id: string, actor: string | null = null) {
-  const { revision, ...source } = sourceManifest;
+  // uploaded is currency evidence, never part of the hashed payload.
+  const { revision, uploaded: _uploaded, ...source } = sourceManifest;
   if (!validId(id) || !validId(source.slug) || revisionHash(source) !== revision || !source.artifacts.length)
     throw new Error('Invalid source revision for release');
   const prefix = artifactReleasePrefix(source.slug, id);
@@ -93,7 +94,7 @@ export async function readArtifactRelease(db: any, books: any, slug: string, id?
   const bytes = new Uint8Array(await obj.arrayBuffer());
   if (sha256Hex(bytes) !== row.manifest_sha256) throw new Error('Frozen release manifest hash mismatch');
   const release: ArtifactRelease = JSON.parse(new TextDecoder().decode(bytes));
-  const { revision, ...source } = release.sourceManifest;
+  const { revision, uploaded: _uploaded, ...source } = release.sourceManifest;
   if (release.schema !== 'artifact-release/v1' || release.id !== row.id || release.slug !== slug || source.slug !== slug || revision !== row.revision || revisionHash(source) !== revision ||
     release.artifacts.length !== source.artifacts.length || new Set(release.artifacts.map(a => a.key)).size !== source.artifacts.length ||
     new Set(release.artifacts.map(a => a.sourceKey)).size !== source.artifacts.length || release.artifacts.some(a => {

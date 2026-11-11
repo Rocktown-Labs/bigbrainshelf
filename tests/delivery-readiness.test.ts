@@ -111,6 +111,19 @@ function facts(over: Partial<DeliveryFacts> = {}): DeliveryFacts {
   assert.equal(n.verdict, "unverified");
   assert.ok(n.unknowns.includes("Full story QC sign-off"));
   assert.ok(n.unknowns.includes("Full color QC sign-off"));
+  // Sign-off order (CG, 2026-11-11): a voided color sign-off blocks
+  // as voided (the edition changed after it was recorded), and an
+  // out-of-date edition blocks as not yet available, out of date.
+  const v = computeDeliveryReadiness(facts({
+    signoffs: { story: "done", color: "voided", colorAt: "2026-11-05T12:00:00.000Z" },
+  }));
+  assert.equal(v.verdict, "not-ready");
+  assert.match(v.blockers.join(" "), /Full color QC sign-off: voided/);
+  const s = computeDeliveryReadiness(facts({
+    signoffs: { story: "done", color: "unavailable", colorReason: "stale" },
+  }));
+  assert.equal(s.verdict, "not-ready");
+  assert.match(s.blockers.join(" "), /Full color QC sign-off: not yet available\. The color edition is out of date/);
 }
 
 // Marketing is the LAST step (CG, 2026-10-31): when it is the

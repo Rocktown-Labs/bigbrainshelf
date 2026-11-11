@@ -1,6 +1,6 @@
 import { approvedPages, approvalTargets, captureApprovalRevision } from './approval-identity';
 import { adminMediaUrl } from './media';
-import { colorEditionComplete, getSignoffStates } from './qc-signoffs';
+import { assessColorEdition, getSignoffStates } from './qc-signoffs';
 
 /** QC renders the same plan inventory and bytes that its approval will bind. */
 export async function readReviewBook(db: any, books: any, slug: string, captured?: Awaited<ReturnType<typeof captureApprovalRevision>>) {
@@ -30,7 +30,7 @@ export async function readReviewSession(db: any, books: any, slug: string) {
   const [review, rows, signoffs] = await Promise.all([
     readReviewBook(db, books, slug, snapshot),
     approvedPages(db, snapshot.manifest, true),
-    getSignoffStates(db, slug, snapshot.manifest.revision, colorEditionComplete(snapshot.manifest)),
+    getSignoffStates(db, slug, snapshot.manifest.revision, assessColorEdition(snapshot.manifest)),
   ]);
   const approvals = approvalTargets(snapshot.manifest).map(p => ({ chapterNum: p.chapter, pageIndex: p.page,
     approved: rows.some((r: any) => r.chapter_num === p.chapter && r.page_index === p.page) }));

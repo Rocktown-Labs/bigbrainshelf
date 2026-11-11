@@ -353,7 +353,17 @@ if (fromAll) {
       if (s.state === "done") {
         return '<span class="status complete" title="Signed off' + (s.at ? " " + esc(String(s.at).slice(0, 10)) : "") + '">' + label + " &#10003; signed</span>";
       }
+      if (s.state === "voided") {
+        // The sign-off was recorded, then the book changed (a later
+        // colorize) and voided it. Say so loudly, keep the original
+        // attestation visible, and offer the fresh sign-off.
+        return '<span class="status failed" title="Signed off' + (s.at ? " " + esc(String(s.at).slice(0, 10)) : "") + ', then voided when the color edition changed (a later colorize). It no longer counts.">' + label + ": voided by a later colorize</span>" +
+          ' <button class="ghostbtn" style="padding:5px 12px;font-size:13px" data-signoff="' + kind + '">Sign off again: ' + label + "</button>";
+      }
       if (s.state === "unavailable") {
+        if (s.unavailableReason === "stale") {
+          return '<span class="status draft" title="The color edition is out of date: some color pages are older than the line pages they were colored from. Re-run colorize so every color page is current, then sign off.">' + label + ": out of date</span>";
+        }
         return '<span class="status draft" title="The color edition is incomplete, so there is no full color edition to sign off yet">' + label + ": not yet available</span>";
       }
       if (s.state === "unknown") {
