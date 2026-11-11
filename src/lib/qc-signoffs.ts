@@ -110,25 +110,27 @@ export async function getSignoffStates(
   let color: SignoffState;
   if (colorRow) {
     color = { state: "done", actor: colorRow.actor ?? null, at: colorRow.created_at ?? null };
-  } else {
+  } else if (colorEdition.state === "complete") {
     // A color sign-off on any older revision was voided when the
     // book changed after it was recorded. Surface that loudly,
     // with the original attestation, instead of a bare outstanding.
     const voidedRow = rows.find((r) => r.kind === "color");
-    if (voidedRow) {
-      color = { state: "voided", actor: voidedRow.actor ?? null, at: voidedRow.created_at ?? null };
-    } else if (colorEdition.state === "complete") {
-      color = { state: "outstanding", actor: null, at: null };
-    } else if (colorEdition.state === "unknown") {
-      color = { state: "unknown", actor: null, at: null };
-    } else {
-      color = {
-        state: "unavailable",
-        actor: null,
-        at: null,
-        unavailableReason: colorEdition.state === "stale" ? "stale" : "incomplete",
-      };
-    }
+    color = voidedRow
+      ? { state: "voided", actor: voidedRow.actor ?? null, at: voidedRow.created_at ?? null }
+      : { state: "outstanding", actor: null, at: null };
+  } else if (colorEdition.state === "unknown") {
+    color = { state: "unknown", actor: null, at: null };
+  } else {
+    // The edition itself is not sign-off-able (incomplete or out of
+    // date): that is the actionable read even when a voided sign-off
+    // also exists. Once colorize makes the edition whole again, the
+    // older sign-off surfaces as voided until it is recorded afresh.
+    color = {
+      state: "unavailable",
+      actor: null,
+      at: null,
+      unavailableReason: colorEdition.state === "stale" ? "stale" : "incomplete",
+    };
   }
   return { story, color };
 }
