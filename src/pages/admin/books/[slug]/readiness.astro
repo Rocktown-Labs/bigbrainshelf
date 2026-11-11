@@ -90,6 +90,7 @@ const steps = deriveReadinessSteps({
   linePages: lineImgs,
   colorPages: colorTwins,
   colorSignoff: colorSignoffCheck ? colorSignoffCheck.state : null,
+  colorSignoffState: delivery?.signoffs ? delivery.signoffs.color : null,
   castState: castCheck ? castCheck.state : null,
   audioState: audioCheck ? audioCheck.state : null,
   publishReady: publish ? publish.ready : null,

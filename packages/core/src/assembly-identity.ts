@@ -34,7 +34,8 @@ export interface VerifiedAssemblyInput {
 /** Reuse a byte-verified revision, never a client-provided assertion. All object
  * versions are still checked by the approval writer before recording a mark. */
 function assemblyInputFromRevision(verified: VerifiedAssemblyInput, slug: string, targets: { key: string; role: string }[]) {
-  const { revision, ...payload } = verified.manifest;
+  // uploaded is currency evidence, never part of the hashed payload.
+  const { revision, uploaded: _uploaded, ...payload } = verified.manifest;
   if (verified.manifest.slug !== slug || revisionHash(payload) !== revision || revisionHash(verified.inventory.pages) !== revisionHash(verified.manifest.pages))
     throw new Error('Captured revision does not match assembly inventory');
   const artifacts = new Map<string, RevisionArtifact>();
@@ -55,7 +56,12 @@ function assemblyInputFromRevision(verified: VerifiedAssemblyInput, slug: string
   }
   const input = { schema: 'book-revision/v1' as const, slug, pages: verified.inventory.pages,
     artifacts: [...artifacts.values()].sort((a, b) => a.key.localeCompare(b.key)) };
-  return { manifest: { ...input, revision: revisionHash(input) }, observations: verified.observations.filter(o => artifacts.has(o.key)) };
+  // Carry the captured currency evidence for the artifacts this
+  // input keeps, so a reused manifest reads exactly like a deep one.
+  const uploaded = verified.manifest.uploaded
+    ? Object.fromEntries(Object.entries(verified.manifest.uploaded).filter(([key]) => artifacts.has(key)))
+    : undefined;
+  return { manifest: { ...input, ...(uploaded ? { uploaded } : {}), revision: revisionHash(input) }, observations: verified.observations.filter(o => artifacts.has(o.key)) };
 }
 
 export async function prepareAssembly(books: any, slug: string, edition: 'line' | 'color', verified?: VerifiedAssemblyInput) {

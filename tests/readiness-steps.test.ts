@@ -213,5 +213,29 @@ function miraFacts(): ReadinessStepFacts {
 assert(productReady.marketing.state === "current", "product-ready: marketing is the current step");
 assert(productReady.publish.state === "current", "product-ready: publish stays current");
 
+// ---- Sign-off order (CG, 2026-11-11): a color sign-off voided by
+// a later colorize reads as waiting on a FRESH sign-off of the
+// current edition, never as done and never as never-signed; an
+// out-of-date edition (twins older than their line pages) makes
+// colorize the current step again, because no sign-off is even
+// available until the twins are refreshed.
+const voided = deriveReadinessSteps({
+  ...miraFacts(),
+  colorSignoff: "fail",
+  colorSignoffState: "voided",
+});
+assert(voided.colorize.state === "waiting" && voided.colorize.badge === "Waiting on color sign-off", "voided: colorize waits on a fresh color sign-off");
+assert(voided.colorize.detail.includes("voided"), "voided: detail says the sign-off was voided");
+assert(voided.colorize.action === "rerun", "voided: colorize button stays a re-run");
+
+const stale = deriveReadinessSteps({
+  ...miraFacts(),
+  colorSignoff: "fail",
+  colorSignoffState: "unavailable",
+});
+assert(stale.colorize.state === "current" && stale.colorize.badge === "Next step", "stale: colorize is the next step again");
+assert(stale.colorize.detail.includes("out of date"), "stale: detail says the edition is out of date");
+assert(stale.colorize.detail.includes("not available yet"), "stale: detail says no sign-off is available yet");
+
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURE(S)`);
 process.exit(failures === 0 ? 0 : 1);

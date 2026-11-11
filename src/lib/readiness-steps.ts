@@ -44,6 +44,11 @@ export interface ReadinessStepFacts {
   colorPages: number | null;
   /** The delivery checklist's full-color sign-off check. */
   colorSignoff: StepCheckState | null;
+  /** The raw color sign-off state behind the check, when known:
+   * a voided sign-off (the color edition changed after it was
+   * recorded) and an out-of-date edition (twins older than their
+   * line pages) present differently from a plain outstanding one. */
+  colorSignoffState?: "done" | "outstanding" | "unavailable" | "voided" | "unknown" | null;
   /** The delivery checklist's casting and audiobook-production checks. */
   castState: StepCheckState | null;
   audioState: StepCheckState | null;
@@ -101,6 +106,30 @@ function deriveColorize(f: ReadinessStepFacts): ColorizeStepPresentation {
       return {
         ...step("done"),
         detail: `${landed} Full color sign-off is recorded.`,
+        action: "rerun",
+      };
+    }
+    // Sign-off order (CG, 2026-11-11): a sign-off recorded before
+    // the latest colorize is void, and an edition whose twins are
+    // older than their line pages is out of date. Neither reads as
+    // a plain "waiting on sign-off": the voided one needs a fresh
+    // review of the current edition; the stale one needs colorize
+    // to refresh the twins before any sign-off is even available.
+    if (f.colorSignoffState === "voided") {
+      return {
+        ...step("waiting", "Waiting on color sign-off"),
+        detail:
+          landed +
+          " The full color sign-off was voided when the color edition changed after it was recorded. Read the full color edition in the QC viewer and sign off again.",
+        action: "rerun",
+      };
+    }
+    if (f.colorSignoffState === "unavailable") {
+      return {
+        ...step("current"),
+        detail:
+          `Color edition out of date: ${f.colorPages} of ${f.linePages} pages colored, but the edition is not current (color pages older than their line pages), so the full color sign-off is not available yet. Run colorize to refresh it; the factory skips pages that are already current.` +
+          unlockNote,
         action: "rerun",
       };
     }

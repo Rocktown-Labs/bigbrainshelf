@@ -61,16 +61,27 @@ export async function captureApprovalRevision(db: any, books: any, slug: string,
       const row = await db.prepare('SELECT manifest_json FROM revision_cache WHERE book_slug = ? AND fingerprint = ?').bind(slug, fingerprint).first();
       const manifest = row?.manifest_json ? JSON.parse(row.manifest_json) : null;
       if (manifest && manifest.slug === slug && typeof manifest.revision === 'string' && Array.isArray(manifest.pages) && Array.isArray(manifest.artifacts)) {
-        return { manifest, observations: [...versioned.entries()].map(([key, etag]) => ({ key, etag })), inventory };
+        // Cached manifests written before the uploaded map existed
+        // lack it; the HEAD probes above already touched every page
+        // key, so backfill currency evidence from them.
+        const uploaded: Record<string, string> = { ...(manifest.uploaded ?? {}) };
+        for (const h of heads) {
+          const up = (h.head as any)?.uploaded;
+          if (up && !uploaded[h.key]) uploaded[h.key] = up instanceof Date ? up.toISOString() : String(up);
+        }
+        return { manifest: { ...manifest, uploaded }, observations: [...versioned.entries()].map(([key, etag]) => ({ key, etag })), inventory };
       }
     } catch { /* the cache is an optimization; the deep path is the truth */ }
   }
 
   const deep = await captureBookRevision(books, slug, targets, inventory);
   if (printables.length) {
-    const { revision: _, ...payload } = deep.manifest;
+    // uploaded rides along outside the hash: folding timestamps into
+    // the revision would move the revision on every re-upload and
+    // orphan attestations whose content never changed.
+    const { revision: _revision, uploaded, ...payload } = deep.manifest;
     const withPrint = { ...payload, printables };
-    deep.manifest = { ...withPrint, revision: revisionHash(withPrint) };
+    deep.manifest = { ...withPrint, ...(uploaded ? { uploaded } : {}), revision: revisionHash(withPrint) };
   }
   if (fingerprint && !options.readOnly) {
     // Cache only when the byte capture observed exactly the versions
@@ -128,7 +139,7 @@ export async function assertApprovedAssembly(books: any, manifest: BookRevision,
     const receiptObject = await books.get(metadata.receiptKey);
     if (!receiptObject) throw new Error(`Assembly receipt missing: ${artifact.key}`);
     const receipt = JSON.parse(new TextDecoder().decode(await receiptObject.arrayBuffer()));
-    const { revision, ...payload } = receipt.manifest ?? {};
+    const { revision, uploaded: _uploaded, ...payload } = receipt.manifest ?? {};
     if (receipt.kind !== kind || receipt.schema !== 'assembly/v1' || revisionHash(payload) !== revision || revision !== inputs.get(edition) ||
       receipt.revision !== revision || receipt.pdf?.sha256 !== artifact.sha256 || receipt.pdf?.bytes !== artifact.bytes ||
       receipt.inventoryPages !== manifest.pages.length)

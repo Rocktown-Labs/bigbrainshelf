@@ -26,6 +26,12 @@ export interface BookRevision {
   artifacts: RevisionArtifact[];
   revision: string;
   printables?: RevisionPrintable[];
+  /** R2 uploaded timestamps (ISO) per artifact key, captured with
+   * the manifest. Deliberately NOT part of the hashed payload: the
+   * revision stays a content identity, while this map lets callers
+   * judge currency (a color twin counts as current only when it was
+   * uploaded at or after its line page, the factory's rule). */
+  uploaded?: Record<string, string>;
 }
 
 function canonical(value: any): string {
@@ -131,6 +137,11 @@ export async function captureBookRevision(
   const targets = [...inventory.pages.flatMap(p => [
     { key: p.lineKey, role: 'line-art' }, ...(p.colorKey ? [{ key: p.colorKey, role: 'color-art' }] : [])
   ]), ...deliverables];
+  const uploaded: Record<string, string> = {};
+  const noteUploaded = (key: string, value: unknown) => {
+    if (value instanceof Date) uploaded[key] = value.toISOString();
+    else if (typeof value === 'string' && value) uploaded[key] = value;
+  };
   // Hash with bounded concurrency: a sequential pass over a whole
   // book (90+ images plus the assembled PDFs) took long enough that
   // QC approval requests died mid-verification (2026-11-06).
@@ -144,12 +155,13 @@ export async function captureBookRevision(
       if (!obj || !obj.etag) throw new Error(`Required artifact missing or unversioned: ${target.key}`);
       artifacts.set(target.key, { ...target, ...await hashObject(obj) });
       observations.push({ key: target.key, etag: obj.etag });
+      noteUploaded(target.key, obj.uploaded);
     }
   }
   await Promise.all(Array.from({ length: Math.min(8, targets.length) }, hashWorker));
   const payload = { schema: 'book-revision/v1' as const, slug, pages: inventory.pages,
     artifacts: [...artifacts.values()].sort((a, b) => a.key.localeCompare(b.key)) };
-  return { manifest: { ...payload, revision: revisionHash(payload) }, observations };
+  return { manifest: { ...payload, uploaded, revision: revisionHash(payload) }, observations };
 }
 
 /** Detects changes during capture/checking. Atomic release pointers come in the assembly slice. */

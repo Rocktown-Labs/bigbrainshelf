@@ -23,7 +23,7 @@
 import { bibleCast, ensureCastTables, seedRecordedCasts, type CastCharacter } from "./cast-registry";
 import { audiobookMetaKey } from "./audiobooks";
 import { voiceDisplayName } from "./publish-readiness";
-import { colorEditionComplete, getSignoffStates, type SignoffStateName } from "./qc-signoffs";
+import { assessColorEdition, getSignoffStates, type SignoffStateName } from "./qc-signoffs";
 import { captureApprovalRevision } from "./approval-identity";
 
 export type DeliveryCheckState = "pass" | "fail" | "unknown";
@@ -45,6 +45,10 @@ export interface DeliveryReadiness {
   unknowns: string[];
   verdict: DeliveryVerdict;
   statusLabel: string;
+  /** Raw QC sign-off state names for the current revision, for
+   * surfaces (the readiness step list) that present the sign-off
+   * states directly rather than through a check. */
+  signoffs?: { story: SignoffStateName; color: SignoffStateName } | null;
 }
 
 export interface DeliveryFacts {
@@ -89,7 +93,15 @@ export interface DeliveryFacts {
    *  full story then full color, bound to the book's current
    *  revision. Null = the states could not be checked, which reads
    *  as unknown, never as signed. */
-  signoffs: { story: SignoffStateName; color: SignoffStateName } | null;
+  signoffs: {
+    story: SignoffStateName;
+    color: SignoffStateName;
+    /** Color detail for the checklist copy: why the color sign-off
+     * is unavailable (incomplete vs out of date), and for a voided
+     * sign-off the date it was originally recorded. */
+    colorReason?: "incomplete" | "stale" | null;
+    colorAt?: string | null;
+  } | null;
   /** Marketing assets (the LAST readiness step, CG 2026-10-31:
    *  everything else gets put together first, then marketing is
    *  made and can just run). Null = never measured. */
@@ -254,14 +266,20 @@ export function computeDeliveryReadiness(f: DeliveryFacts): DeliveryReadiness {
       f.signoffs.color === "done"
         ? { id: "color-qc-signoff", label: "Full color QC sign-off", state: "pass",
             detail: "Full color QC sign-off: recorded for the current revision." }
-        : f.signoffs.color === "unavailable"
+        : f.signoffs.color === "voided"
           ? { id: "color-qc-signoff", label: "Full color QC sign-off", state: "fail",
-              detail: "Full color QC sign-off: not yet available. The color edition is incomplete, so there is no full color edition to sign off." }
-          : f.signoffs.color === "unknown"
-            ? { id: "color-qc-signoff", label: "Full color QC sign-off", state: "unknown",
-                detail: "Full color QC sign-off: the sign-off state could not be checked." }
-            : { id: "color-qc-signoff", label: "Full color QC sign-off", state: "fail",
-                detail: "Full color QC sign-off: outstanding. Read the full color edition in the QC viewer and sign off." }
+              detail: `Full color QC sign-off: voided. The color edition changed after the sign-off was recorded${f.signoffs.colorAt ? ` (${String(f.signoffs.colorAt).slice(0, 10)})` : ""}, so it no longer counts. Read the full color edition in the QC viewer and sign off again.` }
+          : f.signoffs.color === "unavailable" && f.signoffs.colorReason === "stale"
+            ? { id: "color-qc-signoff", label: "Full color QC sign-off", state: "fail",
+                detail: "Full color QC sign-off: not yet available. The color edition is out of date: some color pages are older than the line pages they were colored from. Re-run colorize so every color page is current, then sign off." }
+            : f.signoffs.color === "unavailable"
+              ? { id: "color-qc-signoff", label: "Full color QC sign-off", state: "fail",
+                  detail: "Full color QC sign-off: not yet available. The color edition is incomplete, so there is no full color edition to sign off." }
+              : f.signoffs.color === "unknown"
+                ? { id: "color-qc-signoff", label: "Full color QC sign-off", state: "unknown",
+                    detail: "Full color QC sign-off: the sign-off state could not be checked." }
+                : { id: "color-qc-signoff", label: "Full color QC sign-off", state: "fail",
+                    detail: "Full color QC sign-off: outstanding. Read the full color edition in the QC viewer and sign off." }
     );
   }
 
@@ -312,7 +330,10 @@ export function computeDeliveryReadiness(f: DeliveryFacts): DeliveryReadiness {
           ? `Not ready: ${blockers.length} blocker${blockers.length === 1 ? "" : "s"}`
           : `Unverified: ${unknowns.length} check${unknowns.length === 1 ? "" : "s"} not measured`;
 
-  return { slug: f.slug, title: f.title, checks, blockers, unknowns, verdict, statusLabel };
+  return {
+    slug: f.slug, title: f.title, checks, blockers, unknowns, verdict, statusLabel,
+    signoffs: f.signoffs ? { story: f.signoffs.story, color: f.signoffs.color } : null,
+  };
 }
 
 // ---- Assembly QA flags (book_qa) ---------------------------------------
@@ -680,9 +701,14 @@ export async function getDeliveryReadiness(
   try {
     const snapshot = await captureApprovalRevision(db, books, slug, { readOnly: !!options.readOnly });
     const states = await getSignoffStates(
-      db, slug, snapshot.manifest.revision, colorEditionComplete(snapshot.manifest)
+      db, slug, snapshot.manifest.revision, assessColorEdition(snapshot.manifest)
     );
-    signoffs = { story: states.story.state, color: states.color.state };
+    signoffs = {
+      story: states.story.state,
+      color: states.color.state,
+      colorReason: states.color.unavailableReason ?? null,
+      colorAt: states.color.at,
+    };
   } catch {
     signoffs = null;
   }
