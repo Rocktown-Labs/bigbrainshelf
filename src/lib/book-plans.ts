@@ -40,16 +40,29 @@ export interface BookQcState {
 }
 
 /** Read the inventory once. An unavailable fact must never look like a zero. */
-export async function getBookQcState(db: any, books: any, slug: string): Promise<BookQcState> {
+export async function getBookQcState(db: any, books: any, slug: string,
+  given?: Awaited<ReturnType<typeof captureApprovalRevision>>): Promise<BookQcState> {
   let pages: BookPageRef[];
-  try { pages = await listBookPages(books, slug); }
+  // A caller-held snapshot's inventory is the same plan read
+  // listBookPages performs; reuse it instead of re-reading plans.
+  if (given?.inventory?.pages?.length) pages = given.inventory.pages.map(p => ({ chapter: p.chapter, page: p.page }));
+  else try { pages = await listBookPages(books, slug); }
   catch {
     return { totalPages: null, approvedCount: null, complete: false,
       label: 'Unverified: page inventory could not be read. Retry when the book plans are available.' };
   }
   try {
-    const { manifest } = await captureApprovalRevision(db, books, slug);
-    await assertApprovedAssembly(books, manifest);
+    const snapshot = given ?? await captureApprovalRevision(db, books, slug);
+    const { manifest } = snapshot;
+    // Verify the assembly against the snapshot already captured
+    // and hash-checked here, instead of deep-capturing (byte
+    // hashing) the whole book again per edition on every page
+    // load (2026-11-11: the readiness page took ~a minute). The
+    // publish gate keeps its own independent deep verification;
+    // this read path only labels state, and anything unprovable
+    // still lands in the unverified label below.
+    await assertApprovedAssembly(books, manifest,
+      { inventory: snapshot.inventory, observations: snapshot.observations });
     const approvedCount = await countApprovedInventory(db, manifest);
     return { totalPages: pages.length, approvedCount, revision: manifest.revision, complete: pages.length > 0 && approvedCount === pages.length,
       label: `${approvedCount} of ${pages.length} pages approved.` };

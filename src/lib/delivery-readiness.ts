@@ -608,7 +608,7 @@ export async function getDeliveryReadiness(
   db: any,
   books: any,
   slug: string,
-  options: { readOnly?: boolean } = {}
+  options: { readOnly?: boolean; snapshot?: Awaited<ReturnType<typeof captureApprovalRevision>> } = {}
 ): Promise<DeliveryReadiness | null> {
   const book = await db
     .prepare(
@@ -699,7 +699,10 @@ export async function getDeliveryReadiness(
   // read, reports null and renders unknown, never signed.
   let signoffs: DeliveryFacts["signoffs"] = null;
   try {
-    const snapshot = await captureApprovalRevision(db, books, slug, { readOnly: !!options.readOnly });
+    // A caller that already captured this exact revision (the
+    // readiness page, the publish gate) may hand its snapshot in;
+    // otherwise capture here. Same evidence either way.
+    const snapshot = options.snapshot ?? await captureApprovalRevision(db, books, slug, { readOnly: !!options.readOnly });
     const states = await getSignoffStates(
       db, slug, snapshot.manifest.revision, assessColorEdition(snapshot.manifest)
     );

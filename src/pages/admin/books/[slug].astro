@@ -20,6 +20,10 @@ const param = String(Astro.params.slug || "");
 const resolvedBook = await resolveBookForPublicRoute(env.DB as any, param).catch(() => null);
 const slug = resolvedBook ? String(resolvedBook.book.slug) : param;
 const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
+// A frozen release means the book is published: colorize is off
+// (CG, 2026-11-11). The API enforces the same rule server-side.
+const releaseRow = resolvedBook ? await (env.DB as any).prepare("SELECT id FROM publish_releases WHERE book_slug = ? LIMIT 1").bind(slug).first().catch(() => null) : null;
+const isPublished = !!releaseRow;
 // Back link context (fix A, 2026-11-03): arriving from the
 // all-books page (from=all plus its filter params), the back link
 // returns there with those filters restored. Any other arrival
@@ -100,6 +104,7 @@ if (fromAll) {
     .markbar .mk-bad.on { background: #dc2626; color: #fff; }
     #qc-progress { font-size: 13px; font-weight: 700; color: #44403c; white-space: nowrap; }
     #qc-colorize { min-height: 36px; padding: 6px 14px; border-radius: 8px; border: 0; background: #ea580c; color: #fff; font-weight: 700; font-size: 13px; cursor: pointer; }
+    #qc-colorize:disabled { background: #a8a29e; cursor: default; }
     #main { flex: 1; min-width: 0; padding: 18px; }
     .stage { max-width: 680px; margin: 0 auto; }
     .stage img.page { width: 100%; max-height: 62vh; object-fit: contain; background: #fff; border: 1px solid #e7e5e4; }
@@ -213,11 +218,12 @@ if (fromAll) {
     </div>
   </div>
 
-  <script is:inline define:vars={{ slug, adminSlug }}>
+  <script is:inline define:vars={{ slug, adminSlug, isPublished }}>
     // Covers load through the gated admin media route, never the
     // media host directly: the host serves raw keys immutable for a
     // year, so a replaced cover would stay stale in admin.
     var ADMIN_MEDIA = "/api/admin/media?key=";
+    var BOOK_PUBLISHED = isPublished;
     function adminMedia(key) { return ADMIN_MEDIA + encodeURIComponent(key); }
     var pages = [];
     var cur = 0;
@@ -490,7 +496,16 @@ if (fromAll) {
       var green = 0;
       pages.forEach(function (p) { if (approvals[key(p.chapterNum, p.pageIndex)] === true) green += 1; });
       el.textContent = green === pages.length ? "QC complete: all " + pages.length + " pages green" : "QC: " + green + " of " + pages.length + " pages green";
-      if (cz) cz.style.display = green === pages.length ? "" : "none";
+      if (cz) {
+        cz.style.display = green === pages.length ? "" : "none";
+        // Published books keep the button visible but off: the
+        // frozen release is never re-colorized (CG, 2026-11-11).
+        if (BOOK_PUBLISHED) {
+          cz.disabled = true;
+          cz.textContent = "Published";
+          cz.title = "This book is published. Colorize is off for published books.";
+        }
+      }
     }
 
     function key(cn, pi) { return cn + ":" + pi; }
@@ -1125,6 +1140,7 @@ if (fromAll) {
 
     var qcCz = document.getElementById("qc-colorize");
     if (qcCz) qcCz.addEventListener("click", function () {
+      if (qcCz.disabled) return;
       qcCz.disabled = true;
       qcCz.textContent = "Starting...";
       fetch("/api/books/colorize", {

@@ -73,9 +73,33 @@ export async function readPlanInventory(books: any, slug: string): Promise<{
   } while (cursor);
   if (found.length !== expected.length || expected.some((key: string) => !found.includes(key)))
     throw new Error('Stored chapter plans do not match the bible chapter inventory.');
+  // Read the chapter plans with bounded concurrency: a serial
+  // pass cost one round trip per chapter on every revision
+  // capture (2026-11-11 readiness-page speed). Each read lands in
+  // its chapter slot and sources are appended in chapter order
+  // afterwards, so pages and sources keep their exact original
+  // ordering.
+  async function fetchJson(key: string, role: string) {
+    const obj = await books.get(key);
+    if (!obj) throw new Error(`Required source missing: ${key}`);
+    const bytes = new Uint8Array(await obj.arrayBuffer());
+    return { data: JSON.parse(new TextDecoder().decode(bytes)), source: { key, role, bytes, etag: obj.etag } };
+  }
+  const planReads: Awaited<ReturnType<typeof fetchJson>>[] = new Array(expected.length);
+  {
+    let next = 0;
+    async function planWorker() {
+      while (next < expected.length) {
+        const index = next++;
+        planReads[index] = await fetchJson(expected[index], 'plan');
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(8, expected.length) }, planWorker));
+  }
+  for (const read of planReads) sources.push(read.source);
   const pages: RevisionPage[] = [];
   for (const [index, planKey] of expected.entries()) {
-    const plan = await readJson(planKey, 'plan');
+    const plan = planReads[index].data;
     if (!Array.isArray(plan?.pages) || !plan.pages.length) throw new Error(`Empty or invalid plan: ${planKey}`);
     const entries: { pg: any; i: number; kind: RevisionPage['kind'] }[] =
       plan.pages.map((pg: any, i: number) => ({ pg, i, kind: 'story' }));

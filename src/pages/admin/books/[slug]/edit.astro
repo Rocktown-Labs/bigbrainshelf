@@ -5,6 +5,7 @@ import { ClientRouter } from "astro:transitions";
 import { env } from "cloudflare:workers";
 import AdminShell from "../../../../components/AdminShell.astro";
 import { resolveBookForPublicRoute, publicSlugFor } from "../../../../lib/public-slugs";
+import PublishFlow from "../../../../components/PublishFlow.astro";
 if (!Astro.locals.user) {
   return Astro.redirect("/admin/login");
 }
@@ -16,6 +17,7 @@ const param = String(Astro.params.slug || "");
 const resolvedBook = await resolveBookForPublicRoute(env.DB as any, param).catch(() => null);
 const slug = resolvedBook ? String(resolvedBook.book.slug) : param;
 const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
+const bookTitle = resolvedBook ? String((resolvedBook.book as any).title || slug) : param;
 ---
 
 <html lang="en">
@@ -243,13 +245,14 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
     </div>
   </div>
 
-<script is:inline define:vars={{ slug, adminSlug }}>
+<script is:inline define:vars={{ slug, adminSlug, bookTitle }}>
 (function() {
   "use strict";
   // The internal slug, resolved server-side from whichever slug form
   // the URL carried: the editor's API calls key on it, never on the
   // URL param (which is the public slug now).
   var BOOK_SLUG = slug;
+  var BOOK_TITLE = bookTitle;
   var PRESETS = {
     letter: { w: 8.5, h: 11 }, "6x9": { w: 6, h: 9 },
     "8x10": { w: 8, h: 10 }, a4: { w: 8.27, h: 11.69 }, custom: { w: 8.5, h: 11 }
@@ -946,34 +949,13 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
     }
   }
 
-  function doPublish(override) {
-    fetch("/api/editor/publish", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ book_slug: BOOK_SLUG, ...(override && typeof override === "object" ? { publishOverride: override } : {}) }) })
-      .then(function(r) {
-        return r.json().catch(function() { return {}; }).then(function(j) { return { ok: r.ok, status: r.status, j: j }; });
-      })
-      .then(function(res) {
-        if (!res.ok) {
-          if (res.j.gate === "readiness" && Array.isArray(res.j.blockers) && res.j.blockers.length) {
-            var details = res.j.blockers.map(function(b) { return b.id + ": " + b.detail; }).join("\n\n");
-            if (window.confirm("Publish with these exceptions?\n\n" + details + "\n\nInventory and page approvals cannot be waived. Your reason and these checks will be recorded.")) {
-              var reason = window.prompt("Reason for this publish exception:");
-              if (reason && reason.trim()) doPublish({ reason: reason.trim(), checks: res.j.blockers.map(function(b) { return b.id; }), verification: res.j.verification });
-            }
-            return;
-          }
-          alert(res.j.reason || ("Publish failed (" + res.status + ")."));
-          return;
-        }
-        var msg = res.j.reason || "Book published.";
-        if (res.j.override) {
-          msg += "\n\nPublish exceptions recorded: " + res.j.override.checks.join(", ") + ".";
-        }
-
-        alert(msg);
-        location.reload();
-      })
-      .catch(function() { alert("Publish failed. Check your connection and try again."); });
+  // Publishing runs in the in-app modal (PublishFlow): confirm
+  // step, streamed progress, refusal with the exception form
+  // (reason required, exactly the displayed checks), and the
+  // outcome rendered in the modal. No native dialogs and no
+  // alert-then-reload (CG, 2026-11-11).
+  function doPublish() {
+    window.openPublishFlow({ slug: BOOK_SLUG, title: BOOK_TITLE, allowOverride: true });
   }
 
   function escapeHtml(s) {
@@ -1199,6 +1181,7 @@ const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
       });
     });
   </script>
+  <PublishFlow />
   <GlobalPlayer />
 </body>
 </html>

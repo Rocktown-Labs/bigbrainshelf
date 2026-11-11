@@ -1,0 +1,292 @@
+---
+// The in-app publish flow (CG, 2026-11-11): replaces the native
+// window.confirm / prompt / alert publish path. One modal, three
+// states rendered in place: a real confirm step, a publishing
+// state whose steps stream from the publish endpoint (gate check,
+// release freeze, artifact copy with counts, storefront flip), and
+// a terminal success or refusal state. Nothing auto-reloads: the
+// success state says what happened and links the live storefront
+// page. Pages opt in with <PublishFlow /> plus a button calling
+// window.openPublishFlow({ slug, title, allowOverride }).
+export const prerender = false;
+---
+
+<div id="pf-overlay" class="pf-overlay" hidden>
+  <div class="pf-panel" role="dialog" aria-modal="true" aria-labelledby="pf-title">
+    <div class="pf-head">
+      <h2 id="pf-title">Publish book</h2>
+      <button type="button" id="pf-close" class="pf-x" aria-label="Close">×</button>
+    </div>
+    <p id="pf-book" class="pf-book"></p>
+
+    <div id="pf-view-confirm">
+      <p class="pf-text">Publishing freezes the exact reviewed revision of this book and puts it live on the storefront. The gates still apply: inventory, page approvals, audio and delivery readiness, and both sign-offs.</p>
+      <div class="pf-actions">
+        <button type="button" id="pf-cancel" class="pf-btn pf-btn-quiet">Cancel</button>
+        <button type="button" id="pf-start" class="pf-btn pf-btn-main">Publish</button>
+      </div>
+    </div>
+
+    <div id="pf-view-progress" hidden>
+      <div class="pf-bar-wrap"><div id="pf-bar" class="pf-bar"></div></div>
+      <ul class="pf-steps">
+        <li id="pf-step-gate-check"><span class="pf-mark"></span><span class="pf-step-label">Checking the publish gates</span></li>
+        <li id="pf-step-release-freeze"><span class="pf-mark"></span><span class="pf-step-label">Freezing the release</span></li>
+        <li id="pf-step-artifact-copy"><span class="pf-mark"></span><span class="pf-step-label">Copying artifacts into the release</span></li>
+        <li id="pf-step-storefront-flip"><span class="pf-mark"></span><span class="pf-step-label">Putting the book live</span></li>
+      </ul>
+      <p class="pf-text pf-dim">Publishing runs to completion here. Keep this open until it says Published or shows the refusal.</p>
+    </div>
+
+    <div id="pf-view-result" hidden>
+      <p id="pf-result-title" class="pf-result-title"></p>
+      <p id="pf-result-text" class="pf-text"></p>
+      <ul id="pf-blockers" class="pf-blockers"></ul>
+      <p id="pf-store-wrap" hidden><a id="pf-store-link" class="pf-store-link" href="#" target="_blank" rel="noopener">View on the storefront</a></p>
+      <div id="pf-exceptions" hidden>
+        <p class="pf-text">You can publish with exceptions for the readiness checks above. Inventory and page approvals cannot be waived. Your reason and these checks will be recorded with the release.</p>
+        <label class="pf-label" for="pf-reason">Reason for this publish exception</label>
+        <textarea id="pf-reason" class="pf-reason" rows="3"></textarea>
+        <div class="pf-actions">
+          <button type="button" id="pf-override" class="pf-btn pf-btn-main" disabled>Publish with these exceptions</button>
+        </div>
+      </div>
+      <div class="pf-actions">
+        <button type="button" id="pf-reload" class="pf-btn pf-btn-quiet" hidden>Reload this page</button>
+        <button type="button" id="pf-done" class="pf-btn pf-btn-main">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .pf-overlay { position: fixed; inset: 0; z-index: 90; background: rgba(28, 25, 23, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .pf-overlay[hidden] { display: none; }
+  .pf-panel { background: #fff; border-radius: 16px; max-width: 30rem; width: 100%; padding: 20px 22px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); max-height: 88vh; overflow-y: auto; }
+  .pf-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .pf-head h2 { margin: 0; font-size: 1.15rem; font-weight: 700; color: #1a3454; }
+  .pf-x { border: 0; background: none; font-size: 1.4rem; line-height: 1; color: #78716c; cursor: pointer; padding: 2px 6px; }
+  .pf-x:disabled { opacity: 0.3; cursor: default; }
+  .pf-book { margin: 2px 0 10px; font-weight: 600; color: #44403c; }
+  .pf-text { font-size: 0.9rem; color: #44403c; line-height: 1.45; }
+  .pf-dim { color: #78716c; }
+  .pf-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .pf-btn { border-radius: 8px; font-size: 0.875rem; font-weight: 600; padding: 8px 16px; cursor: pointer; }
+  .pf-btn-main { background: #1a3454; color: #fff; border: 1px solid #1a3454; }
+  .pf-btn-main:disabled { opacity: 0.4; cursor: default; }
+  .pf-btn-quiet { background: #fff; color: #44403c; border: 1px solid #d6d3d1; }
+  .pf-bar-wrap { height: 8px; border-radius: 999px; background: #e7e5e4; overflow: hidden; margin: 6px 0 14px; }
+  .pf-bar { height: 100%; width: 0%; background: #ea580c; border-radius: 999px; transition: width 0.35s ease; }
+  .pf-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .pf-steps li { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; color: #a8a29e; }
+  .pf-steps li.pf-active { color: #1c1917; font-weight: 600; }
+  .pf-steps li.pf-done { color: #44403c; }
+  .pf-mark { width: 18px; height: 18px; border-radius: 999px; border: 2px solid #d6d3d1; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #fff; }
+  .pf-steps li.pf-active .pf-mark { border-color: #ea580c; border-top-color: transparent; animation: pf-spin 0.8s linear infinite; }
+  .pf-steps li.pf-done .pf-mark { background: #16a34a; border-color: #16a34a; }
+  .pf-steps li.pf-done .pf-mark::after { content: "✓"; }
+  @keyframes pf-spin { to { transform: rotate(360deg); } }
+  .pf-result-title { font-size: 1.05rem; font-weight: 700; margin: 4px 0 6px; }
+  .pf-blockers { margin: 8px 0 0; padding-left: 18px; font-size: 0.875rem; color: #7f1d1d; display: grid; gap: 4px; }
+  .pf-blockers:empty { display: none; }
+  .pf-store-link { display: inline-block; margin-top: 6px; font-weight: 600; color: #c2410c; }
+  .pf-label { display: block; font-size: 0.8rem; font-weight: 600; color: #44403c; margin: 12px 0 4px; }
+  .pf-reason { width: 100%; border: 1px solid #d6d3d1; border-radius: 8px; padding: 8px; font: inherit; font-size: 0.875rem; box-sizing: border-box; }
+</style>
+
+<script is:inline>
+  (function () {
+    function createPublishFlow(fetchImpl) {
+      async function run(opts, emit) {
+        var slug = opts.slug;
+        var override = opts.override || null;
+        if (override) {
+          if (!override.reason || !String(override.reason).trim() || !override.checks || !override.checks.length) {
+            emit({ kind: 'error', message: 'A publish exception needs a reason and at least one named check.' });
+            return;
+          }
+        }
+        var payload = { book_slug: slug, stream: true };
+        if (override) payload.publishOverride = { reason: String(override.reason).trim(), checks: override.checks, verification: override.verification };
+        var res;
+        try {
+          res = await fetchImpl('/api/editor/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        } catch (e) {
+          emit({ kind: 'error', message: 'Publish failed. Check your connection and try again.' });
+          return;
+        }
+        var result = null;
+        if (res.body && typeof res.body.getReader === 'function') {
+          var reader = res.body.getReader();
+          var decoder = new TextDecoder();
+          var buf = '';
+          try {
+            for (;;) {
+              var chunk = await reader.read();
+              if (chunk.done) break;
+              buf += decoder.decode(chunk.value, { stream: true });
+              var lines = buf.split('\n');
+              buf = lines.pop();
+              for (var i = 0; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                var ev;
+                try { ev = JSON.parse(lines[i]); } catch (e) { continue; }
+                if (ev.type === 'step') emit({ kind: 'step', step: ev.step, state: ev.state, copied: ev.copied, total: ev.total });
+                else if (ev.type === 'result') result = ev;
+              }
+            }
+          } catch (e) { /* fall through: a missing result reads as an interruption */ }
+          if (!result && buf.trim()) { try { var lastEv = JSON.parse(buf); if (lastEv.type === 'result') result = lastEv; } catch (e) {} }
+        } else {
+          var j = await res.json().catch(function () { return {}; });
+          result = { status: res.status, body: j };
+        }
+        if (!result) { emit({ kind: 'error', message: 'Publish failed. The response was interrupted before the result arrived.' }); return; }
+        if (result.body && result.body.ok) emit({ kind: 'published', body: result.body });
+        else emit({ kind: 'refused', status: result.status, body: result.body || {} });
+      }
+      return { run: run };
+    }
+    // __PUBLISH_FLOW_CORE_END__
+
+    var STEP_IDS = ['gate-check', 'release-freeze', 'artifact-copy', 'storefront-flip'];
+    var flow = createPublishFlow(function (url, init) { return fetch(url, init); });
+    var state = null;
+
+    function el(id) { return document.getElementById(id); }
+    function show(view) {
+      el('pf-view-confirm').hidden = view !== 'confirm';
+      el('pf-view-progress').hidden = view !== 'progress';
+      el('pf-view-result').hidden = view !== 'result';
+    }
+    function setRunning(running) {
+      el('pf-close').disabled = running;
+      el('pf-cancel').disabled = running;
+    }
+    function resetSteps() {
+      STEP_IDS.forEach(function (s) {
+        var li = el('pf-step-' + s);
+        li.className = '';
+      });
+      var copy = el('pf-step-artifact-copy').querySelector('.pf-step-label');
+      copy.textContent = 'Copying artifacts into the release';
+      el('pf-bar').style.width = '0%';
+    }
+    function barUpdate() {
+      var done = 0, frac = 0;
+      STEP_IDS.forEach(function (s) {
+        var li = el('pf-step-' + s);
+        if (li.className === 'pf-done') done++;
+        if (s === 'artifact-copy' && li.dataset.total) {
+          var c = Number(li.dataset.copied || 0), t = Number(li.dataset.total || 0);
+          if (t > 0) frac = c / t;
+        }
+      });
+      el('pf-bar').style.width = Math.round(((done + frac) / STEP_IDS.length) * 100) + '%';
+    }
+    function onStep(ev) {
+      var li = el('pf-step-' + ev.step);
+      if (!li) return;
+      if (ev.state === 'start') li.className = 'pf-active';
+      if (ev.state === 'done') li.className = 'pf-done';
+      if (ev.state === 'progress') {
+        li.className = 'pf-active';
+        li.dataset.copied = ev.copied; li.dataset.total = ev.total;
+        li.querySelector('.pf-step-label').textContent = 'Copying artifacts into the release (' + ev.copied + ' of ' + ev.total + ')';
+      }
+      barUpdate();
+    }
+    function refusalText(body) {
+      if (body.reason) return body.reason;
+      if (Array.isArray(body.blockers) && body.blockers.length) {
+        return body.blockers.map(function (b) { return b && b.detail ? ((b.id ? b.id + ': ' : '') + b.detail) : ''; }).filter(Boolean).join(' ');
+      }
+      return 'The publish gate refused and gave no reason.';
+    }
+    function showResult(kind, payload) {
+      setRunning(false);
+      show('result');
+      var title = el('pf-result-title'), text = el('pf-result-text');
+      var blockers = el('pf-blockers');
+      blockers.innerHTML = '';
+      el('pf-store-wrap').hidden = true;
+      el('pf-exceptions').hidden = true;
+      el('pf-reload').hidden = true;
+      if (kind === 'published') {
+        var body = payload.body;
+        title.textContent = 'Published';
+        title.style.color = '#15803d';
+        text.textContent = body.reason || 'Book published. It now appears on the storefront.';
+        if (body.override && body.override.checks && body.override.checks.length) {
+          text.textContent += ' Publish exceptions recorded: ' + body.override.checks.join(', ') + '.';
+        }
+        var link = el('pf-store-link');
+        link.href = '/books/' + (body.publicSlug || state.slug);
+        el('pf-store-wrap').hidden = false;
+        el('pf-reload').hidden = false;
+        return;
+      }
+      title.textContent = 'Not published';
+      title.style.color = '#b91c1c';
+      if (kind === 'error') {
+        text.textContent = payload.message;
+        return;
+      }
+      var rbody = payload.body || {};
+      text.textContent = refusalText(rbody);
+      state.lastRefusal = rbody;
+      if (Array.isArray(rbody.blockers) && rbody.blockers.length) {
+        rbody.blockers.forEach(function (b) {
+          var li = document.createElement('li');
+          li.textContent = (b.id ? b.id + ': ' : '') + (b.detail || '');
+          blockers.appendChild(li);
+        });
+      }
+      var canOverride = state.allowOverride && rbody.gate === 'readiness' && Array.isArray(rbody.blockers) && rbody.blockers.length > 0 && !!rbody.verification;
+      if (canOverride) {
+        el('pf-exceptions').hidden = false;
+        el('pf-reason').value = '';
+        el('pf-override').disabled = true;
+      }
+    }
+    function startRun(override) {
+      show('progress');
+      resetSteps();
+      setRunning(true);
+      flow.run({ slug: state.slug, override: override || null }, function (ev) {
+        if (ev.kind === 'step') onStep(ev);
+        else showResult(ev.kind, ev);
+      });
+    }
+    function close() {
+      if (el('pf-close').disabled) return;
+      el('pf-overlay').hidden = true;
+      state = null;
+    }
+
+    window.openPublishFlow = function (opts) {
+      state = { slug: opts.slug, allowOverride: !!opts.allowOverride, lastRefusal: null };
+      el('pf-book').textContent = opts.title || opts.slug;
+      el('pf-overlay').hidden = false;
+      show('confirm');
+      setRunning(false);
+    };
+    el('pf-cancel').addEventListener('click', close);
+    el('pf-close').addEventListener('click', close);
+    el('pf-done').addEventListener('click', close);
+    el('pf-reload').addEventListener('click', function () { window.location.reload(); });
+    el('pf-start').addEventListener('click', function () { startRun(null); });
+    el('pf-reason').addEventListener('input', function () {
+      el('pf-override').disabled = !el('pf-reason').value.trim();
+    });
+    el('pf-override').addEventListener('click', function () {
+      var rbody = state && state.lastRefusal;
+      if (!rbody) return;
+      startRun({
+        reason: el('pf-reason').value,
+        checks: rbody.blockers.map(function (b) { return b.id; }),
+        verification: rbody.verification,
+      });
+    });
+  })();
+</script>
