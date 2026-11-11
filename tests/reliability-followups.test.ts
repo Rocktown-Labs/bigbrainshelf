@@ -16,11 +16,11 @@ test('readiness inventory failure renders Unverified instead of zero counts', as
   const fragment = source.slice(source.indexOf('// QC state:'), source.indexOf('// Colorize state:'));
   // Exercise the actual frontmatter decision without a worker or authenticated server.
   const evaluate = new (Object.getPrototypeOf(async function() {}).constructor)(
-    'env', 'book', 'slug', 'countBookPages', 'countApprovedPages', 'getBookQcState',
+    'env', 'book', 'slug', 'countBookPages', 'countApprovedPages', 'getBookQcState', 'pageSnapshot',
     `${fragment.replace(/\s+as any/g, '')}; return typeof qcState !== 'undefined' ? qcState : { label: String(approvedCount) + ' of ' + String(totalPages), totalPages };`
   );
   const helper = await import('../src/lib/book-plans');
-  const result = await evaluate({ BOOKS: books, DB: db }, {}, 'test', countBookPages, countApprovedPages, helper.getBookQcState);
+  const result = await evaluate({ BOOKS: books, DB: db }, {}, 'test', countBookPages, countApprovedPages, helper.getBookQcState, undefined);
   expect(result.label).toContain('Unverified');
   expect(result.totalPages).toBeNull();
 });

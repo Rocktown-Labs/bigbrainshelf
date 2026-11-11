@@ -22,10 +22,12 @@ export async function captureApprovalRevision(db: any, books: any, slug: string,
   const targets = ['picture_book_key', 'coloring_book_key', 'color_book_key', 'epub_key', 'audiobook_key', 'cover_key']
     .filter(field => book[field]).map(field => ({ key: String(book[field]), role: field }));
   // Matter and composed covers affect the reviewed book even before a DB key is set.
-  for (const file of ['cover.jpg', 'cover-titled.jpg', 'back-cover-color.jpg', 'back-cover-line.jpg']) {
+  const coverFiles = ['cover.jpg', 'cover-titled.jpg', 'back-cover-color.jpg', 'back-cover-line.jpg'];
+  const coverHeads = await Promise.all(coverFiles.map(async (file) => {
     const key = `books/${slug}/${file}`;
-    if (!targets.some(a => a.key === key) && await books.head(key)) targets.push({ key, role: file });
-  }
+    return { key, file, exists: targets.some(a => a.key === key) ? false : !!(await books.head(key).catch(() => null)) };
+  }));
+  for (const h of coverHeads) if (h.exists) targets.push({ key: h.key, role: h.file });
   const printables = await readRevisionPrintables(db, slug);
   for (const p of printables) targets.push({ key: p.interiorKey, role: `print:${p.kind}:interior` }, { key: p.coverKey, role: `print:${p.kind}:cover` });
   const inventory = await readPlanInventory(books, slug);

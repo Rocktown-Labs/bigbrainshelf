@@ -15,10 +15,27 @@ export class PublishBlocked extends Error {
   }
 }
 
+/** Progress steps for the publish flow's progress UI (CG,
+ * 2026-11-11): the labels name what the gate actually does, in
+ * order, so the modal's progress bar never invents work.
+ *   gate-check      revision capture, assembly + approval
+ *                   verification, readiness and sign-off blockers
+ *   release-freeze  the release is staged (freezeArtifactRelease)
+ *   artifact-copy   each artifact is copied into the frozen
+ *                   release and byte-verified (progress counts)
+ *   storefront-flip the release is recorded and the book goes
+ *                   live in one D1 transaction */
+export type PublishStep = 'gate-check' | 'release-freeze' | 'artifact-copy' | 'storefront-flip';
+export type PublishReport = (event:
+  | { step: PublishStep; state: 'start' | 'done' }
+  | { step: 'artifact-copy'; state: 'progress'; copied: number; total: number }) => void;
+
 export async function publishVerifiedBook(
   db: any, books: any, input: any, actor: string | null,
-  checks = { audio: getPublishReadiness, delivery: getDeliveryReadiness }, provenanceBinding?: string
+  checks = { audio: getPublishReadiness, delivery: getDeliveryReadiness }, provenanceBinding?: string,
+  report?: PublishReport
 ) {
+  report?.({ step: 'gate-check', state: 'start' });
   const slug = typeof input.book_slug === 'string' ? input.book_slug.trim() : '';
   if (!slug) throw new PublishBlocked('request', 'book_slug is required.', [], 400);
   const book = await db.prepare('SELECT * FROM books WHERE slug = ?').bind(slug).first();
@@ -45,7 +62,7 @@ export async function publishVerifiedBook(
   if (!audio) blockers.push({ id: 'audio', detail: 'Audio readiness could not be verified.' });
   else if (!audio.ready) blockers.push({ id: 'audio', detail: audio.blockers.join(' ') });
   let delivery = null;
-  try { delivery = await checks.delivery(db, books, slug, { readOnly: true }); } catch { /* unknown below */ }
+  try { delivery = await checks.delivery(db, books, slug, { readOnly: true, snapshot: captured }); } catch { /* unknown below */ }
   if (!delivery) blockers.push({ id: 'delivery', detail: 'Delivery readiness could not be verified.' });
   else for (const check of delivery.checks) {
     // Marketing is not part of the delivered book; product-ready is sufficient.
@@ -79,6 +96,7 @@ export async function publishVerifiedBook(
     throw new PublishBlocked('override', 'Readiness changed. Review the current blockers before overriding.', blockers);
   if (blockers.some(b => !waived.has(b.id)))
     throw new PublishBlocked('readiness', blockers.map(b => b.detail).join(' '), blockers, 409, verification);
+  report?.({ step: 'gate-check', state: 'done' });
 
   try {
     await assertRevisionUnchanged(books, observations);
@@ -87,9 +105,15 @@ export async function publishVerifiedBook(
 
   const releaseId = crypto.randomUUID();
   const previousHead = await db.prepare('SELECT release_id FROM artifact_release_heads WHERE book_slug = ?').bind(slug).first();
+  report?.({ step: 'release-freeze', state: 'start' });
   let frozen;
-  try { frozen = await freezeArtifactRelease(books, manifest, releaseId, actor); }
+  try {
+    frozen = await freezeArtifactRelease(books, manifest, releaseId, actor,
+      (copied, total) => report?.({ step: 'artifact-copy', state: 'progress', copied, total }));
+  }
   catch { throw new PublishBlocked('freeze', 'Release staging failed byte verification. Publication was not changed. Retained candidates can be inspected before retrying.', [], 503); }
+  report?.({ step: 'artifact-copy', state: 'done' });
+  report?.({ step: 'release-freeze', state: 'done' });
 
   // Recheck object versions immediately before the DB transaction. This is a
   // race detector. Delivery itself uses only the frozen release verified above.
@@ -102,6 +126,7 @@ export async function publishVerifiedBook(
     await recordReleaseFailure(books, slug, releaseId, 'promotion', error);
     throw new PublishBlocked('revision', 'Book artifacts changed during verification. Review the new revision and retry.');
   }
+  report?.({ step: 'storefront-flip', state: 'start' });
   const now = Date.now();
   const prices = publishPriceStamp(book);
   const bookFields = ['updated_at', 'status', 'price', 'price_print', 'picture_book_key',
@@ -134,6 +159,7 @@ export async function publishVerifiedBook(
     await recordReleaseFailure(books, slug, releaseId, 'promotion', error);
     throw new PublishBlocked('record', 'Publication could not be confirmed. Check the release journal before retrying.', [], 503);
   }
+  report?.({ step: 'storefront-flip', state: 'done' });
   await recordWorkerRun({ DB: db, BBS_BUILD_PROVENANCE: provenanceBinding }, {
     worker: 'bigbrainshelf', runId: releaseId, operation: 'publish', bookSlug: slug, startedAt: now,
   });

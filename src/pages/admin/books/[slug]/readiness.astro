@@ -8,6 +8,8 @@ import { getPublishReadiness } from "../../../../lib/publish-readiness";
 import { deliverableList, formatBytes } from "../../../../lib/deliverables";
 import { getBookQcState } from "../../../../lib/book-plans";
 import { deriveReadinessSteps, type ReadinessStepState } from "../../../../lib/readiness-steps";
+import { captureApprovalRevision } from "../../../../lib/approval-identity";
+import PublishFlow from "../../../../components/PublishFlow.astro";
 
 if (!Astro.locals.user) {
   return Astro.redirect("/admin/login");
@@ -25,11 +27,22 @@ const slug = book ? String(book.slug) : param;
 const adminSlug = resolvedBook ? publicSlugFor(resolvedBook.book) : param;
 const title = book ? String(book.title || slug) : param;
 
-const delivery = book ? await getDeliveryReadiness(env.DB as any, (env as any).BOOKS, slug).catch(() => null) : null;
+// One revision capture serves both readers below: delivery
+// readiness only needs it for sign-off state, and QC state
+// verifies its assembly against it. Capturing separately (plus
+// a deep re-capture inside assembly verification) made this
+// page take ~a minute (CG, 2026-11-11).
+const pageSnapshot = book ? await captureApprovalRevision(env.DB as any, (env as any).BOOKS, slug).catch(() => null) : null;
+const delivery = book ? await getDeliveryReadiness(env.DB as any, (env as any).BOOKS, slug, pageSnapshot ? { snapshot: pageSnapshot } : {}).catch(() => null) : null;
 const publish = book ? await getPublishReadiness(env.DB as any, (env as any).BOOKS, slug).catch(() => null) : null;
 
+// A frozen release means the book is published: colorize is off
+// (CG, 2026-11-11). The API enforces the same rule server-side.
+const releaseRow = book ? await (env.DB as any).prepare("SELECT id FROM publish_releases WHERE book_slug = ? LIMIT 1").bind(slug).first().catch(() => null) : null;
+const isPublished = !!releaseRow;
+
 // QC state: append-only approvals bind the reviewed revision and artifact hashes.
-const qcState = await getBookQcState(env.DB, (env as any).BOOKS, slug);
+const qcState = await getBookQcState(env.DB, (env as any).BOOKS, slug, pageSnapshot ?? undefined);
 const qcComplete = !!book && qcState.complete;
 
 // Colorize state: colored twins on file vs line pages.
@@ -146,7 +159,7 @@ const stepBadgeStyle = (s: ReadinessStepState) =>
             <p class="font-semibold flex items-center gap-2">Colorize <span class="rounded-full text-xs font-semibold px-2.5 py-0.5" style={stepBadgeStyle(steps.colorize.state)}>{steps.colorize.badge}</span></p>
             <p class="text-sm text-stone-500">{steps.colorize.detail}</p>
           </div>
-          <button id="colorize-btn" data-slug={slug} disabled={!qcComplete} title={steps.colorize.action === "rerun" ? "Re-run colorize: the factory skips pages that are already current." : undefined} class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 py-2 hover:border-stone-500 disabled:opacity-40 disabled:hover:border-stone-300">{steps.colorize.action === "rerun" ? "Re-run colorize" : "Colorize"}</button>
+          <button id="colorize-btn" data-slug={slug} disabled={isPublished || !qcComplete} title={isPublished ? "This book is published. Its frozen release is not re-colorized." : steps.colorize.action === "rerun" ? "Re-run colorize: the factory skips pages that are already current." : undefined} class="rounded-lg bg-white border border-stone-300 text-sm font-semibold px-4 py-2 hover:border-stone-500 disabled:opacity-40 disabled:hover:border-stone-300">{isPublished ? "Published" : steps.colorize.action === "rerun" ? "Re-run colorize" : "Colorize"}</button>
         </li>
         <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
           <span class="font-bold text-stone-400">3</span>
@@ -162,7 +175,7 @@ const stepBadgeStyle = (s: ReadinessStepState) =>
             <p class="font-semibold flex items-center gap-2">Publish <span class="rounded-full text-xs font-semibold px-2.5 py-0.5" style={stepBadgeStyle(steps.publish.state)}>{steps.publish.badge}</span></p>
             <p class="text-sm text-stone-500">{publish ? publish.statusLabel : "Publish state unknown."}</p>
           </div>
-          <button id="publish-btn" data-slug={slug} class="rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 py-2">Publish</button>
+          <button id="publish-btn" data-slug={slug} data-title={title} class="rounded-lg bg-[#1a3454] text-white text-sm font-semibold px-4 py-2">Publish</button>
         </li>
         <li class="rounded-xl bg-white border border-stone-200 p-4 flex flex-wrap items-center gap-3">
           <span class="font-bold text-stone-400">5</span>
@@ -221,6 +234,8 @@ const stepBadgeStyle = (s: ReadinessStepState) =>
     </section>
   </main>
 
+  <PublishFlow />
+
   <script is:inline>
     (function () {
       var status = document.getElementById("step-status");
@@ -248,33 +263,13 @@ const stepBadgeStyle = (s: ReadinessStepState) =>
       }
       bulkApprove("approve-all-btn", true, "Approve every page of this book? Do this after your QC review pass. Redoing a page later clears its approval.");
       bulkApprove("approve-clear-btn", false, "Clear every page approval on this book?");
-      // The publish API reports a refusal as { gate, reason, blockers }
-      // (src/pages/api/editor/publish.ts). This handler used to read
-      // j.error / j.reasons, which the API never sends, so every refusal
-      // collapsed to a bare "HTTP 409" and the click looked dead.
-      function publishRefusal(j, status) {
-        if (j.reason) return j.reason;
-        if (Array.isArray(j.blockers) && j.blockers.length) {
-          return j.blockers.map(function (b) { return b && b.detail ? ((b.id ? b.id + ": " : "") + b.detail) : ""; }).filter(Boolean).join(" ");
-        }
-        if (j.error) return j.error;
-        return "HTTP " + status;
-      }
+      // Publishing runs in the in-app modal (PublishFlow): confirm
+      // step, streamed progress, and the outcome rendered in the
+      // modal itself. No native dialogs, no silent reloads
+      // (CG, 2026-11-11).
       var pb = document.getElementById("publish-btn");
       if (pb) pb.addEventListener("click", function () {
-        // Say something BEFORE the confirmation dialog: a dismissed or
-        // browser-suppressed dialog used to make this click a silent
-        // no-op, indistinguishable from a dead button (2026-11-10, Mira).
-        say("Publishing starts with the confirmation dialog. If no dialog appears, this browser is suppressing it.");
-        if (!window.confirm("Publish this book now? The gates still apply: every page approved and the audio gate, unless an override is on record in the editor.")) {
-          say("Publish cancelled at the confirmation step. Nothing was published.");
-          return;
-        }
-        pb.disabled = true; say("Publishing...");
-        fetch("/api/editor/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ book_slug: pb.getAttribute("data-slug") }) })
-          .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(publishRefusal(j, r.status)); return j; }); })
-          .then(function () { say("Published. Reloading..."); setTimeout(function () { window.location.reload(); }, 800); })
-          .catch(function (e) { say("Publish refused: " + (e.message || e)); pb.disabled = false; });
+        window.openPublishFlow({ slug: pb.getAttribute("data-slug"), title: pb.getAttribute("data-title"), allowOverride: false });
       });
     })();
   </script>

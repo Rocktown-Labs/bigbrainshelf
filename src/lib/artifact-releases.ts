@@ -35,7 +35,8 @@ export async function recordReleaseFailure(books: any, slug: string, id: string,
 
 /** Append-only staging. Failures intentionally leave the intent and all candidates.
  * Nothing changes a delivery pointer until every copied byte has been verified. */
-export async function freezeArtifactRelease(books: any, sourceManifest: BookRevision, id: string, actor: string | null = null) {
+export async function freezeArtifactRelease(books: any, sourceManifest: BookRevision, id: string, actor: string | null = null,
+  onProgress?: (copied: number, total: number) => void) {
   // uploaded is currency evidence, never part of the hashed payload.
   const { revision, uploaded: _uploaded, ...source } = sourceManifest;
   if (!validId(id) || !validId(source.slug) || revisionHash(source) !== revision || !source.artifacts.length)
@@ -60,6 +61,7 @@ export async function freezeArtifactRelease(books: any, sourceManifest: BookRevi
       const copied = await hashObject(pinned);
       if (copied.bytes !== artifact.bytes || copied.sha256 !== artifact.sha256) throw new Error(`Release byte verification failed: ${artifact.key}`);
       artifacts.push({ ...artifact, sourceKey: artifact.key, key, etag: written.etag });
+      onProgress?.(artifacts.length, source.artifacts.length);
     }
     const manifest: ArtifactRelease = { schema: 'artifact-release/v1', id, slug: source.slug, createdAt, sourceManifest, artifacts };
     const bytes = new TextEncoder().encode(JSON.stringify(manifest));
