@@ -89,6 +89,22 @@ test('a color sign-off on an older revision reads voided, with its attestation',
   expect(restored.color.state).toBe('done');
 });
 
+test('a broken edition reads unavailable even when a voided sign-off exists', async () => {
+  const { db } = makeDb();
+  await recordSignoff(db, 'test', 'color', 'rev1', 'cg');
+  // The book changed (rev2) AND the edition is out of date: the
+  // actionable read is unavailable/stale, not voided. Once the
+  // edition is whole again the older sign-off surfaces as voided.
+  const stale = await getSignoffStates(db, 'test', 'rev2', STALE);
+  expect(stale.color.state).toBe('unavailable');
+  expect(stale.color.unavailableReason).toBe('stale');
+  const incomplete = await getSignoffStates(db, 'test', 'rev2', INCOMPLETE);
+  expect(incomplete.color.state).toBe('unavailable');
+  expect(incomplete.color.unavailableReason).toBe('incomplete');
+  const whole = await getSignoffStates(db, 'test', 'rev2', COMPLETE);
+  expect(whole.color.state).toBe('voided');
+});
+
 test('sign-offs are append-only', async () => {
   const { raw, db } = makeDb();
   await recordSignoff(db, 'test', 'story', 'rev1', 'cg');
