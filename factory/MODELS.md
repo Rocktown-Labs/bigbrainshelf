@@ -6,9 +6,14 @@ The Python pipeline described below is retired. The live factory is the
 TypeScript Worker (`src/models.ts` is the chain authority):
 
 - **Writer chain** (bible, chapter drafts, book info, whole-book read
-  pass): `opus,gemini,v4flash,deepseek,gemma`. Opus 5.5 via the Vercel
+  pass): `opus,gemini,v4flash,gemma`. Opus 5.5 via the Vercel
   AI Gateway first, Gemini 3.8 Flash direct, then the Workers AI bench.
-- **Judge chain** (the planv3 chapter critic): `opus,gemini,v4flash,deepseek,gemma`
+  (2026-11-20: Cloudflare retired deepseek-v4-flash-0731 and
+  deepseek-r1-distill-qwen-32b. V4 Flash moved to its named successor
+  deepseek-v4.1-flash-1017; the deepseek rung left the default chains,
+  but its dispatch entry stays pointed at v4.1-flash so an env ORDER
+  still naming "deepseek" resolves to a live model instead of throwing.)
+- **Judge chain** (the planv3 chapter critic): `opus,gemini,v4flash,gemma`
   since 2026-10-28. GLM 5.3 is OUT of the default judge chain (it filed
   only a subset of defects in testing); it remains available via the
   `JUDGE_ORDER` env override. Opus also holds a separate acceptance

@@ -25,8 +25,15 @@ import { emitTextMetric } from "./metrics";
 const OPUS_MODEL = "anthropic/claude-opus-5.5";
 const GLM_MODEL = "@cf/zai-org/glm-5.3";
 export const GEMINI_MODEL = "gemini-3.8-flash";
-const DEEPSEEK_MODEL = "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b";
-const V4FLASH_MODEL = "@cf/deepseek-ai/deepseek-v4-flash-0731";
+const V4FLASH_MODEL = "@cf/deepseek-ai/deepseek-v4.1-flash-1017";
+// Cloudflare retired deepseek-r1-distill-qwen-32b on 2026-11-20 with no
+// named successor, so the deepseek rung is out of every default chain
+// (GLM 5.3 and Gemma already cover that bench slot). The constant and
+// its FNS dispatch entry stay, pointed at the v4.1-flash successor:
+// callModel throws on an unknown rung name, so a production env ORDER
+// that still names "deepseek" must resolve to a live model instead of
+// crashing the whole chain.
+const DEEPSEEK_MODEL = "@cf/deepseek-ai/deepseek-v4.1-flash-1017";
 const GEMMA_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 
 export interface ModelResult {
@@ -281,7 +288,9 @@ async function callGlmRaw(env: any, prompt: string, maxTokens: number): Promise<
 async function callDeepseekRaw(env: any, prompt: string, maxTokens: number): Promise<RawResult> {
   const r: any = await env.AI.run(DEEPSEEK_MODEL, {
     messages: [{ role: "user", content: prompt }],
-    max_tokens: Math.max(maxTokens, 8192),
+    // DEEPSEEK_MODEL now points at the v4.1-flash reasoning model,
+    // which starves at 8192 (see callV4FlashRaw); same 16384 floor.
+    max_tokens: Math.max(maxTokens, 16384),
     temperature: 0.6,
   });
   const text = extractText(r).replace(/<think>[\s\S]*?<\/think>/g, "");
@@ -314,14 +323,14 @@ async function callGemmaRaw(env: any, prompt: string, maxTokens: number): Promis
 export type ModelRole = "writer" | "judge" | "hands";
 
 export function writerOrder(env: any): string[] {
-  return String(env.WRITER_ORDER ?? "opus,gemini,v4flash,deepseek,gemma")
+  return String(env.WRITER_ORDER ?? "opus,gemini,v4flash,gemma")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
 }
 
 export function judgeOrder(env: any): string[] {
-  return String(env.JUDGE_ORDER ?? "opus,gemini,v4flash,deepseek,gemma")
+  return String(env.JUDGE_ORDER ?? "opus,gemini,v4flash,gemma")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
@@ -337,7 +346,7 @@ export function plannerOrder(env: any): string[] {
 // build. Frontier models head the writer chain for reading and the
 // ladder; the hands never carry those. Env-tweakable like the others.
 export function handsOrder(env: any): string[] {
-  return String(env.HANDS_ORDER ?? "gemini,v4flash,deepseek,gemma")
+  return String(env.HANDS_ORDER ?? "gemini,v4flash,gemma")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
