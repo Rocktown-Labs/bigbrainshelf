@@ -12,7 +12,7 @@
 // (boxes at the printer past their date, manual orders waiting on
 // CG by design) ride along under their own heading and never make
 // a quiet day send.
-import { ADMIN_EMAILS } from "./admins";
+import { ADMIN_DIGEST_EMAILS } from "./admins";
 import { chicagoDayStartSec } from "./admin-dashboard";
 import { enqueueEmail } from "./orders";
 import { AGED_ORDER_DAYS, getUrgency } from "./urgency";
@@ -93,7 +93,7 @@ export async function runAdminDigest(
 
   const subject = `Big Brain Shelf: ${u.total} urgent ${u.total === 1 ? "item" : "items"} need attention`;
   let queued = 0;
-  for (const to of ADMIN_EMAILS) {
+  for (const to of ADMIN_DIGEST_EMAILS) {
     await enqueueEmail(db, {
       orderId: null,
       kind: "admin_digest",
