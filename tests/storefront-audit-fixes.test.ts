@@ -107,4 +107,39 @@ for (const file of titledFiles) {
   );
 }
 
+// 6. Performance & Modern Web Guidance pins
+const seoHead = read("src/components/SeoHead.astro");
+assert(
+  seoHead.includes('<link rel="preconnect" href="https://media.bigbrainshelf.com" crossorigin />'),
+  "SeoHead preconnects to media.bigbrainshelf.com for cover LCP",
+);
+
+const globalCss = read("src/styles/global.css");
+assert(
+  globalCss.includes("transition-duration: 0.01ms !important;"),
+  "global.css collapses transitions under prefers-reduced-motion: reduce",
+);
+
+const siteHeader = read("src/components/SiteHeader.astro");
+assert(
+  siteHeader.includes("window.__bbsAccountMePromise"),
+  "SiteHeader deduplicates /api/account/me fetches via shared promise",
+);
+assert(
+  !home.includes('/api/auth/get-session') && !audio.includes('/api/auth/get-session') && !bookPage.includes('/api/auth/get-session'),
+  "home, audiobooks, and book detail pages do not fire redundant /api/auth/get-session fetches",
+);
+
+const shelfCard = read("src/lib/shelf-card.ts");
+assert(
+  shelfCard.includes('src="/just-buy-it.webp" alt="" aria-hidden="true" loading="lazy" fetchpriority="low"'),
+  "shelf card deterrent overlay loads lazy with fetchpriority=low",
+);
+
+const audiobooksLib = read("src/lib/audiobooks.ts");
+assert(
+  audiobooksLib.includes("e?.BOOKS?.list") && audiobooksLib.includes("cache.match(cacheUrl)"),
+  "probeAudiobook uses single R2 list() and edge cache",
+);
+
 console.log("\nALL STOREFRONT AUDIT FIX TESTS PASSED");

@@ -128,7 +128,7 @@ const description = String(book.description || "").trim();
         {cover && (
           <>
             <img src={cover} alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover" />
-            <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 z-20 w-full h-full opacity-0" />
+            <img src="/just-buy-it.webp" alt="" aria-hidden="true" loading="lazy" fetchpriority="low" class="absolute inset-0 z-20 w-full h-full opacity-0" />
             <AudiobookBadge locale="en" />
           </>
         )}

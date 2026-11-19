@@ -453,32 +453,85 @@ export interface AudiobookProbe {
   runtimeSecs: number;
 }
 
-// Lightweight existence probe for the public audio pages. Heads the
-// intro/outro and walks the chapter files until the first miss
-// (chapter files are contiguous), instead of inspectAudiobook's full
-// MAX_CHAPTER sweep. Durations come from src/data/audiobooks.json via
-// the same helpers the library player uses.
+// Lightweight existence probe for the public audio pages. Uses a single
+// R2 list() over `{dir}/audio/` when available (1 R2 call per book
+// instead of 2 + N sequential head() calls) with a fallback to head()
+// for minimal mock buckets, and caches the resulting probe in Cloudflare's
+// edge cache (caches.default) for 5 minutes so cold/signed-in /audiobooks
+// renders don't stall on repeated R2 probes.
 export async function probeAudiobook(e: any, book: AudiobookBookRow): Promise<AudiobookProbe> {
   const key = book.audiobook_key;
-  const [introHead, outroHead] = await Promise.all([
-    e.BOOKS.head(introAudioKey(key)).catch(() => null),
-    e.BOOKS.head(outroAudioKey(key)).catch(() => null),
-  ]);
-  let chapterCount = 0;
-  for (let n = 1; n <= MAX_CHAPTER; n++) {
-    const h = await e.BOOKS.head(chapterAudioKey(key, n)).catch(() => null);
-    if (!h) break;
-    chapterCount = n;
+  const cache: Cache | null =
+    typeof caches !== "undefined" && (caches as any).default ? (caches as any).default : null;
+  const cacheUrl = `https://cache.bigbrainshelf.internal/probe-audiobook/${encodeURIComponent(book.slug)}?k=${encodeURIComponent(key)}`;
+  if (cache) {
+    try {
+      const hit = await cache.match(cacheUrl);
+      if (hit) return (await hit.json()) as AudiobookProbe;
+    } catch { /* fall through to live R2 probe */ }
   }
+
+  let hasIntro = false;
+  let hasOutro = false;
+  let chapterCount = 0;
+
+  if (typeof e?.BOOKS?.list === "function") {
+    const dir = audiobookDir(key);
+    const prefix = `${dir}/audio/`;
+    const names = new Set<string>();
+    let cursor: string | undefined;
+    try {
+      do {
+        const page = await e.BOOKS.list(cursor ? { prefix, cursor } : { prefix });
+        for (const obj of page?.objects || []) {
+          if (obj?.key) names.add(String(obj.key));
+        }
+        cursor = page?.truncated ? page.cursor : undefined;
+      } while (cursor);
+    } catch { /* fall through with whatever was collected */ }
+    hasIntro = names.has(introAudioKey(key));
+    hasOutro = names.has(outroAudioKey(key));
+    for (let n = 1; n <= MAX_CHAPTER; n++) {
+      if (!names.has(chapterAudioKey(key, n))) break;
+      chapterCount = n;
+    }
+  } else {
+    const [introHead, outroHead] = await Promise.all([
+      e.BOOKS.head(introAudioKey(key)).catch(() => null),
+      e.BOOKS.head(outroAudioKey(key)).catch(() => null),
+    ]);
+    hasIntro = !!introHead;
+    hasOutro = !!outroHead;
+    for (let n = 1; n <= MAX_CHAPTER; n++) {
+      const h = await e.BOOKS.head(chapterAudioKey(key, n)).catch(() => null);
+      if (!h) break;
+      chapterCount = n;
+    }
+  }
+
   let runtimeSecs = 0;
-  if (introHead) runtimeSecs += edgeTrackMeta(book.slug, "intro").duration || 0;
+  if (hasIntro) runtimeSecs += edgeTrackMeta(book.slug, "intro").duration || 0;
   for (let n = 1; n <= chapterCount; n++) runtimeSecs += chapterDuration(book.slug, n) || 0;
-  if (outroHead) runtimeSecs += edgeTrackMeta(book.slug, "outro").duration || 0;
-  return {
+  if (hasOutro) runtimeSecs += edgeTrackMeta(book.slug, "outro").duration || 0;
+  const result: AudiobookProbe = {
     chapterCount,
-    hasIntro: !!introHead,
-    hasOutro: !!outroHead,
+    hasIntro,
+    hasOutro,
     hasChapter1: chapterCount >= 1,
     runtimeSecs,
   };
+  if (cache && chapterCount > 0) {
+    try {
+      await cache.put(
+        cacheUrl,
+        new Response(JSON.stringify(result), {
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=300",
+          },
+        })
+      );
+    } catch { /* non-fatal */ }
+  }
+  return result;
 }

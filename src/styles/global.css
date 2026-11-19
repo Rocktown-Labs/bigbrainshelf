@@ -127,9 +127,18 @@ html.nav-back::view-transition-new(root) {
   overflow: hidden;
 }
 
-/* Reduced motion: the skill's recipe, verbatim in spirit. Every
- * transition animation collapses to zero duration. */
+/* Reduced motion (Chrome Modern Web Guidance: motion): collapse view
+ * transitions, CSS animations, and interactive transitions when the
+ * user prefers reduced motion. */
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
   ::view-transition-old(*),
   ::view-transition-new(*),
   ::view-transition-group(*) {

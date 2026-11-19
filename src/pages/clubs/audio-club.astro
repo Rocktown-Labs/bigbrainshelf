@@ -117,7 +117,7 @@ const faqs = [
             <a href={i.href} class="group flex items-center gap-4 rounded-2xl border border-stone-200 p-3.5 hover:border-orange-300 transition">
               <span class="relative shrink-0 w-14 rounded-lg overflow-hidden border border-stone-200">
                 <img src={i.cover} alt={`${i.title} cover`} loading="lazy" class="w-full aspect-[3/4] object-cover" />
-                <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+                <img src="/just-buy-it.webp" alt="" aria-hidden="true" loading="lazy" fetchpriority="low" class="absolute inset-0 w-full h-full opacity-0" />
               </span>
               <span class="flex-1 min-w-0">
                 <span class="block font-semibold leading-snug">{i.title}</span>
