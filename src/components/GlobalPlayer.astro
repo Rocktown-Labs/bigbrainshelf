@@ -188,7 +188,7 @@
           state.title = meta.title || state.title;
           state.cover = meta.cover || state.cover;
           state.bookUrl = meta.bookUrl || state.bookUrl;
-          save();
+          if (audio.getAttribute("src")) save();
         }
         syncBar();
       },

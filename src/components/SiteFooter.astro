@@ -228,8 +228,15 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
           );
           if (!focusables.length) return;
           var first = focusables[0], last = focusables[focusables.length - 1];
+          if (!modal.contains(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); return; }
           if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
           else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+      }
+      function onModalFocusIn(e) {
+        if (modalOpen && modal && !modal.contains(e.target)) {
+          var cancel = modal.querySelector(".newsletter-modal-cancel");
+          if (cancel) cancel.focus();
         }
       }
       function openModal(payload) {
@@ -243,6 +250,7 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
         modalSay("");
         modal.classList.add("open");
         document.addEventListener("keydown", onModalKey);
+        document.addEventListener("focusin", onModalFocusIn);
         var cancel = modal.querySelector(".newsletter-modal-cancel");
         if (cancel) cancel.focus();
         loadTurnstileApi().then(function (ts) {
@@ -275,6 +283,7 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
         cleanupWidget();
         modal.classList.remove("open");
         document.removeEventListener("keydown", onModalKey);
+        document.removeEventListener("focusin", onModalFocusIn);
         if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} }
         lastFocus = null;
       }
@@ -323,8 +332,12 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
         btn.style.bottom = "calc(1rem + env(safe-area-inset-bottom, 0px))";
       }
     }
+    var shown = false;
     function paint() {
       var on = window.scrollY > 600;
+      if (on === shown) return;
+      shown = on;
+      if (!on && document.activeElement === btn) { try { btn.blur(); } catch (e) {} }
       btn.classList.toggle("opacity-0", !on);
       btn.classList.toggle("pointer-events-none", !on);
       btn.classList.toggle("translate-y-2", !on);

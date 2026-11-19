@@ -95,7 +95,6 @@ const cover = book.cover_key ? R2 + book.cover_key : "";
 // unversioned URL must never be emitted for a cover again; it stays
 // alive in caches for a year with whatever bytes it first served.
 const coverHero = coverDerivative(book.slug, "hero", book.cover_key) || cover;
-const price = "$" + (Number(book.price || 0) / 100).toFixed(2);
 const pricePrint = "$" + (Number(book.price_print || 0) / 100).toFixed(2);
 const topic = book.topic || "tech";
 // Publication date, stamped once by the publish action. Books that
@@ -954,7 +953,8 @@ const bookJsonLd: Record<string, unknown> = isLocalized
             ).filter(function (el) { return el.offsetParent !== null; });
             if (!focusables.length) return;
             var first = focusables[0], last = focusables[focusables.length - 1];
-            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            if (focusables.indexOf(document.activeElement) === -1) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+            else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
             else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
           }
         }
