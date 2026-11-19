@@ -7,20 +7,117 @@ import {
   getGenerationCostSummary,
   detectBraintrustBackend,
 } from "../../lib/braintrust";
-import { getReadingDropoffSummary } from "../../lib/telemetry";
-import { getRevOpsDashboardMetrics } from "../../lib/revops";
+import {
+  getRevOpsDashboardMetrics,
+  PLAY_TYPE_BIRTHDAY_BDAY10,
+  PLAY_TYPE_COMPLETION_UPSELL_80,
+} from "../../lib/revops";
+import {
+  ensurePublicSlugColumn,
+  publicSlugFor,
+  RETIRED_SLUG_ALIASES,
+} from "../../lib/public-slugs";
 
 export const prerender = false;
+if (!Astro.locals.user) {
+  return Astro.redirect("/admin/login");
+}
 
+// Cloudflare Workers env bindings are dynamically attached at runtime.
 const e = env as any;
 const db = e.DB;
 
-const [revops, aiCogs, topicDemand, readingDropoff] = await Promise.all([
+const [revops, aiCogs, topicDemand, telemetryRes, booksRes] = await Promise.all([
   getRevOpsDashboardMetrics(db),
   getGenerationCostSummary(db),
   clusterParentTopicDemand(db),
-  getReadingDropoffSummary(db),
+  db
+    ? db
+        .prepare(
+          `SELECT book_slug,
+                  SUM(total_events) AS events,
+                  SUM(avg_dwell_seconds * total_events) AS weighted_dwell,
+                  MAX(chapter_index) AS max_chapter
+             FROM reading_telemetry_rollups
+            GROUP BY book_slug
+            ORDER BY events DESC`
+        )
+        .all()
+        .catch(() => ({ results: [] }))
+    : Promise.resolve({ results: [] }),
+  (async () => {
+    if (!db) return { results: [] };
+    await ensurePublicSlugColumn(db).catch(() => {});
+    return db
+      .prepare("SELECT slug, public_slug, title FROM books")
+      .all()
+      .catch(() => ({ results: [] }));
+  })(),
 ]);
+
+// Resolve internal/public slugs (plus retired aliases like "mastery") into real book titles + admin links.
+const bookByAnySlug = new Map<string, { title: string; adminHref: string }>();
+for (const b of (booksRes?.results || []) as Array<{ slug?: string; public_slug?: string; title?: string }>) {
+  const entry = {
+    title: String(b.title || b.slug || ""),
+    adminHref: `/admin/books/${publicSlugFor(b)}`,
+  };
+  if (b.slug) bookByAnySlug.set(String(b.slug), entry);
+  if (b.public_slug) bookByAnySlug.set(String(b.public_slug), entry);
+}
+for (const [alias, slug] of Object.entries(RETIRED_SLUG_ALIASES)) {
+  const live = bookByAnySlug.get(slug);
+  if (live && !bookByAnySlug.has(alias)) bookByAnySlug.set(alias, live);
+}
+
+// Aggregate reading telemetry by resolved book so mixed internal/public/retired slugs merge cleanly.
+interface BookEngagementRow {
+  title: string;
+  adminHref: string | null;
+  events: number;
+  weightedDwell: number;
+  chaptersReached: number;
+}
+const engagementByBook = new Map<string, BookEngagementRow>();
+let unlistedCounter = 0;
+for (const r of (telemetryRes?.results || []) as Array<{
+  book_slug?: string;
+  events?: number;
+  weighted_dwell?: number;
+  max_chapter?: number;
+}>) {
+  const rawSlug = String(r.book_slug || "");
+  const resolved = bookByAnySlug.get(rawSlug);
+  const key = resolved ? resolved.title : `unlisted:${rawSlug || "unknown"}`;
+  let prev = engagementByBook.get(key);
+  if (!prev) {
+    prev = {
+      title: resolved ? resolved.title : `Unlisted book #${++unlistedCounter}`,
+      adminHref: resolved ? resolved.adminHref : null,
+      events: 0,
+      weightedDwell: 0,
+      chaptersReached: 0,
+    };
+    engagementByBook.set(key, prev);
+  }
+  prev.events += Number(r.events || 0);
+  prev.weightedDwell += Number(r.weighted_dwell || 0);
+  prev.chaptersReached = Math.max(prev.chaptersReached, Number(r.max_chapter || 0));
+}
+const engagementRows = Array.from(engagementByBook.values())
+  .map((row) => ({
+    ...row,
+    avgDwellSec: row.events > 0 ? Math.round(row.weightedDwell / row.events) : 0,
+  }))
+  .sort((a, b) => b.events - a.events);
+
+const PLAY_LABELS: Record<string, string> = {
+  [PLAY_TYPE_COMPLETION_UPSELL_80]: "80% Book Completion -> Club Invite",
+  [PLAY_TYPE_BIRTHDAY_BDAY10]: "Kid Birthday Gift (BDAY10)",
+};
+const totalPlays = revops.lifecyclePlaysCount.reduce((s, p) => s + p.count, 0);
+const activeClubsTotal = revops.activeBookClubCount + revops.activeAudioClubCount;
+const maxDemand = Math.max(1, ...topicDemand.map((t) => t.demandScore));
 
 const braintrustBackend = detectBraintrustBackend(e);
 const hasFamilyRoomDo = Boolean(e.FAMILY_ROOM_DO);
@@ -35,219 +132,178 @@ const hasVercelAiGateway = Boolean(e.VERCEL_AI_GATEWAY_URL);
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>RevOps, Supply Chain &amp; Transmedia Scale · Big Brain Shelf Admin</title>
+  <title>Insights · Big Brain Shelf Admin</title>
 </head>
 <body class="bg-stone-50 text-stone-900 antialiased">
   <AdminShell current="/admin/revops" />
 
-  <main class="max-w-6xl mx-auto px-4 py-8 space-y-8" style="padding-bottom:calc(2rem + env(safe-area-inset-bottom, 0px))">
-    <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-stone-200 pb-5">
+  <main class="max-w-6xl mx-auto px-4 py-8 space-y-6" style="padding-bottom:calc(2rem + env(safe-area-inset-bottom, 0px))">
+    <header class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
       <div>
-        <span class="text-xs font-extrabold uppercase tracking-wider text-amber-700">
-          5-Pillar Scale Command Center
-        </span>
-        <h1 class="text-2xl font-extrabold text-stone-900">
-          RevOps, Unit Economics &amp; Transmedia Flywheel
-        </h1>
-        <p class="text-xs text-stone-600 mt-1">
-          Grounded in live <code>offers.ts</code> pricing, Vercel AI Gateway COGS, and Traks/Basin telemetry.
+        <h1 class="text-2xl font-bold tracking-tight text-stone-900">Growth &amp; Insights</h1>
+        <p class="text-sm text-stone-500 mt-1">
+          Storefront revenue, active clubs, what parents are asking for next, automated lifecycle emails, and reader engagement.
         </p>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <button
-          id="btn-reindex-braintrust"
-          type="button"
-          class="rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-extrabold px-4 py-2.5 cursor-pointer"
-        >
-          Sync Canon &amp; Curriculum Vectors
-        </button>
+      <div class="flex flex-wrap gap-2 text-xs font-semibold">
+        <a href="/admin/orders" class="rounded-full border border-stone-300 bg-white px-3.5 py-1.5 text-stone-700 hover:bg-stone-100">Orders</a>
+        <a href="/admin/club" class="rounded-full border border-stone-300 bg-white px-3.5 py-1.5 text-stone-700 hover:bg-stone-100">Clubs</a>
+        <a href="/admin/users" class="rounded-full border border-stone-300 bg-white px-3.5 py-1.5 text-stone-700 hover:bg-stone-100">Users</a>
       </div>
     </header>
 
-    {/* Honest Binding vs. Local D1 Scaffolding Status Matrix */}
-    <section class="rounded-2xl border border-stone-200 bg-stone-50 p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-xs font-extrabold uppercase tracking-wider text-stone-700">
-          Infrastructure Binding Status (Live Cloudflare Bindings vs. D1 Local Scaffolding)
-        </h2>
-        <span class="text-[11px] text-stone-500">Transparent runtime inspection</span>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-        <div class="rounded-xl border border-stone-200 bg-white p-3">
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-stone-800">1. Braintrust Vectors</span>
-            <span class={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${braintrustBackend === "vectorize_edge" ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"}`}>
-              {braintrustBackend === "vectorize_edge" ? "LIVE: Vectorize + Workers AI" : "SCAFFOLDING: D1 32-d Concept"}
-            </span>
-          </div>
-          <p class="text-[11px] text-stone-500 mt-1">
-            Uses <code>VECTORIZE_CANON</code> / <code>VECTORIZE_CURRICULUM</code> + <code>AI</code> when bound; falls back to <code>vector_embeddings</code> in D1.
-          </p>
+    {/* Top KPI Strip */}
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <a href="/admin/orders" class="rounded-2xl border border-stone-200 bg-white p-4 hover:border-stone-300 transition shadow-xs">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400">Storefront revenue</div>
+        <div class="text-2xl font-extrabold text-stone-900 mt-1 tabular-nums">${revops.totalRevenueUsd.toFixed(2)}</div>
+        <div class="text-xs text-stone-500 mt-1">
+          ${revops.revenue30dUsd.toFixed(2)} last 30d · {revops.completedOrderCount} {revops.completedOrderCount === 1 ? "order" : "orders"}
         </div>
+      </a>
 
-        <div class="rounded-xl border border-stone-200 bg-white p-3">
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-stone-800">2. Video Pipeline</span>
-            <span class={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${hasVideoQueue ? "bg-emerald-100 text-emerald-900" : "bg-blue-100 text-blue-900"}`}>
-              {hasVideoQueue ? "LIVE: Queue + D1 video_jobs" : "VM RUNNER: D1 video_jobs"}
-            </span>
-          </div>
-          <p class="text-[11px] text-stone-500 mt-1">
-            Compositions owned by RGM's Remotion (<code>kidsbook-video</code>) pipeline; hub queues via <code>video_jobs</code> + optional <code>VIDEO_QUEUE</code>.
-          </p>
+      <a href="/admin/club" class="rounded-2xl border border-stone-200 bg-white p-4 hover:border-stone-300 transition shadow-xs">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400">Active club members</div>
+        <div class="text-2xl font-extrabold text-emerald-800 mt-1 tabular-nums">{activeClubsTotal}</div>
+        <div class="text-xs text-stone-500 mt-1">
+          {revops.activeBookClubCount} Book Club · {revops.activeAudioClubCount} Audio Club
         </div>
+      </a>
 
-        <div class="rounded-xl border border-stone-200 bg-white p-3">
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-stone-800">3. FamilyRoom Sync</span>
-            <span class={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${hasFamilyRoomDo ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"}`}>
-              {hasFamilyRoomDo ? "LIVE: Durable Object WS" : "SCAFFOLDING: D1 Polling"}
-            </span>
-          </div>
-          <p class="text-[11px] text-stone-500 mt-1">
-            Exports <code>FamilyRoomDurableObject</code> for <code>FAMILY_ROOM_DO</code>; falls back to D1 <code>family_sync_rooms</code>.
-          </p>
+      <a href="/admin/users" class="rounded-2xl border border-stone-200 bg-white p-4 hover:border-stone-300 transition shadow-xs">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400">Audience</div>
+        <div class="text-2xl font-extrabold text-stone-900 mt-1 tabular-nums">{revops.subscriberCount}</div>
+        <div class="text-xs text-stone-500 mt-1">
+          Newsletter subscribers · {revops.customerCount} {revops.customerCount === 1 ? "account" : "accounts"}
         </div>
+      </a>
 
-        <div class="rounded-xl border border-stone-200 bg-white p-3">
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-stone-800">4. Cast Companion LLM</span>
-            <span class={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${hasVercelAiGateway ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"}`}>
-              {hasVercelAiGateway ? "LIVE: Vercel AI Gateway" : "SCAFFOLDING: Story Canon"}
-            </span>
-          </div>
-          <p class="text-[11px] text-stone-500 mt-1">
-            Routes to <code>VERCEL_AI_GATEWAY_URL</code> when configured; falls back to deterministic book-canon replies.
-          </p>
-        </div>
-
-        
-
-        <div class="rounded-xl border border-stone-200 bg-white p-3">
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-stone-800">5. Telemetry &amp; Basin</span>
-            <span class={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${hasAnalyticsEngine || hasBasin ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"}`}>
-              {hasAnalyticsEngine || hasBasin ? "LIVE: WAE / Basin" : "SCAFFOLDING: D1 Outbox/Rollup"}
-            </span>
-          </div>
-          <p class="text-[11px] text-stone-500 mt-1">
-            Writes to <code>READING_TELEMETRY</code> &amp; <code>BASIN_PIPELINE_URL</code> when bound; persists rollups in D1.
-          </p>
+      <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-xs">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-stone-400">Lifecycle emails</div>
+        <div class="text-2xl font-extrabold text-orange-700 mt-1 tabular-nums">{totalPlays}</div>
+        <div class="text-xs text-stone-500 mt-1">
+          Birthday &amp; 80% completion invites
         </div>
       </div>
     </section>
 
-    {/* Canonical Pricing & Unit Economics Strip */}
-    <section class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-      <div class="rounded-2xl border border-stone-200 bg-white p-4">
-        <div class="text-xs text-stone-500 font-semibold">Storefront Revenue</div>
-        <div class="text-2xl font-extrabold text-stone-900 mt-1">${revops.totalRevenueUsd.toFixed(2)}</div>
-        <div class="text-[11px] text-stone-500 mt-1">
-          $5.99 Audio · $12.99 Digital · $24.99 Print · $35 Gift Set
-        </div>
-      </div>
-      <div class="rounded-2xl border border-stone-200 bg-white p-4">
-        <div class="text-xs text-stone-500 font-semibold">The Book Club (Physical)</div>
-        <div class="text-2xl font-extrabold text-emerald-900 mt-1">{revops.activeBookClubCount}</div>
-        <div class="text-[11px] text-stone-500 mt-1">$60/quarter or $199/year</div>
-      </div>
-      <div class="rounded-2xl border border-stone-200 bg-white p-4">
-        <div class="text-xs text-stone-500 font-semibold">The Audio Club</div>
-        <div class="text-2xl font-extrabold text-indigo-900 mt-1">{revops.activeAudioClubCount}</div>
-        <div class="text-[11px] text-stone-500 mt-1">$5.99/month or $49/year</div>
-      </div>
-      <div class="rounded-2xl border border-stone-200 bg-white p-4">
-        <div class="text-xs text-stone-500 font-semibold">AI Production COGS</div>
-        <div class="text-2xl font-extrabold text-amber-800 mt-1">${aiCogs.totalCostUsd.toFixed(4)}</div>
-        <div class="text-[11px] text-stone-500 mt-1">Vercel AI Gateway + Gemini Direct</div>
-      </div>
-    </section>
-
-    {/* Pillar 1: Parent Topic Demand vs. Curriculum Supply */}
+    {/* Topic Demand + Automated Lifecycle Emails */}
     <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="rounded-2xl border border-stone-200 bg-white p-5">
-        <h2 class="text-sm font-extrabold uppercase tracking-wider text-stone-800">
-          Pillar 1 · Parent Topic Demand vs. Catalog Supply
-        </h2>
-        <p class="text-xs text-stone-500 mt-1">
-          Aggregated from onboarding <code>favorite_topics</code>, <code>future_topics</code>, &amp; semantic clustering of <code>custom_topic_request</code>.
+      <div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-xs">
+        <h2 class="text-sm font-bold text-stone-900">What parents want next</h2>
+        <p class="text-xs text-stone-500 mt-0.5">
+          Ranked from parent onboarding topic picks and custom topic requests.
         </p>
-        <div class="mt-4 divide-y divide-stone-100">
-          {topicDemand.map((item) => (
-            <div class="py-2.5 flex items-center justify-between text-xs">
+        <div class="mt-4 space-y-3">
+          {topicDemand.map((item) => {
+            const pct = Math.max(8, Math.round((item.demandScore / maxDemand) * 100));
+            return (
               <div>
-                <div class="font-bold text-stone-900">{item.label}</div>
-                <div class="text-stone-500">{item.sampleCurriculumTitle}</div>
-              </div>
-              <div class="text-right">
-                <span class="inline-flex items-center rounded-full bg-amber-100 text-amber-900 px-2.5 py-0.5 font-extrabold">
-                  Score {item.demandScore}
-                </span>
-                <div class="text-[11px] text-stone-400 mt-0.5">
-                  {item.parentVotes} votes · {item.matchingNoteCount} note matches
+                <div class="flex items-baseline justify-between gap-2 text-xs">
+                  <div class="min-w-0">
+                    <span class="font-semibold text-stone-900">{item.label}</span>
+                    {item.sampleCurriculumTitle && (
+                      <span class="text-stone-400 ml-1.5 hidden sm:inline">· {item.sampleCurriculumTitle}</span>
+                    )}
+                  </div>
+                  <span class="shrink-0 text-stone-500 tabular-nums">
+                    {item.parentVotes} {item.parentVotes === 1 ? "vote" : "votes"}
+                    {item.matchingNoteCount > 0 ? ` · ${item.matchingNoteCount} requests` : ""}
+                  </span>
+                </div>
+                <div class="mt-1.5 h-1.5 rounded-full bg-stone-100 overflow-hidden">
+                  <div class="h-full rounded-full bg-orange-500" style={`width:${pct}%`}></div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* Lifecycle Plays */}
-      <div class="space-y-6">
-        <div class="rounded-2xl border border-stone-200 bg-white p-5">
-          <h2 class="text-sm font-extrabold uppercase tracking-wider text-stone-800">
-            Pillar 5 · Automated RevOps Lifecycle Plays
-          </h2>
-          <p class="text-xs text-stone-500 mt-1">
-            Birthday Gift (<code>BDAY10</code> $10 off $25 Gift Set) and the 80% Completion club invitation ($5.99/mo Audio Club or $60/qtr Book Club).
-          </p>
-          <div class="mt-3 space-y-2 text-xs">
-            {revops.lifecyclePlaysCount.length === 0 ? (
-              <p class="text-stone-400 py-2">No lifecycle plays triggered yet.</p>
-            ) : (
-              revops.lifecyclePlaysCount.map((p) => (
-                <div class="flex items-center justify-between rounded-xl bg-stone-50 px-3 py-2">
-                  <span class="font-bold text-stone-800">{p.playType}</span>
-                  <span class="font-extrabold text-emerald-800">{p.count} triggered</span>
-                </div>
-              ))
-            )}
-          </div>
+      <div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-xs flex flex-col">
+        <h2 class="text-sm font-bold text-stone-900">Automated lifecycle emails</h2>
+        <p class="text-xs text-stone-500 mt-0.5">
+          Triggered automatically on kid birthdays (<code>BDAY10</code>) and when non-club readers pass 80% of a book.
+        </p>
+        <div class="mt-4 space-y-2 text-xs">
+          {revops.lifecyclePlaysCount.length === 0 ? (
+            <p class="text-stone-400 py-2">No automated emails triggered yet.</p>
+          ) : (
+            revops.lifecyclePlaysCount.map((p) => (
+              <div class="flex items-center justify-between rounded-xl bg-stone-50 border border-stone-100 px-3.5 py-2.5">
+                <span class="font-semibold text-stone-800">{PLAY_LABELS[p.playType] || p.playType}</span>
+                <span class="font-bold text-emerald-800 tabular-nums">{p.count} triggered</span>
+              </div>
+            ))
+          )}
         </div>
+        {revops.recentPlays.length > 0 && (
+          <div class="mt-5 pt-4 border-t border-stone-100">
+            <h3 class="text-[11px] font-bold uppercase tracking-wider text-stone-400 mb-2">Recent triggers</h3>
+            <div class="divide-y divide-stone-100 text-xs">
+              {revops.recentPlays.map((rp) => {
+                const resolved = rp.bookSlug ? bookByAnySlug.get(rp.bookSlug) : null;
+                return (
+                  <div class="py-2 flex items-center justify-between gap-2">
+                    <div class="min-w-0">
+                      <span class="font-medium text-stone-800 truncate block">{rp.email}</span>
+                      <span class="text-stone-500">
+                        {PLAY_LABELS[rp.playType] || rp.playType}
+                        {resolved ? ` · ${resolved.title}` : ""}
+                      </span>
+                    </div>
+                    <span class="shrink-0 text-stone-400 tabular-nums">
+                      {rp.createdAt ? new Date(rp.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </section>
 
-    {/* Reading Telemetry Rollups */}
-    <section class="rounded-2xl border border-stone-200 bg-white p-5">
-      <h2 class="text-sm font-extrabold uppercase tracking-wider text-stone-800">
-        Pillar 5 · Chapter &amp; Page Attention Telemetry (Analytics Engine + D1 Rollup)
-      </h2>
-      <div class="mt-3 overflow-x-auto">
-        <table class="w-full text-left text-xs">
+    {/* Reader Engagement by Book (public titles, never raw slugs) */}
+    <section class="rounded-2xl border border-stone-200 bg-white p-5 shadow-xs">
+      <div class="flex items-baseline justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-bold text-stone-900">Reader engagement by book</h2>
+          <p class="text-xs text-stone-500 mt-0.5">
+            Reader events and average dwell time recorded in the customer reader.
+          </p>
+        </div>
+      </div>
+      <div class="mt-4 overflow-x-auto">
+        <table class="w-full text-left text-sm">
           <thead>
-            <tr class="border-b border-stone-200 text-stone-500">
-              <th class="py-2">Book Slug</th>
-              <th class="py-2">Chapter</th>
-              <th class="py-2">Page</th>
-              <th class="py-2">Event</th>
-              <th class="py-2">Total Events</th>
-              <th class="py-2">Avg Dwell (s)</th>
+            <tr class="border-b border-stone-200 text-[11px] font-bold uppercase tracking-wider text-stone-400">
+              <th class="py-2 pr-4">Book</th>
+              <th class="py-2 px-3">Events</th>
+              <th class="py-2 px-3">Furthest chapter</th>
+              <th class="py-2 pl-3">Avg dwell</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-stone-100">
-            {readingDropoff.length === 0 ? (
+            {engagementRows.length === 0 ? (
               <tr>
-                <td colspan="6" class="py-4 text-stone-400">No reading telemetry events recorded yet.</td>
+                <td colspan="4" class="py-6 text-sm text-stone-400">No reader activity recorded yet.</td>
               </tr>
             ) : (
-              readingDropoff.map((r) => (
+              engagementRows.map((r) => (
                 <tr>
-                  <td class="py-2 font-bold text-stone-800">{r.bookSlug}</td>
-                  <td class="py-2">{r.chapterIndex}</td>
-                  <td class="py-2">{r.pageIndex}</td>
-                  <td class="py-2">{r.eventType}</td>
-                  <td class="py-2 font-bold">{r.totalEvents}</td>
-                  <td class="py-2">{r.avgDwellSeconds}s</td>
+                  <td class="py-2.5 pr-4 font-semibold text-stone-900">
+                    {r.adminHref ? (
+                      <a href={r.adminHref} class="hover:text-orange-700 hover:underline">{r.title}</a>
+                    ) : (
+                      r.title
+                    )}
+                  </td>
+                  <td class="py-2.5 px-3 font-semibold tabular-nums">{r.events}</td>
+                  <td class="py-2.5 px-3 text-stone-600 tabular-nums">
+                    {r.chaptersReached > 0 ? `Chapter ${r.chaptersReached}` : "Cover / intro"}
+                  </td>
+                  <td class="py-2.5 pl-3 text-stone-600 tabular-nums">{r.avgDwellSec}s</td>
                 </tr>
               ))
             )}
@@ -255,6 +311,48 @@ const hasVercelAiGateway = Boolean(e.VERCEL_AI_GATEWAY_URL);
         </table>
       </div>
     </section>
+
+    {/* Developer-only infrastructure & search index controls, tucked out of the way */}
+    <details class="rounded-2xl border border-stone-200 bg-white px-5 py-3.5 text-xs text-stone-600">
+      <summary class="cursor-pointer font-semibold text-stone-700 select-none">
+        System &amp; search index details (developer)
+      </summary>
+      <div class="mt-4 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-stone-50 border border-stone-200 p-3">
+          <div>
+            <div class="font-semibold text-stone-800">Catalog search vectors &amp; AI cost log</div>
+            <div class="text-stone-500 mt-0.5">
+              Tracked AI generation cost: <strong>${aiCogs.totalCostUsd.toFixed(4)}</strong> · Backend: <code>{braintrustBackend}</code>
+            </div>
+          </div>
+          <button
+            id="btn-reindex-braintrust"
+            type="button"
+            class="rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-xs font-semibold px-3.5 py-2 cursor-pointer"
+          >
+            Rebuild search index
+          </button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <div class="rounded-lg border border-stone-200 p-2.5">
+            <span class="font-semibold text-stone-800">Video queue:</span>{" "}
+            <span>{hasVideoQueue ? "Queue + D1" : "D1 jobs"}</span>
+          </div>
+          <div class="rounded-lg border border-stone-200 p-2.5">
+            <span class="font-semibold text-stone-800">Family sync:</span>{" "}
+            <span>{hasFamilyRoomDo ? "Durable Object" : "D1 polling"}</span>
+          </div>
+          <div class="rounded-lg border border-stone-200 p-2.5">
+            <span class="font-semibold text-stone-800">Companion LLM:</span>{" "}
+            <span>{hasVercelAiGateway ? "AI Gateway" : "Story canon"}</span>
+          </div>
+          <div class="rounded-lg border border-stone-200 p-2.5">
+            <span class="font-semibold text-stone-800">Telemetry:</span>{" "}
+            <span>{hasAnalyticsEngine || hasBasin ? "Analytics / Basin" : "D1 rollup"}</span>
+          </div>
+        </div>
+      </div>
+    </details>
   </main>
 
   <script is:inline>
@@ -263,7 +361,7 @@ const hasVercelAiGateway = Boolean(e.VERCEL_AI_GATEWAY_URL);
       if (!btn) return;
       btn.addEventListener("click", function () {
         btn.disabled = true;
-        btn.textContent = "Indexing Canon & Curriculum...";
+        btn.textContent = "Rebuilding...";
         fetch("/api/braintrust", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -272,11 +370,11 @@ const hasVercelAiGateway = Boolean(e.VERCEL_AI_GATEWAY_URL);
           .then(function (r) { return r.json(); })
           .then(function (d) {
             btn.disabled = false;
-            btn.textContent = d && d.ok ? ("Indexed " + d.indexedCount + " vectors (" + d.backend + ")") : "Index failed";
+            btn.textContent = d && d.ok ? ("Indexed " + d.indexedCount + " entries") : "Rebuild failed";
           })
           .catch(function () {
             btn.disabled = false;
-            btn.textContent = "Sync Canon & Curriculum Vectors";
+            btn.textContent = "Rebuild search index";
           });
       });
     })();
