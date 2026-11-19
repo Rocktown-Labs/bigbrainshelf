@@ -19,7 +19,6 @@ import { CLUB_PRICE_CENTS, CLUB_ANNUAL_PRICE_CENTS, clubPriceLabel } from "../li
 const clubQuarterlyLabel = clubPriceLabel(CLUB_PRICE_CENTS);
 const clubAnnualLabel = clubPriceLabel(CLUB_ANNUAL_PRICE_CENTS);
 export const prerender = false;
-const adminUser = Astro.locals.user;
 
 // The home shelf, server-rendered. The catalog comes from the same
 // public projection GET /api/books serves (listPublicShelfBooks in
@@ -35,7 +34,9 @@ const R2_PUBLIC = "https://media.bigbrainshelf.com/";
 let shelfBooks: any[] = [];
 try {
   shelfBooks = await listPublicShelfBooks((env as any).DB);
-} catch { /* the shelf renders its stocked state rather than failing the page */ }
+} catch (err) {
+  console.error("[home] shelf load failed", err);
+}
 function escHtml(s: any): string {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string
@@ -153,7 +154,7 @@ const siteJsonLd = {
   </div>
 
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 md:py-7">
-    <section id="grid" aria-live="polite" class="w-full grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8 md:gap-x-5 md:gap-y-10">
+    <section id="grid" class="w-full grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8 md:gap-x-5 md:gap-y-10">
       {shelfBooks.length ? (
         <Fragment set:html={shelfCardsHtml} />
       ) : (
@@ -161,7 +162,7 @@ const siteJsonLd = {
       )}
     </section>
     {shelfBooks.length > 0 && (
-      <div id="grid-empty" class="hidden text-center text-stone-500 py-16">
+      <div id="grid-empty" role="status" aria-live="polite" class="hidden text-center text-stone-500 py-16">
         <p class="text-stone-900 font-semibold text-lg mb-1">Nothing on this shelf yet.</p>
         <p class="text-sm mb-5">Try a different search or category.</p>
         <button id="grid-empty-reset" type="button" class="inline-flex items-center justify-center min-h-[44px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition duration-100 active:scale-[0.97]">Show all books</button>
@@ -214,21 +215,31 @@ const siteJsonLd = {
       // changes. The pill row replaces the old Topics sidebar
       // entirely.
       var CATS = [["all", "All"], ["tech", "Tech"], ["money", "Money"], ["courage", "Courage"]];
+      var ON_CLS = ["bg-orange-600", "border-orange-600", "text-white", "font-semibold"];
+      var OFF_CLS = ["bg-white", "border-stone-300", "text-stone-900"];
+      var chipsEl = document.getElementById("cat-chips");
       function paintChips() {
-        var el = document.getElementById("cat-chips");
-        if (!el) return;
+        if (!chipsEl) return;
         var counts = { all: cards.length, tech: 0, money: 0, courage: 0 };
         cards.forEach(function (card) {
           var t = card.getAttribute("data-topic") || "tech";
           if (counts[t] !== undefined) counts[t] += 1;
         });
-        el.innerHTML = CATS.map(function (c) {
+        CATS.forEach(function (c) {
+          var btn = chipsEl.querySelector('.cat-chip[data-cat="' + c[0] + '"]');
+          if (!btn) return;
           var on = state.topic === c[0];
-          return '<button type="button" class="cat-chip shrink-0 inline-flex items-center min-h-[40px] px-4 rounded-full border text-[15px] transition duration-100 active:scale-[0.97] ' +
-            (on ? "bg-orange-600 border-orange-600 text-white font-semibold" : "bg-white border-stone-300 text-stone-900") +
-            '" data-cat="' + c[0] + '" aria-pressed="' + (on ? "true" : "false") + '">' + c[1] +
-            '<span class="text-[11px] font-bold opacity-65 ml-[5px]">' + counts[c[0]] + "</span></button>";
-        }).join("");
+          btn.classList.remove.apply(btn.classList, on ? OFF_CLS : ON_CLS);
+          btn.classList.add.apply(btn.classList, on ? ON_CLS : OFF_CLS);
+          btn.setAttribute("aria-pressed", on ? "true" : "false");
+          var badge = btn.querySelector(".cat-count");
+          if (!badge) {
+            badge = document.createElement("span");
+            badge.className = "cat-count text-[11px] font-bold opacity-65 ml-[5px]";
+            btn.appendChild(badge);
+          }
+          badge.textContent = String(counts[c[0]]);
+        });
       }
 
       // ---- Search hook -------------------------------------------
@@ -250,13 +261,18 @@ const siteJsonLd = {
           return true;
         }
       };
-      document.getElementById("cat-chips").addEventListener("click", function (e) {
-        var btn = e.target.closest(".cat-chip");
-        if (!btn) return;
-        state.topic = btn.getAttribute("data-cat");
-        paintChips();
-        applyFilter();
-      });
+      document.addEventListener("astro:before-swap", function cleanupHome() {
+        delete window.__bbsHomeSearch;
+      }, { once: true });
+      if (chipsEl) {
+        chipsEl.addEventListener("click", function (e) {
+          var btn = e.target.closest(".cat-chip");
+          if (!btn) return;
+          state.topic = btn.getAttribute("data-cat");
+          paintChips();
+          applyFilter();
+        });
+      }
       var emptyReset = document.getElementById("grid-empty-reset");
       if (emptyReset) {
         emptyReset.addEventListener("click", function () {

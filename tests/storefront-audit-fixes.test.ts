@@ -16,11 +16,15 @@ assert(
   "book page gates #price-display on buyable",
 );
 assert(
-  bookPage.includes("{buyable ? (\n              <>\n                <p class=\"text-sm mb-1\"><span class=\"font-bold text-lg\">{price}</span>"),
-  "sample modal end card gates price lines on buyable",
+  bookPage.includes("{buyable ? (\n              <>\n                <p class=\"text-sm mb-1\"><span class=\"font-bold text-lg\">{digitalPrice}</span>"),
+  "sample modal end card gates digitalPrice line on buyable",
+);
+assert(
+  bookPage.includes("SELECT COUNT(*) AS cnt, AVG(rating) AS avg FROM reviews"),
+  "book page computes review count and average via SQL aggregate",
 );
 
-// 2. GlobalPlayer must not emit an empty src="" on #bbs-mini-cover
+// 2. GlobalPlayer must not emit an empty src="" on #bbs-mini-cover and fixes player state/listener bugs
 const globalPlayer = read("src/components/GlobalPlayer.astro");
 assert(
   !globalPlayer.includes('id="bbs-mini-cover" src=""'),
@@ -29,6 +33,18 @@ assert(
 assert(
   globalPlayer.includes('cover.removeAttribute("src")'),
   "GlobalPlayer removes src attribute when cover is cleared",
+);
+assert(
+  globalPlayer.includes("if (meta.slug && state.slug && meta.slug !== state.slug)"),
+  "GlobalPlayer host() sets state.slug on first playback instead of treating as different book",
+);
+assert(
+  globalPlayer.includes("function bindAudio(el)") && globalPlayer.includes("bindAudio(el);"),
+  "GlobalPlayer rebinds audio listeners when persisted audio node swaps",
+);
+assert(
+  globalPlayer.includes("navigator.mediaSession.metadata = null"),
+  "GlobalPlayer stop() clears lock-screen mediaSession metadata",
 );
 
 // 3. SiteFooter back-to-top button is hidden from a11y/keyboard when inactive

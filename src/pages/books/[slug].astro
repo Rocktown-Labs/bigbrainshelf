@@ -115,7 +115,6 @@ const buyable = book.status === "complete" && Number(book.price || 0) > 0;
 const giftEligible = buyable && giftSetEligible(book as any);
 const giftPrice = "$" + (GIFT_SET_PRICE_CENTS / 100).toFixed(2);
 const christmasSeason = isChristmasSeason();
-const adminUser = Astro.locals.user;
 const viewEvent = {
   name: "ViewContent",
   data: {
@@ -131,13 +130,17 @@ const viewEvent = {
 // and rejected ones stay invisible. The summary shows only when at
 // least one approved review exists (no fake ratings).
 await ensureReviewsTable(db as any);
-const approvedReviews = (await db.prepare(
-  "SELECT * FROM reviews WHERE book_slug = ? AND status = 'approved' ORDER BY created_at DESC LIMIT 50"
-).bind(slug).all()).results as any[];
-const reviewCount = approvedReviews.length;
-const reviewAvg = reviewCount
-  ? approvedReviews.reduce((s: number, r: any) => s + Number(r.rating || 0), 0) / reviewCount
-  : 0;
+const [approvedReviewsRes, reviewAgg] = await Promise.all([
+  db.prepare(
+    "SELECT * FROM reviews WHERE book_slug = ? AND status = 'approved' ORDER BY created_at DESC LIMIT 50"
+  ).bind(slug).all(),
+  db.prepare(
+    "SELECT COUNT(*) AS cnt, AVG(rating) AS avg FROM reviews WHERE book_slug = ? AND status = 'approved'"
+  ).bind(slug).first<{ cnt: number; avg: number | null }>(),
+]);
+const approvedReviews = approvedReviewsRes.results as any[];
+const reviewCount = Number(reviewAgg?.cnt || 0);
+const reviewAvg = reviewCount > 0 ? Number(reviewAgg?.avg || 0) : 0;
 // Rendered review labels, pre-composed so the template's English
 // output is character-identical to the original inline expressions.
 const reviewAvgLabel = isLocalized
@@ -161,6 +164,7 @@ try {
 } catch { customer = null; }
 let myReview: any = null;
 let ownsBook = false;
+let audioOnlyOwner = false;
 if (customer) {
   myReview = await db.prepare(
     "SELECT * FROM reviews WHERE user_id = ? AND book_slug = ?"
@@ -168,8 +172,18 @@ if (customer) {
   // Entitlement = bought it (orders by id or email) or can read /
   // listen through a club: the same map the library uses, and the
   // same gate the review API enforces (CG, 2026-10-31).
-  const { getDigitalEntitlements } = await import("../../lib/library");
-  ownsBook = (await getDigitalEntitlements(db as any, { id: customer.id, email: customer.email } as any)).has(String(slug));
+  try {
+    const ents = await getDigitalEntitlements(db as any, {
+      id: customer.id,
+      email: String(customer.email || ""),
+    });
+    const ent = ents.get(String(slug));
+    ownsBook = !!ent;
+    audioOnlyOwner = !!ent && ent.owned && !ent.digital && ent.audio;
+  } catch {
+    ownsBook = false;
+    audioOnlyOwner = false;
+  }
 }
 const starRow = (n: number) => [1, 2, 3, 4, 5].map((i) => (i <= Math.round(n) ? "★" : "☆")).join("");
 // Audiobook only: offered beside the bundle whenever the book has an
@@ -182,17 +196,6 @@ const starRow = (n: number) => [1, 2, 3, 4, 5].map((i) => (i <= Math.round(n) ? 
 // sees list prices, exactly like anonymous visitors and everyone else.
 const hasAudio = audioEligible(book as any);
 const audioPrice = "$" + (AUDIO_PRICE_CENTS / 100).toFixed(2);
-let audioOnlyOwner = false;
-if (customer) {
-  try {
-    const ents = await getDigitalEntitlements(db as any, {
-      id: customer.id,
-      email: String(customer.email || ""),
-    });
-    const ent = ents.get(String(slug));
-    audioOnlyOwner = !!ent && ent.owned && !ent.digital && ent.audio;
-  } catch { audioOnlyOwner = false; }
-}
 const upgradeDigitalCents = Math.max(0, Number(book.price || 0) - AUDIO_PRICE_CENTS);
 const digitalCentsEffective = audioOnlyOwner ? upgradeDigitalCents : Number(book.price || 0);
 const digitalPrice = "$" + (digitalCentsEffective / 100).toFixed(2);
@@ -632,7 +635,7 @@ const bookJsonLd: Record<string, unknown> = isLocalized
             <p class="text-sm text-stone-600 leading-relaxed mb-5">Get the full book: the complete storybook, every coloring page and the ebook{book.audiobook_key ? ", plus the audiobook" : ""}, delivered instantly.</p>
             {buyable ? (
               <>
-                <p class="text-sm mb-1"><span class="font-bold text-lg">{price}</span> <span class="text-stone-500">digital</span></p>
+                <p class="text-sm mb-1"><span class="font-bold text-lg">{digitalPrice}</span> <span class="text-stone-500">digital</span></p>
                 {Number(book.price_print || 0) > 0 && <p class={`text-sm ${giftEligible ? "mb-1" : "mb-5"}`}><span class="font-bold text-lg">{pricePrint}</span> <span class="text-stone-500">full color printed book, digital included</span></p>}
                 {giftEligible && <p class="text-sm mb-5"><span class="font-bold text-lg">{giftPrice}</span> <span class="text-stone-500">gift set: printed storybook + printed coloring book, digital included</span></p>}
                 {Number(book.price_print || 0) <= 0 && !giftEligible && <div class="mb-5"></div>}

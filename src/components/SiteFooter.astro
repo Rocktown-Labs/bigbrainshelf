@@ -321,6 +321,10 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
     }
     window.addEventListener("scroll", paint, { passive: true });
     window.addEventListener("resize", place);
+    document.addEventListener("astro:before-swap", function cleanup() {
+      window.removeEventListener("scroll", paint);
+      window.removeEventListener("resize", place);
+    }, { once: true });
     btn.addEventListener("click", function () {
       var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
