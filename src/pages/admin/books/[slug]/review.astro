@@ -48,32 +48,6 @@ const book = (resolvedBook?.book ?? null) as any;
 const slug = book ? String(book.slug) : param;
 const adminSlug = book ? publicSlugFor(book) : param;
 
-let info = null;
-if (book?.audiobook_key) info = await inspectAudiobook(e, book);
-const playerData = info
-  ? { slug: book.slug, full: info.full, chapters: info.chapters, tracks: info.tracks }
-  : null;
-const audioChapterCount = info ? info.chapters.length : 0;
-const totalSecs = info ? info.tracks.reduce((s: number, c: any) => s + (c.duration || 0), 0) : 0;
-
-// ---- Page data (mirrors /api/editor/chapters) ----
-let chaptersRaw: any[] | null = null;
-let chaptersError = "";
-if (book) {
-  try {
-    const obj = await e.BOOKS.get(`books/${slug}/editor_chapters.json`);
-    if (obj) {
-      chaptersRaw = JSON.parse(await obj.text());
-    } else if (slug === "docker") {
-      chaptersRaw = dockerChapters as any[];
-    } else {
-      chaptersError = "No page data yet for this book. The factory writes it when the book is built.";
-    }
-  } catch {
-    chaptersError = "This book's page data could not be read.";
-  }
-}
-
 // ---- Color twin existence, by file name, with the stale-twin rule ----
 async function listAll(prefix: string): Promise<{ key: string; uploaded: number }[]> {
   const out: { key: string; uploaded: number }[] = [];
@@ -88,6 +62,47 @@ async function listAll(prefix: string): Promise<{ key: string; uploaded: number 
   return out;
 }
 const baseName = (key: string) => key.slice(key.lastIndexOf("/") + 1);
+
+// Parallelize all independent SSR I/O (audiobook inspection, chapters
+// JSON, line/color R2 listings, and review notes) in one round trip.
+let info: any = null;
+let chaptersRaw: any[] | null = null;
+let chaptersError = "";
+let lineObjs: { key: string; uploaded: number }[] = [];
+let colorObjs: { key: string; uploaded: number }[] = [];
+let notes: ReviewNote[] = [];
+
+if (book) {
+  const [inspected, chaptersObj, lines, colors, loadedNotes] = await Promise.all([
+    book.audiobook_key ? inspectAudiobook(e, book).catch(() => null) : Promise.resolve(null),
+    e.BOOKS.get(`books/${slug}/editor_chapters.json`).catch(() => "ERR"),
+    listAll(`books/${slug}/images/`).catch(() => []),
+    listAll(`books/${slug}/images-color/`).catch(() => []),
+    ensureReviewNotesTable(e.DB).then(() => listReviewNotes(e.DB, slug)).catch(() => []),
+  ]);
+  info = inspected;
+  lineObjs = lines;
+  colorObjs = colors;
+  notes = loadedNotes;
+  try {
+    if (chaptersObj === "ERR") {
+      chaptersError = "This book's page data could not be read.";
+    } else if (chaptersObj) {
+      chaptersRaw = JSON.parse(await (chaptersObj as any).text());
+    } else if (slug === "docker") {
+      chaptersRaw = dockerChapters as any[];
+    } else {
+      chaptersError = "No page data yet for this book. The factory writes it when the book is built.";
+    }
+  } catch {
+    chaptersError = "This book's page data could not be read.";
+  }
+}
+const playerData = info
+  ? { slug: book.slug, full: info.full, chapters: info.chapters, tracks: info.tracks }
+  : null;
+const audioChapterCount = info ? info.chapters.length : 0;
+const totalSecs = info ? info.tracks.reduce((s: number, c: any) => s + (c.duration || 0), 0) : 0;
 
 interface ReviewPage {
   pageKey: string;
@@ -108,11 +123,7 @@ interface ReviewChapter {
 
 let chapters: ReviewChapter[] = [];
 if (chaptersRaw) {
-  const [lineObjs, colorObjs, finales] = await Promise.all([
-    listAll(`books/${slug}/images/`).catch(() => []),
-    listAll(`books/${slug}/images-color/`).catch(() => []),
-    loadChapterFinales(e.BOOKS, slug, chaptersRaw.length).catch(() => new Map()),
-  ]);
+  const finales = await loadChapterFinales(e.BOOKS, slug, chaptersRaw.length).catch(() => new Map());
   const lineByBase = new Map<string, number>();
   for (const o of lineObjs) lineByBase.set(baseName(o.key), o.uploaded);
   const colorByBase = new Map<string, number>();
@@ -163,12 +174,6 @@ const colorCount = chapters.reduce(
   0
 );
 
-// ---- Notes ----
-let notes: ReviewNote[] = [];
-if (book) {
-  await ensureReviewNotesTable(e.DB);
-  notes = await listReviewNotes(e.DB, slug);
-}
 const notesByPage = new Map<string, ReviewNote[]>();
 for (const n of notes) {
   const arr = notesByPage.get(n.page_key) || [];
@@ -331,7 +336,7 @@ const unresolvedCount = notes.filter((n) => !n.resolved).length;
                   <div class="px-4 pt-2">
                     {p.lineUrl ? (
                       <img
-                        class="rv-img w-full rounded border border-stone-200 bg-white"
+                        class="rv-img w-full aspect-[3/4] object-contain rounded border border-stone-200 bg-white"
                         src={p.lineUrl}
                         alt={`Ch: ${ch.num} - ${ch.title}, page ${p.viewer} art`}
                         loading="lazy"
