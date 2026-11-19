@@ -305,10 +305,10 @@ const bookJsonLd: Record<string, unknown> = isLocalized
   <meta name="theme-color" content="#1a3454" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>{displayTitle} — Big Brain Shelf</title>
+  <title>{displayTitle} · Big Brain Shelf</title>
   <meta name="description" content={displayDescription || displayTitle} />
   <SeoHead
-    title={`${displayTitle} — Big Brain Shelf`}
+    title={`${displayTitle} · Big Brain Shelf`}
     socialDescription={displayDescription || undefined}
     image={coverHero || undefined}
     imageAlt={`${displayTitle} ${bs.coverAltWord}`}
@@ -359,7 +359,9 @@ const bookJsonLd: Record<string, unknown> = isLocalized
             same words the ads use: Storybook, Coloring book, Ebook,
             Audio book. */}
         <div class="mb-6">
-          <span id="price-display" class="block text-2xl font-bold tracking-tight mb-3">{displayInitialPrice}</span>
+          {buyable && (
+            <span id="price-display" class="block text-2xl font-bold tracking-tight mb-3">{displayInitialPrice}</span>
+          )}
           {isLocalized && buyable ? (
             <span class="flex items-center gap-3 flex-wrap max-sm:flex-col max-sm:items-stretch max-sm:flex-nowrap">
               <select disabled aria-disabled="true" class="max-sm:w-full min-w-0 border border-stone-300 rounded-full px-4 py-3 text-sm bg-stone-50 text-stone-500 cursor-not-allowed" aria-label={bs.formatPickerLabel}>
@@ -619,22 +621,26 @@ const bookJsonLd: Record<string, unknown> = isLocalized
 
   {!isLocalized && hasSample && (
     <div id="sample-root" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-label={`Free sample of ${book.title}`}>
-      <div class="absolute inset-0 bg-stone-950/80"></div>
+      <div class="absolute inset-0 bg-stone-950/92 backdrop-blur-sm"></div>
       <div class="relative h-full flex flex-col items-center justify-center px-4 py-6">
-        <button id="sample-close" type="button" class="absolute top-4 right-4 text-white/80 hover:text-white text-4xl leading-none px-2" aria-label="Close sample">&times;</button>
+        <button id="sample-close" type="button" class="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 inline-flex items-center justify-center text-white text-2xl leading-none transition" aria-label="Close sample">&times;</button>
         <p class="text-white/90 text-sm font-semibold mb-3">Free sample &middot; {book.title}</p>
         <div class="relative bg-white rounded-lg shadow-2xl p-2 sm:p-3 max-w-full">
           <img id="sample-img" src={`/api/sample/${publicSlug}/1`} alt={`Sample page 1 of ${book.title}`} class="max-h-[68vh] w-auto max-w-full object-contain rounded" />
           <div id="sample-end" class="hidden w-[min(78vw,430px)] aspect-[3/4] flex-col items-center justify-center text-center px-6">
             <p class="text-xl font-extrabold tracking-tight text-[#1a3454] mb-2">Enjoying it?</p>
             <p class="text-sm text-stone-600 leading-relaxed mb-5">Get the full book: the complete storybook, every coloring page and the ebook{book.audiobook_key ? ", plus the audiobook" : ""}, delivered instantly.</p>
-            <p class="text-sm mb-1"><span class="font-bold text-lg">{price}</span> <span class="text-stone-500">digital</span></p>
-            {Number(book.price_print || 0) > 0 && <p class={`text-sm ${giftEligible ? "mb-1" : "mb-5"}`}><span class="font-bold text-lg">{pricePrint}</span> <span class="text-stone-500">full color printed book, digital included</span></p>}
-            {giftEligible && <p class="text-sm mb-5"><span class="font-bold text-lg">{giftPrice}</span> <span class="text-stone-500">gift set: printed storybook + printed coloring book, digital included</span></p>}
-            {Number(book.price_print || 0) <= 0 && !giftEligible && <div class="mb-5"></div>}
-            {buyable
-              ? <button id="sample-buy" type="button" class="rounded-full bg-orange-600 text-white px-7 py-3 text-sm font-semibold hover:bg-orange-700">Add to cart</button>
-              : <p class="text-sm text-stone-500">This book is available soon.</p>}
+            {buyable ? (
+              <>
+                <p class="text-sm mb-1"><span class="font-bold text-lg">{price}</span> <span class="text-stone-500">digital</span></p>
+                {Number(book.price_print || 0) > 0 && <p class={`text-sm ${giftEligible ? "mb-1" : "mb-5"}`}><span class="font-bold text-lg">{pricePrint}</span> <span class="text-stone-500">full color printed book, digital included</span></p>}
+                {giftEligible && <p class="text-sm mb-5"><span class="font-bold text-lg">{giftPrice}</span> <span class="text-stone-500">gift set: printed storybook + printed coloring book, digital included</span></p>}
+                {Number(book.price_print || 0) <= 0 && !giftEligible && <div class="mb-5"></div>}
+                <button id="sample-buy" type="button" class="rounded-full bg-orange-600 text-white px-7 py-3 text-sm font-semibold hover:bg-orange-700">Add to cart</button>
+              </>
+            ) : (
+              <p class="text-sm text-stone-500">This book is available soon.</p>
+            )}
           </div>
         </div>
         <div class="flex items-center gap-5 mt-4">

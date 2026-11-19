@@ -27,7 +27,7 @@
 >
   <div class="mx-auto max-w-5xl px-3 py-2.5 flex items-center gap-3">
     <a id="bbs-mini-open" href="#" class="flex items-center gap-3 min-w-0 flex-1">
-      <img id="bbs-mini-cover" src="" alt="" class="w-10 h-[52px] object-cover rounded border border-white/20 shrink-0 hidden" />
+      <img id="bbs-mini-cover" alt="" class="w-10 h-[52px] object-cover rounded border border-white/20 shrink-0 hidden" />
       <span class="min-w-0">
         <span id="bbs-mini-title" class="block font-bold text-sm leading-tight truncate">Audiobook</span>
         <span id="bbs-mini-track" class="block text-white/65 text-xs truncate mt-0.5">Paused</span>
@@ -107,7 +107,7 @@
       var cover = $("bbs-mini-cover");
       if (cover) {
         if (state.cover) { cover.src = state.cover; cover.classList.remove("hidden"); }
-        else cover.classList.add("hidden");
+        else { cover.removeAttribute("src"); cover.classList.add("hidden"); }
       }
       var title = $("bbs-mini-title"); if (title) title.textContent = state.title || "Audiobook";
       var track = $("bbs-mini-track");

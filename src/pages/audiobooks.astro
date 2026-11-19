@@ -107,8 +107,8 @@ for (const it of items) {
   <meta name="theme-color" content="#1a3454" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Audiobooks — Big Brain Shelf</title>
-  <SeoHead title="Audiobooks — Big Brain Shelf" socialDescription="Audiobooks on tech, money, and courage, told so kids can get it. Hear the introduction and first chapter of every book free." image="https://bigbrainshelf.com/og-image-audiobooks.jpg" imageAlt={`Big Brain Shelf audiobooks, including ${catalogLeadDisplayName("mira-the-heron-and-the-still-water")}, ${catalogLeadDisplayName("algorithms")} and ${catalogLeadDisplayName("docker")}`} imageWidth={1200} imageHeight={630} />
+  <title>Audiobooks · Big Brain Shelf</title>
+  <SeoHead title="Audiobooks · Big Brain Shelf" socialDescription="Audiobooks on tech, money, and courage, told so kids can get it. Hear the introduction and first chapter of every book free." image="https://bigbrainshelf.com/og-image-audiobooks.jpg" imageAlt={`Big Brain Shelf audiobooks, including ${catalogLeadDisplayName("mira-the-heron-and-the-still-water")}, ${catalogLeadDisplayName("algorithms")} and ${catalogLeadDisplayName("docker")}`} imageWidth={1200} imageHeight={630} />
   <meta name="description" content="Audiobooks on tech, money, and courage, told so kids can get it. Hear the introduction and first chapter of every book free." />
     <ClientRouter />
   <TransitionHooks />
@@ -133,7 +133,7 @@ for (const it of items) {
     ) : null}
     {items.length ? (
       <>
-      <div id="cat-chips" class="flex gap-2 mt-4 overflow-x-auto" role="group" aria-label="Filter by shelf">
+      <div id="cat-chips" class="flex flex-wrap gap-2 mt-4" role="group" aria-label="Filter by shelf">
         {CATS.map(([key, label]) => (
           <button type="button" class={`cat-chip shrink-0 inline-flex items-center min-h-[40px] px-4 rounded-full border text-[15px] transition duration-100 active:scale-[0.97] ${key === "all" ? "bg-orange-600 border-orange-600 text-white font-semibold" : "bg-white border-stone-300 text-stone-900"}`} data-cat={key} aria-pressed={key === "all" ? "true" : "false"}>{label}<span class="text-[11px] font-bold opacity-65 ml-[5px]">{catCounts[key]}</span></button>
         ))}
@@ -168,7 +168,11 @@ for (const it of items) {
           </div>
         ))}
       </div>
-      <div id="audio-empty" class="hidden text-center text-stone-500 py-16"><p class="text-stone-900 font-semibold text-lg mb-1">Nothing on this shelf yet.</p><p class="text-sm">Try a different category.</p></div>
+      <div id="audio-empty" class="hidden text-center text-stone-500 py-16">
+        <p class="text-stone-900 font-semibold text-lg mb-1">Nothing on this shelf yet.</p>
+        <p class="text-sm mb-5">Try a different category.</p>
+        <button id="audio-empty-reset" type="button" class="inline-flex items-center justify-center min-h-[44px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition duration-100 active:scale-[0.97]">Show all audiobooks</button>
+      </div>
       </>
     ) : (
       <div class="text-center text-stone-500 py-16"><p class="text-stone-900 font-semibold text-lg mb-1">The listening shelf is still being stocked.</p><p class="text-sm">Check back soon for the first audiobooks.</p></div>
@@ -211,6 +215,13 @@ for (const it of items) {
         });
         if (empty) empty.classList.toggle("hidden", shown > 0);
       });
+      var resetBtn = document.getElementById("audio-empty-reset");
+      if (resetBtn) {
+        resetBtn.addEventListener("click", function () {
+          var allBtn = row.querySelector('.cat-chip[data-cat="all"]');
+          if (allBtn) allBtn.click();
+        });
+      }
     }
     initAudioChips();
     document.addEventListener("astro:page-load", initAudioChips);

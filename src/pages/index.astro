@@ -118,7 +118,7 @@ const siteJsonLd = {
   <meta name="theme-color" content="#1a3454" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Big Brain Shelf — Big ideas for little brains</title>
+  <title>Big Brain Shelf · Big ideas for little brains</title>
   <meta name="description" content="Picture, coloring, and audio books on tech, money, and courage, told so kids can get it. For curious kids ages 4 to 8 (and the grown-ups reading along)." />
   <SeoHead jsonLd={siteJsonLd} />
     <ClientRouter />
@@ -144,7 +144,7 @@ const siteJsonLd = {
         <span class="inline-flex items-center justify-center min-h-[44px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold">Join The Book Club</span>
       </a>
     )}
-    <div id="cat-chips" class="flex gap-2 pt-[14px] pb-[2px] overflow-x-auto" role="group" aria-label="Filter by shelf">
+    <div id="cat-chips" class="flex flex-wrap gap-2 pt-[14px] pb-[2px]" role="group" aria-label="Filter by shelf">
       <button type="button" class="cat-chip shrink-0 inline-flex items-center min-h-[40px] px-4 rounded-full border text-[15px] transition duration-100 active:scale-[0.97] bg-orange-600 border-orange-600 text-white font-semibold" data-cat="all" aria-pressed="true">All</button>
       <button type="button" class="cat-chip shrink-0 inline-flex items-center min-h-[40px] px-4 rounded-full border text-[15px] transition duration-100 active:scale-[0.97] bg-white border-stone-300 text-stone-900" data-cat="tech" aria-pressed="false">Tech</button>
       <button type="button" class="cat-chip shrink-0 inline-flex items-center min-h-[40px] px-4 rounded-full border text-[15px] transition duration-100 active:scale-[0.97] bg-white border-stone-300 text-stone-900" data-cat="money" aria-pressed="false">Money</button>
@@ -161,7 +161,11 @@ const siteJsonLd = {
       )}
     </section>
     {shelfBooks.length > 0 && (
-      <div id="grid-empty" class="hidden text-center text-stone-500 py-16"><p class="text-stone-900 font-semibold text-lg mb-1">Nothing on this shelf yet.</p><p class="text-sm">Try a different search or category.</p></div>
+      <div id="grid-empty" class="hidden text-center text-stone-500 py-16">
+        <p class="text-stone-900 font-semibold text-lg mb-1">Nothing on this shelf yet.</p>
+        <p class="text-sm mb-5">Try a different search or category.</p>
+        <button id="grid-empty-reset" type="button" class="inline-flex items-center justify-center min-h-[44px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition duration-100 active:scale-[0.97]">Show all books</button>
+      </div>
     )}
   </div>
 
@@ -253,6 +257,17 @@ const siteJsonLd = {
         paintChips();
         applyFilter();
       });
+      var emptyReset = document.getElementById("grid-empty-reset");
+      if (emptyReset) {
+        emptyReset.addEventListener("click", function () {
+          state.topic = "all";
+          state.q = "";
+          var searchInput = document.querySelector('input[role="combobox"]');
+          if (searchInput) searchInput.value = "";
+          paintChips();
+          applyFilter();
+        });
+      }
 
       paintChips();
       // Cart badge + account link. The badge belongs to the shared
