@@ -25,7 +25,12 @@ export const prerender = false;
 // entitlements, page data, and the library audio/page routes.
 const e = env as any;
 const param = String(Astro.params.slug || "");
-const resolved = await resolveBookForPublicRoute(e.DB, param).catch(() => null);
+let resolved: any = null;
+try {
+  resolved = await resolveBookForPublicRoute(e.DB, param);
+} catch {
+  return new Response("Service unavailable", { status: 503 });
+}
 if (resolved && resolved.via === "internal") {
   return Astro.redirect(`/read/${publicSlugFor(resolved.book)}${Astro.url.search}`, 301);
 }
@@ -65,7 +70,7 @@ const audioOnly = !entitlement.digital && entitlement.audio;
 const R2 = "https://media.bigbrainshelf.com/";
 let info = null;
 if (book.audiobook_key) {
-  info = await inspectAudiobook(e, book, `/api/library/audio/${slug}`);
+  info = await inspectAudiobook(e, book, `/api/library/audio/${slug}`).catch(() => null);
 }
 const playerData = info
   ? { slug: book.slug, title: book.title, cover: book.cover_key ? R2 + book.cover_key : "", full: info.full, chapters: info.chapters, tracks: info.tracks }
@@ -546,8 +551,9 @@ if (entitlement.owned) {
     }
 
     // ---------- Player (same behavior as the admin Story Review) ----
-    if (playerData) {
-      var audio = window.BBSPlayer.audio;
+    var readerAudio = (window.BBSPlayer && window.BBSPlayer.audio) || document.getElementById("bbs-audio");
+    if (playerData && readerAudio) {
+      var audio = readerAudio;
       var playBtn = document.getElementById("play-btn");
       var iconPlay = document.getElementById("icon-play");
       var iconPause = document.getElementById("icon-pause");
@@ -735,7 +741,8 @@ if (entitlement.owned) {
         });
       }
 
-      window.setInterval(function () {
+      var sleepTick = window.setInterval(function () {
+        if (!document.contains(statusEl)) { window.clearInterval(sleepTick); return; }
         if (audio.paused) return;
         if (sleepMode > 0) {
           sleepRemainingSec = Math.max(0, sleepRemainingSec - 1);
@@ -751,8 +758,12 @@ if (entitlement.owned) {
           }
         }
       }, 1000);
+      document.addEventListener("astro:before-swap", function clearSleepTick() {
+        window.clearInterval(sleepTick);
+      }, { once: true });
 
       function saveReaderProgress() {
+        if (!document.contains(statusEl)) return; // stale page: hands off the shared audio element
         if (!playerData || !playerData.slug) return;
         var pid = activeProgressProfile();
         var tracks = playlist();

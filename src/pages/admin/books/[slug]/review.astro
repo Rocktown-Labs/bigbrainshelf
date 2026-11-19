@@ -1,6 +1,5 @@
 ---
 import "../../../../styles/global.css";
-import GlobalPlayer from "../../../../components/GlobalPlayer.astro";
 import { ClientRouter } from "astro:transitions";
 import { env } from "cloudflare:workers";
 import AdminShell from "../../../../components/AdminShell.astro";
@@ -396,7 +395,7 @@ const unresolvedCount = notes.filter((n) => !n.resolved).length;
     )}
   </main>
 
-  <script is:inline define:vars={{ slug, playerData, audioChapterCount }}>
+  <script is:inline data-astro-rerun define:vars={{ slug, playerData, audioChapterCount }}>
     var mode = "line"; // artwork mode: "line" | "color"
 
     function esc(s) {
@@ -562,7 +561,9 @@ const unresolvedCount = notes.filter((n) => !n.resolved).length;
             (nowResolved ? "border-stone-200 bg-stone-50 text-stone-400" : "border-amber-200 bg-amber-50");
           btn.textContent = nowResolved ? "Reopen" : "Mark resolved";
           refreshFlags();
-        }).catch(function () {}).finally(function () { btn.disabled = false; });
+        }).catch(function () {
+          btn.textContent = "Could not update. Try again.";
+        }).finally(function () { btn.disabled = false; });
       });
     });
 
@@ -572,8 +573,9 @@ const unresolvedCount = notes.filter((n) => !n.resolved).length;
       if (el) el.scrollIntoView({ block: "start", behavior: "smooth" });
     }
 
-    if (playerData) {
-      var audio = window.BBSPlayer.audio;
+    var rvAudio = (window.BBSPlayer && window.BBSPlayer.audio) || document.getElementById("bbs-audio");
+    if (playerData && rvAudio) {
+      var audio = rvAudio;
       if (window.BBSPlayer) window.BBSPlayer.host({ slug: playerData.slug, title: playerData.title || document.title, cover: playerData.cover || "", bookUrl: window.location.pathname });
       var playBtn = document.getElementById("play-btn");
       var iconPlay = document.getElementById("icon-play");
@@ -737,17 +739,5 @@ const unresolvedCount = notes.filter((n) => !n.resolved).length;
     applyMode();
     refreshFlags();
   </script>
-
-  <script is:inline>
-    document.querySelectorAll(".js-signout").forEach(function (el) {
-      el.addEventListener("click", async function (e) {
-        e.preventDefault();
-        await fetch("/api/admin-auth/logout", { method: "POST" });
-        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
-        window.location.href = "/login";
-      });
-    });
-  </script>
-  <GlobalPlayer />
 </body>
 </html>
