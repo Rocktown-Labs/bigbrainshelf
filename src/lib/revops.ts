@@ -431,24 +431,42 @@ export function scoreAccountRevOps(input: {
 export async function getRevOpsDashboardMetrics(db?: D1Database): Promise<{
   pricingMatrix: typeof REVOPS_PRICING_MATRIX;
   totalRevenueUsd: number;
+  revenue30dUsd: number;
+  completedOrderCount: number;
   activeBookClubCount: number;
   activeAudioClubCount: number;
+  subscriberCount: number;
+  customerCount: number;
   lifecyclePlaysCount: Array<{ playType: string; count: number }>;
+  recentPlays: Array<{ playType: string; email: string; bookSlug: string | null; createdAt: string }>;
 }> {
   let totalRevenueCents = 0;
+  let revenue30dCents = 0;
+  let completedOrderCount = 0;
   let activeBookClubCount = 0;
   let activeAudioClubCount = 0;
+  let subscriberCount = 0;
+  let customerCount = 0;
   const lifecyclePlaysCount: Array<{ playType: string; count: number }> = [];
+  const recentPlays: Array<{ playType: string; email: string; bookSlug: string | null; createdAt: string }> = [];
 
   if (db) {
     await ensureRevOpsSchema(db);
+    const thirtyDaysAgo = Math.floor(Date.now() / 1000) - 30 * 86400;
     try {
       const rev = await db
         .prepare(
-          `SELECT COALESCE(SUM(amount), 0) AS total_cents FROM orders WHERE status = 'complete'`
+          `SELECT COALESCE(SUM(amount), 0) AS total_cents,
+                  COUNT(*) AS cnt,
+                  COALESCE(SUM(CASE WHEN created_at >= ? THEN amount ELSE 0 END), 0) AS recent_cents
+             FROM orders
+            WHERE status = 'complete' AND COALESCE(pricing_mode, '') != 'admin_cost'`
         )
-        .first<{ total_cents: number }>();
+        .bind(thirtyDaysAgo)
+        .first<{ total_cents: number; cnt: number; recent_cents: number }>();
       totalRevenueCents = Number(rev?.total_cents || 0);
+      revenue30dCents = Number(rev?.recent_cents || 0);
+      completedOrderCount = Number(rev?.cnt || 0);
     } catch {
       // ignore
     }
@@ -456,19 +474,41 @@ export async function getRevOpsDashboardMetrics(db?: D1Database): Promise<{
     try {
       const subs = await db
         .prepare(
-          `SELECT club_plan, COUNT(*) AS cnt
-           FROM club_signups
-           WHERE status = 'paid'
-           GROUP BY club_plan`
+          `SELECT COALESCE(NULLIF(club_plan, ''), NULLIF(plan, ''), NULLIF(shelf, ''), 'book') AS plan_kind,
+                  COUNT(*) AS cnt
+             FROM club_signups
+            WHERE status = 'active'
+            GROUP BY plan_kind`
         )
-        .all<{ club_plan: string | null; cnt: number }>();
+        .all<{ plan_kind: string | null; cnt: number }>();
       for (const s of subs.results || []) {
-        if (String(s.club_plan || "") === "audio") {
+        if (String(s.plan_kind || "") === "audio") {
           activeAudioClubCount += Number(s.cnt || 0);
         } else {
           activeBookClubCount += Number(s.cnt || 0);
         }
       }
+    } catch {
+      // ignore
+    }
+
+    try {
+      const subRow = await db
+        .prepare(`SELECT COUNT(*) AS cnt FROM subscribers WHERE unsubscribed_at IS NULL`)
+        .first<{ cnt: number }>();
+      subscriberCount = Number(subRow?.cnt || 0);
+    } catch {
+      try {
+        const subRow = await db.prepare(`SELECT COUNT(*) AS cnt FROM subscribers`).first<{ cnt: number }>();
+        subscriberCount = Number(subRow?.cnt || 0);
+      } catch { /* ignore */ }
+    }
+
+    try {
+      const custRow = await db
+        .prepare(`SELECT COUNT(*) AS cnt FROM "user"`)
+        .first<{ cnt: number }>();
+      customerCount = Number(custRow?.cnt || 0);
     } catch {
       // ignore
     }
@@ -485,6 +525,22 @@ export async function getRevOpsDashboardMetrics(db?: D1Database): Promise<{
       for (const p of plays.results || []) {
         lifecyclePlaysCount.push({ playType: p.play_type, count: Number(p.cnt || 0) });
       }
+      const recent = await db
+        .prepare(
+          `SELECT play_type, email, book_slug, created_at
+           FROM revops_lifecycle_events
+           ORDER BY created_at DESC
+           LIMIT 8`
+        )
+        .all<{ play_type: string; email: string; book_slug: string | null; created_at: string }>();
+      for (const r of recent.results || []) {
+        recentPlays.push({
+          playType: String(r.play_type || ""),
+          email: String(r.email || ""),
+          bookSlug: r.book_slug ? String(r.book_slug) : null,
+          createdAt: String(r.created_at || ""),
+        });
+      }
     } catch {
       // ignore
     }
@@ -493,8 +549,13 @@ export async function getRevOpsDashboardMetrics(db?: D1Database): Promise<{
   return {
     pricingMatrix: REVOPS_PRICING_MATRIX,
     totalRevenueUsd: Number((totalRevenueCents / 100).toFixed(2)),
+    revenue30dUsd: Number((revenue30dCents / 100).toFixed(2)),
+    completedOrderCount,
     activeBookClubCount,
     activeAudioClubCount,
+    subscriberCount,
+    customerCount,
     lifecyclePlaysCount,
+    recentPlays,
   };
 }

@@ -18,7 +18,7 @@ export const prerender = false;
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Reviews · Big Brain Shelf Admin</title>
-  <style>
+  <style is:global>
     html{-webkit-tap-highlight-color:transparent}
     .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 4px}
     .stat{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:12px;box-shadow:0 1px 2px rgba(28,25,23,.05)}
@@ -44,17 +44,18 @@ export const prerender = false;
     .fbtn:active{transform:scale(.97)}
     /* The data table: fixed layout, widths budgeted per breakpoint,
        so it can never stretch past the viewport like the old orders
-       table did. Optional columns join at md and up. */
+       table did. Optional columns join at md and up. Must be global so
+       JS-injected <tr>/<td> rows receive identical padding to <thead>. */
     .rtable{width:100%;border-collapse:collapse;table-layout:fixed}
-    .rtable th{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#a8a29e;text-align:left;padding:10px 12px;border-bottom:1px solid #e7e5e4;background:#fafaf9}
-    .rtable td{padding:11px 12px;border-bottom:1px solid #f5f5f4;vertical-align:top}
+    .rtable th{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#a8a29e;text-align:left;padding:10px 14px;border-bottom:1px solid #e7e5e4;background:#fafaf9}
+    .rtable td{padding:12px 14px;border-bottom:1px solid #f5f5f4;vertical-align:top}
     .rtable tbody tr:last-child td{border-bottom:0}
     .rtable tbody tr{cursor:pointer}
     .c-book{width:30%}.c-rating{width:22%}.c-status{width:24%}.c-date{width:24%}
     .col-opt{display:none}
     @media (min-width:768px){
       .col-opt{display:table-cell}
-      .c-book{width:16%}.c-rating{width:11%}.c-review{width:25%}.c-reviewer{width:12%}.c-status{width:10%}.c-date{width:9%}.c-actions{width:17%}
+      .c-book{width:17%}.c-rating{width:11%}.c-review{width:24%}.c-reviewer{width:13%}.c-status{width:10%}.c-date{width:9%}.c-actions{width:16%}
     }
     .sortbtn{touch-action:manipulation;display:inline-flex;align-items:center;gap:4px;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;background:none;border:0;padding:0;cursor:pointer;min-height:28px}
     .sortbtn .arr{font-size:.6rem;color:#ea580c;min-width:.7em}
@@ -188,32 +189,135 @@ export const prerender = false;
       load(true);
     }
 
+    function fmtMoney(cents) {
+      return "$" + (Number(cents || 0) / 100).toFixed(2);
+    }
+    function fmtIsoDate(val) {
+      if (!val) return "";
+      var d = typeof val === "number" ? new Date(val > 1e12 ? val : val * 1000) : new Date(val);
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
+    function detailActionsHtml(rev) {
+      if (rev.status === "pending") {
+        return '<div class="flex gap-2 mt-5">' +
+          '<button data-act="approve" data-id="' + esc(rev.id) + '" class="tap flex-1 rounded-lg bg-green-700 hover:bg-green-800 text-white text-sm font-bold px-4 min-h-[44px]">Approve</button>' +
+          '<button data-act="reject" data-id="' + esc(rev.id) + '" class="tap flex-1 rounded-lg bg-white border border-stone-300 hover:bg-stone-50 text-sm font-bold px-4 min-h-[44px]">Reject</button>' +
+        "</div>";
+      }
+      if (rev.status === "rejected") {
+        return '<div class="flex gap-2 mt-5">' +
+          '<button data-act="approve" data-id="' + esc(rev.id) + '" class="tap flex-1 rounded-lg bg-green-700 hover:bg-green-800 text-white text-sm font-bold px-4 min-h-[44px]">Approve &amp; publish</button>' +
+        "</div>";
+      }
+      return '<div class="flex gap-2 mt-5">' +
+        '<button data-act="reject" data-id="' + esc(rev.id) + '" class="tap flex-1 rounded-lg bg-white border border-stone-300 hover:bg-stone-50 text-stone-700 text-sm font-bold px-4 min-h-[44px]">Unpublish (reject)</button>' +
+      "</div>";
+    }
+
+    function renderCustomerAndOrders(ctx) {
+      var host = document.getElementById("detail-context");
+      if (!host) return;
+      var c = ctx && ctx.customer;
+      var club = ctx && ctx.club;
+      var orders = (ctx && ctx.orders) || [];
+
+      var acctHtml = '<div class="rounded-xl bg-white border border-stone-200 px-5 py-4">' +
+        '<div class="flex items-center justify-between gap-2">' +
+          '<h3 class="text-xs font-bold uppercase tracking-wider text-stone-400">Customer account</h3>' +
+          '<a href="/admin/users" class="text-xs font-semibold text-orange-700 hover:underline">View users →</a>' +
+        '</div>';
+      if (c) {
+        var handle = c.username ? ' <span class="text-stone-400 font-normal">@' + esc(c.username) + '</span>' : "";
+        var clubBadge = club && club.status === "active"
+          ? '<span class="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[11px] font-semibold">' + esc(club.plan === "audio" ? "Audio Club" : "Book Club") + '</span>'
+          : "";
+        acctHtml += '<p class="mt-2 text-sm font-bold text-stone-900">' + esc(c.name || c.email) + handle + "</p>" +
+          '<p class="text-xs text-stone-500 mt-0.5">' + esc(c.email) + "</p>" +
+          '<div class="mt-2.5 flex flex-wrap items-center gap-2 text-xs text-stone-500">' +
+            (c.createdAt ? '<span>Joined ' + esc(fmtIsoDate(c.createdAt)) + '</span>' : "") +
+            '<span>· ' + esc(c.reviewCount) + ' review' + (c.reviewCount === 1 ? '' : 's') + '</span>' +
+            clubBadge +
+          '</div>';
+      } else {
+        acctHtml += '<p class="mt-2 text-sm text-stone-500">No matching account row found for this email.</p>';
+      }
+      acctHtml += "</div>";
+
+      var ordersHtml = '<div class="rounded-xl bg-white border border-stone-200 px-5 py-4">' +
+        '<div class="flex items-center justify-between gap-2">' +
+          '<h3 class="text-xs font-bold uppercase tracking-wider text-stone-400">Orders (' + orders.length + ')</h3>' +
+          '<a href="/admin/orders" class="text-xs font-semibold text-orange-700 hover:underline">All orders →</a>' +
+        '</div>';
+      if (!orders.length) {
+        ordersHtml += '<p class="mt-2 text-sm text-stone-500">No orders found for this customer.</p>';
+      } else {
+        ordersHtml += '<div class="mt-2 divide-y divide-stone-100">';
+        orders.forEach(function (o) {
+          var badge = o.status === "complete"
+            ? '<span class="rounded-full bg-green-100 text-green-800 px-2 py-0.5 text-[11px] font-semibold">Paid</span>'
+            : '<span class="rounded-full bg-stone-100 text-stone-600 px-2 py-0.5 text-[11px] font-semibold">' + esc(o.status) + '</span>';
+          var match = o.includesReviewedBook
+            ? ' <span class="rounded-full bg-orange-100 text-orange-800 px-2 py-0.5 text-[11px] font-semibold">Bought this book</span>'
+            : "";
+          ordersHtml += '<a href="/admin/orders/' + encodeURIComponent(o.id) + '" class="block py-2.5 hover:bg-stone-50 -mx-2 px-2 rounded-lg transition">' +
+            '<div class="flex items-center justify-between gap-2">' +
+              '<span class="text-sm font-bold text-stone-900">' + esc(o.shortId) + '</span>' +
+              '<span class="text-sm font-semibold text-stone-800 tabular-nums">' + esc(fmtMoney(o.amountCents)) + '</span>' +
+            '</div>' +
+            '<div class="mt-1 flex flex-wrap items-center gap-1.5">' + badge + match +
+              (o.createdAt ? '<span class="text-xs text-stone-400 ml-auto">' + esc(fmtIsoDate(o.createdAt)) + '</span>' : '') +
+            '</div>' +
+            (o.items && o.items.length ? '<p class="mt-1 text-xs text-stone-500 truncate">' + esc(o.items.join(", ")) + '</p>' : '') +
+          '</a>';
+        });
+        ordersHtml += "</div>";
+      }
+      ordersHtml += "</div>";
+
+      host.innerHTML = acctHtml + ordersHtml;
+    }
+
+    var detailSeq = 0;
     function openDetail(rev) {
+      var seq = ++detailSeq;
       var body = document.getElementById("detail-body");
-      var actions = rev.status === "pending"
-        ? '<div class="flex gap-2 mt-5">' +
-            '<button data-act="approve" data-id="' + rev.id + '" class="tap flex-1 rounded-lg bg-green-700 text-white text-sm font-bold px-4 min-h-[48px]">Approve</button>' +
-            '<button data-act="reject" data-id="' + rev.id + '" class="tap flex-1 rounded-lg bg-white border border-stone-300 text-sm font-bold px-4 min-h-[48px]">Reject</button>' +
-          "</div>"
-        : "";
+      var bookHref = rev.book_public_slug || rev.book_slug;
       body.innerHTML =
-        '<div class="rounded-xl bg-white border border-stone-200 px-5 py-4">' +
-          '<div class="flex flex-wrap items-center gap-2.5">' +
-            '<span class="text-amber-400 text-xl tracking-tight">' + stars(rev.rating) + "</span>" + (STATUS[rev.status] || "") +
+        '<div class="space-y-4">' +
+          '<div class="rounded-xl bg-white border border-stone-200 px-5 py-4">' +
+            '<div class="flex flex-wrap items-center gap-2.5">' +
+              '<span class="text-amber-400 text-xl tracking-tight">' + stars(rev.rating) + "</span>" + (STATUS[rev.status] || "") +
+              (rev.verified_purchase ? '<span class="rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-xs font-semibold">Verified purchase</span>' : "") +
+            "</div>" +
+            '<h2 class="font-bold text-lg mt-2 leading-snug">' + esc(rev.title) + "</h2>" +
+            '<p class="text-sm text-stone-500 mt-1.5 leading-relaxed">' + esc(rev.display_name) + " · " + esc(rev.user_email) + "<br>" +
+              "for <a class='text-orange-700 font-medium hover:underline' href='/books/" + esc(bookHref) + "'>" + esc(rev.book_title || "a book") + "</a>" +
+              (bookHref ? ' · <a class="text-stone-500 hover:text-stone-900 underline" href="/admin/books/' + esc(bookHref) + '">Book QC</a>' : "") +
+              "<br>" + fmtWhen(rev.created_at) + "</p>" +
+            '<p class="text-[15px] leading-relaxed mt-3 whitespace-pre-line">' + esc(rev.body) + "</p>" +
+            mediaHtml(rev) + detailActionsHtml(rev) +
           "</div>" +
-          '<h2 class="font-bold text-lg mt-2 leading-snug">' + esc(rev.title) + "</h2>" +
-          '<p class="text-sm text-stone-500 mt-1.5 leading-relaxed">' + esc(rev.display_name) + " · " + esc(rev.user_email) + "<br>" +
-            "for <a class='text-orange-700 font-medium' href='/books/" + esc(rev.book_public_slug || rev.book_slug) + "'>" + esc(rev.book_title || "a book") + "</a>" +
-            (rev.verified_purchase ? ' · <span class="text-green-700 font-medium">Verified purchase</span>' : "") +
-            "<br>" + fmtWhen(rev.created_at) + "</p>" +
-          '<p class="text-[15px] leading-relaxed mt-3 whitespace-pre-line">' + esc(rev.body) + "</p>" +
-          mediaHtml(rev) + actions +
+          '<div id="detail-context" class="space-y-4">' +
+            '<div class="rounded-xl bg-white border border-stone-200 px-5 py-4 text-xs text-stone-400">Loading customer &amp; order history...</div>' +
+          '</div>' +
         "</div>";
       body.querySelectorAll("button[data-act]").forEach(function (btn) {
         btn.addEventListener("click", function () { moderate(btn); });
       });
       document.getElementById("review-detail").classList.remove("hidden");
       document.body.style.overflow = "hidden";
+      fetch("/api/admin/reviews?detail=" + encodeURIComponent(rev.id))
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (ctx) {
+          if (seq !== detailSeq || !ctx) return;
+          renderCustomerAndOrders(ctx);
+        })
+        .catch(function () {
+          if (seq !== detailSeq) return;
+          var host = document.getElementById("detail-context");
+          if (host) host.innerHTML = '<div class="rounded-xl bg-white border border-stone-200 px-5 py-4 text-xs text-stone-400">Could not load customer details.</div>';
+        });
     }
     function closeDetail() {
       document.getElementById("review-detail").classList.add("hidden");
@@ -221,6 +325,9 @@ export const prerender = false;
     }
     document.getElementById("detail-close").addEventListener("click", closeDetail);
     document.querySelector("#review-detail [data-close]").addEventListener("click", closeDetail);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !document.getElementById("review-detail").classList.contains("hidden")) closeDetail();
+    });
 
     function renderTable(data) {
       var tbody = document.getElementById("reviews-rows");
@@ -328,16 +435,6 @@ export const prerender = false;
       renderTable(data);
     }
     load();
-  </script>
-  <script is:inline>
-    document.querySelectorAll(".js-signout").forEach(function (el) {
-      el.addEventListener("click", async function (e) {
-        e.preventDefault();
-        await fetch("/api/admin-auth/logout", { method: "POST" });
-        await fetch("/api/auth/sign-out", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(function () {});
-        window.location.href = "/login";
-      });
-    });
   </script>
 </body>
 </html>
