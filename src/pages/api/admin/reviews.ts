@@ -2,7 +2,8 @@ import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
 import { ensureReviewsTable, setReviewStatus } from "../../../lib/reviews";
 import { markManySeen } from "../../../lib/seen";
-import { resolveBookForPublicRoute, publicSlugFor } from "../../../lib/public-slugs";
+import { clubMembershipActive, clubPlanOf } from "../../../lib/club";
+import { loadBooksByAnySlug, orderItemLabels, parseItems } from "../../../lib/orders";
 
 // Admin review moderation. Gated by the middleware's admin session
 // cookie, with the locals.user check as defense in depth.
@@ -15,129 +16,199 @@ import { resolveBookForPublicRoute, publicSlugFor } from "../../../lib/public-sl
 //         order history for the review detail drawer.
 // POST { action: "approve" | "reject", review_id }
 
-function guard(locals: any) {
-  return !(locals as any)?.user;
+interface ReviewRow {
+  id: string;
+  user_id?: string | null;
+  user_email?: string | null;
+  book_slug?: string | null;
+}
+
+interface UserRow {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  username?: string | null;
+  displayUsername?: string | null;
+  role?: string | null;
+  createdAt?: string | number | null;
+}
+
+interface ClubRow {
+  id: string;
+  club_plan?: string | null;
+  plan?: string | null;
+  status?: string | null;
+  subscription_status?: string | null;
+  comp_until?: number | null;
+  created_at?: string | number | null;
+}
+
+interface OrderRow {
+  id: string;
+  status?: string | null;
+  amount?: number | null;
+  created_at?: string | number | null;
+  book_slugs?: string | null;
+  items?: string | null;
+}
+
+function guard(locals: unknown) {
+  return !(locals as { user?: unknown })?.user;
+}
+
+// D1 binding is untyped on `cloudflare:workers` env; accept `any` here.
+async function findUserForReview(db: any, userId: string, email: string): Promise<UserRow | null> {
+  if (userId) {
+    return db
+      .prepare(`SELECT id, name, email, username, displayUsername, role, createdAt FROM "user" WHERE id = ? LIMIT 1`)
+      .bind(userId)
+      .first()
+      .catch((err: unknown) => {
+        console.error("[admin/reviews] user lookup by id failed:", err);
+        return null;
+      });
+  }
+  if (email) {
+    return db
+      .prepare(`SELECT id, name, email, username, displayUsername, role, createdAt FROM "user" WHERE LOWER(email) = ? LIMIT 1`)
+      .bind(email)
+      .first()
+      .catch((err: unknown) => {
+        console.error("[admin/reviews] user lookup by email failed:", err);
+        return null;
+      });
+  }
+  return null;
 }
 
 export const GET: APIRoute = async ({ locals, url }) => {
   if (guard(locals)) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  // Cloudflare Workers env bindings are dynamically attached at runtime.
   const e = env as any;
   await ensureReviewsTable(e.DB);
 
   const detailId = String(url.searchParams.get("detail") || "").trim();
   if (detailId) {
-    const rev = await e.DB.prepare(
-      `SELECT r.*, b.title AS book_title, b.public_slug AS book_public_slug
-         FROM reviews r
-         LEFT JOIN books b ON b.slug = r.book_slug
-        WHERE r.id = ? LIMIT 1`
-    ).bind(detailId).first() as any;
+    const rev = (await e.DB.prepare(
+      `SELECT id, user_id, user_email, book_slug FROM reviews WHERE id = ? LIMIT 1`
+    )
+      .bind(detailId)
+      .first()) as ReviewRow | null;
     if (!rev) return Response.json({ error: "Review not found" }, { status: 404 });
 
     const email = String(rev.user_email || "").trim().toLowerCase();
     const userId = String(rev.user_id || "").trim();
 
-    const [userRow, clubRow, reviewCountRow, ordersRes, booksRes] = await Promise.all([
-      userId
-        ? e.DB.prepare(`SELECT id, name, email, username, displayUsername, role, createdAt FROM "user" WHERE id = ? LIMIT 1`).bind(userId).first().catch(() => null)
-        : email
-          ? e.DB.prepare(`SELECT id, name, email, username, displayUsername, role, createdAt FROM "user" WHERE LOWER(email) = ? LIMIT 1`).bind(email).first().catch(() => null)
-          : Promise.resolve(null),
+    const [userRow, clubRow, reviewCountRow, ordersRes] = await Promise.all([
+      findUserForReview(e.DB, userId, email),
       email
-        ? e.DB.prepare(`SELECT id, club_plan, plan, status, created_at FROM club_signups WHERE LOWER(email) = ? ORDER BY created_at DESC LIMIT 1`).bind(email).first().catch(() => null)
-        : Promise.resolve(null),
-      userId || email
-        ? e.DB.prepare(`SELECT COUNT(*) AS n FROM reviews WHERE (user_id = ? AND ? != '') OR (LOWER(user_email) = ? AND ? != '')`).bind(userId, userId, email, email).first().catch(() => null)
+        ? e.DB.prepare(
+            `SELECT id, club_plan, plan, status, subscription_status, comp_until, created_at
+               FROM club_signups
+              WHERE LOWER(email) = ?
+              ORDER BY created_at DESC
+              LIMIT 1`
+          )
+            .bind(email)
+            .first()
+            .catch((err: unknown) => {
+              console.error("[admin/reviews] club lookup failed:", err);
+              return null;
+            })
         : Promise.resolve(null),
       userId || email
         ? e.DB.prepare(
-            `SELECT id, status, amount, created_at, book_slugs, items_json, physical_status
+            `SELECT COUNT(*) AS n
+               FROM reviews
+              WHERE (user_id = ? AND ? != '') OR (LOWER(user_email) = ? AND ? != '')`
+          )
+            .bind(userId, userId, email, email)
+            .first()
+            .catch((err: unknown) => {
+              console.error("[admin/reviews] review count failed:", err);
+              return null;
+            })
+        : Promise.resolve(null),
+      userId || email
+        ? e.DB.prepare(
+            `SELECT id, status, amount, created_at, book_slugs, items
                FROM orders
               WHERE (user_id = ? AND ? != '') OR (LOWER(email) = ? AND ? != '')
               ORDER BY created_at DESC
               LIMIT 15`
-          ).bind(userId, userId, email, email).all().catch(() => ({ results: [] }))
+          )
+            .bind(userId, userId, email, email)
+            .all()
+            .catch((err: unknown) => {
+              console.error("[admin/reviews] orders lookup failed:", err);
+              return { results: [] };
+            })
         : Promise.resolve({ results: [] }),
-      e.DB.prepare(`SELECT slug, public_slug, title FROM books`).all().catch(() => ({ results: [] })),
     ]);
 
-    const titleBySlug = new Map<string, string>();
-    for (const b of (booksRes?.results || []) as any[]) {
-      if (b.slug) titleBySlug.set(String(b.slug), String(b.title || b.slug));
-      if (b.public_slug) titleBySlug.set(String(b.public_slug), String(b.title || b.public_slug));
-    }
-
+    const orderRows = (ordersRes?.results || []) as OrderRow[];
     const revSlug = String(rev.book_slug || "");
-    const orders = ((ordersRes?.results || []) as any[]).map((o) => {
-      let slugs: string[] = [];
-      let itemLabels: string[] = [];
-      try {
-        const parsed = JSON.parse(String(o.items_json || "[]"));
-        if (Array.isArray(parsed) && parsed.length) {
-          for (const it of parsed) {
-            const s = String(it?.slug || "");
-            if (s) slugs.push(s);
-            const label = titleBySlug.get(s) || (s === "book-club" ? "The Book Club" : s === "audio-club" ? "The Audio Club" : "Book");
-            const fmt = it?.format ? ` (${String(it.format)})` : "";
-            itemLabels.push(label + fmt);
-          }
-        }
-      } catch { /* fall back to book_slugs */ }
-      if (!slugs.length && o.book_slugs) {
-        try {
-          const arr = JSON.parse(String(o.book_slugs));
-          if (Array.isArray(arr)) {
-            slugs = arr.map(String);
-            itemLabels = slugs.map((s) => titleBySlug.get(s) || "Book");
-          }
-        } catch {
-          slugs = String(o.book_slugs).split(",").map((s) => s.trim()).filter(Boolean);
-          itemLabels = slugs.map((s) => titleBySlug.get(s) || "Book");
-        }
-      }
+
+    // Resolve item labels and canonical book slugs (including retired aliases like "mastery")
+    // using the shared order helpers.
+    const allSlugs: string[] = revSlug ? [revSlug] : [];
+    const parsedByOrder = new Map<string, string[]>();
+    for (const o of orderRows) {
+      const slugs = parseItems(o).map((it) => it.slug).filter(Boolean);
+      parsedByOrder.set(String(o.id), slugs);
+      for (const s of slugs) allSlugs.push(s);
+    }
+    const [labelMap, bookMap] = await Promise.all([
+      orderItemLabels(e.DB, orderRows).catch((err: unknown) => {
+        console.error("[admin/reviews] orderItemLabels failed:", err);
+        return new Map<string, string[]>();
+      }),
+      loadBooksByAnySlug(e.DB, allSlugs, "slug").catch((err: unknown) => {
+        console.error("[admin/reviews] loadBooksByAnySlug failed:", err);
+        return new Map<string, { slug: string }>();
+      }),
+    ]);
+
+    const canonicalRevSlug = revSlug ? String(bookMap.get(revSlug)?.slug || revSlug) : "";
+    const orders = orderRows.map((o) => {
+      const id = String(o.id);
+      const slugs = parsedByOrder.get(id) || [];
+      const includesReviewedBook = Boolean(
+        canonicalRevSlug &&
+          slugs.some((s) => String(bookMap.get(s)?.slug || s) === canonicalRevSlug)
+      );
       return {
-        id: String(o.id),
-        shortId: "#" + String(o.id || "").slice(0, 8).toUpperCase(),
+        id,
+        shortId: "#" + id.slice(0, 8).toUpperCase(),
         status: String(o.status || ""),
-        physicalStatus: o.physical_status ? String(o.physical_status) : null,
         amountCents: Number(o.amount || 0),
-        createdAt: o.created_at,
-        items: itemLabels,
-        includesReviewedBook: Boolean(revSlug && slugs.includes(revSlug)),
+        createdAt: o.created_at ?? null,
+        items: labelMap.get(id) || [],
+        includesReviewedBook,
       };
     });
 
-    let resolvedBookTitle = rev.book_title ? String(rev.book_title) : null;
-    let resolvedPublicSlug = rev.book_public_slug ? String(rev.book_public_slug) : null;
-    if (!resolvedBookTitle && revSlug) {
-      const resolved = await resolveBookForPublicRoute(e.DB, revSlug).catch(() => null);
-      if (resolved?.book) {
-        resolvedBookTitle = String(resolved.book.title || "");
-        resolvedPublicSlug = publicSlugFor(resolved.book);
-      }
-    }
+    const typedUser = userRow as UserRow | null;
+    const typedClub = clubRow as ClubRow | null;
+    const typedCount = reviewCountRow as { n?: number } | null;
 
     return Response.json({
-      review: {
-        ...rev,
-        book_title: resolvedBookTitle || rev.book_title,
-        book_public_slug: resolvedPublicSlug || rev.book_public_slug,
-      },
-      customer: userRow
+      customer: typedUser
         ? {
-            id: String((userRow as any).id),
-            name: String((userRow as any).name || ""),
-            email: String((userRow as any).email || ""),
-            username: (userRow as any).displayUsername || (userRow as any).username || null,
-            role: String((userRow as any).role || "user"),
-            createdAt: (userRow as any).createdAt || null,
-            reviewCount: Number((reviewCountRow as any)?.n || 1),
+            id: String(typedUser.id),
+            name: String(typedUser.name || ""),
+            email: String(typedUser.email || ""),
+            username: typedUser.displayUsername || typedUser.username || null,
+            role: String(typedUser.role || "user"),
+            createdAt: typedUser.createdAt ?? null,
+            reviewCount: Number(typedCount?.n || 1),
           }
         : null,
-      club: clubRow
+      club: typedClub
         ? {
-            plan: String((clubRow as any).club_plan || (clubRow as any).plan || "book"),
-            status: String((clubRow as any).status || ""),
+            plan: clubPlanOf(typedClub),
+            status: String(typedClub.status || ""),
+            active: clubMembershipActive(typedClub),
           }
         : null,
       orders,

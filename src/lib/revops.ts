@@ -35,10 +35,12 @@ import {
   AUDIO_CLUB_PRICE_CENTS,
   AUDIO_CLUB_ANNUAL_PRICE_CENTS,
 } from "./offers";
-import { enqueueEmail } from "./orders";
+import { enqueueEmail, ensureOrderPricingColumns } from "./orders";
 import { enqueueBirthdayGiftEmail, calculateAgeFromDob, parseNotificationPrefs } from "./family";
 
 export const BIRTHDAY_GIFT_CODE = "BDAY10";
+export const PLAY_TYPE_BIRTHDAY_BDAY10 = "birthday_bday10";
+export const PLAY_TYPE_COMPLETION_UPSELL_80 = "completion_upsell_80";
 
 export const REVOPS_PRICING_MATRIX = {
   audioOnlyCents: AUDIO_PRICE_CENTS, // 599 ($5.99)
@@ -214,11 +216,12 @@ export async function runBirthdayGiftScheduler(
         .prepare(
           `INSERT INTO revops_lifecycle_events
             (user_id, email, play_type, trigger_key, offer_code, status, metadata_json, created_at)
-           VALUES (?, ?, 'birthday_bday10', ?, ?, 'queued', ?, ?)`
+           VALUES (?, ?, ?, ?, ?, 'queued', ?, ?)`
         )
         .bind(
           row.user_id,
           row.email.toLowerCase(),
+          PLAY_TYPE_BIRTHDAY_BDAY10,
           triggerKey,
           BIRTHDAY_GIFT_CODE,
           JSON.stringify({ daysUntilBirthday: check.daysUntil, kidName: row.kid_name }),
@@ -367,11 +370,12 @@ export async function checkAndEnqueueCompletionUpsell(params: {
     .prepare(
       `INSERT INTO revops_lifecycle_events
         (user_id, email, play_type, trigger_key, book_slug, offer_code, status, metadata_json, created_at)
-       VALUES (?, ?, 'completion_upsell_80', ?, ?, 'CLUB_UPSELL', 'queued', ?, ?)`
+       VALUES (?, ?, ?, ?, ?, 'CLUB_UPSELL', 'queued', ?, ?)`
     )
     .bind(
       params.userId,
       email,
+      PLAY_TYPE_COMPLETION_UPSELL_80,
       triggerKey,
       params.bookSlug,
       JSON.stringify({
@@ -452,6 +456,9 @@ export async function getRevOpsDashboardMetrics(db?: D1Database): Promise<{
 
   if (db) {
     await ensureRevOpsSchema(db);
+    // orders.pricing_mode is runtime-ensured (orders.ts); ensure it before
+    // filtering out admin_cost test orders below.
+    await ensureOrderPricingColumns(db).catch(() => {});
     const thirtyDaysAgo = Math.floor(Date.now() / 1000) - 30 * 86400;
     try {
       const rev = await db
@@ -477,7 +484,8 @@ export async function getRevOpsDashboardMetrics(db?: D1Database): Promise<{
           `SELECT COALESCE(NULLIF(club_plan, ''), NULLIF(plan, ''), NULLIF(shelf, ''), 'book') AS plan_kind,
                   COUNT(*) AS cnt
              FROM club_signups
-            WHERE status = 'active'
+            WHERE status = 'paid'
+              AND COALESCE(subscription_status, 'active') NOT IN ('canceled', 'unpaid', 'incomplete_expired', 'past_due', 'paused')
             GROUP BY plan_kind`
         )
         .all<{ plan_kind: string | null; cnt: number }>();
@@ -494,7 +502,12 @@ export async function getRevOpsDashboardMetrics(db?: D1Database): Promise<{
 
     try {
       const subRow = await db
-        .prepare(`SELECT COUNT(*) AS cnt FROM subscribers WHERE unsubscribed_at IS NULL`)
+        .prepare(
+          `SELECT COUNT(*) AS cnt FROM subscribers s
+            WHERE NOT EXISTS (
+              SELECT 1 FROM marketing_opt_outs m WHERE LOWER(m.email) = LOWER(s.email)
+            )`
+        )
         .first<{ cnt: number }>();
       subscriberCount = Number(subRow?.cnt || 0);
     } catch {

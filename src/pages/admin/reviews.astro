@@ -18,7 +18,7 @@ export const prerender = false;
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Reviews · Big Brain Shelf Admin</title>
-  <style is:global>
+  <style>
     html{-webkit-tap-highlight-color:transparent}
     .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0 4px}
     .stat{background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:12px;box-shadow:0 1px 2px rgba(28,25,23,.05)}
@@ -32,10 +32,10 @@ export const prerender = false;
       .stat .v{font-size:1.9rem}
       .stat .s{font-size:.8rem}
     }
-    .tap{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-    a.tap:active,.rowtap:active{background:#f5f5f4}
-    @media (hover:hover) and (pointer:fine){ .rowtap:hover{background:#fafaf9} }
-    .clamp1{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+    :global(.tap){touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    :global(a.tap:active),:global(.rowtap:active){background:#f5f5f4}
+    @media (hover:hover) and (pointer:fine){ :global(.rowtap:hover){background:#fafaf9} }
+    :global(.clamp1){display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
     #review-detail .panel{overscroll-behavior:contain}
     /* Status filter pills (same language as the orders tabs). */
     .fbtn{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 14px;border-radius:999px;border:1px solid #e7e5e4;background:#fff;font-size:.85rem;font-weight:600;color:#57534e;cursor:pointer}
@@ -44,22 +44,21 @@ export const prerender = false;
     .fbtn:active{transform:scale(.97)}
     /* The data table: fixed layout, widths budgeted per breakpoint,
        so it can never stretch past the viewport like the old orders
-       table did. Optional columns join at md and up. Must be global so
-       JS-injected <tr>/<td> rows receive identical padding to <thead>. */
+       table did. Optional columns join at md and up. Use :global() on
+       JS-injected tbody rows/cells so they match thead padding. */
     .rtable{width:100%;border-collapse:collapse;table-layout:fixed}
     .rtable th{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#a8a29e;text-align:left;padding:10px 14px;border-bottom:1px solid #e7e5e4;background:#fafaf9}
-    .rtable td{padding:12px 14px;border-bottom:1px solid #f5f5f4;vertical-align:top}
-    .rtable tbody tr:last-child td{border-bottom:0}
-    .rtable tbody tr{cursor:pointer}
+    .rtable :global(td){padding:12px 14px;border-bottom:1px solid #f5f5f4;vertical-align:top}
+    .rtable :global(tbody tr:last-child td){border-bottom:0}
+    .rtable :global(tbody tr){cursor:pointer}
     .c-book{width:30%}.c-rating{width:22%}.c-status{width:24%}.c-date{width:24%}
-    .col-opt{display:none}
+    :global(.col-opt){display:none}
     @media (min-width:768px){
-      .col-opt{display:table-cell}
+      :global(.col-opt){display:table-cell}
       .c-book{width:17%}.c-rating{width:11%}.c-review{width:24%}.c-reviewer{width:13%}.c-status{width:10%}.c-date{width:9%}.c-actions{width:16%}
     }
     .sortbtn{touch-action:manipulation;display:inline-flex;align-items:center;gap:4px;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;background:none;border:0;padding:0;cursor:pointer;min-height:28px}
     .sortbtn .arr{font-size:.6rem;color:#ea580c;min-width:.7em}
-    input,select,textarea{font-size:16px}
   </style>
   </head>
 <body class="bg-stone-50 text-stone-900 antialiased">
@@ -178,15 +177,32 @@ export const prerender = false;
     };
 
     async function moderate(btn) {
+      var prevText = btn.textContent;
       btn.disabled = true;
       btn.textContent = "Saving...";
-      await fetch("/api/admin/reviews", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: btn.getAttribute("data-act"), review_id: btn.getAttribute("data-id") }),
-      });
-      closeDetail();
-      load(true);
+      try {
+        var r = await fetch("/api/admin/reviews", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: btn.getAttribute("data-act"), review_id: btn.getAttribute("data-id") }),
+        });
+        if (!r.ok) {
+          var errData = await r.json().catch(function () { return {}; });
+          throw new Error((errData && errData.error) || ("Request failed (" + r.status + ")"));
+        }
+        closeDetail();
+        load(true);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = prevText;
+        var host = document.getElementById("detail-context");
+        if (host) {
+          var note = document.createElement("div");
+          note.className = "rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-xs font-medium text-red-700";
+          note.textContent = "Could not update review: " + (err && err.message ? err.message : "try again");
+          host.prepend(note);
+        }
+      }
     }
 
     function fmtMoney(cents) {
@@ -229,7 +245,7 @@ export const prerender = false;
         '</div>';
       if (c) {
         var handle = c.username ? ' <span class="text-stone-400 font-normal">@' + esc(c.username) + '</span>' : "";
-        var clubBadge = club && club.status === "active"
+        var clubBadge = club && club.active
           ? '<span class="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[11px] font-semibold">' + esc(club.plan === "audio" ? "Audio Club" : "Book Club") + '</span>'
           : "";
         acctHtml += '<p class="mt-2 text-sm font-bold text-stone-900">' + esc(c.name || c.email) + handle + "</p>" +
@@ -308,7 +324,10 @@ export const prerender = false;
       document.getElementById("review-detail").classList.remove("hidden");
       document.body.style.overflow = "hidden";
       fetch("/api/admin/reviews?detail=" + encodeURIComponent(rev.id))
-        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (r) {
+          if (!r.ok) throw new Error("detail " + r.status);
+          return r.json();
+        })
         .then(function (ctx) {
           if (seq !== detailSeq || !ctx) return;
           renderCustomerAndOrders(ctx);

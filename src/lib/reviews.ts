@@ -84,8 +84,9 @@ export async function userOwnsBook(db: DBLike, userId: string, slug: string): Pr
   return false;
 }
 
-// The moderation action behind /api/admin/reviews. Only pending reviews
-// can be decided; anything else is reported back without changes.
+// The moderation action behind /api/admin/reviews. Pending reviews can be
+// approved or rejected, and admins can also flip an already-decided review
+// (approve a rejected review, or unpublish/reject a live one).
 export async function setReviewStatus(
   db: DBLike,
   reviewId: string,
@@ -96,7 +97,7 @@ export async function setReviewStatus(
   }
   const row = await db.prepare("SELECT id, status FROM reviews WHERE id = ?").bind(reviewId).first();
   if (!row) return { ok: false, error: "review not found" };
-  if (row.status !== "pending") return { ok: false, error: `review is already ${row.status}` };
+  if (row.status === status) return { ok: false, error: `review is already ${row.status}` };
   await db.prepare("UPDATE reviews SET status = ? WHERE id = ?").bind(status, reviewId).run();
   return { ok: true };
 }

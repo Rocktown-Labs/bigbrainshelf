@@ -7,38 +7,70 @@ import {
   getGenerationCostSummary,
   detectBraintrustBackend,
 } from "../../lib/braintrust";
-import { getReadingDropoffSummary } from "../../lib/telemetry";
-import { getRevOpsDashboardMetrics } from "../../lib/revops";
-import { publicSlugFor } from "../../lib/public-slugs";
+import {
+  getRevOpsDashboardMetrics,
+  PLAY_TYPE_BIRTHDAY_BDAY10,
+  PLAY_TYPE_COMPLETION_UPSELL_80,
+} from "../../lib/revops";
+import {
+  ensurePublicSlugColumn,
+  publicSlugFor,
+  RETIRED_SLUG_ALIASES,
+} from "../../lib/public-slugs";
 
 export const prerender = false;
 if (!Astro.locals.user) {
   return Astro.redirect("/admin/login");
 }
 
+// Cloudflare Workers env bindings are dynamically attached at runtime.
 const e = env as any;
 const db = e.DB;
 
-const [revops, aiCogs, topicDemand, readingDropoff, booksRes] = await Promise.all([
+const [revops, aiCogs, topicDemand, telemetryRes, booksRes] = await Promise.all([
   getRevOpsDashboardMetrics(db),
   getGenerationCostSummary(db),
   clusterParentTopicDemand(db),
-  getReadingDropoffSummary(db),
-  db.prepare("SELECT slug, public_slug, title FROM books").all().catch(() => ({ results: [] })),
+  db
+    ? db
+        .prepare(
+          `SELECT book_slug,
+                  SUM(total_events) AS events,
+                  SUM(avg_dwell_seconds * total_events) AS weighted_dwell,
+                  MAX(chapter_index) AS max_chapter
+             FROM reading_telemetry_rollups
+            GROUP BY book_slug
+            ORDER BY events DESC`
+        )
+        .all()
+        .catch(() => ({ results: [] }))
+    : Promise.resolve({ results: [] }),
+  (async () => {
+    if (!db) return { results: [] };
+    await ensurePublicSlugColumn(db).catch(() => {});
+    return db
+      .prepare("SELECT slug, public_slug, title FROM books")
+      .all()
+      .catch(() => ({ results: [] }));
+  })(),
 ]);
 
-// Resolve internal/public slugs into real book titles + admin links.
+// Resolve internal/public slugs (plus retired aliases like "mastery") into real book titles + admin links.
 const bookByAnySlug = new Map<string, { title: string; adminHref: string }>();
-for (const b of (booksRes?.results || []) as any[]) {
+for (const b of (booksRes?.results || []) as Array<{ slug?: string; public_slug?: string; title?: string }>) {
   const entry = {
-    title: String(b.title || b.slug),
+    title: String(b.title || b.slug || ""),
     adminHref: `/admin/books/${publicSlugFor(b)}`,
   };
   if (b.slug) bookByAnySlug.set(String(b.slug), entry);
   if (b.public_slug) bookByAnySlug.set(String(b.public_slug), entry);
 }
+for (const [alias, slug] of Object.entries(RETIRED_SLUG_ALIASES)) {
+  const live = bookByAnySlug.get(slug);
+  if (live && !bookByAnySlug.has(alias)) bookByAnySlug.set(alias, live);
+}
 
-// Aggregate reading telemetry by resolved book so mixed internal/public slugs merge cleanly.
+// Aggregate reading telemetry by resolved book so mixed internal/public/retired slugs merge cleanly.
 interface BookEngagementRow {
   title: string;
   adminHref: string | null;
@@ -47,20 +79,30 @@ interface BookEngagementRow {
   chaptersReached: number;
 }
 const engagementByBook = new Map<string, BookEngagementRow>();
-for (const r of readingDropoff) {
-  const resolved = bookByAnySlug.get(String(r.bookSlug || ""));
-  const key = resolved ? resolved.title : String(r.bookSlug || "Unknown book");
-  const prev = engagementByBook.get(key) || {
-    title: resolved ? resolved.title : "Unlisted title",
-    adminHref: resolved ? resolved.adminHref : null,
-    events: 0,
-    weightedDwell: 0,
-    chaptersReached: 0,
-  };
-  prev.events += Number(r.totalEvents || 0);
-  prev.weightedDwell += Number(r.avgDwellSeconds || 0) * Number(r.totalEvents || 0);
-  prev.chaptersReached = Math.max(prev.chaptersReached, Number(r.chapterIndex || 0));
-  engagementByBook.set(key, prev);
+let unlistedCounter = 0;
+for (const r of (telemetryRes?.results || []) as Array<{
+  book_slug?: string;
+  events?: number;
+  weighted_dwell?: number;
+  max_chapter?: number;
+}>) {
+  const rawSlug = String(r.book_slug || "");
+  const resolved = bookByAnySlug.get(rawSlug);
+  const key = resolved ? resolved.title : `unlisted:${rawSlug || "unknown"}`;
+  let prev = engagementByBook.get(key);
+  if (!prev) {
+    prev = {
+      title: resolved ? resolved.title : `Unlisted book #${++unlistedCounter}`,
+      adminHref: resolved ? resolved.adminHref : null,
+      events: 0,
+      weightedDwell: 0,
+      chaptersReached: 0,
+    };
+    engagementByBook.set(key, prev);
+  }
+  prev.events += Number(r.events || 0);
+  prev.weightedDwell += Number(r.weighted_dwell || 0);
+  prev.chaptersReached = Math.max(prev.chaptersReached, Number(r.max_chapter || 0));
 }
 const engagementRows = Array.from(engagementByBook.values())
   .map((row) => ({
@@ -70,8 +112,8 @@ const engagementRows = Array.from(engagementByBook.values())
   .sort((a, b) => b.events - a.events);
 
 const PLAY_LABELS: Record<string, string> = {
-  completion_upsell_80: "80% Book Completion -> Club Invite",
-  birthday_bday10: "Kid Birthday Gift (BDAY10)",
+  [PLAY_TYPE_COMPLETION_UPSELL_80]: "80% Book Completion -> Club Invite",
+  [PLAY_TYPE_BIRTHDAY_BDAY10]: "Kid Birthday Gift (BDAY10)",
 };
 const totalPlays = revops.lifecyclePlaysCount.reduce((s, p) => s + p.count, 0);
 const activeClubsTotal = revops.activeBookClubCount + revops.activeAudioClubCount;
@@ -190,7 +232,7 @@ const hasVercelAiGateway = Boolean(e.VERCEL_AI_GATEWAY_URL);
             revops.lifecyclePlaysCount.map((p) => (
               <div class="flex items-center justify-between rounded-xl bg-stone-50 border border-stone-100 px-3.5 py-2.5">
                 <span class="font-semibold text-stone-800">{PLAY_LABELS[p.playType] || p.playType}</span>
-                <span class="font-bold text-emerald-800 tabular-nums">{p.count} sent</span>
+                <span class="font-bold text-emerald-800 tabular-nums">{p.count} triggered</span>
               </div>
             ))
           )}
@@ -228,7 +270,7 @@ const hasVercelAiGateway = Boolean(e.VERCEL_AI_GATEWAY_URL);
         <div>
           <h2 class="text-sm font-bold text-stone-900">Reader engagement by book</h2>
           <p class="text-xs text-stone-500 mt-0.5">
-            Page views and average dwell time recorded in the customer reader.
+            Reader events and average dwell time recorded in the customer reader.
           </p>
         </div>
       </div>
@@ -237,7 +279,7 @@ const hasVercelAiGateway = Boolean(e.VERCEL_AI_GATEWAY_URL);
           <thead>
             <tr class="border-b border-stone-200 text-[11px] font-bold uppercase tracking-wider text-stone-400">
               <th class="py-2 pr-4">Book</th>
-              <th class="py-2 px-3">Page views</th>
+              <th class="py-2 px-3">Events</th>
               <th class="py-2 px-3">Furthest chapter</th>
               <th class="py-2 pl-3">Avg dwell</th>
             </tr>
