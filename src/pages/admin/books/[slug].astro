@@ -120,7 +120,7 @@ if (fromAll) {
     .reqbox button { margin-top: 8px; background: #1a3454; color: #fff; border-color: #1a3454; }
     .req-status { font-size: 13px; margin-top: 8px; color: #78716c; }
     .pageblock { max-width: 680px; margin: 0 auto 28px; }
-    .pageblock img.page { width: 100%; background: #fff; border: 1px solid #e7e5e4; }
+    .pageblock img.page { width: 100%; aspect-ratio: 3 / 4; object-fit: contain; background: #fff; border: 1px solid #e7e5e4; }
     .pageblock .cap { font-size: 12px; color: #78716c; margin-bottom: 6px; }
     #msg { max-width: 680px; margin: 40px auto; color: #78716c; text-align: center; }
     .panel { max-width: 860px; margin: 0 auto; }
@@ -218,7 +218,7 @@ if (fromAll) {
     </div>
   </div>
 
-  <script is:inline define:vars={{ slug, adminSlug, isPublished }}>
+  <script is:inline data-astro-rerun define:vars={{ slug, adminSlug, isPublished }}>
     // Covers load through the gated admin media route, never the
     // media host directly: the host serves raw keys immutable for a
     // year, so a replaced cover would stay stale in admin.
@@ -247,17 +247,37 @@ if (fromAll) {
     // chosen id goes to opts.onAction; dismissal without a choice
     // reports null.
     var modalCleanup = null;
+    var modalLastFocus = null;
+    function onModalKey(e) {
+      var overlay = document.getElementById("qc-modal");
+      if (!overlay || overlay.hidden) return;
+      if (e.key === "Escape") { e.preventDefault(); closeModal(null); return; }
+      if (e.key === "Tab") {
+        var focusables = Array.prototype.slice.call(
+          overlay.querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')
+        );
+        if (!focusables.length) return;
+        var first = focusables[0], last = focusables[focusables.length - 1];
+        if (!overlay.contains(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); return; }
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
     function closeModal(result) {
       var overlay = document.getElementById("qc-modal");
-      overlay.hidden = true;
+      if (overlay) overlay.hidden = true;
+      document.removeEventListener("keydown", onModalKey);
+      if (modalLastFocus && modalLastFocus.focus) { try { modalLastFocus.focus(); } catch (e) {} }
+      modalLastFocus = null;
       if (modalCleanup) { var cb = modalCleanup; modalCleanup = null; cb(result); }
     }
     function showModal(opts) {
       var overlay = document.getElementById("qc-modal");
+      modalLastFocus = document.activeElement;
       document.getElementById("qc-modal-title").textContent = opts.title || "";
       document.getElementById("qc-modal-body").textContent = opts.body || "";
       var actions = document.getElementById("qc-modal-actions");
-      actions.innerHTML = "";
+      actions.replaceChildren();
       modalCleanup = function (result) { if (opts.onAction) opts.onAction(result); };
       (opts.actions || [{ id: "ok", label: "OK", primary: true }]).forEach(function (a) {
         var b = document.createElement("button");
@@ -267,6 +287,7 @@ if (fromAll) {
         actions.appendChild(b);
       });
       overlay.hidden = false;
+      document.addEventListener("keydown", onModalKey);
       var first = actions.querySelector("button");
       if (first) first.focus();
     }
@@ -658,16 +679,66 @@ if (fromAll) {
       return url && url.indexOf("sha256=") > -1 ? url + "&w=" + w : url;
     }
 
+    var railRenderedKey = "";
+    var prefetchedUrls = {};
+    function prefetchAdjacent() {
+      [cur + 1, cur - 1].forEach(function (idx) {
+        var adj = pages[idx];
+        if (!adj || adj.toc || adj.copyright || adj.dedication) return;
+        var url = sized(imgFor(adj), 960);
+        if (!url || prefetchedUrls[url]) return;
+        prefetchedUrls[url] = true;
+        var img = new Image();
+        img.src = url;
+      });
+    }
+
+    function dotClassFor(p) {
+      var a = approvals[key(p.chapterNum, p.pageIndex)];
+      var r = reqs[key(p.chapterNum, p.pageIndex)];
+      return a === true ? "dot good"
+        : a === false ? "dot bad"
+        : r ? "dot " + r.status : "";
+    }
+
+    // Update active highlight and status dots in place without tearing
+    // down and re-decoding all 40-60 rail thumbnail <img> nodes on
+    // every page flip or mark click.
+    function syncRailState() {
+      var rail = document.getElementById("rail");
+      if (!rail) return;
+      var btns = rail.querySelectorAll(".rail-page");
+      btns.forEach(function (btn, i) {
+        btn.classList.toggle("cur", i === cur && mode === "flip");
+        var p = pages[i];
+        if (!p) return;
+        var cls = dotClassFor(p);
+        var dot = btn.querySelector(".dot");
+        if (cls) {
+          if (!dot) {
+            dot = document.createElement("span");
+            btn.appendChild(dot);
+          }
+          if (dot.className !== cls) dot.className = cls;
+        } else if (dot) {
+          dot.remove();
+        }
+      });
+    }
+
     function renderRail() {
       var rail = document.getElementById("rail");
       if (view !== "story" && view !== "color") { rail.style.display = "none"; return; }
       rail.style.display = "";
+      var nextKey = view + ":" + pages.length;
+      if (railRenderedKey === nextKey && rail.childElementCount === pages.length) {
+        syncRailState();
+        return;
+      }
+      railRenderedKey = nextKey;
       rail.innerHTML = pages.map(function (p, i) {
-        var a = approvals[key(p.chapterNum, p.pageIndex)];
-        var r = reqs[key(p.chapterNum, p.pageIndex)];
-        var dot = a === true ? '<span class="dot good"></span>'
-          : a === false ? '<span class="dot bad"></span>'
-          : r ? '<span class="dot ' + esc(r.status) + '"></span>' : "";
+        var cls = dotClassFor(p);
+        var dot = cls ? '<span class="' + esc(cls) + '"></span>' : "";
         var thumb = p.toc
           ? '<span class="tocthumb">Contents</span>'
           : p.copyright
@@ -705,6 +776,7 @@ if (fromAll) {
       wireMark("cur");
       renderRail();
       updateQcProgress();
+      prefetchAdjacent();
     }
 
     function renderScroll() {
@@ -1025,13 +1097,16 @@ if (fromAll) {
       document.getElementById("mode-flip").classList.remove("on");
       render();
     });
-    document.addEventListener("keydown", function (e) {
+    function onQcKeyDown(e) {
       if (view !== "story" && view !== "color") return;
       if (mode !== "flip") return;
-      if (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+      var overlay = document.getElementById("qc-modal");
+      if (overlay && !overlay.hidden) return;
+      if (e.target && (e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT" || e.target.tagName === "SELECT")) return;
       if (e.key === "ArrowRight") go(cur + 1);
       if (e.key === "ArrowLeft") go(cur - 1);
-    });
+    }
+    document.addEventListener("keydown", onQcKeyDown);
 
     fetch("/api/editor/chapters?slug=" + encodeURIComponent(slug)).then(function (r) { return r.json(); })
       .then(function (data) {
@@ -1174,6 +1249,12 @@ if (fromAll) {
     }
     window.addEventListener("focus", refreshRequestsOnReturn);
     document.addEventListener("visibilitychange", refreshRequestsOnReturn);
+    document.addEventListener("astro:before-swap", function cleanupQcViewer() {
+      document.removeEventListener("keydown", onQcKeyDown);
+      document.removeEventListener("keydown", onModalKey);
+      window.removeEventListener("focus", refreshRequestsOnReturn);
+      document.removeEventListener("visibilitychange", refreshRequestsOnReturn);
+    }, { once: true });
   </script>
   <script is:inline>
     document.querySelectorAll(".js-signout").forEach(function (el) {

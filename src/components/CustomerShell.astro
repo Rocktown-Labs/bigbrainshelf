@@ -704,7 +704,9 @@ const ICONS: Record<string, string> = {
         type="password"
         id="cust-pin-input"
         inputmode="numeric"
-        maxlength="8"
+        pattern="[0-9]*"
+        maxlength="4"
+        autocomplete="off"
         placeholder="••••"
         class="w-full rounded-xl border border-stone-300 px-3.5 py-2.5 text-center text-lg font-extrabold tracking-widest focus:border-orange-500 focus:outline-none"
       />
@@ -761,21 +763,30 @@ const ICONS: Record<string, string> = {
       var pinError = document.getElementById("cust-pin-error");
       var pinCancel = document.getElementById("cust-pin-cancel");
 
+      var drawerMq = window.matchMedia("(max-width: 1023px)");
+      function paintDrawer() {
+        // Mobile drawer: remove from tab/a11y tree while closed.
+        // Never inert on desktop, where the sidebar is always visible.
+        if (sb) sb.toggleAttribute("inert", drawerMq.matches && !sb.classList.contains("is-open"));
+      }
       function closeDrawer() {
         if (sb) sb.classList.remove("is-open");
         if (backdrop) backdrop.classList.remove("is-open");
+        paintDrawer();
       }
       if (openBtn && !openBtn.dataset.bound) {
         openBtn.dataset.bound = "1";
         openBtn.addEventListener("click", function () {
           if (sb) sb.classList.add("is-open");
           if (backdrop) backdrop.classList.add("is-open");
+          paintDrawer();
         });
       }
       if (backdrop && !backdrop.dataset.bound) {
         backdrop.dataset.bound = "1";
         backdrop.addEventListener("click", closeDrawer);
       }
+      paintDrawer();
 
       var acctBtn = document.getElementById("cust-acct-menu-btn");
       var acctDrop = document.getElementById("cust-acct-dropdown");
@@ -787,11 +798,53 @@ const ICONS: Record<string, string> = {
           acctDrop.classList.toggle("hidden", !isHidden);
           acctBtn.setAttribute("aria-expanded", isHidden ? "true" : "false");
         });
+      }
+      if (!window.__bbsCustShellDocBound) {
+        window.__bbsCustShellDocBound = true;
         document.addEventListener("click", function (ev) {
-          if (!acctDrop.classList.contains("hidden") && !acctDrop.contains(ev.target) && ev.target !== acctBtn) {
-            acctDrop.classList.add("hidden");
-            acctBtn.setAttribute("aria-expanded", "false");
+          var drop = document.getElementById("cust-acct-dropdown");
+          var btn = document.getElementById("cust-acct-menu-btn");
+          if (drop && !drop.classList.contains("hidden") && !drop.contains(ev.target) && ev.target !== btn) {
+            drop.classList.add("hidden");
+            if (btn) btn.setAttribute("aria-expanded", "false");
           }
+        });
+        document.addEventListener("keydown", function (ev) {
+          var pm = document.getElementById("cust-pin-modal");
+          var pinOpen = pm && !pm.classList.contains("hidden");
+          if (ev.key === "Escape") {
+            if (pinOpen) {
+              var cancel = document.getElementById("cust-pin-cancel");
+              if (cancel) cancel.click();
+              return;
+            }
+            var s = document.getElementById("cust-sidebar");
+            var b = document.getElementById("cust-backdrop");
+            if (s && s.classList.contains("is-open")) {
+              s.classList.remove("is-open");
+              if (b) b.classList.remove("is-open");
+              if (window.matchMedia("(max-width: 1023px)").matches) s.toggleAttribute("inert", true);
+            }
+            var drop = document.getElementById("cust-acct-dropdown");
+            var btn = document.getElementById("cust-acct-menu-btn");
+            if (drop && !drop.classList.contains("hidden")) {
+              drop.classList.add("hidden");
+              if (btn) btn.setAttribute("aria-expanded", "false");
+            }
+          } else if (ev.key === "Tab" && pinOpen) {
+            var focusables = Array.prototype.slice.call(
+              pm.querySelectorAll('input:not([disabled]), button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')
+            );
+            if (!focusables.length) return;
+            var first = focusables[0], last = focusables[focusables.length - 1];
+            if (!pm.contains(document.activeElement)) { ev.preventDefault(); (ev.shiftKey ? last : first).focus(); return; }
+            if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+            else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+          }
+        });
+        window.addEventListener("resize", function () {
+          var s = document.getElementById("cust-sidebar");
+          if (s) s.toggleAttribute("inert", window.matchMedia("(max-width: 1023px)").matches && !s.classList.contains("is-open"));
         });
       }
 
@@ -832,7 +885,7 @@ const ICONS: Record<string, string> = {
 
         // Kid View belongs on the library and the reader; anywhere
         // else, send them to the library.
-        if (isKid && !/^\/(account|account\/library|read\/)/.test(window.location.pathname)) {
+        if (isKid && !/^\/(account\/?$|account\/library(\/|$)|read\/)/.test(window.location.pathname)) {
           window.location.href = "/account/library";
           return;
         }
@@ -850,6 +903,15 @@ const ICONS: Record<string, string> = {
         );
       }
 
+      var pinLastFocus = null;
+      function closePinModal() {
+        if (!pinModal) return;
+        pinModal.classList.add("hidden");
+        pinModal.classList.remove("flex");
+        if (pinLastFocus && pinLastFocus.focus) { try { pinLastFocus.focus(); } catch (e) {} }
+        pinLastFocus = null;
+      }
+
       if (switcher) {
         var validOption = Array.from(switcher.options).some(function (o) {
           return o.value === currentProfile;
@@ -865,6 +927,7 @@ const ICONS: Record<string, string> = {
             var hasPin = sb && sb.getAttribute("data-has-pin") === "true";
 
             if (wasKid && nextVal === "parent" && hasPin && pinModal) {
+              pinLastFocus = document.activeElement;
               switcher.value = currentProfile;
               pinModal.classList.remove("hidden");
               pinModal.classList.add("flex");
@@ -885,10 +948,7 @@ const ICONS: Record<string, string> = {
 
       if (pinCancel && pinModal && !pinCancel.dataset.bound) {
         pinCancel.dataset.bound = "1";
-        pinCancel.addEventListener("click", function () {
-          pinModal.classList.add("hidden");
-          pinModal.classList.remove("flex");
-        });
+        pinCancel.addEventListener("click", closePinModal);
       }
 
       if (pinForm && pinModal && !pinForm.dataset.bound) {
@@ -910,8 +970,7 @@ const ICONS: Record<string, string> = {
                 localStorage.setItem(STORAGE_KEY, "parent");
                 if (switcher) switcher.value = "parent";
                 applyProfileMode("parent");
-                pinModal.classList.add("hidden");
-                pinModal.classList.remove("flex");
+                closePinModal();
               } else if (pinError) {
                 pinError.textContent = "Incorrect PIN. Try again.";
                 pinError.classList.remove("hidden");
@@ -928,6 +987,9 @@ const ICONS: Record<string, string> = {
     }
 
     initCustomerShell();
-    document.addEventListener("astro:page-load", initCustomerShell);
+    if (!window.__bbsCustShellPageLoad) {
+      window.__bbsCustShellPageLoad = true;
+      document.addEventListener("astro:page-load", initCustomerShell);
+    }
   })();
 </script>

@@ -289,23 +289,69 @@ export async function inspectAudiobook(
 ): Promise<AudiobookInspection> {
   const key = book.audiobook_key;
   const base = basePath || `/api/admin/audiobook/${book.slug}`;
-  const [m4bHead, fullHead, voiceStamp, introHead, outroHead] = await Promise.all([
-    e.BOOKS.head(key).catch(() => null),
-    e.BOOKS.head(fullBookMp3Key(key)).catch(() => null),
-    readVoiceStamp(e.BOOKS, key),
-    e.BOOKS.head(introAudioKey(key)).catch(() => null),
-    e.BOOKS.head(outroAudioKey(key)).catch(() => null),
-  ]);
+  let m4bHead: any = null;
+  let fullHead: any = null;
+  let voiceStamp: AudiobookVoiceStamp | null = null;
+  let hasIntro = false;
+  let hasOutro = false;
+  const presentChapters = new Set<number>();
 
-  const chapterHeads = await Promise.all(
-    Array.from({ length: MAX_CHAPTER }, (_, i) =>
-      e.BOOKS.head(chapterAudioKey(key, i + 1)).catch(() => null)
-    )
-  );
+  if (typeof e?.BOOKS?.list === "function") {
+    const prefix = `${audiobookDir(key)}/audio/`;
+    const listAudio = async () => {
+      const names = new Set<string>();
+      let cursor: string | undefined;
+      try {
+        do {
+          const page = await e.BOOKS.list(cursor ? { prefix, cursor } : { prefix });
+          for (const obj of page?.objects || []) {
+            if (obj?.key) names.add(String(obj.key));
+          }
+          cursor = page?.truncated ? page.cursor : undefined;
+        } while (cursor);
+      } catch { /* degrade to whatever was listed */ }
+      return names;
+    };
+    const [m4b, full, stamp, audioKeys] = await Promise.all([
+      e.BOOKS.head(key).catch(() => null),
+      e.BOOKS.head(fullBookMp3Key(key)).catch(() => null),
+      readVoiceStamp(e.BOOKS, key),
+      listAudio(),
+    ]);
+    m4bHead = m4b;
+    fullHead = full;
+    voiceStamp = stamp;
+    hasIntro = audioKeys.has(introAudioKey(key));
+    hasOutro = audioKeys.has(outroAudioKey(key));
+    for (let n = 1; n <= MAX_CHAPTER; n++) {
+      if (audioKeys.has(chapterAudioKey(key, n))) presentChapters.add(n);
+    }
+  } else {
+    const [m4b, full, stamp, introHead, outroHead, chapterHeads] = await Promise.all([
+      e.BOOKS.head(key).catch(() => null),
+      e.BOOKS.head(fullBookMp3Key(key)).catch(() => null),
+      readVoiceStamp(e.BOOKS, key),
+      e.BOOKS.head(introAudioKey(key)).catch(() => null),
+      e.BOOKS.head(outroAudioKey(key)).catch(() => null),
+      Promise.all(
+        Array.from({ length: MAX_CHAPTER }, (_, i) =>
+          e.BOOKS.head(chapterAudioKey(key, i + 1)).catch(() => null)
+        )
+      ),
+    ]);
+    m4bHead = m4b;
+    fullHead = full;
+    voiceStamp = stamp;
+    hasIntro = !!introHead;
+    hasOutro = !!outroHead;
+    chapterHeads.forEach((h: any, i: number) => {
+      if (h) presentChapters.add(i + 1);
+    });
+  }
+
   const chapters: PlayerTrack[] = [];
-  chapterHeads.forEach((h: any, i: number) => {
-    if (!h) return;
-    const n = i + 1;
+  for (let n = 1; n <= MAX_CHAPTER; n++) {
+    if (!presentChapters.has(n)) continue;
     chapters.push({
       id: `ch${n}`,
       label: chapterLabel(book.slug, n),
@@ -314,7 +360,10 @@ export async function inspectAudiobook(
       duration: chapterDuration(book.slug, n),
       chapter: n,
     });
-  });
+  }
+
+  const introHead = hasIntro;
+  const outroHead = hasOutro;
 
   const edgeTrack = (kind: EdgeKind, head: any): PlayerTrack | null => {
     if (!head) return null;
