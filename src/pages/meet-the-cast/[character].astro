@@ -117,7 +117,7 @@ const tint = page ? (TOPIC_TINTS[page.topic] || TOPIC_TINTS.default) : TOPIC_TIN
 // untagged poses get no caption at all (no "Pose 1" numbering).
 const actionTitle = (a: string | null): string | null =>
   a ? a.split("-").filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : null;
-const pageTitle = page ? `${page.name} — Meet the Cast | Big Brain Shelf` : "Character not found — Big Brain Shelf";
+const pageTitle = page ? `${page.name} · Meet the Cast · Big Brain Shelf` : "Character not found · Big Brain Shelf";
 const pageDesc = page ? page.blurb : "That character is not on the shelf.";
 ---
 

@@ -95,7 +95,6 @@ const cover = book.cover_key ? R2 + book.cover_key : "";
 // unversioned URL must never be emitted for a cover again; it stays
 // alive in caches for a year with whatever bytes it first served.
 const coverHero = coverDerivative(book.slug, "hero", book.cover_key) || cover;
-const price = "$" + (Number(book.price || 0) / 100).toFixed(2);
 const pricePrint = "$" + (Number(book.price_print || 0) / 100).toFixed(2);
 const topic = book.topic || "tech";
 // Publication date, stamped once by the publish action. Books that
@@ -115,7 +114,6 @@ const buyable = book.status === "complete" && Number(book.price || 0) > 0;
 const giftEligible = buyable && giftSetEligible(book as any);
 const giftPrice = "$" + (GIFT_SET_PRICE_CENTS / 100).toFixed(2);
 const christmasSeason = isChristmasSeason();
-const adminUser = Astro.locals.user;
 const viewEvent = {
   name: "ViewContent",
   data: {
@@ -131,13 +129,17 @@ const viewEvent = {
 // and rejected ones stay invisible. The summary shows only when at
 // least one approved review exists (no fake ratings).
 await ensureReviewsTable(db as any);
-const approvedReviews = (await db.prepare(
-  "SELECT * FROM reviews WHERE book_slug = ? AND status = 'approved' ORDER BY created_at DESC LIMIT 50"
-).bind(slug).all()).results as any[];
-const reviewCount = approvedReviews.length;
-const reviewAvg = reviewCount
-  ? approvedReviews.reduce((s: number, r: any) => s + Number(r.rating || 0), 0) / reviewCount
-  : 0;
+const [approvedReviewsRes, reviewAgg] = await Promise.all([
+  db.prepare(
+    "SELECT * FROM reviews WHERE book_slug = ? AND status = 'approved' ORDER BY created_at DESC LIMIT 50"
+  ).bind(slug).all(),
+  db.prepare(
+    "SELECT COUNT(*) AS cnt, AVG(rating) AS avg FROM reviews WHERE book_slug = ? AND status = 'approved'"
+  ).bind(slug).first<{ cnt: number; avg: number | null }>(),
+]);
+const approvedReviews = approvedReviewsRes.results as any[];
+const reviewCount = Number(reviewAgg?.cnt || 0);
+const reviewAvg = reviewCount > 0 ? Number(reviewAgg?.avg || 0) : 0;
 // Rendered review labels, pre-composed so the template's English
 // output is character-identical to the original inline expressions.
 const reviewAvgLabel = isLocalized
@@ -161,6 +163,7 @@ try {
 } catch { customer = null; }
 let myReview: any = null;
 let ownsBook = false;
+let audioOnlyOwner = false;
 if (customer) {
   myReview = await db.prepare(
     "SELECT * FROM reviews WHERE user_id = ? AND book_slug = ?"
@@ -168,8 +171,18 @@ if (customer) {
   // Entitlement = bought it (orders by id or email) or can read /
   // listen through a club: the same map the library uses, and the
   // same gate the review API enforces (CG, 2026-10-31).
-  const { getDigitalEntitlements } = await import("../../lib/library");
-  ownsBook = (await getDigitalEntitlements(db as any, { id: customer.id, email: customer.email } as any)).has(String(slug));
+  try {
+    const ents = await getDigitalEntitlements(db as any, {
+      id: customer.id,
+      email: String(customer.email || ""),
+    });
+    const ent = ents.get(String(slug));
+    ownsBook = !!ent;
+    audioOnlyOwner = !!ent && ent.owned && !ent.digital && ent.audio;
+  } catch {
+    ownsBook = false;
+    audioOnlyOwner = false;
+  }
 }
 const starRow = (n: number) => [1, 2, 3, 4, 5].map((i) => (i <= Math.round(n) ? "★" : "☆")).join("");
 // Audiobook only: offered beside the bundle whenever the book has an
@@ -182,17 +195,6 @@ const starRow = (n: number) => [1, 2, 3, 4, 5].map((i) => (i <= Math.round(n) ? 
 // sees list prices, exactly like anonymous visitors and everyone else.
 const hasAudio = audioEligible(book as any);
 const audioPrice = "$" + (AUDIO_PRICE_CENTS / 100).toFixed(2);
-let audioOnlyOwner = false;
-if (customer) {
-  try {
-    const ents = await getDigitalEntitlements(db as any, {
-      id: customer.id,
-      email: String(customer.email || ""),
-    });
-    const ent = ents.get(String(slug));
-    audioOnlyOwner = !!ent && ent.owned && !ent.digital && ent.audio;
-  } catch { audioOnlyOwner = false; }
-}
 const upgradeDigitalCents = Math.max(0, Number(book.price || 0) - AUDIO_PRICE_CENTS);
 const digitalCentsEffective = audioOnlyOwner ? upgradeDigitalCents : Number(book.price || 0);
 const digitalPrice = "$" + (digitalCentsEffective / 100).toFixed(2);
@@ -305,10 +307,10 @@ const bookJsonLd: Record<string, unknown> = isLocalized
   <meta name="theme-color" content="#1a3454" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>{displayTitle} — Big Brain Shelf</title>
+  <title>{displayTitle} · Big Brain Shelf</title>
   <meta name="description" content={displayDescription || displayTitle} />
   <SeoHead
-    title={`${displayTitle} — Big Brain Shelf`}
+    title={`${displayTitle} · Big Brain Shelf`}
     socialDescription={displayDescription || undefined}
     image={coverHero || undefined}
     imageAlt={`${displayTitle} ${bs.coverAltWord}`}
@@ -359,7 +361,9 @@ const bookJsonLd: Record<string, unknown> = isLocalized
             same words the ads use: Storybook, Coloring book, Ebook,
             Audio book. */}
         <div class="mb-6">
-          <span id="price-display" class="block text-2xl font-bold tracking-tight mb-3">{displayInitialPrice}</span>
+          {buyable && (
+            <span id="price-display" class="block text-2xl font-bold tracking-tight mb-3">{displayInitialPrice}</span>
+          )}
           {isLocalized && buyable ? (
             <span class="flex items-center gap-3 flex-wrap max-sm:flex-col max-sm:items-stretch max-sm:flex-nowrap">
               <select disabled aria-disabled="true" class="max-sm:w-full min-w-0 border border-stone-300 rounded-full px-4 py-3 text-sm bg-stone-50 text-stone-500 cursor-not-allowed" aria-label={bs.formatPickerLabel}>
@@ -619,22 +623,26 @@ const bookJsonLd: Record<string, unknown> = isLocalized
 
   {!isLocalized && hasSample && (
     <div id="sample-root" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-label={`Free sample of ${book.title}`}>
-      <div class="absolute inset-0 bg-stone-950/80"></div>
+      <div class="absolute inset-0 bg-stone-950/92 backdrop-blur-sm"></div>
       <div class="relative h-full flex flex-col items-center justify-center px-4 py-6">
-        <button id="sample-close" type="button" class="absolute top-4 right-4 text-white/80 hover:text-white text-4xl leading-none px-2" aria-label="Close sample">&times;</button>
+        <button id="sample-close" type="button" class="absolute top-4 right-4 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 inline-flex items-center justify-center text-white text-2xl leading-none transition" aria-label="Close sample">&times;</button>
         <p class="text-white/90 text-sm font-semibold mb-3">Free sample &middot; {book.title}</p>
         <div class="relative bg-white rounded-lg shadow-2xl p-2 sm:p-3 max-w-full">
           <img id="sample-img" src={`/api/sample/${publicSlug}/1`} alt={`Sample page 1 of ${book.title}`} class="max-h-[68vh] w-auto max-w-full object-contain rounded" />
           <div id="sample-end" class="hidden w-[min(78vw,430px)] aspect-[3/4] flex-col items-center justify-center text-center px-6">
             <p class="text-xl font-extrabold tracking-tight text-[#1a3454] mb-2">Enjoying it?</p>
             <p class="text-sm text-stone-600 leading-relaxed mb-5">Get the full book: the complete storybook, every coloring page and the ebook{book.audiobook_key ? ", plus the audiobook" : ""}, delivered instantly.</p>
-            <p class="text-sm mb-1"><span class="font-bold text-lg">{price}</span> <span class="text-stone-500">digital</span></p>
-            {Number(book.price_print || 0) > 0 && <p class={`text-sm ${giftEligible ? "mb-1" : "mb-5"}`}><span class="font-bold text-lg">{pricePrint}</span> <span class="text-stone-500">full color printed book, digital included</span></p>}
-            {giftEligible && <p class="text-sm mb-5"><span class="font-bold text-lg">{giftPrice}</span> <span class="text-stone-500">gift set: printed storybook + printed coloring book, digital included</span></p>}
-            {Number(book.price_print || 0) <= 0 && !giftEligible && <div class="mb-5"></div>}
-            {buyable
-              ? <button id="sample-buy" type="button" class="rounded-full bg-orange-600 text-white px-7 py-3 text-sm font-semibold hover:bg-orange-700">Add to cart</button>
-              : <p class="text-sm text-stone-500">This book is available soon.</p>}
+            {buyable ? (
+              <>
+                <p class="text-sm mb-1"><span class="font-bold text-lg">{digitalPrice}</span> <span class="text-stone-500">digital</span></p>
+                {Number(book.price_print || 0) > 0 && <p class={`text-sm ${giftEligible ? "mb-1" : "mb-5"}`}><span class="font-bold text-lg">{pricePrint}</span> <span class="text-stone-500">full color printed book, digital included</span></p>}
+                {giftEligible && <p class="text-sm mb-5"><span class="font-bold text-lg">{giftPrice}</span> <span class="text-stone-500">gift set: printed storybook + printed coloring book, digital included</span></p>}
+                {Number(book.price_print || 0) <= 0 && !giftEligible && <div class="mb-5"></div>}
+                <button id="sample-buy" type="button" class="rounded-full bg-orange-600 text-white px-7 py-3 text-sm font-semibold hover:bg-orange-700">Add to cart</button>
+              </>
+            ) : (
+              <p class="text-sm text-stone-500">This book is available soon.</p>
+            )}
           </div>
         </div>
         <div class="flex items-center gap-5 mt-4">
@@ -663,7 +671,7 @@ const bookJsonLd: Record<string, unknown> = isLocalized
 
   <SiteFooter />
 
-  {!isLocalized && <script is:inline define:vars={{ slug, publicSlug, priceCents: digitalCentsEffective, printCents: Number(book.price_print || 0), giftCents: GIFT_SET_PRICE_CENTS, audioCents: AUDIO_PRICE_CENTS }}>
+  {!isLocalized && <script is:inline data-astro-rerun define:vars={{ slug, publicSlug, priceCents: digitalCentsEffective, printCents: Number(book.price_print || 0), giftCents: GIFT_SET_PRICE_CENTS, audioCents: AUDIO_PRICE_CENTS }}>
     function money(cents) { return "$" + (cents / 100).toFixed(2); }
     function centsFor(format) {
       return format === "printed" ? printCents : format === "giftset" ? giftCents : format === "audio" ? audioCents : priceCents;
@@ -734,9 +742,13 @@ const bookJsonLd: Record<string, unknown> = isLocalized
       // remove this format in the slide-over sheet and the button
       // re-arms at once, no reload. (It used to latch "In your cart"
       // until the next page load.)
-      document.addEventListener("bbs:cart-changed", function () {
+      function onCartChanged() {
         if (window.location.pathname === "/books/" + publicSlug) syncBtn();
-      });
+      }
+      document.addEventListener("bbs:cart-changed", onCartChanged);
+      document.addEventListener("astro:before-swap", function cleanupBuy() {
+        document.removeEventListener("bbs:cart-changed", onCartChanged);
+      }, { once: true });
       if (btn) btn.addEventListener("click", function () {
         var format = currentFormat();
         // The store writes, repaints the badge, and announces the
@@ -750,15 +762,14 @@ const bookJsonLd: Record<string, unknown> = isLocalized
           value: centsFor(format) / 100,
           currency: "USD",
         });
-        if (window.openCartSheet) window.openCartSheet();
+        if (added && window.openCartSheet) window.openCartSheet();
         syncBtn();
       });
     }
     initBuy();
-    document.addEventListener("astro:page-load", initBuy);
   </script>}
 
-  {!isLocalized && <script is:inline define:vars={{ publicSlug }}>
+  {!isLocalized && <script is:inline data-astro-rerun define:vars={{ publicSlug }}>
     // Review form submission. Same re-init pattern as the buy controls
     // (astro:page-load, path checked, per-form bound flag). The path
     // check uses the PUBLIC slug (the address bar); the form itself
@@ -800,10 +811,9 @@ const bookJsonLd: Record<string, unknown> = isLocalized
       });
     }
     initReviewForm();
-    document.addEventListener("astro:page-load", initReviewForm);
   </script>}
 
-  {isLocalized && <script is:inline define:vars={{ publicSlug: reviewPath, thanksMsg: bs.reviewThanksMsg, errorMsg: bs.reviewErrorMsg }}>
+  {isLocalized && <script is:inline data-astro-rerun define:vars={{ publicSlug: reviewPath, thanksMsg: bs.reviewThanksMsg, errorMsg: bs.reviewErrorMsg }}>
     // Review form submission, localized renders: the same binding as
     // the English script above (which stays byte-identical), with the
     // path check bound to this page's full locale path and the
@@ -846,10 +856,9 @@ const bookJsonLd: Record<string, unknown> = isLocalized
       });
     }
     initReviewForm();
-    document.addEventListener("astro:page-load", initReviewForm);
   </script>}
 
-  <script is:inline define:vars={{ reviewPath }}>
+  <script is:inline data-astro-rerun define:vars={{ reviewPath }}>
     // Review form fold: with no approved reviews the card starts
     // hidden behind the Write a review toggle (see the reviews
     // section). One binding for every locale, guarded by this page's
@@ -868,11 +877,10 @@ const bookJsonLd: Record<string, unknown> = isLocalized
       });
     }
     initReviewToggle();
-    document.addEventListener("astro:page-load", initReviewToggle);
   </script>
 
   {!isLocalized && hasSample && (
-    <script is:inline define:vars={{ publicSlug, sampleLabels }}>
+    <script is:inline data-astro-rerun define:vars={{ publicSlug, sampleLabels }}>
       // Free-sample viewer: 5 pages served by the capped /api/sample
       // route, then a buy panel as the final slide. Same re-init
       // pattern as the buy controls (astro:page-load, path checked,
@@ -909,14 +917,20 @@ const bookJsonLd: Record<string, unknown> = isLocalized
           prev.disabled = idx === 0;
           next.disabled = idx === total;
         }
+        var sampleLastFocus = null;
         function openSample() {
+          sampleLastFocus = document.activeElement;
           show(0);
           root.classList.remove("hidden");
           document.body.style.overflow = "hidden";
+          var closeBtn = document.getElementById("sample-close");
+          if (closeBtn) closeBtn.focus();
         }
         function closeSample() {
           root.classList.add("hidden");
           document.body.style.overflow = "";
+          if (sampleLastFocus && sampleLastFocus.focus) { try { sampleLastFocus.focus(); } catch (e) {} }
+          sampleLastFocus = null;
         }
         document.getElementById("sample-open").addEventListener("click", openSample);
         document.getElementById("sample-close").addEventListener("click", closeSample);
@@ -928,14 +942,28 @@ const bookJsonLd: Record<string, unknown> = isLocalized
           var b = document.getElementById("buy");
           if (b && !b.disabled) b.click();
         });
-        document.addEventListener("keydown", function (e) {
-          if (e.key === "Escape" && document.contains(root) && !root.classList.contains("hidden")) closeSample();
-          if (e.key === "ArrowRight" && document.contains(root) && !root.classList.contains("hidden")) show(idx + 1);
-          if (e.key === "ArrowLeft" && document.contains(root) && !root.classList.contains("hidden")) show(idx - 1);
-        });
+        function onSampleKey(e) {
+          if (!document.contains(root) || root.classList.contains("hidden")) return;
+          if (e.key === "Escape") { closeSample(); return; }
+          if (e.key === "ArrowRight") { show(idx + 1); return; }
+          if (e.key === "ArrowLeft") { show(idx - 1); return; }
+          if (e.key === "Tab") {
+            var focusables = Array.prototype.slice.call(
+              root.querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')
+            ).filter(function (el) { return el.offsetParent !== null; });
+            if (!focusables.length) return;
+            var first = focusables[0], last = focusables[focusables.length - 1];
+            if (focusables.indexOf(document.activeElement) === -1) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+            else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+          }
+        }
+        document.addEventListener("keydown", onSampleKey);
+        document.addEventListener("astro:before-swap", function cleanupSample() {
+          document.removeEventListener("keydown", onSampleKey);
+        }, { once: true });
       }
       initSample();
-      document.addEventListener("astro:page-load", initSample);
     </script>
   )}
 
@@ -952,7 +980,7 @@ const bookJsonLd: Record<string, unknown> = isLocalized
     bbsAccountLink();
     document.addEventListener("astro:page-load", bbsAccountLink);
   </script>
-{!isLocalized && <script is:inline define:vars={{ upgradeSlug: audioOnlyOwner ? String(slug) : "", upgradeDigitalCents }}>
+{!isLocalized && <script is:inline data-astro-rerun define:vars={{ upgradeSlug: audioOnlyOwner ? String(slug) : "", upgradeDigitalCents }}>
   // This page's cart sheet prices this book's digital format at the
   // signed-in audiobook owner's upgrade price, matching the picker
   // and the server-side checkout credit. Other pages' sheets show

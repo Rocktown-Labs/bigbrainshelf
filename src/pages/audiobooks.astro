@@ -30,17 +30,6 @@ const e = env as any;
 // carries the Audiobook pill, so the icon row that used to sit
 // above the title repeated it. The home shelf keeps its three
 // format icons, where they show which mediums a book comes in.
-const BADGE_ICONS = {
-  story: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
-  coloring: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
-  audio: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>',
-};
-// (The badge row that used to sit between the cover and the
-// title was removed 2026-10-31, CG: the cover already carries
-// the Audiobook pill, so the red icon above the title repeated
-// it. The home page keeps its three format icons, where they
-// show which mediums a book comes in; this shelf is audio-only
-// and the pill says it.)
 
 interface ShelfItem {
   slug: string;
@@ -56,10 +45,17 @@ try {
   const { results } = await e.DB.prepare(
     "SELECT slug, title, status, topic, cover_key, public_slug, audiobook_key, picture_book_key, coloring_book_key FROM books WHERE cover_key IS NOT NULL AND audiobook_key IS NOT NULL ORDER BY title ASC"
   ).all();
-  const probed = await Promise.all(
-    ((results || []) as any[]).map(async (b) => {
-      const probe = await probeAudiobook(e, b);
-      return { b, probe };
+  const rows = (results || []) as any[];
+  const PROBE_CONCURRENCY = 4;
+  const probed: { b: any; probe: Awaited<ReturnType<typeof probeAudiobook>> }[] = new Array(rows.length);
+  let nextIdx = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(PROBE_CONCURRENCY, rows.length) }, async () => {
+      while (nextIdx < rows.length) {
+        const i = nextIdx++;
+        const b = rows[i];
+        probed[i] = { b, probe: await probeAudiobook(e, b) };
+      }
     })
   );
   items = probed
@@ -73,7 +69,9 @@ try {
       runtimeSecs: probe.runtimeSecs,
       topic: String(b.topic || "tech"),
     }));
-} catch { /* the shelf renders empty rather than failing the page */ }
+} catch (err) {
+  console.error("[audiobooks] shelf load failed", err);
+}
 const audioPriceLabel = `$${(AUDIO_PRICE_CENTS / 100).toFixed(2)}`;
 // The one Audio Club banner above the grid (CG, 2026-10-30): the
 // club offer used to ride as gray microcopy on every card ("or hear
@@ -107,8 +105,8 @@ for (const it of items) {
   <meta name="theme-color" content="#1a3454" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Audiobooks — Big Brain Shelf</title>
-  <SeoHead title="Audiobooks — Big Brain Shelf" socialDescription="Audiobooks on tech, money, and courage, told so kids can get it. Hear the introduction and first chapter of every book free." image="https://bigbrainshelf.com/og-image-audiobooks.jpg" imageAlt={`Big Brain Shelf audiobooks, including ${catalogLeadDisplayName("mira-the-heron-and-the-still-water")}, ${catalogLeadDisplayName("algorithms")} and ${catalogLeadDisplayName("docker")}`} imageWidth={1200} imageHeight={630} />
+  <title>Audiobooks · Big Brain Shelf</title>
+  <SeoHead title="Audiobooks · Big Brain Shelf" socialDescription="Audiobooks on tech, money, and courage, told so kids can get it. Hear the introduction and first chapter of every book free." image="https://bigbrainshelf.com/og-image-audiobooks.jpg" imageAlt={`Big Brain Shelf audiobooks, including ${catalogLeadDisplayName("mira-the-heron-and-the-still-water")}, ${catalogLeadDisplayName("algorithms")} and ${catalogLeadDisplayName("docker")}`} imageWidth={1200} imageHeight={630} />
   <meta name="description" content="Audiobooks on tech, money, and courage, told so kids can get it. Hear the introduction and first chapter of every book free." />
     <ClientRouter />
   <TransitionHooks />
@@ -133,7 +131,7 @@ for (const it of items) {
     ) : null}
     {items.length ? (
       <>
-      <div id="cat-chips" class="flex gap-2 mt-4 overflow-x-auto" role="group" aria-label="Filter by shelf">
+      <div id="cat-chips" class="flex flex-wrap gap-2 mt-4" role="group" aria-label="Filter by shelf">
         {CATS.map(([key, label]) => (
           <button type="button" class={`cat-chip shrink-0 inline-flex items-center min-h-[40px] px-4 rounded-full border text-[15px] transition duration-100 active:scale-[0.97] ${key === "all" ? "bg-orange-600 border-orange-600 text-white font-semibold" : "bg-white border-stone-300 text-stone-900"}`} data-cat={key} aria-pressed={key === "all" ? "true" : "false"}>{label}<span class="text-[11px] font-bold opacity-65 ml-[5px]">{catCounts[key]}</span></button>
         ))}
@@ -158,17 +156,21 @@ for (const it of items) {
               </div>
               <h3 class="mt-2 lg:mt-3 text-[15px] font-semibold leading-snug">{b.title}</h3>
             </a>
-            <span class="mt-auto block pt-2">
+            <div class="mt-auto block pt-2">
               <p class="text-sm"><span class="font-semibold">{audioPriceLabel} audiobook only</span></p>
-              <span class="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1">
+              <div class="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1">
                 <a href={b.href} class="inline-flex items-center justify-center min-h-[40px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold">Free sample</a>
                 <button type="button" class="ab-add inline-flex items-center min-h-[44px] text-sm font-semibold text-orange-700 underline decoration-orange-300 underline-offset-4 hover:text-orange-800 transition duration-100 active:scale-[0.97] disabled:text-stone-400 disabled:no-underline" data-slug={b.slug}>Add to cart</button>
-              </span>
-            </span>
+              </div>
+            </div>
           </div>
         ))}
       </div>
-      <div id="audio-empty" class="hidden text-center text-stone-500 py-16"><p class="text-stone-900 font-semibold text-lg mb-1">Nothing on this shelf yet.</p><p class="text-sm">Try a different category.</p></div>
+      <div id="audio-empty" role="status" aria-live="polite" class="hidden text-center text-stone-500 py-16">
+        <p class="text-stone-900 font-semibold text-lg mb-1">Nothing on this shelf yet.</p>
+        <p class="text-sm mb-5">Try a different category.</p>
+        <button id="audio-empty-reset" type="button" class="inline-flex items-center justify-center min-h-[44px] px-5 rounded-full bg-orange-600 text-white text-sm font-semibold hover:bg-orange-700 transition duration-100 active:scale-[0.97]">Show all audiobooks</button>
+      </div>
       </>
     ) : (
       <div class="text-center text-stone-500 py-16"><p class="text-stone-900 font-semibold text-lg mb-1">The listening shelf is still being stocked.</p><p class="text-sm">Check back soon for the first audiobooks.</p></div>
@@ -211,6 +213,13 @@ for (const it of items) {
         });
         if (empty) empty.classList.toggle("hidden", shown > 0);
       });
+      var resetBtn = document.getElementById("audio-empty-reset");
+      if (resetBtn) {
+        resetBtn.addEventListener("click", function () {
+          var allBtn = row.querySelector('.cat-chip[data-cat="all"]');
+          if (allBtn) allBtn.click();
+        });
+      }
     }
     initAudioChips();
     document.addEventListener("astro:page-load", initAudioChips);
@@ -247,10 +256,13 @@ for (const it of items) {
           value: audioCents / 100,
           currency: "USD",
         });
-        if (window.openCartSheet) window.openCartSheet();
+        if (added && window.openCartSheet) window.openCartSheet();
         syncAll();
       });
       document.addEventListener("bbs:cart-changed", syncAll);
+      document.addEventListener("astro:before-swap", function cleanup() {
+        document.removeEventListener("bbs:cart-changed", syncAll);
+      }, { once: true });
       syncAll();
     }
     initAudioCardCart();
