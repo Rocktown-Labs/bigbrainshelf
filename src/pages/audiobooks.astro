@@ -45,10 +45,17 @@ try {
   const { results } = await e.DB.prepare(
     "SELECT slug, title, status, topic, cover_key, public_slug, audiobook_key, picture_book_key, coloring_book_key FROM books WHERE cover_key IS NOT NULL AND audiobook_key IS NOT NULL ORDER BY title ASC"
   ).all();
-  const probed = await Promise.all(
-    ((results || []) as any[]).map(async (b) => {
-      const probe = await probeAudiobook(e, b);
-      return { b, probe };
+  const rows = (results || []) as any[];
+  const PROBE_CONCURRENCY = 4;
+  const probed: { b: any; probe: Awaited<ReturnType<typeof probeAudiobook>> }[] = new Array(rows.length);
+  let nextIdx = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(PROBE_CONCURRENCY, rows.length) }, async () => {
+      while (nextIdx < rows.length) {
+        const i = nextIdx++;
+        const b = rows[i];
+        probed[i] = { b, probe: await probeAudiobook(e, b) };
+      }
     })
   );
   items = probed

@@ -672,7 +672,7 @@ const bookJsonLd: Record<string, unknown> = isLocalized
 
   <SiteFooter />
 
-  {!isLocalized && <script is:inline define:vars={{ slug, publicSlug, priceCents: digitalCentsEffective, printCents: Number(book.price_print || 0), giftCents: GIFT_SET_PRICE_CENTS, audioCents: AUDIO_PRICE_CENTS }}>
+  {!isLocalized && <script is:inline data-astro-rerun define:vars={{ slug, publicSlug, priceCents: digitalCentsEffective, printCents: Number(book.price_print || 0), giftCents: GIFT_SET_PRICE_CENTS, audioCents: AUDIO_PRICE_CENTS }}>
     function money(cents) { return "$" + (cents / 100).toFixed(2); }
     function centsFor(format) {
       return format === "printed" ? printCents : format === "giftset" ? giftCents : format === "audio" ? audioCents : priceCents;
@@ -743,9 +743,13 @@ const bookJsonLd: Record<string, unknown> = isLocalized
       // remove this format in the slide-over sheet and the button
       // re-arms at once, no reload. (It used to latch "In your cart"
       // until the next page load.)
-      document.addEventListener("bbs:cart-changed", function () {
+      function onCartChanged() {
         if (window.location.pathname === "/books/" + publicSlug) syncBtn();
-      });
+      }
+      document.addEventListener("bbs:cart-changed", onCartChanged);
+      document.addEventListener("astro:before-swap", function cleanupBuy() {
+        document.removeEventListener("bbs:cart-changed", onCartChanged);
+      }, { once: true });
       if (btn) btn.addEventListener("click", function () {
         var format = currentFormat();
         // The store writes, repaints the badge, and announces the
@@ -759,15 +763,14 @@ const bookJsonLd: Record<string, unknown> = isLocalized
           value: centsFor(format) / 100,
           currency: "USD",
         });
-        if (window.openCartSheet) window.openCartSheet();
+        if (added && window.openCartSheet) window.openCartSheet();
         syncBtn();
       });
     }
     initBuy();
-    document.addEventListener("astro:page-load", initBuy);
   </script>}
 
-  {!isLocalized && <script is:inline define:vars={{ publicSlug }}>
+  {!isLocalized && <script is:inline data-astro-rerun define:vars={{ publicSlug }}>
     // Review form submission. Same re-init pattern as the buy controls
     // (astro:page-load, path checked, per-form bound flag). The path
     // check uses the PUBLIC slug (the address bar); the form itself
@@ -809,10 +812,9 @@ const bookJsonLd: Record<string, unknown> = isLocalized
       });
     }
     initReviewForm();
-    document.addEventListener("astro:page-load", initReviewForm);
   </script>}
 
-  {isLocalized && <script is:inline define:vars={{ publicSlug: reviewPath, thanksMsg: bs.reviewThanksMsg, errorMsg: bs.reviewErrorMsg }}>
+  {isLocalized && <script is:inline data-astro-rerun define:vars={{ publicSlug: reviewPath, thanksMsg: bs.reviewThanksMsg, errorMsg: bs.reviewErrorMsg }}>
     // Review form submission, localized renders: the same binding as
     // the English script above (which stays byte-identical), with the
     // path check bound to this page's full locale path and the
@@ -855,10 +857,9 @@ const bookJsonLd: Record<string, unknown> = isLocalized
       });
     }
     initReviewForm();
-    document.addEventListener("astro:page-load", initReviewForm);
   </script>}
 
-  <script is:inline define:vars={{ reviewPath }}>
+  <script is:inline data-astro-rerun define:vars={{ reviewPath }}>
     // Review form fold: with no approved reviews the card starts
     // hidden behind the Write a review toggle (see the reviews
     // section). One binding for every locale, guarded by this page's
@@ -877,11 +878,10 @@ const bookJsonLd: Record<string, unknown> = isLocalized
       });
     }
     initReviewToggle();
-    document.addEventListener("astro:page-load", initReviewToggle);
   </script>
 
   {!isLocalized && hasSample && (
-    <script is:inline define:vars={{ publicSlug, sampleLabels }}>
+    <script is:inline data-astro-rerun define:vars={{ publicSlug, sampleLabels }}>
       // Free-sample viewer: 5 pages served by the capped /api/sample
       // route, then a buy panel as the final slide. Same re-init
       // pattern as the buy controls (astro:page-load, path checked,
@@ -918,14 +918,20 @@ const bookJsonLd: Record<string, unknown> = isLocalized
           prev.disabled = idx === 0;
           next.disabled = idx === total;
         }
+        var sampleLastFocus = null;
         function openSample() {
+          sampleLastFocus = document.activeElement;
           show(0);
           root.classList.remove("hidden");
           document.body.style.overflow = "hidden";
+          var closeBtn = document.getElementById("sample-close");
+          if (closeBtn) closeBtn.focus();
         }
         function closeSample() {
           root.classList.add("hidden");
           document.body.style.overflow = "";
+          if (sampleLastFocus && sampleLastFocus.focus) { try { sampleLastFocus.focus(); } catch (e) {} }
+          sampleLastFocus = null;
         }
         document.getElementById("sample-open").addEventListener("click", openSample);
         document.getElementById("sample-close").addEventListener("click", closeSample);
@@ -937,14 +943,27 @@ const bookJsonLd: Record<string, unknown> = isLocalized
           var b = document.getElementById("buy");
           if (b && !b.disabled) b.click();
         });
-        document.addEventListener("keydown", function (e) {
-          if (e.key === "Escape" && document.contains(root) && !root.classList.contains("hidden")) closeSample();
-          if (e.key === "ArrowRight" && document.contains(root) && !root.classList.contains("hidden")) show(idx + 1);
-          if (e.key === "ArrowLeft" && document.contains(root) && !root.classList.contains("hidden")) show(idx - 1);
-        });
+        function onSampleKey(e) {
+          if (!document.contains(root) || root.classList.contains("hidden")) return;
+          if (e.key === "Escape") { closeSample(); return; }
+          if (e.key === "ArrowRight") { show(idx + 1); return; }
+          if (e.key === "ArrowLeft") { show(idx - 1); return; }
+          if (e.key === "Tab") {
+            var focusables = Array.prototype.slice.call(
+              root.querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')
+            ).filter(function (el) { return el.offsetParent !== null; });
+            if (!focusables.length) return;
+            var first = focusables[0], last = focusables[focusables.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+          }
+        }
+        document.addEventListener("keydown", onSampleKey);
+        document.addEventListener("astro:before-swap", function cleanupSample() {
+          document.removeEventListener("keydown", onSampleKey);
+        }, { once: true });
       }
       initSample();
-      document.addEventListener("astro:page-load", initSample);
     </script>
   )}
 
@@ -961,7 +980,7 @@ const bookJsonLd: Record<string, unknown> = isLocalized
     bbsAccountLink();
     document.addEventListener("astro:page-load", bbsAccountLink);
   </script>
-{!isLocalized && <script is:inline define:vars={{ upgradeSlug: audioOnlyOwner ? String(slug) : "", upgradeDigitalCents }}>
+{!isLocalized && <script is:inline data-astro-rerun define:vars={{ upgradeSlug: audioOnlyOwner ? String(slug) : "", upgradeDigitalCents }}>
   // This page's cart sheet prices this book's digital format at the
   // signed-in audiobook owner's upgrade price, matching the picker
   // and the server-side checkout credit. Other pages' sheets show

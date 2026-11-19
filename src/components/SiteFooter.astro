@@ -220,8 +220,20 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
           if (box) box.innerHTML = "";
         }
       }
-      function onEscKey(e) { if (e.key === "Escape") closeModal(); }
+      function onModalKey(e) {
+        if (e.key === "Escape") { closeModal(); return; }
+        if (e.key === "Tab" && modal) {
+          var focusables = Array.prototype.slice.call(
+            modal.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), iframe, [tabindex]:not([tabindex="-1"])')
+          );
+          if (!focusables.length) return;
+          var first = focusables[0], last = focusables[focusables.length - 1];
+          if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+          else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+      }
       function openModal(payload) {
+        if (modalOpen) return;
         // No modal markup means no site key was configured; post
         // directly rather than trapping the visitor.
         if (!modal || !tsKey) { doSubscribe(payload, ""); return; }
@@ -230,7 +242,7 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
         lastFocus = document.activeElement;
         modalSay("");
         modal.classList.add("open");
-        document.addEventListener("keydown", onEscKey);
+        document.addEventListener("keydown", onModalKey);
         var cancel = modal.querySelector(".newsletter-modal-cancel");
         if (cancel) cancel.focus();
         loadTurnstileApi().then(function (ts) {
@@ -262,7 +274,7 @@ const turnstileSiteKey = String((env as any)?.TURNSTILE_SITE_KEY || "").trim();
         openSeq++;
         cleanupWidget();
         modal.classList.remove("open");
-        document.removeEventListener("keydown", onEscKey);
+        document.removeEventListener("keydown", onModalKey);
         if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} }
         lastFocus = null;
       }
