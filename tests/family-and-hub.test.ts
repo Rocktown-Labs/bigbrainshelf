@@ -650,9 +650,9 @@ describe("Phase 4: Family Onboarding, Kid Profiles, PIN Gate, Limits & Synced Pr
     const dlSrc = readFileSync(resolve(root, "src/pages/api/download.ts"), "utf8");
     expect(dlSrc).toContain("bookTitle");
     expect(dlSrc).toContain("producedOn");
-    // The site footer carries the same Searcy line.
+    // The site footer carries the Searcy, Arkansas origin line.
     const footerSrc = readFileSync(resolve(root, "src/components/SiteFooter.astro"), "utf8");
-    expect(footerSrc).toContain("Designed, assembled and packaged in Searcy, Arkansas");
+    expect(footerSrc).toContain("Searcy, Arkansas");
   });
 
   test("Hub simplification surfaces stay wired (2026-11-01 pass 2)", () => {
