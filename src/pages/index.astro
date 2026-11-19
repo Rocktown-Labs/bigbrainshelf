@@ -240,14 +240,9 @@ const siteJsonLd = {
       }
 
       paintChips();
-      // Cart badge + account link. The badge belongs to the shared
-      // cart store (stored count now, purchasable count once the
-      // catalog resolves); this page no longer paints it by hand.
+      // Cart badge belongs to the shared cart store; the account chip
+      // and link are hydrated once by SiteHeader from /api/account/me.
       if (window.bbsPaintBadge) window.bbsPaintBadge();
-      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
-        var link = document.getElementById("account-link");
-        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
-      }).catch(function () {});
     }
     initHome();
     document.addEventListener("astro:page-load", initHome);

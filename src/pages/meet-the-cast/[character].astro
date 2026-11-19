@@ -158,7 +158,7 @@ const pageDesc = page ? page.blurb : "That character is not on the shelf.";
             {page.portrait ? (
               <div class="relative rounded-[2rem] overflow-hidden border-4 border-white shadow-[0_24px_40px_-18px_rgba(26,52,84,0.45)] bg-[#faf6ee]" role="img" aria-label={`${page.name} the ${page.species}`}>
                 <img src={page.portraitHero || page.portrait} alt="" aria-hidden="true" style={`object-position:${objectPosition(page.portraitFocal)}`} class="w-full aspect-[4/5] object-cover" />
-                <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+                <img src="/just-buy-it.webp" alt="" aria-hidden="true" loading="lazy" fetchpriority="low" class="absolute inset-0 w-full h-full opacity-0" />
               </div>
             ) : (
               <div class="rounded-[2rem] border-4 border-dashed border-white/80 bg-white/40 aspect-[4/5] flex flex-col items-center justify-center text-center px-8">
@@ -197,7 +197,7 @@ const pageDesc = page ? page.blurb : "That character is not on the shelf.";
             <a href={`/books/${page.bookPublicSlug}`} class="shrink-0 mx-auto sm:mx-0">
               <span class="relative block w-28 sm:w-32 rounded-xl overflow-hidden border border-stone-200">
                 <img src={page.cover} alt={`${page.bookTitle} cover`} class="w-full aspect-[3/4] object-cover" />
-                <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+                <img src="/just-buy-it.webp" alt="" aria-hidden="true" loading="lazy" fetchpriority="low" class="absolute inset-0 w-full h-full opacity-0" />
               </span>
             </a>
             <div class="flex-1 text-center sm:text-left">
@@ -240,7 +240,7 @@ const pageDesc = page ? page.blurb : "That character is not on the shelf.";
               return (
               <button type="button" aria-label={label} class="pose-btn group relative w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[calc(25%-0.75rem)] rounded-3xl border border-stone-200 bg-[#faf6ee] overflow-hidden transition duration-200 hover:-translate-y-1 hover:shadow-[0_16px_28px_-14px_rgba(26,52,84,0.4)]" data-full={src} data-label={label}>
                 <img src={page.poseThumbs[i] || src} alt="" aria-hidden="true" loading="lazy" style={`object-position:${objectPosition(page.poseFocals[i])}`} class="w-full aspect-[4/5] object-cover transition duration-300 group-hover:scale-105" />
-                <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+                <img src="/just-buy-it.webp" alt="" aria-hidden="true" loading="lazy" fetchpriority="low" class="absolute inset-0 w-full h-full opacity-0" />
                 {caption && <span class="block text-xs font-semibold text-stone-500 py-2">{caption}</span>}
               </button>
               );
@@ -257,7 +257,7 @@ const pageDesc = page ? page.blurb : "That character is not on the shelf.";
               <a href={`/meet-the-cast/${c.slug}`} class="group w-28 sm:w-32">
                 <div class="relative rounded-3xl border border-stone-200 bg-[#faf6ee] overflow-hidden transition duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_14px_24px_-12px_rgba(26,52,84,0.4)]" role="img" aria-label={`${c.name} the ${c.species}`}>
                   <img src={c.portraitCard || c.portrait} alt="" aria-hidden="true" loading="lazy" style={`object-position:${objectPosition(c.portraitFocal)}`} class="w-full aspect-square object-cover" />
-                  <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+                  <img src="/just-buy-it.webp" alt="" aria-hidden="true" loading="lazy" fetchpriority="low" class="absolute inset-0 w-full h-full opacity-0" />
                 </div>
                 <p class="cast-display text-sm font-semibold text-[#1a3454] mt-2 text-center">{c.name}</p>
                 <p class="text-[11px] text-stone-400 text-center capitalize">{c.species}</p>
@@ -283,7 +283,7 @@ const pageDesc = page ? page.blurb : "That character is not on the shelf.";
         <figure class="max-w-lg w-full">
           <div class="relative rounded-[2rem] overflow-hidden bg-[#faf6ee] border-4 border-white shadow-2xl">
             <img id="pose-lightbox-img" src="" alt="" class="w-full max-h-[75vh] object-contain bg-[#faf6ee]" />
-            <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 w-full h-full opacity-0" />
+            <img src="/just-buy-it.webp" alt="" aria-hidden="true" loading="lazy" fetchpriority="low" class="absolute inset-0 w-full h-full opacity-0" />
           </div>
           <figcaption class="flex items-center justify-between mt-4">
             <span id="pose-lightbox-label" class="cast-display text-white font-semibold"></span>

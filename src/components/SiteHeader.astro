@@ -241,6 +241,7 @@ const btnOutline = "border border-orange-600/60 text-orange-700 hover:bg-orange-
       if (signoutBtn && !signoutBtn.__bound) {
         signoutBtn.__bound = true;
         signoutBtn.addEventListener("click", async function () {
+          window.__bbsAccountMePromise = null;
           await fetch("/api/auth/sign-out", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -306,12 +307,17 @@ const btnOutline = "border border-orange-600/60 text-orange-700 hover:bg-orange-
         }
       }
 
-      fetch("/api/account/me")
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (d) {
-          if (d && d.user) applyUserToMenu(d.user);
-        })
-        .catch(function () {});
+      // Share one in-flight/resolved /api/account/me promise per tab so
+      // initial load + astro:page-load (and soft navigations) never fire
+      // duplicate uncached Worker fetches.
+      if (!window.__bbsAccountMePromise) {
+        window.__bbsAccountMePromise = fetch("/api/account/me")
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+      }
+      window.__bbsAccountMePromise.then(function (d) {
+        if (d && d.user) applyUserToMenu(d.user);
+      });
     }
 
     if (!window.__bbsUserMenuDoc) {
@@ -325,9 +331,9 @@ const btnOutline = "border border-orange-600/60 text-orange-700 hover:bg-orange-
           if (btn) btn.setAttribute("aria-expanded", "false");
         }
       });
+      document.addEventListener("astro:page-load", initUserAccountMenu);
     }
     initUserAccountMenu();
-    document.addEventListener("astro:page-load", initUserAccountMenu);
   })();
 </script>
 

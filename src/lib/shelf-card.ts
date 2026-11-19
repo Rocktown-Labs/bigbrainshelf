@@ -106,7 +106,7 @@ export function renderShelfCardHtml(b: any, priority = false): string {
         '"' +
         (priority ? ' fetchpriority="high"' : "") +
         ' class="absolute inset-0 w-full h-full object-cover" />' +
-        '<img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 z-20 w-full h-full opacity-0" />'
+        '<img src="/just-buy-it.webp" alt="" aria-hidden="true" loading="lazy" fetchpriority="low" class="absolute inset-0 z-20 w-full h-full opacity-0" />'
       : "") +
     "</div>" +
     renderShelfBadgeRowHtml(b) +

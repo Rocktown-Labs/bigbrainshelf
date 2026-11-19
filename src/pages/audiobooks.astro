@@ -145,7 +145,7 @@ for (const it of items) {
                 {b.cover && (
                   <>
                     <img src={b.cover} alt="" aria-hidden="true" loading={i === 0 ? "eager" : "lazy"} fetchpriority={i === 0 ? "high" : undefined} class="absolute inset-0 w-full h-full object-cover" />
-                    <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 z-20 w-full h-full opacity-0" />
+                    <img src="/just-buy-it.webp" alt="" aria-hidden="true" loading="lazy" fetchpriority="low" class="absolute inset-0 z-20 w-full h-full opacity-0" />
                     <AudiobookBadge locale="en" size="card" />
                   </>
                 )}
@@ -267,19 +267,6 @@ for (const it of items) {
     }
     initAudioCardCart();
     document.addEventListener("astro:page-load", initAudioCardCart);
-  </script>
-
-  <script is:inline>
-    // Keep the header account link in sync with the session (same
-    // pattern as the other public pages).
-    function bbsAccountLink() {
-      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
-        var link = document.getElementById("account-link");
-        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
-      }).catch(function () {});
-    }
-    bbsAccountLink();
-    document.addEventListener("astro:page-load", bbsAccountLink);
   </script>
 <!-- cart-sheet: slide-over cart, replaces the trip to /cart for shoppers -->
 <CartSheet />

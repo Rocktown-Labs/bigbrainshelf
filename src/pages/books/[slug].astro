@@ -331,7 +331,7 @@ const bookJsonLd: Record<string, unknown> = isLocalized
           ? <div class="relative w-full aspect-[3/4] bg-stone-100" style={`view-transition-name: book-cover-${book.slug}`} role="img" aria-label={`${displayTitle} ${bs.coverAltWord}`}>
               <span aria-hidden="true" class="absolute inset-0 z-10 pointer-events-none" style="box-shadow: inset 18px 0 26px -16px rgba(0,0,0,.5), inset -1px 0 2px rgba(0,0,0,.12), inset 0 0 0 1px rgba(0,0,0,.07)"></span>
               <img src={coverHero} alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover" />
-              <img src="/just-buy-it.webp" alt="" aria-hidden="true" class="absolute inset-0 z-20 w-full h-full opacity-0" />{isLocalized && <LanguageBadge locale={lang} />}
+              <img src="/just-buy-it.webp" alt="" aria-hidden="true" loading="lazy" fetchpriority="low" class="absolute inset-0 z-20 w-full h-full opacity-0" />{isLocalized && <LanguageBadge locale={lang} />}
             </div>
           : <div class="w-full aspect-[3/4] bg-stone-100"></div>}
       </div>
@@ -966,20 +966,6 @@ const bookJsonLd: Record<string, unknown> = isLocalized
       initSample();
     </script>
   )}
-
-  <script is:inline>
-    // Keep the header account link in sync with the session. Runs now
-    // and again on astro:page-load so it also applies to the header
-    // swapped in by view transitions. The update is idempotent.
-    function bbsAccountLink() {
-      fetch("/api/auth/get-session").then(function (r) { return r.json(); }).then(function (s) {
-        var link = document.getElementById("account-link");
-        if (s && s.user && link) { link.textContent = "My library"; link.href = "/account"; }
-      }).catch(function () {});
-    }
-    bbsAccountLink();
-    document.addEventListener("astro:page-load", bbsAccountLink);
-  </script>
 {!isLocalized && <script is:inline data-astro-rerun define:vars={{ upgradeSlug: audioOnlyOwner ? String(slug) : "", upgradeDigitalCents }}>
   // This page's cart sheet prices this book's digital format at the
   // signed-in audiobook owner's upgrade price, matching the picker
