@@ -85,7 +85,11 @@ assert(order.physical_status === "preorder_received", "printed order starts at p
 assert(count("SELECT COUNT(*) n FROM orders WHERE stripe_session_id='cs_test_123'") === 1, "one order per stripe session");
 
 const outbox1 = raw.query("SELECT * FROM email_outbox").all() as any[];
-assert(outbox1.length === 1 && outbox1[0].kind === "order_confirmation", "exactly one confirmation email enqueued");
+// Completion enqueues the buyer's confirmation plus the owner's
+// new-order notice (owner_new_order); exactly one of each, ever.
+assert(outbox1.filter((r: any) => r.kind === "order_confirmation").length === 1, "exactly one confirmation email enqueued");
+assert(outbox1.filter((r: any) => r.kind === "owner_new_order").length === 1, "exactly one owner new-order notice enqueued");
+assert(outbox1[0].kind === "order_confirmation", "confirmation is the first email enqueued");
 const body: string = outbox1[0].body_text;
 assert(!body.includes("/api/order-download"), "confirmation carries NO bearer download links (CG, 2026-10-31: auth-backed only)");
 assert(!body.includes(order.delivery_token), "the delivery token never appears in the email");
@@ -97,7 +101,8 @@ assert(body.includes("/account"), "confirmation points at the library");
 // processing again must not duplicate the order or the email.
 const order2 = await processCheckoutCompleted(db, SITE, session);
 assert(order2.id === order.id, "replayed completion converges on the same order");
-assert(count("SELECT COUNT(*) n FROM email_outbox") === 1, "replayed completion does not enqueue a second confirmation");
+assert(count("SELECT COUNT(*) n FROM email_outbox") === 2, "replayed completion enqueues nothing twice");
+assert(count("SELECT COUNT(*) n FROM email_outbox WHERE kind='order_confirmation'") === 1, "replayed completion does not enqueue a second confirmation");
 
 // --- Event marked processed: further replays are skipped entirely
 await markWebhookEventProcessed(db, evt.id, "done");
@@ -105,7 +110,7 @@ assert((await recordWebhookEvent(db, evt)) === "duplicate", "processed event rep
 
 // --- Outbox flush without a Resend key: pending, never dropped
 let summary = await flushOutbox(db, {});
-assert(summary.skipped === 1, "flush without key skips and keeps the row");
+assert(summary.skipped === 2, "flush without key skips and keeps the rows");
 let row = raw.query("SELECT * FROM email_outbox WHERE kind='order_confirmation'").get() as any;
 assert(row.status === "pending", "row stays pending without a key");
 
@@ -113,7 +118,7 @@ assert(row.status === "pending", "row stays pending without a key");
 const realFetch = globalThis.fetch;
 (globalThis as any).fetch = async () => new Response(JSON.stringify({ id: "em_1" }), { status: 200 });
 summary = await flushOutbox(db, { RESEND_API_KEY: "re_test" });
-assert(summary.sent === 1, "flush with key sends the pending email");
+assert(summary.sent === 2, "flush with key sends the pending emails");
 row = raw.query("SELECT * FROM email_outbox WHERE kind='order_confirmation'").get() as any;
 assert(row.status === "sent" && row.sent_at > 0, "row marked sent with timestamp");
 summary = await flushOutbox(db, { RESEND_API_KEY: "re_test" });
