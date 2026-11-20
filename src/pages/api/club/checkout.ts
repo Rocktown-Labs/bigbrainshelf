@@ -18,6 +18,7 @@ import {
   AUDIO_CLUB_ANNUAL_PRICE_CENTS,
 } from "../../../lib/offers";
 import { taxCodeForClubPlan, stripeTaxEnabled } from "../../../lib/stripe-tax";
+import { sanitizeAttribution, attributionStripeMetadata } from "../../../lib/attribution";
 
 // POST /api/club/checkout { name, shelf, plan, club_plan } -> { url }
 // Starts a club membership: a Stripe Checkout SUBSCRIPTION at the
@@ -149,6 +150,9 @@ export const POST: APIRoute = async ({ request }) => {
     name,
     shelf,
     plan: period,
+    // First-touch UTM set (2026-11-20), same sanitizer as the store
+    // checkout: a club join names its campaign in Stripe too.
+    ...attributionStripeMetadata(sanitizeAttribution((body as any)?.attribution)),
   };
   // Stripe Tax reads the same one gate as the store checkout
   // (lib/stripe-tax.ts); the line carries its product tax code now

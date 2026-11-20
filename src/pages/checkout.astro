@@ -691,6 +691,9 @@ try {
           // between the shipping step and Stripe.
           var payload = view.physical ? { items: payloadItems(), address: readAddress(), guest_id: store.bbsGuestId(), quote_id: view.quoteId || undefined, promo_code: view.promo ? view.promo.code : undefined } : { items: view.items, guest_id: store.bbsGuestId(), promo_code: view.promo ? view.promo.code : undefined };
           if (guestEmail) payload.email = guestEmail;
+          // First-touch UTM set (Tracking.astro keeps it for 30
+          // days); the server stamps it on the order.
+          if (window.bbsAttribution) payload.attribution = window.bbsAttribution() || undefined;
           var r = await fetch("/api/checkout", {
             method: "POST",
             headers: { "Content-Type": "application/json" },

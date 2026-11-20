@@ -66,24 +66,75 @@ const { pageEvent, traksEvent } = Astro.props;
 )}
 
 <script is:inline>
+  // First-touch acquisition attribution (2026-11-20): the first
+  // UTM-tagged landing is kept in localStorage for 30 days and rides
+  // the funnel mirror and the checkout, so a sale names the post or
+  // ad that started it. First touch wins inside the window: a later
+  // tagged visit never overwrites it, an untagged visit never clears
+  // it, and an expired record lets the next tagged visit take over.
+  var BBS_ATTR_KEY = "bbs-attr";
+  var BBS_ATTR_TTL_MS = 30 * 24 * 3600 * 1000;
+  function bbsReadAttr() {
+    try {
+      var raw = localStorage.getItem(BBS_ATTR_KEY);
+      if (!raw) return null;
+      var a = JSON.parse(raw);
+      if (!a || typeof a !== "object" || !a.ts) return null;
+      if (Date.now() - a.ts > BBS_ATTR_TTL_MS) return null;
+      return a;
+    } catch (e) { return null; }
+  }
+  function bbsCaptureAttr() {
+    try {
+      var stored = bbsReadAttr();
+      var q = new URLSearchParams(location.search);
+      var tagged = q.get("utm_source") || q.get("utm_medium") || q.get("utm_campaign");
+      if (!tagged || stored) return stored;
+      var fresh = {
+        source: q.get("utm_source") || "",
+        medium: q.get("utm_medium") || "",
+        campaign: q.get("utm_campaign") || "",
+        term: q.get("utm_term") || "",
+        content: q.get("utm_content") || "",
+        landing: location.pathname,
+        ts: Date.now(),
+      };
+      try { localStorage.setItem(BBS_ATTR_KEY, JSON.stringify(fresh)); } catch (e) {}
+      return fresh;
+    } catch (e) { return null; }
+  }
+  // The checkout page sends this with the pay call; the server
+  // sanitizes it again (lib/attribution.ts) before stamping the order.
+  window.bbsAttribution = function () {
+    var a = bbsCaptureAttr();
+    if (!a) return null;
+    return {
+      source: a.source || undefined,
+      medium: a.medium || undefined,
+      campaign: a.campaign || undefined,
+      term: a.term || undefined,
+      content: a.content || undefined,
+      landing: a.landing || undefined,
+      ts: a.ts ? Math.floor(a.ts / 1000) : undefined,
+    };
+  };
+
   // Funnel mirror (2026-11-01): every taxonomy event also beacons to
   // our own /api/collect, which lands it in Analytics Engine
   // store_events next to the server-side money events. Traks keeps
   // the props and the dashboard; the mirror carries only the event
-  // name, the path, a first-touch utm_source, and the value, so the
+  // name, the path, the first-touch UTM set, and the value, so the
   // two stores can be joined without personal data ever crossing.
   function bbsMirror(name, value) {
     try {
-      var utm = "";
-      try {
-        var q = new URLSearchParams(location.search).get("utm_source");
-        if (q) { sessionStorage.setItem("bbs-utm", q); utm = q; }
-        else utm = sessionStorage.getItem("bbs-utm") || "";
-      } catch (e) {}
+      var a = bbsCaptureAttr();
       var payload = JSON.stringify({
         name: name,
         path: location.pathname,
-        utm_source: utm || undefined,
+        utm_source: a && a.source ? a.source : undefined,
+        utm_medium: a && a.medium ? a.medium : undefined,
+        utm_campaign: a && a.campaign ? a.campaign : undefined,
+        utm_content: a && a.content ? a.content : undefined,
         value: typeof value === "number" ? value : undefined,
       });
       if (navigator.sendBeacon) {

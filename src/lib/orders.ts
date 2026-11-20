@@ -20,6 +20,7 @@
 //   marked sent (with sent_at) only after the provider accepts it.
 
 import { ensureClubTable, isPaidClubMember } from "./club";
+import { parseAttribution, type Attribution } from "./attribution";
 import { ensureOnce } from "./schema-cache";
 import { publicSlugFor, ensurePublicSlugColumn, ensureSlugAliasesTable, ensureRenameAliases, resolveInternalSlug } from "./public-slugs";
 import { bookCodeForTitle } from "./catalog";
@@ -1318,6 +1319,45 @@ export async function stampOrderPricing(
     .prepare("UPDATE orders SET pricing_mode = ?, pricing_detail = ? WHERE id = ?")
     .bind(pricingMode, JSON.stringify(detail), orderId)
     .run();
+}
+
+// ---------------------------------------------------------------------------
+// Acquisition attribution (CG, 2026-11-20): the buyer's first-touch
+// UTM set, captured on the storefront (30-day window, Tracking.astro)
+// and sent with the checkout, lives on the order row as one JSON
+// column so the orders admin can say where a sale came from. The
+// sanitizer and reader live in lib/attribution.ts; the Stripe session
+// also carries source/medium/campaign as metadata. Runtime-ensured
+// like the pricing columns above.
+
+export async function ensureOrderAttributionColumn(db: DBLike): Promise<void> {
+  await ensureOnce(db, "orders.attribution_column", async () => {
+    const { results } = await db
+      .prepare("SELECT name FROM pragma_table_info('orders')")
+      .bind()
+      .all();
+    const have = new Set((results || []).map((r: any) => String(r.name)));
+    if (!have.has("attribution")) {
+      await db.prepare("ALTER TABLE orders ADD COLUMN attribution TEXT").bind().run();
+    }
+  });
+}
+
+export async function stampOrderAttribution(
+  db: DBLike,
+  orderId: string,
+  attr: Attribution
+): Promise<void> {
+  await ensureOrderAttributionColumn(db);
+  await db
+    .prepare("UPDATE orders SET attribution = ? WHERE id = ?")
+    .bind(JSON.stringify(attr), orderId)
+    .run();
+}
+
+/** The attribution stamped on an order row, or null when it has none. */
+export function orderAttribution(order: any): Attribution | null {
+  return parseAttribution(order?.attribution);
 }
 
 export interface ManualOrderLineInput {

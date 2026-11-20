@@ -208,7 +208,7 @@ const shelfRows = catalog
             var r = await fetch("/api/club/checkout", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ club_plan: parts[0], plan: parts[1], return_to: "account" }),
+              body: JSON.stringify({ club_plan: parts[0], plan: parts[1], return_to: "account", attribution: window.bbsAttribution ? window.bbsAttribution() || undefined : undefined }),
             });
             var data = await r.json().catch(function () { return {}; });
             if (r.ok && data.url) { window.location.href = data.url; return; }

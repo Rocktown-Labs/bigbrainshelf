@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
-import { setPhysicalStatus, orderItemLabels, orderPickList, shortOrderId, ensureOrderPackColumns, parsePackState, normalizePackState, setOrderPack, ensureOrderManualColumns, ensureOrderPricingColumns, createManualOrder, listManualOrderCatalog } from "../../../lib/orders";
+import { setPhysicalStatus, orderItemLabels, orderPickList, shortOrderId, ensureOrderPackColumns, parsePackState, normalizePackState, setOrderPack, ensureOrderManualColumns, ensureOrderPricingColumns, ensureOrderAttributionColumn, createManualOrder, listManualOrderCatalog } from "../../../lib/orders";
 import { flushOutbox } from "../../../lib/email";
 import { shippoStatus, ensureOrderLabelColumns, ensureOrderQuoteColumns, ensureOrderTrackingColumns, ensureOrderPickupColumns, getLabelQuote, buyLabelForOrder, schedulePickupForOrder, pickupStateFor } from "../../../lib/shippo";
 import { packLinesForGroups, packProgress, getPackingQueue, getCompletedParcels } from "../../../lib/packing";
@@ -240,6 +240,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
   await ensureOrderPickupColumns(e.DB).catch(() => {});
   await ensureOrderManualColumns(e.DB).catch(() => {});
   await ensureOrderPricingColumns(e.DB).catch(() => {});
+  await ensureOrderAttributionColumn(e.DB).catch(() => {});
 
   // The manual-order form's catalog (public titles + default prices).
   if (url.searchParams.get("catalog")) {
@@ -253,7 +254,7 @@ export const GET: APIRoute = async ({ locals, url }) => {
   const detailId = url.searchParams.get("order_id");
   if (detailId) {
     const order = await e.DB.prepare(
-      "SELECT id, email, book_slugs, items, amount, currency, status, physical_status, stripe_session_id, created_at, ship_name, ship_address, shipping_cents, quoted_carrier, quoted_service, carrier, carrier_service, tracking_number, label_url, label_cost_cents, shippo_transaction_id, shippo_rate_id, shippo_shipment_id, source, admin_note, pack_json, pickup_confirmation, pickup_window, pickup_scheduled_at, tracking_status, pricing_mode, pricing_detail FROM orders WHERE id = ?"
+      "SELECT id, email, book_slugs, items, amount, currency, status, physical_status, stripe_session_id, created_at, ship_name, ship_address, shipping_cents, quoted_carrier, quoted_service, carrier, carrier_service, tracking_number, label_url, label_cost_cents, shippo_transaction_id, shippo_rate_id, shippo_shipment_id, source, admin_note, pack_json, pickup_confirmation, pickup_window, pickup_scheduled_at, tracking_status, pricing_mode, pricing_detail, attribution FROM orders WHERE id = ?"
     ).bind(detailId).first();
     if (!order) return Response.json({ error: "order not found" }, { status: 404 });
     // Opening an order is what clears it from the sidebar badge

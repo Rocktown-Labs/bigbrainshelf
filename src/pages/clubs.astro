@@ -384,7 +384,7 @@ const clubTraksEvent = joined
         btn.addEventListener("click", function () {
           var msg = document.getElementById("upgrade-msg");
           btn.disabled = true;
-          postJson("/api/club/checkout", { club_plan: "physical", plan: btn.getAttribute("data-upgrade-plan") }).then(function (res) {
+          postJson("/api/club/checkout", { club_plan: "physical", plan: btn.getAttribute("data-upgrade-plan"), attribution: window.bbsAttribution ? window.bbsAttribution() || undefined : undefined }).then(function (res) {
             if (res.ok && res.d && res.d.url) { window.location.href = res.d.url; return; }
             if (res.d && res.d.alreadyMember) { window.location.reload(); return; }
             btn.disabled = false;

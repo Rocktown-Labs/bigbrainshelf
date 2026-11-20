@@ -115,6 +115,18 @@ const orderId = String(Astro.params.id || "");
           " merchandise (" + (d.lulu_env || "sandbox") + ").";
       } catch (e) { return ""; }
     }
+    // Acquisition attribution: the order's first-touch UTM set as one
+    // line ("tiktok / social / holiday-2026"), with the landing page
+    // when it was kept. Empty for orders with no tagged visit behind
+    // them (direct, manual, pre-attribution).
+    function attrParts(o) {
+      try {
+        var a = JSON.parse(o.attribution || "null");
+        if (!a || typeof a !== "object") return null;
+        var parts = [a.source, a.medium, a.campaign].filter(Boolean);
+        return parts.length ? { line: parts.join(" / "), landing: a.landing || "" } : null;
+      } catch (e) { return null; }
+    }
     function nextStatus(o) {
       var i = FLOW.indexOf(o.physical_status || "preorder_received");
       return i >= 0 && i < FLOW.length - 1 ? FLOW[i + 1] : null;
@@ -528,6 +540,10 @@ const orderId = String(Astro.params.id || "");
         (o.pricing_mode === "admin_cost"
           ? '<p class="text-sm text-stone-500 mt-1.5">Priced at Lulu cost + $3 for an admin self-order (prep, not store revenue).' +
             (adminCostDetailLine(o) ? ' <span class="font-medium text-stone-700">' + esc(adminCostDetailLine(o)) + "</span>" : "") + "</p>"
+          : "") +
+        (attrParts(o)
+          ? '<p class="text-sm text-stone-500 mt-1.5">Came from <span class="font-medium text-stone-700">' + esc(attrParts(o).line) + "</span>" +
+            (attrParts(o).landing ? ' · landed on <span class="font-medium text-stone-700">' + esc(attrParts(o).landing) + "</span>" : "") + "</p>"
           : "") +
 
         (o.status === "pending"
