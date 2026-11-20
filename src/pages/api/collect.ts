@@ -1,17 +1,20 @@
 import type { APIRoute } from "astro";
 import { emitStoreEvent } from "../../lib/metrics";
+import { sanitizeAttribution } from "../../lib/attribution";
 
-// POST /api/collect { name, path, utm_source?, value? }
+// POST /api/collect { name, path, utm_source?, utm_medium?,
+//   utm_campaign?, utm_content?, value? }
 // First-party funnel mirror (CG, 2026-11-01): the storefront's Traks
 // taxonomy events also land in Analytics Engine store_events, so the
 // client funnel joins the server-side money events (Stripe webhook,
 // downloads, reading telemetry) in one SQL-queryable place. Traks
 // stays the dashboard; this is the joinable copy. The route is
 // deliberately dumb: an allowlist of event names, a sanitized path,
-// an optional utm_source, an optional numeric value. Event props
-// never cross into AE (they stay in Traks), which keeps cardinality
-// low and makes it impossible for personal data to ride along.
-// Beacons get a 204 either way; junk is dropped silently.
+// an optional first-touch UTM set (full set since 2026-11-20,
+// sanitized by lib/attribution), an optional numeric value. Event
+// props never cross into AE (they stay in Traks), which keeps
+// cardinality low and makes it impossible for personal data to ride
+// along. Beacons get a 204 either way; junk is dropped silently.
 
 const ALLOWED = new Set([
   "page_view", "book_view", "audiobook_view", "purchase", "club_subscribed",
@@ -44,14 +47,21 @@ export const POST: APIRoute = async ({ request }) => {
   if (bookMatch) section = cleanSlug(bookMatch[1]);
   else if (path !== "/") section = cleanSlug(path.split("/").filter(Boolean)[0] || "home") || "home";
 
-  let source = "web";
-  const utm = String(body?.utm_source || "").toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 32);
-  if (utm) source = utm;
+  const attr = sanitizeAttribution(body);
+  const source = attr?.source || "web";
 
   const value = typeof body?.value === "number" && isFinite(body.value)
     ? Math.min(Math.max(body.value, 0), 100000)
     : 0;
 
-  emitStoreEvent(name, { section, source, amountUsd: value, index: section });
+  emitStoreEvent(name, {
+    section,
+    source,
+    medium: attr?.medium,
+    campaign: attr?.campaign,
+    content: attr?.content,
+    amountUsd: value,
+    index: section,
+  });
   return done;
 };

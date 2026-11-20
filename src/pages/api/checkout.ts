@@ -2,7 +2,8 @@ import { env } from "cloudflare:workers";
 import type { APIRoute } from 'astro';
 import Stripe from "stripe";
 import { getAuth } from "../../lib/auth";
-import { getOrCreatePendingOrder, attachStripeSession, normalizeFormat, isPhysicalFormat, checkoutItemPrice, enqueueConfirmation, itemQty, lineQty, stampOrderPricing, type CartItem } from "../../lib/orders";
+import { getOrCreatePendingOrder, attachStripeSession, normalizeFormat, isPhysicalFormat, checkoutItemPrice, enqueueConfirmation, itemQty, lineQty, stampOrderPricing, stampOrderAttribution, type CartItem } from "../../lib/orders";
+import { sanitizeAttribution, attributionStripeMetadata } from "../../lib/attribution";
 import { isAdminBuyer, allocateAdminCost, adminCostTargetCents, ADMIN_COST_MARKUP_CENTS, PRICING_MODE_ADMIN_COST, type AdminCostUnitGroup } from "../../lib/admin-cost";
 import { taxCodeForBookFormat, taxCodeForClubPlan, stripeTaxEnabled, STRIPE_TAX_CODES } from "../../lib/stripe-tax";
 import { getDigitalEntitlements } from "../../lib/library";
@@ -134,6 +135,11 @@ export const POST: APIRoute = async ({ request }) => {
   const e = env as any;
   const SITE = e.BETTER_AUTH_URL || "https://bigbrainshelf.com";
   const body = await request.json().catch(() => ({}));
+  // First-touch acquisition attribution (2026-11-20): the storefront
+  // sends the buyer's stored UTM set with the pay call. Sanitized
+  // here, stamped on the pending order below, and carried on the
+  // Stripe session metadata. Absent or junk means no stamp.
+  const attribution = sanitizeAttribution((body as any)?.attribution);
   const auth = getAuth();
   const session = await auth.api.getSession({ headers: request.headers }).catch(() => null);
   const user = session?.user ?? null;
@@ -847,6 +853,15 @@ export const POST: APIRoute = async ({ request }) => {
       merchandise_target_cents: adminCost.targetCents,
     }).catch((err: any) => console.error("admin cost stamp failed", err?.message || err));
   }
+  if (attribution) {
+    // Where this buyer came from, on the order row itself, so the
+    // orders admin names the source of every sale. A reused pending
+    // row re-stamps to the same first-touch values. A stamp failure
+    // never blocks the purchase.
+    await stampOrderAttribution(e.DB, order.id, attribution).catch((err: any) =>
+      console.error("attribution stamp failed", err?.message || err)
+    );
+  }
   // Where the buyer lands after paying: the account library when
   // signed in; for guests, the tokened order page (the delivery token
   // is minted with the pending order, so the URL is known now; the
@@ -983,6 +998,15 @@ export const POST: APIRoute = async ({ request }) => {
     };
   }
   if (promoApplied) sessionParams.metadata.promo_code = promoApplied.code;
+  const utmMeta = attributionStripeMetadata(attribution);
+  if (Object.keys(utmMeta).length) {
+    // The payment in Stripe names its campaign too (source, medium,
+    // campaign; term and content stay on the order row in D1).
+    Object.assign(sessionParams.metadata, utmMeta);
+    if (sessionParams.subscription_data) {
+      Object.assign(sessionParams.subscription_data.metadata, utmMeta);
+    }
+  }
   if (adminCost) {
     sessionParams.metadata.pricing_mode = PRICING_MODE_ADMIN_COST;
     sessionParams.metadata.lulu_cost_cents = String(adminCost.jobCost.totalInclTaxCents);
