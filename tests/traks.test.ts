@@ -16,10 +16,12 @@
 //    and review_submitted (book page), audiobook_view and sample_play
 //    (audiobook page), purchase (account success landing + guest
 //    order page, both format_mix shaped), club_join_click /
-//    club_checkout_start / club_subscribed (clubs), newsletter_
-//    signup (footer, success branch only), account_signup (signup,
-//    success branch), search (header widget, has_results only),
-//    read_start + listen_start (reader).
+//    club_subscribed (clubs; club_checkout_start retired when clubs
+//    joined the cart 2026-11-07, checkout start is the unified
+//    funnel's begin_checkout), newsletter_signup (footer, success
+//    branch only), account_signup (signup, success branch), search
+//    (header widget, has_results only), read_start + listen_start
+//    (reader).
 //
 // Assert-style, like the rest of the suite: bun tests/traks.test.ts
 import { readFileSync } from "node:fs";
@@ -61,10 +63,15 @@ assert(order.includes("purchaseTraksEvent = {") && order.includes("traksEvent={p
 
 const club = src("../src/pages/clubs.astro");
 assert(club.includes('name: "club_subscribed",'), "clubs declares club_subscribed for the joined landing");
-assert(club.includes('window.bbsTraks("club_join_click", { plan: "physical" })'), "club_join_click fires for The Book Club form");
-assert(club.includes('window.bbsTraks("club_join_click", { plan: "audio" })'), "club_join_click fires for The Audio Club form");
-assert(club.includes('window.bbsTraks("club_checkout_start", { plan: "physical" })'), "club_checkout_start fires at the physical checkout post");
-assert(club.includes('window.bbsTraks("club_checkout_start", { plan: "audio" })'), "club_checkout_start fires at the audio checkout post");
+// Since clubs joined the cart (2026-11-07) both join forms funnel
+// through addClubToCart, which fires club_join_click once with the
+// form's plan; checkout start is the unified funnel's begin_checkout
+// (Tracking.astro), so the old per-plan club_checkout_start posts
+// are retired, not lost.
+assert(club.includes('window.bbsTraks("club_join_click", { plan: plan })'), "club_join_click fires in the shared add-to-cart helper");
+assert(club.includes('addClubToCart("book-club", picked(form, "plan") || "quarterly", "physical")'), "club_join_click fires for The Book Club form");
+assert(club.includes('addClubToCart("audio-club", picked(form, "plan") || "monthly", "audio")'), "club_join_click fires for The Audio Club form");
+assert(!club.includes("club_checkout_start"), "club_checkout_start stays retired (unified cart checkout)");
 
 const footer = src("../src/components/SiteFooter.astro");
 assert(footer.includes('if (!res.d.already && window.bbsTraks) window.bbsTraks("newsletter_signup", {})'), "newsletter_signup fires only on a confirmed new subscribe");
